@@ -80,7 +80,7 @@ static void search_update(struct minircheats_impl * this)
 }
 
 
-//test
+
 
 
 static void search_set_datsize(struct widget_radio * subject, unsigned int state, void* userdata)
