@@ -389,6 +389,7 @@ struct windowmenu * windowmenu_create_topmenu_l(unsigned int numchildren, struct
 	struct windowmenu_gtk3 * this=malloc(sizeof(struct windowmenu_gtk3));
 	this->submenu=GTK_MENU_SHELL(gtk_menu_bar_new());
 	this->children=NULL;
+	this->item=NULL;
 	this->numchildren=0;
 	for (unsigned int i=0;i<numchildren;i++) menu_insert_child((struct windowmenu*)this, children[i], i);
 	this->type=mtype_sub;
