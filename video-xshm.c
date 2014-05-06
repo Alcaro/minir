@@ -1,0 +1,152 @@
+#include "minir.h"
+#ifdef VIDEO_XSHM
+#include <stdlib.h>
+//#include <sys/ipc.h>
+#include <sys/shm.h>
+#include <X11/Xlib.h>
+#include <X11/Xutil.h>
+#include <X11/extensions/XShm.h>
+
+//this file is slightly based on ruby by byuu
+
+struct video_xshm {
+	struct video i;
+	
+	Display* display;
+	int screen;
+	
+	Window parentwindow;
+	Window wndw;
+	
+	unsigned int width;
+	unsigned int height;
+	unsigned int pitch;
+	unsigned int bpp;
+	
+	XShmSegmentInfo shmInfo;
+	XImage* image;
+	GC gc;
+};
+
+static void reset(struct video_xshm * this)
+{
+	XFreeGC(this->display, this->gc);
+	XShmDetach(this->display, &this->shmInfo);
+	XDestroyImage(this->image);
+	shmdt(this->shmInfo.shmaddr);
+	shmctl(this->shmInfo.shmid, IPC_RMID, 0);
+	XDestroyWindow(this->display, this->wndw);
+}
+
+static void reinit(struct video * this_, unsigned int screen_width, unsigned int screen_height, unsigned int depth, double fps)
+{
+	struct video_xshm * this=(struct video_xshm*)this_;
+	
+	if (this->wndw) reset(this);
+	
+	this->width=screen_width;
+	this->height=screen_height;
+	this->pitch=sizeof(uint32_t)*screen_width;
+	this->bpp=depth;
+	
+	XSetWindowAttributes attributes;
+	attributes.border_pixel=0;
+	this->wndw=XCreateWindow(this->display, this->parentwindow, 0, 0, screen_width, screen_height,
+	                           0, 24, CopyFromParent, NULL, CWBorderPixel, &attributes);
+	XSetWindowBackground(this->display, this->wndw, 0);
+	XMapWindow(this->display, this->wndw);
+	
+	this->shmInfo.shmid=shmget(IPC_PRIVATE, this->pitch*screen_height,
+	                           IPC_CREAT|0777);
+	if (this->shmInfo.shmid<0) abort();//seems like an out of memory situation... can't have that
+	
+	this->shmInfo.shmaddr=(char*)shmat(this->shmInfo.shmid, 0, 0);
+	this->shmInfo.readOnly=False;
+	XShmAttach(this->display, &this->shmInfo);
+	this->image=XShmCreateImage(this->display, NULL, 24, ZPixmap,
+	                            this->shmInfo.shmaddr, &this->shmInfo, screen_width, screen_height);
+	
+	this->gc=XCreateGC(this->display, this->wndw, 0, NULL);
+}
+
+static void draw(struct video * this_, unsigned int width, unsigned int height, const void * data, unsigned int pitch)
+{
+	struct video_xshm * this=(struct video_xshm*)this_;
+	if (!data) return;
+	
+	struct image src;
+	src.width=width;
+	src.height=height;
+	src.pixels=(void*)data;
+	src.pitch=pitch;
+	src.bpp=this->bpp;
+	
+	struct image dst;
+	dst.width=this->width;
+	dst.height=this->height;
+	dst.pixels=this->shmInfo.shmaddr;
+	dst.pitch=this->pitch;
+	dst.bpp=32;
+	image_convert_resize(&src, &dst);
+	
+	XShmPutImage(this->display, this->wndw, this->gc, this->image,
+	             0, 0, 0, 0, this->width, this->height, False);
+	XFlush(this->display);
+}
+
+static void set_sync(struct video * this_, bool sync)
+{
+	//null
+}
+
+static bool has_sync(struct video * this_)
+{
+	return false;
+}
+
+static bool repeat_frame(struct video * this_, unsigned int * width, unsigned int * height,
+                                               const void * * data, unsigned int * pitch, unsigned int * bpp)
+{
+	if (width) *width=0;
+	if (height) *height=0;
+	if (data) *data=NULL;
+	if (pitch) *pitch=0;
+	if (bpp) *bpp=16;
+	return false;
+}
+
+static void free_(struct video * this_)
+{
+	struct video_xshm * this=(struct video_xshm*)this_;
+	reset(this);
+	free(this);
+}
+
+struct video * video_create_xshm(uintptr_t windowhandle, unsigned int screen_width, unsigned int screen_height,
+                                 unsigned int depth, double fps)
+{
+	struct video_xshm * this=malloc(sizeof(struct video_xshm));
+	this->i.reinit=reinit;
+	this->i.draw=draw;
+	this->i.set_sync=set_sync;
+	this->i.has_sync=has_sync;
+	this->i.repeat_frame=repeat_frame;
+	this->i.free=free_;
+	
+	this->display=window_x11_get_display()->display;
+	this->screen=window_x11_get_display()->screen;
+	
+	if (!XShmQueryExtension(this->display)) goto cancel;
+	
+	this->parentwindow=windowhandle;
+	this->wndw=0;
+	
+	reinit((struct video*)this, screen_width, screen_height, depth, fps);
+	
+	return (struct video*)this;
+	
+cancel:
+	free_((struct video*)this);
+	return NULL;
+}
+#endif
