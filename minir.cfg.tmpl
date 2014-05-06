@@ -1,0 +1,162 @@
+//These comments don't show up in the output files. They can appear anywhere.
+//
+//A line containing only a "-" gives a linebreak if the comments are emitted, but not otherwise.
+#[TODO] Delete this section
+#minir is not done. Some things in this config file exist, but do nothing; they are marked with [TODO]. Each TODO
+# tag applies to only the option directly after it, and the comments do accurately describe its planned function.
+#The comments also often refer to a config panel that doesn't exist.
+#More config options may appear in the future. Some of them, especially the ones marked TODO, may even disappear.
+#
+#As there is no config panel yet, a list of possible drivers follows:
+#Video: Direct3D[W], OpenGL[W][L], XShm[L], GDI[W]
+#Audio: PulseAudio[L], DirectSound[W]
+#Input: RawInput[W], DirectInput[W], X11-XInput2[L], X11[L]
+#[W] means available on Windows; [L] means available on Linux.
+#They are in order of descending desirability; the first one is best.
+#
+#This item exists, but is not supposed to exist in the final version.
+#Can't be set non-global.
+global bool firstrun=true
+
+#It's fine to edit this file; in fact, you need to edit this file if you want core- or game-specific settings.
+#If you do anything wrong, minir will remove the offending line from this file and stick in the default value.
+#This means that if the line remains after being loaded and saved, minir understood it.
+#Your other settings are safe if you damage a line, except if you damage a core or game path, or a section header.
+#Most numbers are clamped within a reasonable interval; if you insert something unreasonable, minir will clamp it to the nearest limit.
+
+#This one is whether to update this file once minir exits. Note that if writing is disabling, invalid directives won't be validated.
+#Can't be set non-global.
+global bool readonly=false
+
+#Not all drivers support synchronizing. Video/OpenGL on Windows with DWM enabled, for example, doesn't.
+#Which drivers are supported is not listed here; it varies. Use the config panel.
+
+str driver_video
+int[1-10] video_scale=2
+bool video_sync=true
+#This one increases framerate quite a bit, but makes it stutter under some circumstances.
+#[TODO] (delete maybe?)
+bool video_frameskip=false
+#This one moves the video driver to its own thread, giving massive framerate boosts under some circumstances.
+#It is also mandatory for screenshots to work. Only turn it off if you're experiencing bugs.
+bool video_thread=true
+
+str driver_audio
+int[10-1000] audio_latency=120
+bool audio_sync=true
+
+str driver_input
+
+#Whether to automatically look for cores in the most plausible places if told to open an unknown ROM.
+#If this is false, you'll have to show minir the cores by yourself, or accept (or even want) minir to fail loading unknown ROMs.
+#Can't be set non-global.
+global bool auto_locate_cores=true
+
+input input_joy|_p[1-8?-1]_{up=4;dn=5;lf=6;rt=7;aa=8;bb=0;xx=9;yy=1;st=3;se=2;l1=10;r1=11;l2=12;r2=13;l3=14;r3=15}=KB1::Z;KB1::A;KB1::Space;KB1::Return;KB1::Up;KB1::Down;KB1::Left;KB1::Right;KB1::X;KB1::S;KB1::Q;KB1::W
+
+#[TODO]
+input input_joy_auto|_p[1-8?-1]_{up=4;dn=5;lf=6;rt=7;aa=8;bb=0;xx=9;yy=1;st=3;se=2;l1=10;r1=11;l2=12;r2=13;l3=14;r3=15}
+
+#This one is whether to block left+right and up+down. If blocked, both are ignored while the other is held.
+#(I'm open to suggestions for how else it could act.)
+#Note that the Libretro core may also block L+R. If it does, L+R will only go through if both minir and the core says it should.
+bool joypad_block_opposing=true
+
+input input_savestate_load|[1-10]=KB1::F1;KB1::F2;KB1::F3;KB1::F4;KB1::F5;KB1::F6;KB1::F7;KB1::F8;KB1::F9;KB1::F10
+input input_savestate_save|[1-10]=KB1::ShiftL+F1, KB1::ShiftR+F1;KB1::ShiftL+F2, KB1::ShiftR+F2;KB1::ShiftL+F3, KB1::ShiftR+F3;KB1::ShiftL+F4, KB1::ShiftR+F4;KB1::ShiftL+F5, KB1::ShiftR+F5;KB1::ShiftL+F6, KB1::ShiftR+F6;KB1::ShiftL+F7, KB1::ShiftR+F7;KB1::ShiftL+F8, KB1::ShiftR+F8;KB1::ShiftL+F9, KB1::ShiftR+F9;KB1::ShiftL+F10, KB1::ShiftR+F10
+
+#There are 100 savestate slots; the above mappings refer to the first ten slots.
+input input_savestate_slot_load
+input input_savestate_slot_save
+input input_savestate_slot_next
+input input_savestate_slot_prev
+#These two move ten slots at the time.
+input input_savestate_slot_next_10
+input input_savestate_slot_prev_10
+-
+#[TODO]
+input input_savestate_manager
+
+#Shown in the savestate manager.
+#See http://www.cplusplus.com/reference/ctime/strftime/ for documentation on the format.
+#[TODO]
+str datefmt=%c
+
+#Whether to automatically save a savestate when closing the ROM, and reload it when reloading the same ROM.
+bool savestate_auto=false
+-
+#This one will disable savestates, as well as rewind (see below). Does not affect savestate_auto.
+bool savestate_disable=false
+
+#The screenshot name format is romname-yymmdd-hhmmss.png; not customizable. In case of overlaps, -## is appended before the extension.
+input input_screenshot=KB1::F12
+
+#Turbo disables synchronizing audio and video. It does nothing unless either of the synchronization flags are enabled.
+#Enabling normal turbo will disable toggle turbo once normal turbo is released.
+input input_turbo=KB1::Tab
+input input_turbo_toggle
+
+#This one pauses the game.
+input input_pause
+#Frame advance. Push it to move forward one frame.
+input input_frame_adv
+-
+#These two allow the framerate to move (very slowly) while paused; one frame takes the defined delay, in milliseconds.
+input input_frame_adv_hold
+int[100-5000] input_frame_adv_hold_delay=500
+
+#These allow you to multiply or divide the emulation speed by any integer.
+#Note that it will still attempt to synchronize with the monitor, so if you set framerate higher than what
+# the CPU can keep up with, the framerate will actually drop. Use fastforward if you encounter this.
+input input_slowdown=KB1::KP_Minus
+input input_speedup=KB1::KP_Plus
+
+#minir's rewind system is Braid-like; hold a button and time flows backwards, -1x normal speed (where "normal" is
+# defined as whatever input_slowdown and input_speedup say, multiplied by rewind_speedup).
+bool rewind_enable=false
+#The granularity is how many frames to wait between saving the states. 1 is the smoothest, but also the most CPU intensive.
+#The framerate penalty should be around 10-15%, depending on the savestate size and how much CPU the core needs.
+#Alternatively, if you prefer ZSNES style rewinds, you can set the granularity to something really high, and minir will go
+# back to the previous rewind slot every time you press the button. The CPU penalty should, in this case, be neglible.
+#("Really high" isn't defined; minir will go back to the previous slot on press even if the timer is low, and will go
+# back another slot if you hold the button long enough. It's exactly the same system; only the usage patterns vary.)
+int[1-600] rewind_granularity=1
+#The turbo resolution allows you to increase the delay between rewind points while turbo is enabled, to decrease
+# the framerate hit. 0 here will make it not save at all while turboing. Rewind speed is still 1x real time.
+#Setting this one higher than rewind_delay is possible, but pointless.
+int[0-600] rewind_granularity_turbo=1
+#This one makes rewinding go N times faster than realtime. It's independent of rewind_granularity,
+## though you should probably set this lower than or equal to the granularity.
+int[1-20] rewind_speedup=1
+#This controls how much memory should be used by the rewind buffer, in megabytes.
+#One rewind point usually takes about 0.5-2% of the size of a savestate on average, but it varies
+# between cores, between games, and between parts of the game; for example, scene transitions and
+# loading screens uses more. (But you shouldn't need to rewind to the previous level, anyways.)
+#If the buffer is filled up, the oldest few frames are discarded.
+int[1-1024] rewind_mem=64
+#This one makes minir print how much the rewind buffer contains, as well as a guess on how much will fit before it fills up, on the status bar.
+#Note that if rewind_delay does not equal rewind_delay_turbo and fastforward has been used, the reported value does not
+# reflect how much fits in the rewind buffer; instead, it reflects how much would fit there if you had not rewinded.
+#It also reflects how much was inserted, not how long you can hold Rewind.
+#Also note that scene transitions and loading screens take more space in the rewind buffer than normal gameplay.
+#Finally, note that it is not guaranteed accurate, nor fully stable. The guess may be wrong, in both directions, and the amount of
+# data that fits may change without obvious provocation (probably, but not necessarily, due to a loading screen being pushed out).
+bool rewind_stats=false
+#And finally, this one is what to press to trigger it.
+input input_rewind=KB1::Backspace
+
+#Whether to create an SRAM file upon unloading the ROM (closing minir counts as ROM unload),
+# and when detecting that game has been saved in-game, respectively.
+#Note that the in-game saving detection mechanism isn't perfect, and may trigger on loading a new level in some games.
+#If this annoys you, turn it off and rely on sram_write_unload or input_sram_write_manual.
+bool sram_write_unload=true
+#[TODO]
+bool sram_write_auto=false
+#[TODO]
+input input_sram_write_manual
+
+#Whether to hide the cursor if it's above the minir window.
+bool cursor_hide=true
+-
+#Whether to pause the game if minir loses focus. Opening the menues or config panels will still pause the game.
+bool defocus_pause=true
