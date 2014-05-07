@@ -374,7 +374,7 @@ struct windowmenu * windowmenu_create_submenu_l(const char * text, unsigned int 
 	this->submenu=GTK_MENU_SHELL(gtk_menu_new());
 	this->children=NULL;
 	this->numchildren=0;
-	for (unsigned int i=0;i<numchildren;i++) menu_insert_child((struct windowmenu*)this, children[i], i);
+	for (unsigned int i=0;i<numchildren;i++) menu_insert_child((struct windowmenu*)this, i, children[i]);
 	gtk_menu_item_set_submenu(this->item, GTK_WIDGET(this->submenu));
 	this->type=mtype_sub;
 	this->i.set_enabled=menu_set_enabled;
@@ -391,7 +391,7 @@ struct windowmenu * windowmenu_create_topmenu_l(unsigned int numchildren, struct
 	this->children=NULL;
 	this->item=NULL;
 	this->numchildren=0;
-	for (unsigned int i=0;i<numchildren;i++) menu_insert_child((struct windowmenu*)this, children[i], i);
+	for (unsigned int i=0;i<numchildren;i++) menu_insert_child((struct windowmenu*)this, i, children[i]);
 	this->type=mtype_sub;
 	this->i.insert_child=menu_insert_child;
 	this->i.remove_child=menu_remove_child;
