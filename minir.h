@@ -741,7 +741,7 @@ struct minircheats_model {
 	
 	unsigned int (*search_get_num_rows)(struct minircheats_model * this);
 	//Returns all information about a currently visible row.
-	//The address will be written to, and must be at least 32 bytes long.
+	//The address will be written to, and must be at least 32 bytes long (31 plus NUL), though it's unlikely for all of it to be used.
 	//The data size is set by the functions above.
 	//Note that it may vary its runtime depending on both the row number, and previous
 	// access patterns; the last queried row and the one directly after that may be faster.
@@ -755,25 +755,30 @@ struct minircheats_model {
 	bool (*cheat_read)(struct minircheats_model * this, const char * addr, unsigned int datsize, uint32_t * val);
 	
 	//Cheat code structure:
-	//disable prefix address value signspec direction SP desc
+	//disable address value signspec direction SP desc
 	//disable is '-' if the cheat is currently disabled, otherwise blank.
-	//prefix is one of the prefixes from search_get_vis_row. See docs for struct libretro for details.
-	//address is an address inside this prefix, in hex. There is no mandatory separator from the value; ask search_get_vis_row for the address length.
+	//address is a namespace identifier and an address inside this prefix, in hex. There is no
+	// separator from the value; all addresses in a namespace have the same length.
 	//value is what to set it to, also in hex. It's either two, four, six or eight digits.
-	//direction is '+' if the address is allowed to increase, '-' if it's allowed to decrease, or empty if the given value should always be there.
-	//signspec is 'S' if the cheat code is signed, or empty otherwise. For addresses not allowed to change, the sign is irrelevant and should be ignored.
+	//direction is '+' if the address is allowed to increase, '-' if it's allowed to decrease, or
+	// empty if the given value should always be there.
+	//signspec is 'S' if the cheat code is signed, or empty otherwise. For
+	// addresses not allowed to change, the sign is irrelevant and should be empty.
 	//SP is a simple space character. Optional if the description is blank.
-	//desc is a human readable description of the cheat code. May not contain ASCII control characters (0..31 and 127), but otherwise freeform.
+	//desc is a human readable description of the cheat code. May not contain ASCII control characters
+	// (0..31 and 127), but is otherwise freeform.
 	//The format is designed so that a SNES Gameshark code is valid.
 	
-	//The prefix is owned by the model. The description is a pointer back into the given cheat code, or to the trailing NUL if there is no description.
+	//Like search_get_vis_row, the address must be a 32 byte buffer.
+	//The prefix is owned by the model. The description is a pointer back into the given cheat code,
+	// or to the trailing NUL if there is no description.
 	bool (*cheat_parse)(struct minircheats_model * this, const char * code,
-	                    const char * * prefix, uint32_t * addr,
+	                    char * addr,
 	                    unsigned int * vallen, bool * issigned, uint32_t * val, enum cheat_chngtype * changetype,
 	                    const char * * description);
 	//The pointer transfers ownership. Free it once you're done. These two functions mirror each other.
 	char * (*cheat_build)(struct minircheats_model * this,
-	                      const char * address,//contains both prefix and address
+	                      const char * addr,
 	                      unsigned int vallen, bool issigned, uint32_t val, enum cheat_chngtype changetype,
 	                      const char * description);
 	
