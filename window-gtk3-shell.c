@@ -321,7 +321,7 @@ static unsigned int menu_get_native_start(struct windowmenu_gtk3 * this, unsigne
 	return (pos ? this->children[pos-1]->menupos+menu_get_native_length(this->children[pos-1]) : 0);
 }
 
-static void menu_insert_child(struct windowmenu * this_, struct windowmenu * child_, unsigned int pos)
+static void menu_insert_child(struct windowmenu * this_, unsigned int pos, struct windowmenu * child_)
 {
 	struct windowmenu_gtk3 * this=(struct windowmenu_gtk3*)this_;
 	struct windowmenu_gtk3 * child=(struct windowmenu_gtk3*)child_;
