@@ -1334,7 +1334,8 @@ struct windowmenu * update_coreopt_menu(struct windowmenu * parent, bool * enabl
 	menu=windowmenu_create_submenu("_Core _Options", NULL);
 	
 	unsigned int numopts;
-	const struct libretro_core_option * opts=core->get_core_options(core, &numopts);
+	const struct libretro_core_option * opts=NULL;
+	if (core) opts=core->get_core_options(core, &numopts);
 	if (!opts)
 	{
 		struct windowmenu * item=windowmenu_create_item("(no core options)", NULL, NULL);
