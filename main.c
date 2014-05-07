@@ -1296,19 +1296,78 @@ void set_status_bar_duration(unsigned int ms)
 
 
 
-bool is_yesno(const char * yes, const char * no, bool * inverted)
+bool is_yesno(const char * yes, const char * no, bool * yesfirst)
 {
-	if (inverted) *inverted=false;
+	if (yesfirst) *yesfirst=true;
 	if (!strcasecmp(yes, "yes") && !strcasecmp(no, "no")) return true;
 	if (!strcasecmp(yes, "enabled") && !strcasecmp(no, "disabled")) return true;
 	if (!strcasecmp(yes, "enable") && !strcasecmp(no, "disable")) return true;
 	if (!strcasecmp(yes, "on") && !strcasecmp(no, "off")) return true;
-	if (inverted)
+	if (yesfirst)
 	{
-		*inverted=is_yesno(no, yes, NULL);
-		return *inverted;
+		*yesfirst=false;
+		return is_yesno(no, yes, NULL);
 	}
 	return false;
+}
+
+void set_core_opt_normal(struct windowmenu * subject, unsigned int state, void* userdata)
+{
+	core->set_core_option(core, (uintptr_t)userdata, state);
+}
+
+void set_core_opt_bool(struct windowmenu * subject, bool checked, void* userdata)
+{
+	core->set_core_option(core, (uintptr_t)userdata, checked);
+}
+
+void set_core_opt_bool_invert(struct windowmenu * subject, bool checked, void* userdata)
+{
+	set_core_opt_bool(subject, !checked, userdata);
+}
+
+struct windowmenu * update_coreopt_menu(struct windowmenu * parent, bool * enable)
+{
+	static struct windowmenu * menu=NULL;
+	if (menu && core && !core->get_core_options_changed(core)) return menu;
+	if (menu) parent->remove_child(parent, menu);
+	menu=windowmenu_create_submenu("_Core _Options", NULL);
+	
+	unsigned int numopts;
+	const struct libretro_core_option * opts=core->get_core_options(core, &numopts);
+	if (!opts)
+	{
+		struct windowmenu * item=windowmenu_create_item("(no core options)", NULL, NULL);
+		menu->insert_child(menu, 0, item);
+		item->set_enabled(item, false);
+		*enable=false;
+		return menu;
+	}
+	*enable=true;
+	
+	for (unsigned int i=0;i<numopts;i++)
+	{
+		unsigned int numvalues=opts[i].numvalues;
+		
+		struct windowmenu * item;
+		
+		bool yesfirst;
+		if (numvalues==numvalues && is_yesno(opts[i].values[0], opts[i].values[1], &yesfirst))
+		{
+			item=windowmenu_create_check(opts[i].name_display, yesfirst ? set_core_opt_bool_invert : set_core_opt_bool, (void*)(uintptr_t)i);
+			menu->insert_child(menu, i, item);
+			item->set_state(item, core->get_core_option(core, i) ^ yesfirst);
+		}
+		else
+		{
+			item=windowmenu_create_submenu(opts[i].name_display,
+			       windowmenu_create_radio_l(numvalues, opts[i].values, set_core_opt_normal, (void*)(uintptr_t)i),
+			     NULL);
+			menu->insert_child(menu, i, item);
+			item->set_state(item, core->get_core_option(core, i));
+		}
+	}
+	return menu;
 }
 
 void menu_system_rom(struct windowmenu * subject, void* userdata)
@@ -1346,14 +1405,14 @@ void update_menu()
 	static struct windowmenu * menu_system;
 	static struct windowmenu * menu_system_core=NULL;
 	static struct windowmenu * menu_system_reset;
-	static struct windowmenu * menu_coreopt=NULL;
 	static struct windowmenu * menu_cheat_enable=NULL;
 	
-	if (menu_coreopt) menu->remove_child(menu, menu_coreopt);
-	menu_coreopt=windowmenu_create_submenu("_Core _Options", NULL);
+	bool menu_coreopt_enable;
+	struct windowmenu * menu_coreopt=update_coreopt_menu(menu, &menu_coreopt_enable);
 	
 	if (menu_system_core) menu_system->remove_child(menu_system, menu_system_core);
 	menu_system_core=windowmenu_create_submenu("__Core", NULL);
+	menu_system_core->insert_child(menu_system_core, 0, windowmenu_create_item("(TODO: Implement this)", NULL, NULL));
 	
 	if (!menu)
 	{
@@ -1377,121 +1436,14 @@ void update_menu()
 	}
 	else
 	{
-		menu->insert_child(menu, menu_coreopt, 1);
-		menu_system->insert_child(menu_system, menu_system_core, 1);
+		if (menu_coreopt) menu->insert_child(menu, 1, menu_coreopt);
+		menu_system->insert_child(menu_system, 1, menu_system_core);
+		menu_coreopt->set_enabled(menu_coreopt, menu_coreopt_enable);
 	}
 	
-	menu_coreopt->set_enabled(menu_coreopt, false);
 	menu_cheat_enable->set_state(menu_cheat_enable, cheats->get_enabled(cheats));
 }
 /*
-enum {
-	menu_cheats_enable_id,
-	menu_system_core_any_id,
-	menu_coreopt_any_id//keep this last, or allocate 64 slots for it
-};
-
-struct menuitem * coreoptmenu=NULL;
-
-void menu_coreopt_change(unsigned int id, unsigned int state, void* userdata)
-{
-	core->set_core_option(core, id-menu_coreopt_any_id, state);
-}
-
-void menu_coreopt_change_inverted(unsigned int id, unsigned int state, void* userdata)
-{
-	core->set_core_option(core, id-menu_coreopt_any_id, !state);
-}
-
-bool is_yesno(const char * yes, const char * no, bool * inverted)
-{
-	if (inverted) *inverted=false;
-	if (!strcasecmp(yes, "yes") && !strcasecmp(no, "no")) return true;
-	if (!strcasecmp(yes, "enabled") && !strcasecmp(no, "disabled")) return true;
-	if (!strcasecmp(yes, "enable") && !strcasecmp(no, "disable")) return true;
-	if (!strcasecmp(yes, "on") && !strcasecmp(no, "off")) return true;
-	if (inverted)
-	{
-		*inverted=is_yesno(no, yes, NULL);
-		return *inverted;
-	}
-	return false;
-}
-
-void create_coreopt_menu()
-{
-	if (core && !core->get_core_options_changed(core)) return;
-	if (coreoptmenu)
-	{
-		for (int i=0;coreoptmenu[i].type==menu_submenu;i++)
-		{
-			//we won't free deeper children; there are none, and all pointers in them are owned by the core
-			free((void*)coreoptmenu[i].submenu);
-		}
-		free(coreoptmenu);
-	}
-	coreoptmenu=NULL;
-	
-	if (!core) return;
-	
-	unsigned int numopts;
-	const struct libretro_core_option * opts=core->get_core_options(core, &numopts);
-	if (!opts) return;
-	
-	coreoptmenu=malloc(sizeof(struct menuitem)*(numopts+1));
-	for (unsigned int i=0;i<numopts;i++)
-	{
-		unsigned int itemlen;
-		for (itemlen=0;opts[i].values[itemlen];itemlen++) {}
-		
-		if (itemlen==2 && means_yes(opts[i].values[0]) && means_no(opts[i].values[1]))
-		{
-			coreoptmenu[i].type=menu_checkbox;
-			coreoptmenu[i].text=opts[i].name_display;
-			coreoptmenu[i].id=menu_coreopt_any_id+i;
-			coreoptmenu[i].action=menu_coreopt_change_inverted;
-			coreoptmenu[i].key='\0';
-			coreoptmenu[i].disabled=false;
-			continue;
-		}
-		if (itemlen==2 && means_no(opts[i].values[0]) && means_yes(opts[i].values[1]))
-		{
-			coreoptmenu[i].type=menu_checkbox;
-			coreoptmenu[i].text=opts[i].name_display;
-			coreoptmenu[i].id=menu_coreopt_any_id+i;
-			coreoptmenu[i].action=menu_coreopt_change;
-			coreoptmenu[i].key='\0';
-			coreoptmenu[i].disabled=false;
-			continue;
-		}
-		
-		struct menuitem * submenu=malloc(sizeof(struct menuitem)*(itemlen+1));
-		for (unsigned int j=0;j<itemlen;j++)
-		{
-			submenu[j].type=menu_radio;
-			submenu[j].text=opts[i].values[j];
-			submenu[j].action=menu_coreopt_change;
-			submenu[j].id=menu_coreopt_any_id+i;
-			submenu[j].key='\0';
-			submenu[j].disabled=false;
-		}
-		submenu[itemlen].type=menu_end;
-		
-		coreoptmenu[i].type=menu_submenu;
-		coreoptmenu[i].text=opts[i].name_display;
-		coreoptmenu[i].submenu=submenu;
-		coreoptmenu[i].key='\0';
-		coreoptmenu[i].disabled=false;
-	}
-	coreoptmenu[numopts].type=menu_end;
-}
-
-
-void menu_system_rom(unsigned int id, unsigned int state, void* userdata)
-{
-	select_rom();
-}
-
 void menu_system_core_any_action(unsigned int id, unsigned int state, void* userdata)
 {
 	load_core(userdata, true);
@@ -1500,31 +1452,6 @@ void menu_system_core_any_action(unsigned int id, unsigned int state, void* user
 void menu_system_core_more_action(unsigned int id, unsigned int state, void* userdata)
 {
 	select_cores(NULL);
-}
-
-void menu_system_reset(unsigned int id, unsigned int state, void* userdata)
-{
-	core->reset(core);
-}
-
-void menu_system_exit(unsigned int id, unsigned int state, void* userdata)
-{
-	exit_called=true;
-}
-
-void menu_cheats_list(unsigned int id, unsigned int state, void* userdata)
-{
-	cheats->show_list(cheats, false);
-}
-
-void menu_cheats_search(unsigned int id, unsigned int state, void* userdata)
-{
-	cheats->show_search(cheats, false);
-}
-
-void menu_cheats_enable(unsigned int id, unsigned int state, void* userdata)
-{
-	cheats->set_enabled(cheats, state);
 }
 
 void update_menu()
@@ -1573,58 +1500,7 @@ void update_menu()
 		menu_system_core_inner[0].disabled=true;
 		menu_system_core_inner[1].type=menu_end;
 	}
-	
-	
-	
-	struct menuitem menu_system_core[]={
-		{ menu_submenu_inline, .submenu=menu_system_core_inner },
-		{ menu_separator },
-		{ menu_item, "Add more cores", .key='c', .action=menu_system_core_more_action },
-		{ menu_end }
-	};
-	
-	struct menuitem menu_system[]={
-		{ menu_item, "Load ROM", .key='l', .action=menu_system_rom },
-		{ menu_submenu, "Core", .key='c', .submenu=menu_system_core },
-		{ menu_separator },
-		{ menu_item, "Reset", .key='r', .action=menu_system_reset, .disabled=(!romloaded) },
-		{ menu_separator },
-		{ menu_item, "Exit", .key='x', .action=menu_system_exit },
-		{ menu_end }
-	};
-	
-	struct menuitem menu_coreopt_none[]={
-		{ menu_item, "(no options)", .disabled=true },
-		{ menu_end }
-	};
-	
-	struct menuitem menu_cheats[]={
-		{ menu_item, "Cheat List", .key='l', .action=menu_cheats_list },
-		{ menu_item, "Cheat Search", .key='s', .action=menu_cheats_search },
-		{ menu_checkbox, "Enable Cheats", .key='e', .action=menu_cheats_enable, .id=menu_cheats_enable_id },
-		{ menu_end }
-	};
-	
-	create_coreopt_menu();
-	
-	struct menuitem menu[]={
-		{ menu_submenu, "System", .submenu=menu_system, .key='s' },
-		{ menu_submenu, "Core options", .submenu=(coreoptmenu?coreoptmenu:menu_coreopt_none), .key='o', .disabled=(!coreoptmenu) },
-		{ menu_submenu, "Cheats", .submenu=menu_cheats, .key='c' },
-		{ menu_end }
-	};
-	
-	wndw->menu_create(wndw, menu);
-	if (current_core_id!=-1)
-	{
-		wndw->menu_set_state(wndw, menu_system_core_any_id, current_core_id);
-	}
-	wndw->menu_set_state(wndw, menu_cheats_enable_id, true);
-	
-	free(menu_system_core_inner);
-}
 */
-
 
 
 int main(int argc, char * argv[])
@@ -1636,7 +1512,7 @@ window_firstrun
 ();
 config.firstrun
 =false;
-//cheats->show_search(cheats);
+cheats->show_search(cheats);
 	mainloop();
 	deinit();
 }

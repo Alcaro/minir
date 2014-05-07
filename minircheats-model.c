@@ -1,5 +1,6 @@
 #include "minir.h"
 #include <stdlib.h>
+#include <stdio.h>
 #include <string.h>
 #include <ctype.h>
 
@@ -450,8 +451,7 @@ static unsigned int search_get_num_rows(struct minircheats_model * this_)
 }
 
 static void search_get_vis_row(struct minircheats_model * this_, unsigned int row,
-                               const char * * prefix, unsigned int * addrlen, uint32_t * addr,
-                               uint32_t * val, uint32_t * prevval)
+                               char * addr, uint32_t * val, uint32_t * prevval)
 {
 	struct minircheats_model_impl * this=(struct minircheats_model_impl*)this_;
 	
@@ -460,10 +460,8 @@ static void search_get_vis_row(struct minircheats_model * this_, unsigned int ro
 	getpos(this, row, &memblk, &mempos);
 	struct memblock * mem=&this->mem[memblk];
 	
-	if (prefix) *prefix=mem->name;
-	if (addrlen) *addrlen=mem->addrlen;
-	if (addr) *addr=mem->start+mempos;
-	if (val) *val=readmemext(mem->ptr+mempos, this->datsize, mem->bigendian, this->issigned);
+	if (addr) sprintf(addr, "%s%.*X", mem->name, mem->addrlen, mem->start+mempos);
+	if (val)     *val  =  readmemext(mem->ptr +mempos, this->datsize, mem->bigendian, this->issigned);
 	if (prevval) *prevval=readmemext(mem->prev+mempos, this->datsize, mem->bigendian, this->issigned);
 }
 

@@ -113,7 +113,7 @@ struct windowmenu {
 		//This applies to submenu and topmenu.
 		STRUCT_BEGIN
 			//The positions are 0-based.
-			void (*insert_child)(struct windowmenu * this, struct windowmenu * child, unsigned int pos);
+			void (*insert_child)(struct windowmenu * this, unsigned int pos, struct windowmenu * child);
 			void (*remove_child)(struct windowmenu * this, struct windowmenu * child);
 		STRUCT_END
 		//If anything is not covered by the above, none of them are allowed.
@@ -132,7 +132,7 @@ struct windowmenu * windowmenu_create_check(const char * text,
 //A radio item counts as one item internally, but looks like multiple.
 struct windowmenu * windowmenu_create_radio(void (*onactivate)(struct windowmenu * subject, unsigned int state, void* userdata),
                                             void* userdata, const char * firsttext, ...);
-struct windowmenu * windowmenu_create_radio_l(unsigned int numitems, const char * * texts,
+struct windowmenu * windowmenu_create_radio_l(unsigned int numitems, const char * const * texts,
                                               void (*onactivate)(struct windowmenu * subject, unsigned int state, void* userdata),
                                               void* userdata);
 struct windowmenu * windowmenu_create_separator();

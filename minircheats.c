@@ -40,6 +40,8 @@ struct minircheats_impl {
 	
 	unsigned int datsize :3;
 	enum cheat_dattype dattype :2;
+	
+	char celltmp[32];
 };
 
 static void search_update(struct minircheats_impl * this);
@@ -218,25 +220,20 @@ static const char * search_get_cell(struct widget_listbox * subject, unsigned in
 {
 	struct minircheats_impl * this=(struct minircheats_impl*)userdata;
 	
-	static char ret[64];
 	if (column==0)
 	{
-		const char * prefix;
-		unsigned int addrlen;
-		uint32_t addr;
-		this->model->search_get_vis_row(this->model, row, &prefix, &addrlen, &addr, NULL, NULL);
-		sprintf(ret, "%s%.*X", prefix, addrlen, addr);
+		this->model->search_get_vis_row(this->model, row, this->celltmp, NULL, NULL);
 	}
 	else
 	{
 		uint32_t val;
-		if (column==1) this->model->search_get_vis_row(this->model, row, NULL, NULL, NULL, &val, NULL);
-		if (column==2) this->model->search_get_vis_row(this->model, row, NULL, NULL, NULL, NULL, &val);
-		if (this->dattype==cht_hex) sprintf(ret, "%.*X", this->datsize*2, val);
-		if (this->dattype==cht_sign) sprintf(ret, "%i", (int32_t)val);
-		if (this->dattype==cht_unsign) sprintf(ret, "%u", val);
+		if (column==1) this->model->search_get_vis_row(this->model, row, NULL, &val, NULL);
+		if (column==2) this->model->search_get_vis_row(this->model, row, NULL, NULL, &val);
+		if (this->dattype==cht_hex)    sprintf(this->celltmp, "%.*X", this->datsize*2, val);
+		if (this->dattype==cht_sign)   sprintf(this->celltmp, "%i", (int32_t)val);
+		if (this->dattype==cht_unsign) sprintf(this->celltmp, "%u", val);
 	}
-	return ret;
+	return this->celltmp;
 }
 
 

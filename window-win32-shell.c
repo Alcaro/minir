@@ -12,12 +12,8 @@ window_firstrun
 ()
 {
 MessageBox(NULL,
-	"This piece of software is far from finished.\r\n"
-	"One missing feature is that there is no configuration panel, so most options require "
-	  "pointing a text editor at minir.cfg (it'll appear once you close this program).\r\n"
-	"Error messages if the given ROMs or cores weren't understood are not guaranteed, either.\r\n"
-	"\r\n"
-	"Finally, please do not redistribute minir without the author's permission. (This rule will be relaxed once it's less unfinished.)"
+	"This piece of software is far from finished. There is no configuration panel, and some components are bad at emitting error messages.\r\n"
+	"All valid settings will show up in minir.cfg, which will appear beside the executable once it's closed.\r\n"
 ,"Warning",MB_ICONWARNING);
 }
 
@@ -97,21 +93,6 @@ static struct windowmenu_win32 * * menumap=NULL;
 static WORD * menumap_radiostate=NULL;
 static WORD menudatafirstfree=1;//the pointed to item is not necessarily free, but all before are guaranteed to be used
 static DWORD menudatabuflen=1;//this is DWORD only to allow exactly 0x10000
-/*
-struct menudata_win32 {
-	unsigned int type;
-	
-	WORD id;
-	HMENU owner;
-	unsigned int state;
-	
-	WORD radio_first;
-	WORD radio_last;
-	
-	void (*onactivate)(unsigned int id, unsigned int state, void* userdata);
-	void* userdata;
-};
-*/
 
 struct window_win32 {
 	struct window i;
@@ -436,7 +417,7 @@ struct windowmenu * windowmenu_create_check(const char * text,
 	return (struct windowmenu*)this;
 }
 
-struct windowmenu * windowmenu_create_radio_l(unsigned int numitems, const char * * labels,
+struct windowmenu * windowmenu_create_radio_l(unsigned int numitems, const char * const * labels,
                                               void (*onactivate)(struct windowmenu * subject, unsigned int state, void* userdata),
                                               void* userdata)
 {
@@ -461,7 +442,7 @@ struct windowmenu * windowmenu_create_separator()
 	return (struct windowmenu*)this;
 }
 
-static void menu_insert_child(struct windowmenu * this_, struct windowmenu * child_, unsigned int pos)
+static void menu_insert_child(struct windowmenu * this_, unsigned int pos, struct windowmenu * child_)
 {
 	struct windowmenu_win32 * this=(struct windowmenu_win32*)this_;
 	struct windowmenu_win32 * child=(struct windowmenu_win32*)child_;
@@ -570,200 +551,6 @@ static void menu_activate(WORD id)
 		return;
 	}
 }
-/*
-static WORD menu_create_cid(struct window_win32 * this)
-{
-	WORD ret=this->menudata_count;
-	if (!(ret&(ret-1)))
-	{
-		this->menudata=realloc(this->menudata, sizeof(struct menudata_win32)*((ret+1)<<1));
-	}
-	this->menudata_count++;
-	return ret;
-}
-
-static char * menu_transform_name(const char * name, char accel)
-{
-	accel=tolower(accel);
-	unsigned int len=0;
-	for (int i=0;name[i];i++)
-	{
-		if (name[i]=='&') len++;
-		len++;
-	}
-	char * ret=malloc(len+2);//NUL, extra &
-	char * at=ret;
-	for (int i=0;name[i];i++)
-	{
-		if (name[i]=='&') *(at++)='&';
-		if (tolower(name[i])==accel)
-		{
-			*(at++)='&';
-			accel='\0';
-		}
-		*(at++)=name[i];
-	}
-	*at='\0';
-	return ret;
-}
-
-static HMENU menu_compile(struct window_win32 * this, const struct menuitem * menu, HMENU ret)
-{
-	WORD radio_first=0xFFFF;
-	unsigned int radio_id;
-	while (true)
-	{
-		if (radio_first!=0xFFFF && (menu->type!=menu_radio || menu->id!=radio_id))
-		{
-			UINT radio_last=(this->menudata_count-1);
-			for (UINT i=radio_first;i<=radio_last;i++)
-			{
-				this->menudata[i].radio_first=radio_first;
-				this->menudata[i].radio_last=radio_last;
-			}
-			CheckMenuRadioItem(ret, radio_first, radio_last, radio_first, MF_BYCOMMAND);
-			radio_first=0xFFFF;
-		}
-		switch (menu->type)
-		{
-			case menu_end: return ret;
-			case menu_skip: break;
-			case menu_item:
-			case menu_checkbox:
-			case menu_radio:
-				{
-					WORD cid=menu_create_cid(this);
-					this->menudata[cid].type=menu->type;
-					this->menudata[cid].id=menu->id;
-					this->menudata[cid].state=0;
-					this->menudata[cid].owner=ret;
-					this->menudata[cid].onactivate=menu->action;
-					this->menudata[cid].userdata=menu->userdata;
-					
-					char* name=menu_transform_name(menu->text, menu->key);
-					AppendMenu(ret, MF_STRING | (menu->disabled?MF_GRAYED:0), cid, name);
-					free(name);
-					
-					if (menu->type==menu_checkbox)
-					{
-						CheckMenuItem(ret, cid, MF_UNCHECKED);
-					}
-					else if (menu->type==menu_radio)
-					{
-						if (radio_first==0xFFFF)
-						{
-							radio_first=cid;
-							radio_id=menu->id;
-						}
-					}
-					if (menu->type==menu_checkbox || menu->type==menu_radio)
-					{
-						if (menu->id >= this->menumap_count)
-						{
-							while (menu->id >= this->menumap_count) this->menumap_count*=2;
-							this->menumap=realloc(this->menumap, sizeof(WORD)*this->menumap_count);
-						}
-						this->menumap[menu->id]=cid;
-					}
-				}
-				break;
-			case menu_separator:
-				AppendMenu(ret, MF_SEPARATOR, 0, 0);
-				break;
-			case menu_submenu:
-				{
-					HMENU newmenu=menu_compile(this, menu->submenu, CreateMenu());
-					char* name=menu_transform_name(menu->text, menu->key);
-					AppendMenu(ret, MF_POPUP | (menu->disabled?MF_GRAYED:0), (UINT_PTR)newmenu, name);
-					free(name);
-				}
-				break;
-			case menu_submenu_inline:
-				menu_compile(this, menu->submenu, ret);
-				break;
-		}
-		menu++;
-	}
-}
-
-static void menu_create(struct window * this_, const struct menuitem * menu)
-{
-	struct window_win32 * this=(struct window_win32*)this_;
-	
-	free(this->menudata);
-	this->menudata=NULL;
-	this->menudata_count=0;
-	
-	free(this->menumap);
-	this->menumap=malloc(sizeof(WORD));
-	this->menumap_count=1;
-	
-	if (!menu)
-	{
-		SetMenu(this->hwnd, NULL);
-		DestroyMenu(this->menu);
-		this->menu=NULL;
-		return;
-	}
-	
-	RECT prevsize;
-	GetClientRect(this->hwnd, &prevsize);
-	
-	HMENU newmenu=menu_compile(this, menu, CreateMenu());
-	SetMenu(this->hwnd, newmenu);
-	if (this->menu) DestroyMenu(this->menu);
-	this->menu=newmenu;
-	
-	RECT newsize;
-	GetClientRect(this->hwnd, &newsize);
-	if (prevsize.bottom!=newsize.bottom) {}
-	//resize(this_, size.right, size.bottom);
-}
-
-static void menu_activate(struct window_win32 * this, UINT cid)
-{
-	if (this->menudata[cid].type==menu_checkbox)
-	{
-		this->menudata[cid].state^=1;
-		CheckMenuItem(this->menudata[cid].owner, cid, this->menudata[cid].state?MF_CHECKED:MF_UNCHECKED);
-	}
-	if (this->menudata[cid].type==menu_radio)
-	{
-		UINT radio_first=this->menudata[cid].radio_first;
-		this->menudata[radio_first].state=(cid-radio_first);
-		CheckMenuRadioItem(this->menudata[cid].owner, radio_first, this->menudata[radio_first].radio_last, cid, MF_BYCOMMAND);
-		this->menudata[cid].state=(cid-radio_first);//this is used only for the onactivate handler
-	}
-	if (this->menudata[cid].onactivate)
-	{
-		this->menudata[cid].onactivate(this->menudata[cid].id, this->menudata[cid].state, this->menudata[cid].userdata);
-	}
-}
-
-static unsigned int menu_get_state(struct window * this_, unsigned int id)
-{
-	struct window_win32 * this=(struct window_win32*)this_;
-	return this->menudata[this->menumap[id]].state;
-}
-
-static void menu_set_state(struct window * this_, unsigned int id, unsigned int state)
-{
-	struct window_win32 * this=(struct window_win32*)this_;
-	
-	UINT cid=this->menumap[id];
-	if (this->menudata[cid].type==menu_checkbox)
-	{
-		this->menudata[cid].state=state;
-		CheckMenuItem(this->menudata[cid].owner, cid, this->menudata[cid].state?MF_CHECKED:MF_UNCHECKED);
-	}
-	if (this->menudata[cid].type==menu_radio)
-	{
-		UINT radio_first=this->menudata[cid].radio_first;
-		this->menudata[radio_first].state=state;
-		CheckMenuRadioItem(this->menudata[cid].owner, radio_first, this->menudata[radio_first].radio_last, radio_first+state, MF_BYCOMMAND);
-	}
-}
-*/
 
 
 

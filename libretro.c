@@ -330,6 +330,12 @@ static void set_core_option(struct libretro * this_, unsigned int option, unsign
 	this->core_opt_changed=true;
 }
 
+static unsigned int get_core_option(struct libretro * this_, unsigned int option)
+{
+	struct libretro_impl * this=(struct libretro_impl*)this_;
+	return this->core_opt_current_values[option];
+}
+
 static const char * get_memory_info(struct libretro * this_)
 {
 	struct libretro_impl * this=(struct libretro_impl*)this_;
@@ -543,6 +549,7 @@ static bool environment(unsigned cmd, void *data)
 				valuescount++;
 			}
 			
+			g_this->core_opts[i].numvalues=numvalues;
 			char** values_out=malloc(sizeof(char*)*(numvalues+1));
 			const char * nextvalue=values;
 			for (unsigned int j=0;j<numvalues;j++)
@@ -563,6 +570,7 @@ static bool environment(unsigned cmd, void *data)
 		}
 		g_this->core_opts[numvars].name_internal=NULL;
 		g_this->core_opts[numvars].name_display=NULL;
+		g_this->core_opts[numvars].numvalues=0;
 		g_this->core_opts[numvars].values=NULL;
 		
 		return true;
@@ -642,7 +650,7 @@ struct libretro libretro_iface = {
 	attach_interfaces,
 	load_rom, load_rom_mem, load_rom_mem_supported,
 	get_video_settings, get_sample_rate,
-	get_core_options_changed, get_core_options, set_core_option,
+	get_core_options_changed, get_core_options, set_core_option, get_core_option,
 	get_memory_info, get_memory, reset,
 	state_size, state_save, state_load,
 	run,

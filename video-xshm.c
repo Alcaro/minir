@@ -58,7 +58,7 @@ static void reinit(struct video * this_, unsigned int screen_width, unsigned int
 	
 	this->shmInfo.shmid=shmget(IPC_PRIVATE, this->pitch*screen_height,
 	                           IPC_CREAT|0777);
-	if (this->shmInfo.shmid<0) abort();//seems like an out of memory situation... can't have that
+	if (this->shmInfo.shmid<0) abort();//seems like an out of memory situation... let's just blow up
 	
 	this->shmInfo.shmaddr=(char*)shmat(this->shmInfo.shmid, 0, 0);
 	this->shmInfo.readOnly=False;

@@ -482,6 +482,7 @@ struct libretro_core_option {
 	const char * name_internal;
 	const char * name_display;
 	
+	unsigned int numvalues;
 	const char * const * values;
 };
 
@@ -519,15 +520,17 @@ struct libretro {
 	void (*get_video_settings)(struct libretro * this, unsigned int * width, unsigned int * height, unsigned int * depth, double * fps);
 	double (*get_sample_rate)(struct libretro * this);
 	
-	//The core options will be reported as having changed on a freshly created
-	// core, even if there are none. The flag is cleared by calling this function.
+	//The core options will be reported as having changed on a freshly created core,
+	// even if there are no options. The flag is cleared by calling this function.
 	bool (*get_core_options_changed)(struct libretro * this);
-	//The list is terminated by a { NULL, NULL, NULL }.
+	//The list is terminated by a { NULL, NULL, 0, NULL }.
 	//The return value is invalidated by run() or free(), whichever comes first.
 	const struct libretro_core_option * (*get_core_options)(struct libretro * this, unsigned int * numopts);
 	//It is undefined behaviour to set a nonexistent option, or to set an option to a nonexistent value.
 	void (*set_core_option)(struct libretro * this, unsigned int option, unsigned int value);
+	unsigned int (*get_core_option)(struct libretro * this, unsigned int option);
 	
+	//[NOTE: This format is not finalized. It needs support for SNES LoROM skipping the 0x8000 bit, and probably some other stuff.]
 	//Format of the memory descriptors: [flags] id : [namesp] nsstart
 	//Spaces in the above format are to be ignored.
 	//Brackets signify optional components. If absent, assume whichever of blank, 0, or 0xFFFFFFFF makes the most sense.
@@ -542,14 +545,14 @@ struct libretro {
 	// If a memory area is mapped to the address space multiple times, the same memory ID may be
 	//  repeated.
 	// It is allowed to expose IDs that are not defined through libretro, though those must be above
-	//  1000 to ensure there are no collisions if libretro is extended.
+	//  1000 to ensure there are no collisions if libretro is extended. [TODO: Is 1000+ the correct IDs for undefined memory areas?]
 	// The frontend may assume it is allowed to edit all exposed memory areas, including the ones the
 	//  core has declared constant.
 	//start is the offset from the start of the memory area.
 	//namesp is a prefix to tell which address space this cheat code refers to, if there are multiple.
-	// The prefix can be blank, should be alphabetical and uppercase, should be as short as feasible,
-	// and should not consist of any existing prefix plus one or more A-F at the end. For example A
-	// and B may coexist, but blank and B may not.
+	// The prefix can be blank, should be alphabetical, should be as short as feasible (maximum length is 8),
+	// and should not consist of any existing prefix plus one or more uppercase A-F at the end. For example 'A'
+	// and 'B' may coexist, as may blank and 'a', but blank and 'B' may not.
 	//nsmask is which bits are constant for this memory area, in hex, if it's not linearly mapped.
 	// Should be padded to same length as start. If not defined, it's 0.
 	//start is where the first byte is mapped in the address space, in hex. Should be padded with
@@ -724,37 +727,32 @@ void config_write(const char * path);
 
 
 
+//All functions on this object yield undefined behaviour if datsize is not within 1..4.
 enum cheat_compfunc { cht_lt, cht_gt, cht_lte, cht_gte, cht_eq, cht_neq };
 enum cheat_chngtype { cht_once, cht_inconly, cht_deconly, cht_const };
 struct minircheats_model {
 	void (*set_core)(struct minircheats_model * this, struct libretro * core);
 	
 	void (*search_reset)(struct minircheats_model * this);
-	void (*search_set_datsize)(struct minircheats_model * this, unsigned int datsize);
-	void (*search_set_signed)(struct minircheats_model * this, bool issigned);
+	void (*search_set_datsize)(struct minircheats_model * this, unsigned int datsize);//Default 1.
+	void (*search_set_signed)(struct minircheats_model * this, bool issigned);//Default unsigned.
 	void (*search_do_search)(struct minircheats_model * this,
 	                         enum cheat_compfunc compfunc, bool comptoprev, unsigned int compto);
 	
 	unsigned int (*search_get_num_rows)(struct minircheats_model * this);
 	//Returns all information about a currently visible row.
-	//Note that it may vary its runtime depending on both the row number, and previous access patterns.
+	//The address will be written to, and must be at least 32 bytes long.
+	//The data size is set by the functions above.
+	//Note that it may vary its runtime depending on both the row number, and previous
+	// access patterns; the last queried row and the one directly after that may be faster.
 	void (*search_get_vis_row)(struct minircheats_model * this, unsigned int row,
-	                           const char * * prefix, unsigned int * addrlen, uint32_t * addr,
-	                           uint32_t * val, uint32_t * prevval);
+	                           char * addr, uint32_t * val, uint32_t * prevval);
 	
-	//The prefix is owned by the model. The description is a pointer back into the code, or to the end of it if there is no description.
-	bool (*cheat_parse)(struct minircheats_model * this, const char * code,
-	                    const char * * prefix, uint32_t * addr,
-	                    unsigned int * vallen, bool * issigned, uint32_t * val, enum cheat_chngtype * changetype,
-	                    const char * * description);
-	//The pointer transfers ownership. Free it once you're done.
-	char * (*cheat_build)(struct minircheats_model * this,
-	                      const char * address,//contains both prefix and address
-	                      unsigned int vallen, bool issigned, uint32_t val, enum cheat_chngtype changetype,
-	                      const char * description);
+	//TODO: Move to the end once this interface stabilizes.
+	void (*free)(struct minircheats_model * this);
 	
-	
-	bool (*cheat_apply)(struct minircheats_model * this);
+	//Fails if the address doesn't refer to anything, or if the refered to memory block ends too soon.
+	bool (*cheat_read)(struct minircheats_model * this, const char * addr, unsigned int datsize, uint32_t * val);
 	
 	//Cheat code structure:
 	//disable prefix address value signspec direction SP desc
@@ -762,16 +760,29 @@ struct minircheats_model {
 	//prefix is one of the prefixes from search_get_vis_row. See docs for struct libretro for details.
 	//address is an address inside this prefix, in hex. There is no mandatory separator from the value; ask search_get_vis_row for the address length.
 	//value is what to set it to, also in hex. It's either two, four, six or eight digits.
-	//signspec is 'S' if the cheat code is signed, or empty otherwise.
 	//direction is '+' if the address is allowed to increase, '-' if it's allowed to decrease, or empty if the given value should always be there.
+	//signspec is 'S' if the cheat code is signed, or empty otherwise. For addresses not allowed to change, the sign is irrelevant and should be ignored.
 	//SP is a simple space character. Optional if the description is blank.
-	//desc is the description of the cheat code. Guaranteed to only contain ASCII 32..126 and extended characters, but otherwise freeform.
+	//desc is a human readable description of the cheat code. May not contain ASCII control characters (0..31 and 127), but otherwise freeform.
 	//The format is designed so that a SNES Gameshark code is valid.
-	bool (*cheat_add_code)(struct minircheats_model * this, const char * code);
-	bool (*cheat_read_code)(struct minircheats_model * this, const char * code, uint32_t * out);
-	const char * * (*cheat_get_codes)(struct minircheats_model * this);
 	
-	void (*free)(struct minircheats_model * this);
+	//The prefix is owned by the model. The description is a pointer back into the given cheat code, or to the trailing NUL if there is no description.
+	bool (*cheat_parse)(struct minircheats_model * this, const char * code,
+	                    const char * * prefix, uint32_t * addr,
+	                    unsigned int * vallen, bool * issigned, uint32_t * val, enum cheat_chngtype * changetype,
+	                    const char * * description);
+	//The pointer transfers ownership. Free it once you're done. These two functions mirror each other.
+	char * (*cheat_build)(struct minircheats_model * this,
+	                      const char * address,//contains both prefix and address
+	                      unsigned int vallen, bool issigned, uint32_t val, enum cheat_chngtype changetype,
+	                      const char * description);
+	
+	
+	//bool (*cheat_add)(
+	bool (*cheat_apply)(struct minircheats_model * this);
+	
+	bool (*cheat_add_code)(struct minircheats_model * this, const char * code);
+	const char * * (*cheat_get_codes)(struct minircheats_model * this);
 };
 struct minircheats_model * minircheats_create_model();
 
