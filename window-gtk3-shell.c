@@ -438,10 +438,14 @@ static void statusbar_create(struct window * this_, int numslots, const int * al
 	{
 		GtkWidget* label=gtk_label_new("");
 		
-		gtk_widget_set_margin_top(label, 2);
-		gtk_widget_set_margin_bottom(label, 2);
-		gtk_widget_set_margin_left(label, 2);
-		gtk_widget_set_margin_right(label, 2);
+		GValue val=G_VALUE_INIT;
+		g_value_init(&val, G_TYPE_INT);
+		g_value_set_int(&val, 2);
+		g_object_set_property(G_OBJECT(label), "margin", &val);
+		//gtk_widget_set_margin_top(label, 2);
+		//gtk_widget_set_margin_bottom(label, 2);
+		//gtk_widget_set_margin_left(label, 2);
+		//gtk_widget_set_margin_right(label, 2);
 		
 //printf("a=%i\n",align[i]);
 		//const GtkJustification just[]={ GTK_JUSTIFY_LEFT, GTK_JUSTIFY_CENTER, GTK_JUSTIFY_RIGHT };
