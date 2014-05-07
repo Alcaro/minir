@@ -1636,7 +1636,7 @@ window_firstrun
 ();
 config.firstrun
 =false;
-cheats->show_search(cheats);
+//cheats->show_search(cheats);
 	mainloop();
 	deinit();
 }

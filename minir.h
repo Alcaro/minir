@@ -724,7 +724,6 @@ void config_write(const char * path);
 
 
 
-//remember to update show_search if changing these
 enum cheat_compfunc { cht_lt, cht_gt, cht_lte, cht_gte, cht_eq, cht_neq };
 enum cheat_chngtype { cht_once, cht_inconly, cht_deconly, cht_const };
 struct minircheats_model {
@@ -743,18 +742,34 @@ struct minircheats_model {
 	                           const char * * prefix, unsigned int * addrlen, uint32_t * addr,
 	                           uint32_t * val, uint32_t * prevval);
 	
+	//The prefix is owned by the model. The description is a pointer back into the code, or to the end of it if there is no description.
+	bool (*cheat_parse)(struct minircheats_model * this, const char * code,
+	                    const char * * prefix, uint32_t * addr,
+	                    unsigned int * vallen, bool * issigned, uint32_t * val, enum cheat_chngtype * changetype,
+	                    const char * * description);
+	//The pointer transfers ownership. Free it once you're done.
+	char * (*cheat_build)(struct minircheats_model * this,
+	                      const char * address,//contains both prefix and address
+	                      unsigned int vallen, bool issigned, uint32_t val, enum cheat_chngtype changetype,
+	                      const char * description);
+	
+	
+	bool (*cheat_apply)(struct minircheats_model * this);
+	
 	//Cheat code structure:
-	//prefix address value signspec direction SP desc
+	//disable prefix address value signspec direction SP desc
+	//disable is '-' if the cheat is currently disabled, otherwise blank.
 	//prefix is one of the prefixes from search_get_vis_row. See docs for struct libretro for details.
 	//address is an address inside this prefix, in hex. There is no mandatory separator from the value; ask search_get_vis_row for the address length.
 	//value is what to set it to, also in hex. It's either two, four, six or eight digits.
 	//signspec is 'S' if the cheat code is signed, or empty otherwise.
-	//direction is '+' if the address is allowed to increase, '-' if it's allowed to decrease, or empty if that value should always be there.
+	//direction is '+' if the address is allowed to increase, '-' if it's allowed to decrease, or empty if the given value should always be there.
 	//SP is a simple space character. Optional if the description is blank.
 	//desc is the description of the cheat code. Guaranteed to only contain ASCII 32..126 and extended characters, but otherwise freeform.
-	bool (*cheat_add)(struct minircheats_model * this, const char * code);
-	bool (*cheat_apply)(struct minircheats_model * this);
-	bool (*cheat_read_from_code)(struct minircheats_model * this, const char * code, uint32_t * out);
+	//The format is designed so that a SNES Gameshark code is valid.
+	bool (*cheat_add_code)(struct minircheats_model * this, const char * code);
+	bool (*cheat_read_code)(struct minircheats_model * this, const char * code, uint32_t * out);
+	const char * * (*cheat_get_codes)(struct minircheats_model * this);
 	
 	void (*free)(struct minircheats_model * this);
 };

@@ -492,13 +492,12 @@ static void free_(struct minircheats_model * this_)
 const struct minircheats_model_impl minircheats_model_base = {{
 	set_core,
 	search_reset, search_set_datsize, search_set_signed, search_do_search, search_get_num_rows, search_get_vis_row,
-	NULL, NULL, NULL,
-	free_
+	NULL, NULL, NULL
 }};
 struct minircheats_model * minircheats_create_model()
 {
 	struct minircheats_model_impl * this=malloc(sizeof(struct minircheats_model_impl));
 	memcpy(this, &minircheats_model_base, sizeof(struct minircheats_model_impl));
-	
+this->i.free=free_;//TODO: move up to base once the interface stabilizes.
 	return (struct minircheats_model*)this;
 }
