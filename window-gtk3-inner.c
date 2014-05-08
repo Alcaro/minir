@@ -364,6 +364,7 @@ static uintptr_t viewport_get_window_handle(struct widget_viewport * this_)
 	
 	//this won't work on anything except X11, but should be trivial to create an equivalent for.
 	uintptr_t tmp=GDK_WINDOW_XID(gtk_widget_get_window(GTK_WIDGET(this->i.base._widget)));
+printf("exre=%lu\n",tmp);
 	return tmp;
 }
 
@@ -371,6 +372,7 @@ typedef struct _CairoContext CairoContext;//apparently gtk+ doesn't include this
 static gboolean viewport_redraw_handler(GtkWidget* widget, CairoContext* cr, gpointer user_data)
 {
 	struct widget_viewport_gtk3 * this=(struct widget_viewport_gtk3*)user_data;
+puts("a");
 	this->on_redraw((struct widget_viewport*)this, this->redrawuserdata);
 	return true;
 }
@@ -382,6 +384,7 @@ static void viewport_set_on_redraw(struct widget_viewport * this_,
 	struct widget_viewport_gtk3 * this=(struct widget_viewport_gtk3*)this_;
 	this->on_redraw=on_redraw;
 	this->redrawuserdata=userdata;
+	gtk_widget_add_events(GTK_WIDGET(this->i.base._widget), GDK_EXPOSURE_MASK);
 	g_signal_connect(this->i.base._widget, "draw", G_CALLBACK(viewport_redraw_handler), this);
 }
 
@@ -442,7 +445,7 @@ static void viewport_set_hide_cursor(struct widget_viewport * this_, bool hide)
 	gtk_widget_add_events(GTK_WIDGET(this->i.base._widget), GDK_POINTER_MOTION_MASK);
 	g_signal_connect(this->i.base._widget, "motion-notify-event", G_CALLBACK(viewport_mouse_move_handler), this);
 	
-	//gtk+ 3.12 only - I'm on 3.8
+	//seems to not exist in gtk+ 3.8
 	//gdk_window_set_event_compression(gtk_widget_get_window(this->i.base._widget), false);
 	
 	this->hide_mouse_timer_active=false;
