@@ -776,18 +776,19 @@ struct minircheats_model {
 	                    char * addr,
 	                    unsigned int * vallen, bool * issigned, uint32_t * val, enum cheat_chngtype * changetype,
 	                    const char * * description);
-	//The pointer transfers ownership. Free it once you're done. These two functions mirror each other.
-	char * (*cheat_build)(struct minircheats_model * this,
-	                      const char * addr,
-	                      unsigned int vallen, bool issigned, uint32_t val, enum cheat_chngtype changetype,
-	                      const char * description);
+	const char * (*cheat_build)(struct minircheats_model * this,
+	                            const char * addr,
+	                            unsigned int vallen, bool issigned, uint32_t val, enum cheat_chngtype changetype,
+	                            const char * description);
 	
+	bool (*cheat_add)(struct minircheats_model * this, const char * code);
+	void (*cheat_replace)(struct minircheats_model * this, unsigned int pos, const char * code);
+	void (*cheat_set_enabled)(struct minircheats_model * this, unsigned int pos, bool enable);
+	void (*cheat_remove)(struct minircheats_model * this, bool enable);
+	const char * * (*cheat_get_list)(struct minircheats_model * this);
 	
-	//bool (*cheat_add)(
+	//This one makes all cheat codes take effect.
 	bool (*cheat_apply)(struct minircheats_model * this);
-	
-	bool (*cheat_add_code)(struct minircheats_model * this, const char * code);
-	const char * * (*cheat_get_codes)(struct minircheats_model * this);
 };
 struct minircheats_model * minircheats_create_model();
 
