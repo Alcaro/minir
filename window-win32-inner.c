@@ -554,6 +554,14 @@ static uintptr_t viewport_get_window_handle(struct widget_viewport * this_)
 	return (uintptr_t)this->hwnd;
 }
 
+static void viewport_set_on_redraw(struct widget_viewport * this_,
+                                   void (*on_redraw)(struct widget_viewport * subject, void* userdata),
+                                   void* userdata)
+{
+	struct widget_viewport_win32 * this=(struct widget_viewport_win32*)this_;
+	q;
+}
+
 static void viewport_set_hide_cursor(struct widget_viewport * this_, bool hide)
 {
 	struct widget_viewport_win32 * this=(struct widget_viewport_win32*)this_;
@@ -587,6 +595,7 @@ struct widget_viewport * widget_create_viewport(unsigned int width, unsigned int
 	
 	this->i.resize=viewport_resize;
 	this->i.get_window_handle=viewport_get_window_handle;
+	this->i.set_on_redraw=viewport_set_on_redraw;
 	this->i.set_hide_cursor=viewport_set_hide_cursor;
 	this->i.set_support_drop=viewport_set_support_drop;
 	

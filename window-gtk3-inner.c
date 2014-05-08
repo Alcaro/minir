@@ -331,6 +331,9 @@ struct widget_canvas_gtk3;
 struct widget_viewport_gtk3 {
 	struct widget_viewport i;
 	
+	void (*on_redraw)(struct widget_viewport * subject, void* userdata);
+	void* redrawuserdata;
+	
 	bool hide_mouse;
 	bool hide_mouse_timer_active;
 	
@@ -362,6 +365,24 @@ static uintptr_t viewport_get_window_handle(struct widget_viewport * this_)
 	//this won't work on anything except X11, but should be trivial to create an equivalent for.
 	uintptr_t tmp=GDK_WINDOW_XID(gtk_widget_get_window(GTK_WIDGET(this->i.base._widget)));
 	return tmp;
+}
+
+typedef struct _CairoContext CairoContext;//apparently gtk+ doesn't include this. I don't use the context pointer anyways.
+static gboolean viewport_redraw_handler(GtkWidget* widget, CairoContext* cr, gpointer user_data)
+{
+	struct widget_viewport_gtk3 * this=(struct widget_viewport_gtk3*)user_data;
+	this->on_redraw((struct widget_viewport*)this, this->redrawuserdata);
+	return true;
+}
+
+static void viewport_set_on_redraw(struct widget_viewport * this_,
+                                   void (*on_redraw)(struct widget_viewport * subject, void* userdata),
+                                   void* userdata)
+{
+	struct widget_viewport_gtk3 * this=(struct widget_viewport_gtk3*)this_;
+	this->on_redraw=on_redraw;
+	this->redrawuserdata=userdata;
+	g_signal_connect(this->i.base._widget, "draw", G_CALLBACK(viewport_redraw_handler), this);
 }
 
 static void viewport_set_hide_cursor_now(struct widget_viewport_gtk3 * this, bool hide)
@@ -523,6 +544,7 @@ struct widget_viewport * widget_create_viewport(unsigned int width, unsigned int
 	this->i.base._free=viewport__free;
 	this->i.resize=viewport_resize;
 	this->i.get_window_handle=viewport_get_window_handle;
+	this->i.set_on_redraw=viewport_set_on_redraw;
 	this->i.set_hide_cursor=viewport_set_hide_cursor;
 	this->i.set_support_drop=viewport_set_support_drop;
 	

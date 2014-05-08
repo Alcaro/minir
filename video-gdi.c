@@ -114,9 +114,10 @@ static void draw(struct video * this_, unsigned int width, unsigned int height, 
 	StretchBlt(this->maindc, 0,0, this->screenwidth,this->screenheight,  this->bitmapdc, 0,0, width,height,  SRCCOPY);
 }
 
-static void set_sync(struct video * this_, bool sync)
+static bool set_sync(struct video * this_, bool sync)
 {
 	//can't do this
+	return false;
 }
 
 static bool has_sync(struct video * this_)

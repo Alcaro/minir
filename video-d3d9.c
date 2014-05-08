@@ -264,18 +264,23 @@ present:
 	else this->device->lpVtbl->Present(this->device, NULL, NULL, NULL, NULL);
 }
 
-static void set_sync(struct video * this_, bool sync)
+static bool set_sync(struct video * this_, bool sync)
 {
 	struct video_d3d9 * this=(struct video_d3d9*)this_;
+	bool ret=this->syncflags;
 	if (this->ex)
 	{
 		this->syncflags=(sync ? 0 : D3DPRESENT_FORCEIMMEDIATE|D3DPRESENT_DONOTWAIT);
 	}
 	else
 	{
-		this->syncflags=(sync);
-		recreate(this, 0,0, 0);
+		if (this->syncflags != sync)
+		{
+			this->syncflags=(sync);
+			recreate(this, 0,0, 0);
+		}
 	}
+	return ret;
 }
 
 static bool repeat_frame(struct video * this_, unsigned int * width, unsigned int * height,

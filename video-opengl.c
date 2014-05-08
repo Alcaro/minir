@@ -121,6 +121,8 @@ struct video_opengl {
 	bool support_bitpack_565;
 	bool support_bitpack_8888;
 	
+	bool vsync;
+	
 	bool convert_image;
 	void* convert_buf;
 	size_t convert_bufsize;
@@ -317,10 +319,13 @@ q2
 q3
 }
 
-static void set_sync(struct video * this_, bool sync)
+static bool set_sync(struct video * this_, bool sync)
 {
 	struct video_opengl * this=(struct video_opengl*)this_;
+	bool ret=this->vsync;
+	this->vsync=sync;
 	if (this->glSwapInterval) this->glSwapInterval(sync?1:0);
+	return ret;
 }
 
 static bool has_sync(struct video * this_)
@@ -500,6 +505,7 @@ struct video * video_create_opengl(uintptr_t windowhandle, unsigned int screen_w
 	this->support_bitpack_8888=(glGetError()==0);
 	glDeleteTextures(1, &this->gltexture);
 	
+	this->vsync=true;
 	reinit((struct video*)this, screen_width, screen_height, depth, fps);
 	
 	this->gltexture=0;

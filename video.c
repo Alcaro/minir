@@ -1,67 +1,6 @@
 #include "minir.h"
 #include <string.h>
 
-#if 0
-#include <stdlib.h>
-#include<stdio.h>
-
-struct video_pass {
-	struct video i;
-	struct video * inner;
-	uint64_t last;
-};
-
-static void reinitP(struct video * this_, unsigned int screen_width, unsigned int screen_height, unsigned int depth, double fps)
-{
-	struct video_pass * this=(struct video_pass*)this_;
-	this->inner->reinit(this->inner, screen_width, screen_height, depth, fps);
-}
-
-static void drawP(struct video * this_, unsigned int width, unsigned int height, const void * data, unsigned int pitch)
-{
-	struct video_pass * this=(struct video_pass*)this_;
-	
-	uint64_t now=window_get_time();
-printf("%i ",now-this->last);
-	if (now-this->last < 10) return;
-	this->last=now;
-	
-	this->inner->draw(this->inner, width, height, data, pitch);
-}
-
-static void set_syncP(struct video * this_, bool sync)
-{
-	struct video_pass * this=(struct video_pass*)this_;
-	this->inner->set_sync(this->inner, sync);
-}
-
-static bool has_syncP(struct video * this_)
-{
-	struct video_pass * this=(struct video_pass*)this_;
-	return this->inner->has_sync(this->inner);
-}
-
-static void free_P(struct video * this_)
-{
-	struct video_pass * this=(struct video_pass*)this_;
-	this->inner->free(this->inner);
-	free(this);
-}
-
-struct video * video_create_pass(struct video * inner)
-{
-	struct video_pass * this=malloc(sizeof(struct video_pass));
-	this->i.reinit=reinitP;
-	this->i.draw=drawP;
-	this->i.set_sync=set_syncP;
-	this->i.has_sync=has_syncP;
-	this->i.free=free_P;
-	
-	this->inner=inner;
-	this->last=window_get_time();
-	return (struct video*)this;
-}
-#endif
 
 
 const char * const * video_supported_backends()
@@ -87,7 +26,7 @@ const char * const * video_supported_backends()
 
 static void reinit(struct video * this, unsigned int screen_width, unsigned int screen_height, unsigned int depth, double fps) {}
 static void draw(struct video * this, unsigned int width, unsigned int height, const void * data, unsigned int pitch) {}
-static void set_sync(struct video * this, bool sync) {}
+static bool set_sync(struct video * this, bool sync) { return false; }
 static bool has_sync(struct video * this) { return false; }
 static void free_(struct video * this) {}
 

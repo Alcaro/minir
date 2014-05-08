@@ -674,6 +674,13 @@ bool closethis(struct window * subject, void* userdata)
 	return true;
 }
 
+void draw_handler(struct widget_viewport * subject, void* userdata)
+{
+	bool sync=vid->set_sync(vid, false);
+	vid->draw(vid, 0, 0, NULL, 0);
+	vid->set_sync(vid, sync);
+}
+
 
 
 void initialize(int argc, char * argv[])
@@ -708,6 +715,7 @@ void initialize(int argc, char * argv[])
 	set_window_title();
 	
 	draw->set_support_drop(draw, drop_handler, NULL);
+	draw->set_on_redraw(draw, draw_handler, NULL);
 	
 	const int align[]={0,2};
 	const int divider=180;
@@ -1513,7 +1521,7 @@ window_firstrun
 ();
 config.firstrun
 =false;
-cheats->show_search(cheats);
+//cheats->show_search(cheats);
 	mainloop();
 	deinit();
 }

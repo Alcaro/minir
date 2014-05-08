@@ -94,9 +94,9 @@ static void draw(struct video * this_, unsigned int width, unsigned int height, 
 	XFlush(this->display);
 }
 
-static void set_sync(struct video * this_, bool sync)
+static bool set_sync(struct video * this_, bool sync)
 {
-	//null
+	return false;
 }
 
 static bool has_sync(struct video * this_)

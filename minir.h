@@ -91,15 +91,15 @@ struct video {
 	//The bit depths may be 32 (XRGB8888), 16 (RGB565), or 15 (0RGB1555).
 	void (*reinit)(struct video * this, unsigned int screen_width, unsigned int screen_height, unsigned int depth, double fps);
 	
-	//Draws the given data. Size doesn't need to be same as above; if it isn't, nearest neighbor
-	// upscaling or linear downscaling will be used.
+	//Draws the given data. Size doesn't need to be same as above; if it isn't, nearest neighbor scaling will be used.
 	//pitch is how many bytes to go forward to reach the next scanline.
-	//Rendering a NULL means redraw the last frame. It will still wait for vsync, if needed.
+	//If data is NULL, the last frame is redrawn, and other arguments are ignored. It will still wait for vsync.
 	void (*draw)(struct video * this, unsigned int width, unsigned int height, const void * data, unsigned int pitch);
 	
 	//Toggles vsync; that is, whether draw() should wait for vblank before doing its stuff and
 	// returning. Defaults to on; does not change on reinit().
-	void (*set_sync)(struct video * this, bool sync);
+	//Returns the previous state, if syncing is possible; otherwise, returns an undefined value.
+	bool (*set_sync)(struct video * this, bool sync);
 	
 	//Whether vsync can be enabled on this item.
 	bool (*has_sync)(struct video * this);

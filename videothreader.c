@@ -217,13 +217,15 @@ static void draw(struct video * this_, unsigned int width, unsigned int height, 
 	}
 }
 
-static void set_sync(struct video * this_, bool sync)
+static bool set_sync(struct video * this_, bool sync)
 {
 	struct video_thread * this=(struct video_thread*)this_;
 	this->lock->lock(this->lock);
+	bool ret=this->sync;
 	this->sync=sync;
 	this->change_sync=true;
 	this->lock->unlock(this->lock);
+	return ret;
 }
 
 static bool has_sync(struct video * this_)
