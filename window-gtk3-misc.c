@@ -237,6 +237,7 @@ bool file_write(const char * filename, const char * data, size_t len)
 bool file_read_to(const char * filename, char * data, size_t len)
 {
 	if (!filename) return false;
+	if (!len) return true;
 	GFile* file=g_file_new_for_commandline_arg(filename);
 	if (!file) return false;
 	GFileInputStream* io=g_file_read(file, NULL, NULL);

@@ -174,6 +174,7 @@ bool file_write(const char * filename, const char * data, size_t len)
 bool file_read_to(const char * filename, char * data, size_t len)
 {
 	if (!filename) return false;
+	if (!len) return true;
 	HANDLE file=CreateFile(filename, GENERIC_READ, FILE_SHARE_READ, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
 	if (file==INVALID_HANDLE_VALUE) return false;
 	DWORD readlen=GetFileSize(file, NULL);

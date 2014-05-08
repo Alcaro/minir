@@ -1350,22 +1350,20 @@ struct windowmenu * update_coreopt_menu(struct windowmenu * parent, bool * enabl
 	{
 		unsigned int numvalues=opts[i].numvalues;
 		
-		struct windowmenu * item;
-		
 		bool yesfirst;
 		if (numvalues==numvalues && is_yesno(opts[i].values[0], opts[i].values[1], &yesfirst))
 		{
+			struct windowmenu * item;
 			item=windowmenu_create_check(opts[i].name_display, yesfirst ? set_core_opt_bool_invert : set_core_opt_bool, (void*)(uintptr_t)i);
 			menu->insert_child(menu, i, item);
 			item->set_state(item, core->get_core_option(core, i) ^ yesfirst);
 		}
 		else
 		{
-			item=windowmenu_create_submenu(opts[i].name_display,
-			       windowmenu_create_radio_l(numvalues, opts[i].values, set_core_opt_normal, (void*)(uintptr_t)i),
-			     NULL);
-			menu->insert_child(menu, i, item);
-			item->set_state(item, core->get_core_option(core, i));
+			struct windowmenu * radioitem=windowmenu_create_radio_l(numvalues, opts[i].values, set_core_opt_normal, (void*)(uintptr_t)i);
+			struct windowmenu * menuitem=windowmenu_create_submenu(opts[i].name_display, radioitem, NULL);
+			menu->insert_child(menu, i, menuitem);
+			radioitem->set_state(radioitem, core->get_core_option(core, i));
 		}
 	}
 	return menu;
