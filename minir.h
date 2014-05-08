@@ -785,7 +785,7 @@ struct minircheats_model {
 	void (*cheat_replace)(struct minircheats_model * this, unsigned int pos, const char * code);
 	void (*cheat_set_enabled)(struct minircheats_model * this, unsigned int pos, bool enable);
 	void (*cheat_remove)(struct minircheats_model * this, bool enable);
-	const char * * (*cheat_get_list)(struct minircheats_model * this);
+	const char * const * (*cheat_get_list)(struct minircheats_model * this, unsigned int * count);
 	
 	//This one makes all cheat codes take effect.
 	bool (*cheat_apply)(struct minircheats_model * this);
@@ -806,6 +806,9 @@ struct minircheats {
 	//This one should be called every frame, as soon as possible after libretro->run(). This applies even if disabled.
 	//ramwatch tells whether RAM watch should be updated (both cheat search and ram watch).
 	void (*update)(struct minircheats * this, bool ramwatch);
+	
+	const char * const * (*get_cheat_list)(struct minircheats * this, unsigned int * count);
+	void (*set_cheat_list)(struct minircheats * this, const char * const * cheats);
 	
 	void (*free)(struct minircheats * this);
 };
