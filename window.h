@@ -307,11 +307,6 @@ struct widget_viewport {
 	void (*resize)(struct widget_viewport * this, unsigned int width, unsigned int height);
 	uintptr_t (*get_window_handle)(struct widget_viewport * this);
 	
-	//Called whenever the widget should be repainted, for example if a window has been dragged over it.
-	void (*set_on_redraw)(struct widget_viewport * this,
-	                      void (*on_redraw)(struct widget_viewport * subject, void* userdata),
-	                      void* userdata);
-	
 	//See documentation of canvas for these.
 	void (*set_hide_cursor)(struct widget_viewport * this, bool hide);
 	void (*set_support_drop)(struct widget_viewport * this,

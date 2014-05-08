@@ -24,23 +24,23 @@ gtk_dialog_run(GTK_DIALOG(dialog));
 gtk_widget_destroy(dialog);
 }
 
-static GdkFilterReturn scanfilter(GdkXEvent* xevent, GdkEvent* event, gpointer data)
-{
-	XEvent* ev=(XEvent*)xevent;
-	if (ev->type==Expose) printf("ex=%lu\n", ev->xexpose.window);
-	return GDK_FILTER_CONTINUE;
-}
+//static GdkFilterReturn scanfilter(GdkXEvent* xevent, GdkEvent* event, gpointer data)
+//{
+//	XEvent* ev=(XEvent*)xevent;
+//	if (ev->type==Expose) printf("ex=%lu\n", ev->xexpose.window);
+//	return GDK_FILTER_CONTINUE;
+//}
 
 #include<sys/resource.h>
 void window_init(int * argc, char * * argv[])
 {
-	gdk_window_add_filter(NULL,scanfilter,NULL);
 //struct rlimit core_limits;core_limits.rlim_cur=core_limits.rlim_max=64*1024*1024;setrlimit(RLIMIT_CORE,&core_limits);
 g_log_set_always_fatal(G_LOG_LEVEL_CRITICAL|G_LOG_LEVEL_WARNING);
 #ifdef WNDPROT_X11
 	XInitThreads();
 #endif
 	gtk_init(argc, argv);
+	//gdk_window_add_filter(NULL,scanfilter,NULL);
 #ifndef NO_ICON
 	struct image img;
 	png_decode(icon_minir_64x64_png,sizeof(icon_minir_64x64_png), &img, 33);
