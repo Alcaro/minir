@@ -139,11 +139,11 @@ static void details_create(struct minircheats_impl * parent, struct window * par
 	this->addr->set_text(this->addr, addr, 31);
 	
 	char valstr[9];
-	sprintf(valstr, "%.*X", parent->datsize*2, val);//TODO: follow parent->dattype
+	sprintf(valstr, "%.*X", parent->datsize*2, curval);//TODO: follow parent->dattype
 	curvalbox->set_text(curvalbox, valstr, 0);
 	this->newval->set_text(this->newval, valstr, 0);//default to keep at current value
 	//TODO: newval->focus(newval);
-	curval->set_enabled(curval, false);
+	curvalbox->set_enabled(curvalbox, false);
 	
 	ok->set_onclick(ok, details_ok, this);
 	cancel->set_onclick(cancel, details_cancel, this);
@@ -220,7 +220,7 @@ static void search_add_cheat(struct minircheats_impl * this, unsigned int row)
 {
 	char addr[32];
 	uint32_t val;
-	parent->model->search_get_vis_row(parent->model, row, addr, &val, NULL);
+	this->model->search_get_vis_row(this->model, row, addr, &val, NULL);
 	details_create(this, this->wndsrch, addr, val);
 }
 
