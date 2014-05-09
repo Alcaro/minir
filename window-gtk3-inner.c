@@ -7,8 +7,6 @@
 #include <gdk/gdkx.h>
 #endif
 
-//don't destroy the widgets, they're destroyed when the parent is (floating references)
-
 static bool in_callback=false;
 
 
