@@ -223,7 +223,10 @@ struct widget_listbox_gtk3 {
 	
 	bool* checkboxes;
 	void (*ontoggle)(struct widget_listbox * subject, unsigned int row, bool state, void * userdata);
-	void * userdata;
+	void* toggle_userdata;
+	
+	void (*onactivate)(struct widget_listbox * subject, unsigned int row, void * userdata);
+	void* activate_userdata;
 };
 
 static void listbox_set_checkbox_state(struct widget_listbox * this_, unsigned int row, bool state);
@@ -313,6 +316,29 @@ static void listbox_refresh(struct widget_listbox * this_)
 	gtk_widget_queue_draw(GTK_WIDGET(this->tree));
 }
 
+static void listbox_onactivate(GtkTreeView* tree_view, GtkTreePath* path, GtkTreeViewColumn* column, gpointer user_data)
+{
+	struct widget_listbox_gtk3 * this=(struct widget_listbox_gtk3*)user_data;
+	if (this->onactivate)
+	{
+		this->onactivate((struct widget_listbox*)this, gtk_tree_path_get_indices(path)[0], this->activate_userdata);
+	}
+}
+
+static unsigned int listbox_get_active_row(struct widget_listbox * this_)
+{
+	return 0;
+}
+
+static void listbox_set_onactivate(struct widget_listbox * this_,
+                                   void (*onactivate)(struct widget_listbox * subject, unsigned int row, void * userdata),
+                                   void* userdata)
+{
+	struct widget_listbox_gtk3 * this=(struct widget_listbox_gtk3*)this_;
+	this->onactivate=onactivate;
+	this->activate_userdata=userdata;
+}
+
 static void listbox_set_size(struct widget_listbox * this_, unsigned int height, const unsigned int * widths)
 {
 	struct widget_listbox_gtk3 * this=(struct widget_listbox_gtk3*)this_;
@@ -337,7 +363,7 @@ static void listbox_checkbox_toggle(GtkCellRendererToggle* cell_renderer, gchar*
 	struct widget_listbox_gtk3 * this=(struct widget_listbox_gtk3*)user_data;
 	unsigned int id=atoi(path);
 	listbox_set_checkbox_state((struct widget_listbox*)this, id, this->checkboxes[id]^1);
-	if (this->ontoggle) this->ontoggle((struct widget_listbox*)this, id, this->checkboxes[id], this->userdata);
+	if (this->ontoggle) this->ontoggle((struct widget_listbox*)this, id, this->checkboxes[id], this->toggle_userdata);
 }
 
 static void listbox_add_checkboxes(struct widget_listbox * this_,
@@ -352,7 +378,7 @@ static void listbox_add_checkboxes(struct widget_listbox * this_,
 	gtk_tree_view_insert_column_with_attributes(this->tree, 0, "", render, "active", this->columns, NULL);
 	
 	this->ontoggle=ontoggle;
-	this->userdata=userdata;
+	this->toggle_userdata=userdata;
 	g_signal_connect(render, "toggled", G_CALLBACK(listbox_checkbox_toggle), this);
 	
 	GtkRequisition size;
@@ -398,6 +424,8 @@ struct widget_listbox * widget_create_listbox_l(unsigned int numcolumns, const c
 	this->i.set_contents_virtual=listbox_set_contents_virtual;
 	this->i.set_row=listbox_set_row;
 	this->i.refresh=listbox_refresh;
+	this->i.get_active_row=listbox_get_active_row;
+	this->i.set_onactivate=listbox_set_onactivate;
 	this->i.set_size=listbox_set_size;
 	this->i.add_checkboxes=listbox_add_checkboxes;
 	this->i.get_checkbox_state=listbox_get_checkbox_state;
@@ -409,6 +437,9 @@ struct widget_listbox * widget_create_listbox_l(unsigned int numcolumns, const c
 	
 	this->vlist=NULL;
 	this->devirt=NULL;
+	
+	g_signal_connect(this->tree, "row-activated", G_CALLBACK(listbox_onactivate), this);
+	this->onactivate=NULL;
 	
 	this->columns=numcolumns;
 	

@@ -218,10 +218,11 @@ static void search_reset(struct widget_button * subject, void* userdata)
 
 static void search_add_cheat(struct minircheats_impl * this, unsigned int row)
 {
+printf("row=%i\n",row);
 	char addr[32];
 	uint32_t val;
 	this->model->search_get_vis_row(this->model, row, addr, &val, NULL);
-	details_create(this, this->wndsrch, addr, val);
+	//details_create(this, this->wndsrch, addr, val);
 }
 
 static void search_add_cheat_listbox(struct widget_listbox * subject, unsigned int row, void* userdata)
