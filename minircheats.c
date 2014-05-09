@@ -34,14 +34,28 @@ struct minircheats_impl {
 	
 	struct window * wndwatch;
 	
-	struct window * wnddetail;
-	
 	bool enabled :1;
 	
 	unsigned int datsize :3;
 	enum cheat_dattype dattype :2;
 	
 	char celltmp[32];
+};
+
+struct minircheatdetail {//these windows are not referenced within the main cheat structures; there can be multiple
+	struct minircheats_impl * parent;
+	
+	struct window * wndw;
+	struct widget_textbox * addr;
+	struct widget_textbox * newval;
+	struct widget_textbox * desc;
+	
+	unsigned int datsize :3;
+	enum cheat_dattype dattype :2;
+	//int padding :3;
+	//char padding[7];
+	
+	char orgaddr[32];
 };
 
 static void search_update(struct minircheats_impl * this);
@@ -62,14 +76,86 @@ static void set_parent(struct minircheats * this_, struct window * parent)
 
 
 
+//TODO: check that gtk listbox supports all needed features
+//TODO: also check that gtk supports freeing from the callbacks
+static void details_free(struct minircheatdetail * this);
+static void details_ok(struct widget_button * subject, void* userdata)
+{
+	struct minircheatdetail * this=(struct minircheatdetail*)userdata;
+	//TODO: interact with model
+	//if a cheat code address equals this->orgaddr, replace it
+	//however, if this->addr does not equal this->orgaddr and there is also another cheat on this->addr, ask which to keep
+	details_free(this);
+}
 
-static const char * search_get_cell(struct widget_listbox * subject, unsigned int row, unsigned int column, void * userdata);
+static void details_cancel(struct widget_button * subject, void* userdata)
+{
+	struct minircheatdetail * this=(struct minircheatdetail*)userdata;
+	details_free(this);
+}
+
+static bool details_onclose(struct window * subject, void* userdata)
+{
+	struct minircheatdetail * this=(struct minircheatdetail*)userdata;
+	details_free(this);
+	return true;
+}
+
+static void details_free(struct minircheatdetail * this)
+{
+	this->wndw->free(this->wndw);
+	free(this);
+}
+
+static void details_create(struct minircheats_impl * parent, struct window * parentwndw, const char * addr, uint32_t curval)
+{
+	struct minircheatdetail * this=malloc(sizeof(struct minircheatdetail));
+	this->parent=parent;
+	strcpy(this->orgaddr, addr);
+	
+	struct widget_textbox * curvalbox;
+	struct widget_button * ok;
+	struct widget_button * cancel;
+	this->wndw=window_create(
+		//widget_create_layout_grid(2, 4,//TODO: use this
+		widget_create_layout_vert(
+			widget_create_label("Address"), this->addr=widget_create_textbox(),
+			widget_create_label("Current Value"), curvalbox=widget_create_textbox(),
+			widget_create_label("New Value"), this->newval=widget_create_textbox(),
+			//TODO: size and type
+			widget_create_label("Description"), widget_create_textbox(),
+			widget_create_label(""), widget_create_layout_horz(
+				widget_create_padding_horz(),
+				ok=widget_create_button("OK"),
+				cancel=widget_create_button("Cancel"),
+				NULL),NULL)
+		);
+	
+	this->wndw->set_is_dialog(this->wndw);
+	this->wndw->set_parent(this->wndw, parentwndw);
+	this->wndw->set_title(this->wndw, "Cheat Details");
+	this->wndw->onclose(this->wndw, details_onclose, this);
+	
+	this->addr->set_text(this->addr, addr, 31);
+	
+	char valstr[9];
+	sprintf(valstr, "%.*X", parent->datsize*2, val);//TODO: follow parent->dattype
+	curvalbox->set_text(curvalbox, valstr, 0);
+	this->newval->set_text(this->newval, valstr, 0);//default to keep at current value
+	//TODO: newval->focus(newval);
+	curval->set_enabled(curval, false);
+	
+	ok->set_onclick(ok, details_ok, this);
+	cancel->set_onclick(cancel, details_cancel, this);
+	
+	this->wndw->set_visible(this->wndw, true);
+	this->wndw->focus(this->wndw);
+}
 
 
 
 
-
-
+static const char * search_get_cell(struct widget_listbox * subject, unsigned int row, unsigned int column, void* userdata);
 
 static void search_update(struct minircheats_impl * this)
 {
@@ -80,10 +166,6 @@ static void search_update(struct minircheats_impl * this)
 		                                            search_get_cell, NULL, this);
 	}
 }
-
-
-
-
 
 static void search_set_datsize(struct widget_radio * subject, unsigned int state, void* userdata)
 {
@@ -134,6 +216,26 @@ static void search_reset(struct widget_button * subject, void* userdata)
 	search_update(this);
 }
 
+static void search_add_cheat(struct minircheats_impl * this, unsigned int row)
+{
+	char addr[32];
+	uint32_t val;
+	parent->model->search_get_vis_row(parent->model, row, addr, &val, NULL);
+	details_create(this, this->wndsrch, addr, val);
+}
+
+static void search_add_cheat_listbox(struct widget_listbox * subject, unsigned int row, void* userdata)
+{
+	struct minircheats_impl * this=(struct minircheats_impl*)userdata;
+	search_add_cheat(this, row);
+}
+
+static void search_add_cheat_button(struct widget_button * subject, void* userdata)
+{
+	struct minircheats_impl * this=(struct minircheats_impl*)userdata;
+	search_add_cheat(this, this->wndsrch_listbox->get_active_row(this->wndsrch_listbox));
+}
+
 static void show_search(struct minircheats * this_)
 {
 	struct minircheats_impl * this=(struct minircheats_impl*)this_;
@@ -141,6 +243,7 @@ static void show_search(struct minircheats * this_)
 	if (!this->wndsrch)
 	{
 		struct widget_button * reset;
+		struct widget_button * addcheat;
 		
 		this->wndsrch=window_create(
 			widget_create_layout_vert(
@@ -148,7 +251,7 @@ static void show_search(struct minircheats * this_)
 					this->wndsrch_listbox=widget_create_listbox("Address", "Curr. Value", "Prev. Value", NULL),
 					widget_create_layout_vert(
 						this->wndsrch_dosearch=widget_create_button("Search"),
-						widget_create_button("Add Cheat..."),
+						addcheat=widget_create_button("Add Cheat..."),
 						reset=widget_create_button("Reset"),
 						widget_create_padding_vert(),
 						widget_create_button("Watch"),
@@ -197,6 +300,8 @@ static void show_search(struct minircheats * this_)
 		const unsigned int tmp[]={1,2,2};
 		this->wndsrch_listbox->set_size(this->wndsrch_listbox, 16, tmp);
 		
+		this->wndsrch_listbox->set_onactivate(this->wndsrch_listbox, search_add_cheat_listbox, this);
+		
 		this->wndsrch_dosearch->set_onclick(this->wndsrch_dosearch, search_dosearch, this);
 		reset->set_onclick(reset, search_reset, this);
 		
@@ -208,6 +313,8 @@ static void show_search(struct minircheats * this_)
 		
 		this->wndsrch_dattype->set_onclick(this->wndsrch_dattype, search_set_dattype, this);
 		search_set_dattype(NULL, 0, this);
+		
+		addcheat->set_onclick(addcheat, search_add_cheat_button, this);
 	}
 	
 	search_update(this);
@@ -216,7 +323,7 @@ static void show_search(struct minircheats * this_)
 	this->wndsrch->focus(this->wndsrch);
 }
 
-static const char * search_get_cell(struct widget_listbox * subject, unsigned int row, unsigned int column, void * userdata)
+static const char * search_get_cell(struct widget_listbox * subject, unsigned int row, unsigned int column, void* userdata)
 {
 	struct minircheats_impl * this=(struct minircheats_impl*)userdata;
 	
@@ -279,7 +386,6 @@ static void free_(struct minircheats * this_)
 	
 	if (this->wndsrch) this->wndsrch->free(this->wndsrch);
 	if (this->wndlist) this->wndlist->free(this->wndlist);
-	if (this->wnddetail) this->wnddetail->free(this->wnddetail);
 	
 	this->model->free(this->model);
 	

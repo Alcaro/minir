@@ -49,6 +49,7 @@ struct window {
 	
 	//The callback tells whether the close request should be honored; true for close, false for keep.
 	//The window is only hidden, not deleted; you can use show() again later.
+	//It is safe to free this structure from within this callback; if you do this, return true for close.
 	void (*onclose)(struct window * this, bool (*function)(struct window * subject, void* userdata), void* userdata);
 	
 	//Appends a menu bar to the top of the window. If the window has a menu already, it's replaced. NULL removes the menu.
@@ -369,7 +370,7 @@ struct widget_listbox {
 	
 	//The active row can change without activating the new item.
 	//The exact conditions under which a listbox entry is activated is platform dependent, but
-	// double click and Enter are common. It is guaranteed to be possible.
+	// double click and Enter are likely. It is guaranteed to be possible.
 	unsigned int (*get_active_row)(struct widget_listbox * this);
 	void (*set_onactivate)(struct widget_listbox * this,
 	                       void (*onactivate)(struct widget_listbox * subject, unsigned int row, void * userdata),
@@ -417,7 +418,7 @@ struct widget_layout {
 #define widget_create_layout_horz(...) widget_create_layout(false, false, __VA_ARGS__)
 #define widget_create_layout_vert(...) widget_create_layout(true, false, __VA_ARGS__)
 struct widget_layout * widget_create_layout(bool vertical, bool uniform, void * firstchild, ...);
-//The widgets are stored row by row.
+//The widgets are stored row by row. There is no NULL terminator, because the size is known from the arguments already.
 struct widget_layout * widget_create_layout_grid(unsigned int width, unsigned int height,
                                                  void * firstchild, ...);
 //numchildren can be 0. In this case, the array is assumed terminated with a NULL.

@@ -69,7 +69,9 @@ struct window_gtk3 {
 	int status_count;
 	
 	bool visible;
-	//char padding1[3];
+	uint8_t delayfree;//0=normal, 1=can't free now, 2=free at next opportunity
+	
+	//char padding1[2];
 	
 	bool (*onclose)(struct window * subject, void* userdata);
 	void* oncloseuserdata;
@@ -95,15 +97,16 @@ static void resize(struct window * this_, unsigned int width, unsigned int heigh
 	if (this->status) statusbar_resize(this);
 }
 
+static gboolean onclose_gtk(GtkWidget* widget, GdkEvent* event, gpointer user_data);
 static gboolean popup_esc_close(GtkWidget* widget, GdkEvent* event, gpointer user_data)
 {
 	struct window_gtk3 * this=(struct window_gtk3*)user_data;
 	if (event->key.keyval==GDK_KEY_Escape)
 	{
-		this->visible=false;
-		gtk_widget_hide(GTK_WIDGET(this->wndw));
+		onclose_gtk(widget, event, user_data);
+		return TRUE;
 	}
-	return false;
+	return FALSE;
 }
 
 static void set_is_dialog(struct window * this_)
@@ -583,10 +586,21 @@ static void* _get_handle(struct window * this_)
 	return this->wndw;
 }
 
-static gboolean onclose_gtk(GtkWidget *widget, GdkEvent *event, gpointer user_data)
+static gboolean onclose_gtk(GtkWidget* widget, GdkEvent* event, gpointer user_data)
 {
 	struct window_gtk3 * this=(struct window_gtk3*)user_data;
-	if (this->onclose && this->onclose((struct window*)this, this->oncloseuserdata)==false) return TRUE;
+	if (this->onclose)
+	{
+		this->delayfree=1;
+		if (this->onclose((struct window*)this, this->oncloseuserdata)==false) return TRUE;
+		if (this->delayfree==2)
+		{
+			this->delayfree=0;
+			free_((struct window*)this);
+			return TRUE;
+		}
+		this->delayfree=0;
+	}
 	
 	this->visible=false;
 	gtk_widget_hide(GTK_WIDGET(this->wndw));

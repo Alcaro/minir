@@ -116,7 +116,7 @@ struct window_win32 {
 	bool isdialog;
 	
 	bool menuactive;//odd position to reduce padding
-	//char padding[1];
+	uint8_t delayfree;//0=normal, 1=can't free now, 2=free at next opportunity
 	
 	bool (*onclose)(struct window * subject, void* userdata);
 	void* oncloseuserdata;
@@ -680,6 +680,11 @@ static bool menu_active(struct window * this_)
 static void free_(struct window * this_)
 {
 	struct window_win32 * this=(struct window_win32*)this_;
+	if (this->delayfree)
+	{
+		this->delayfree=2;
+		return;
+	}
 	this->contents->_free(this->contents);
 	if (this->menu) menu_delete(this->menu);
 	DestroyWindow(this->hwnd);
@@ -770,6 +775,7 @@ struct window * window_create(void * contents)
 	this->onclose=NULL;
 	this->lastmousepos=-1;
 	this->status_resizegrip_width=0;
+	this->delayfree=0;
 	
 	resize((struct window*)this, this->contents->_width, this->contents->_height);
 	//_reflow((struct window*)this);
@@ -806,8 +812,15 @@ static LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM l
 		{
 			if (this->onclose)
 			{
-				bool close=this->onclose((struct window*)this, this->oncloseuserdata);
-				if (!close) break;
+				this->delayfree=1;
+				if (!this->onclose((struct window*)this, this->oncloseuserdata)) break;
+				if (this->delayfree==2)
+				{
+					this->delayfree=0;
+					free_((struct window*)this);
+					break;
+				}
+				this->delayfree=0;
 			}
 			ShowWindow(hwnd, SW_HIDE);
 		}
