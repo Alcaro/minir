@@ -769,9 +769,8 @@ struct minircheats_model {
 	// (0..31 and 127), but is otherwise freeform.
 	//The format is designed so that a SNES Gameshark code is valid.
 	
-	//Like search_get_vis_row, the address must be a 32 byte buffer.
-	//The prefix is owned by the model. The description is a pointer back into the given cheat code,
-	// or to the trailing NUL if there is no description.
+	//Like search_get_vis_row, the address must be a 32 byte buffer. The description will point back
+	// into the given cheat code, or to the trailing NUL if there is no description.
 	bool (*cheat_parse)(struct minircheats_model * this, const char * code,
 	                    char * addr,
 	                    unsigned int * vallen, bool * issigned, uint32_t * val, enum cheat_chngtype * changetype,
@@ -781,11 +780,12 @@ struct minircheats_model {
 	                            unsigned int vallen, bool issigned, uint32_t val, enum cheat_chngtype changetype,
 	                            const char * description);
 	
+	int (*cheat_find_for_addr)(struct minircheats_model * this, const char * addr);
 	bool (*cheat_add)(struct minircheats_model * this, const char * code);
 	void (*cheat_replace)(struct minircheats_model * this, unsigned int pos, const char * code);
 	void (*cheat_set_enabled)(struct minircheats_model * this, unsigned int pos, bool enable);
-	void (*cheat_remove)(struct minircheats_model * this, bool enable);
-	const char * const * (*cheat_get_list)(struct minircheats_model * this, unsigned int * count);
+	void (*cheat_remove)(struct minircheats_model * this, unsigned int pos);
+	const char * (*cheat_get)(struct minircheats_model * this, unsigned int pos);
 	
 	//This one makes all cheat codes take effect.
 	bool (*cheat_apply)(struct minircheats_model * this);
