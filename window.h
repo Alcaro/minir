@@ -371,7 +371,8 @@ struct widget_listbox {
 	//The active row can change without activating the new item.
 	//The exact conditions under which a listbox entry is activated is platform dependent, but
 	// double click and Enter are likely. It is guaranteed to be possible.
-	unsigned int (*get_active_row)(struct widget_listbox * this);
+	//Returns -1 if no row is active.
+	int (*get_active_row)(struct widget_listbox * this);
 	void (*set_onactivate)(struct widget_listbox * this,
 	                       void (*onactivate)(struct widget_listbox * subject, unsigned int row, void * userdata),
 	                       void* userdata);

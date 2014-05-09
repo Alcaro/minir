@@ -109,6 +109,7 @@ static void details_free(struct minircheatdetail * this)
 
 static void details_create(struct minircheats_impl * parent, struct window * parentwndw, const char * addr, uint32_t curval)
 {
+return;
 	struct minircheatdetail * this=malloc(sizeof(struct minircheatdetail));
 	this->parent=parent;
 	strcpy(this->orgaddr, addr);
@@ -216,13 +217,19 @@ static void search_reset(struct widget_button * subject, void* userdata)
 	search_update(this);
 }
 
-static void search_add_cheat(struct minircheats_impl * this, unsigned int row)
+static void search_add_cheat(struct minircheats_impl * this, int row)
 {
-printf("row=%i\n",row);
-	char addr[32];
-	uint32_t val;
-	this->model->search_get_vis_row(this->model, row, addr, &val, NULL);
-	//details_create(this, this->wndsrch, addr, val);
+	if (row>=0)
+	{
+		char addr[32];
+		uint32_t val;
+		this->model->search_get_vis_row(this->model, row, addr, &val, NULL);
+		details_create(this, this->wndsrch, addr, val);
+	}
+	else
+	{
+		details_create(this, this->wndsrch, "", 0);
+	}
 }
 
 static void search_add_cheat_listbox(struct widget_listbox * subject, unsigned int row, void* userdata)

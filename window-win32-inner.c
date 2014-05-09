@@ -853,7 +853,7 @@ printf("%u->%u %u->%u\n",widthpx,this->i.base._width,heightpx,this->i.base._heig
 	this->parent->_reflow(this->parent);
 }
 
-static unsigned int listbox_get_active_row(struct widget_listbox * this_)
+static int listbox_get_active_row(struct widget_listbox * this_)
 {
 	struct widget_listbox_win32 * this=(struct widget_listbox_win32*)this_;
 	return ListView_GetSelectionMark(this->hwnd);

@@ -316,6 +316,17 @@ static void listbox_refresh(struct widget_listbox * this_)
 	gtk_widget_queue_draw(GTK_WIDGET(this->tree));
 }
 
+static int listbox_get_active_row(struct widget_listbox * this_)
+{
+	struct widget_listbox_gtk3 * this=(struct widget_listbox_gtk3*)this_;
+	GList* list=gtk_tree_selection_get_selected_rows(gtk_tree_view_get_selection(this->tree), NULL);
+	int ret;
+	if (list) ret=gtk_tree_path_get_indices(list->data)[0];
+	else ret=-1;
+	g_list_free_full(list, (GDestroyNotify)gtk_tree_path_free);
+	return ret;
+}
+
 static void listbox_onactivate(GtkTreeView* tree_view, GtkTreePath* path, GtkTreeViewColumn* column, gpointer user_data)
 {
 	struct widget_listbox_gtk3 * this=(struct widget_listbox_gtk3*)user_data;
@@ -323,11 +334,6 @@ static void listbox_onactivate(GtkTreeView* tree_view, GtkTreePath* path, GtkTre
 	{
 		this->onactivate((struct widget_listbox*)this, gtk_tree_path_get_indices(path)[0], this->activate_userdata);
 	}
-}
-
-static unsigned int listbox_get_active_row(struct widget_listbox * this_)
-{
-	return 0;
 }
 
 static void listbox_set_onactivate(struct widget_listbox * this_,
