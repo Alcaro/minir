@@ -42,22 +42,6 @@ struct minircheats_impl {
 	char celltmp[32];
 };
 
-struct minircheatdetail {//these windows are not referenced within the main cheat structures; there can be multiple
-	struct minircheats_impl * parent;
-	
-	struct window * wndw;
-	struct widget_textbox * addr;
-	struct widget_textbox * newval;
-	struct widget_textbox * desc;
-	
-	unsigned int datsize :3;
-	enum cheat_dattype dattype :2;
-	//int padding :3;
-	//char padding[7];
-	
-	char orgaddr[32];
-};
-
 static void search_update(struct minircheats_impl * this);
 
 static void set_core(struct minircheats * this_, struct libretro * core)
@@ -76,12 +60,38 @@ static void set_parent(struct minircheats * this_, struct window * parent)
 
 
 
+struct minircheatdetail {//these windows are not referenced within the main cheat structures; there can be multiple
+	struct minircheats_impl * parent;
+	
+	struct window * wndw;
+	struct widget_textbox * addr;
+	struct widget_textbox * newval;
+	struct widget_textbox * desc;
+	
+	unsigned int datsize :3;
+	enum cheat_dattype dattype :2;
+	//int padding :3;
+	//char padding[7];
+	
+	char orgaddr[32];
+};
+
 //TODO: check that gtk listbox supports all needed features
 //TODO: also check that gtk supports freeing from the callbacks
 static void details_free(struct minircheatdetail * this);
 static void details_ok(struct widget_button * subject, void* userdata)
 {
 	struct minircheatdetail * this=(struct minircheatdetail*)userdata;
+	uint32_t val=0x7E1234;//TODO: fix this
+	const char * code;
+	code=this->parent->model->cheat_build(this->parent->model, 
+	                                      this->addr->get_text(this->addr),
+	                                      this->datsize, (this->dattype==cht_sign), val, cht_const,//TODO: make this configurable
+	                                      this->desc->get_text(this->desc));
+	puts(code);
+	                            //const char * addr,
+	                            //unsigned int vallen, bool issigned, uint32_t val, enum cheat_chngtype changetype,
+	                            //const char * description);
 	//TODO: interact with model
 	//if a cheat code address equals this->orgaddr, replace it
 	//however, if this->addr does not equal this->orgaddr and there is also another cheat on this->addr, ask which to keep

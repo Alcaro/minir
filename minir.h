@@ -775,6 +775,7 @@ struct minircheats_model {
 	                    char * addr,
 	                    unsigned int * vallen, bool * issigned, uint32_t * val, enum cheat_chngtype * changetype,
 	                    const char * * description);
+	//The pointer is valid until the next cheat_build() or free().
 	const char * (*cheat_build)(struct minircheats_model * this,
 	                            const char * addr,
 	                            unsigned int vallen, bool issigned, uint32_t val, enum cheat_chngtype changetype,
