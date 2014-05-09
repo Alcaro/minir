@@ -100,7 +100,6 @@ static void resize(struct window * this_, unsigned int width, unsigned int heigh
 static gboolean onclose_gtk(GtkWidget* widget, GdkEvent* event, gpointer user_data);
 static gboolean popup_esc_close(GtkWidget* widget, GdkEvent* event, gpointer user_data)
 {
-	struct window_gtk3 * this=(struct window_gtk3*)user_data;
 	if (event->key.keyval==GDK_KEY_Escape)
 	{
 		onclose_gtk(widget, event, user_data);
