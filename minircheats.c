@@ -109,7 +109,6 @@ static void details_free(struct minircheatdetail * this)
 
 static void details_create(struct minircheats_impl * parent, struct window * parentwndw, const char * addr, uint32_t curval)
 {
-return;
 	struct minircheatdetail * this=malloc(sizeof(struct minircheatdetail));
 	this->parent=parent;
 	strcpy(this->orgaddr, addr);
