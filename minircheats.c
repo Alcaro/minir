@@ -201,9 +201,16 @@ static void search_dosearch(struct widget_button * subject, void* userdata)
 	if (!comptoprev)
 	{
 		const char * compto_str=(this->wndsrch_compto_entry->get_text(this->wndsrch_compto_entry));
-		if (this->dattype==cht_hex) compto_val=strtoul(compto_str, NULL, 16);
-		if (this->dattype==cht_sign) compto_val=strtol(compto_str, NULL, 10);
-		if (this->dattype==cht_unsign) compto_val=strtoul(compto_str, NULL, 10);
+		if (comptowhat==cht_curptr)
+		{
+			this->model->cheat_read(this->model, compto_str, this->datsize, &compto_val);
+		}
+		else
+		{
+			if (this->dattype==cht_hex) compto_val=strtoul(compto_str, NULL, 16);
+			if (this->dattype==cht_sign) compto_val=strtol(compto_str, NULL, 10);
+			if (this->dattype==cht_unsign) compto_val=strtoul(compto_str, NULL, 10);
+		}
 	}
 	this->model->search_do_search(this->model, this->wndsrch_comptype->get_state(this->wndsrch_comptype), comptoprev, compto_val);
 	search_update(this);

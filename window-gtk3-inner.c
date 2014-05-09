@@ -262,62 +262,87 @@ struct widget_radio * widget_create_radio(const char * text)
 
 
 
-//struct widget_textbox_gtk3 {
-	//struct widget_textbox i;
-	//
-	//void (*onclick)(struct widget_textbox * textbox, void* userdata);
-	//void* userdata;
-//};
-//
-//static void textbox__free(struct widget_base * this_)
-//{
-	//struct widget_textbox_gtk3 * this=(struct widget_textbox_gtk3*)this_;
-	//free(this);
-//}
-//
-//static void textbox_set_enabled(struct widget_textbox * this_, bool enable)
-//{
-	//struct widget_textbox_gtk3 * this=(struct widget_textbox_gtk3*)this_;
-	//gtk_widget_set_sensitive(GTK_WIDGET(this->i.base._widget), enable);
-//}
-//
-//static void textbox_set_text(struct widget_textbox * this_, const char * text)
-//{
-	//struct widget_textbox_gtk3 * this=(struct widget_textbox_gtk3*)this_;
-	//
-	//gtk_textbox_set_label(GTK_textbox(this->i.base._widget), text);
-//}
-//
-//static void textbox_onclick(Gtktextbox *textbox, gpointer user_data)
-//{
-	//struct widget_textbox_gtk3 * this=(struct widget_textbox_gtk3*)user_data;
-	//this->onclick((struct widget_textbox*)this, this->userdata);
-//}
-//
-//static void textbox_set_onclick(struct widget_textbox * this_,
-                               //void (*onclick)(struct widget_textbox * textbox, void* userdata), void* userdata)
-//{
-	//struct widget_textbox_gtk3 * this=(struct widget_textbox_gtk3*)this_;
-	//
-	//g_signal_connect(this->i.base._widget, "clicked", G_CALLBACK(textbox_onclick), this);
-	//this->onclick=onclick;
-	//this->userdata=userdata;
-//}
+struct widget_textbox_gtk3 {
+	struct widget_textbox i;
+	
+	void (*onchange)(struct widget_textbox * textbox, const char * text, void* userdata);
+	void* ch_userdata;
+	void (*onactivate)(struct widget_textbox * textbox, void* userdata);
+	void* ac_userdata;
+};
+
+static void textbox__free(struct widget_base * this_)
+{
+	struct widget_textbox_gtk3 * this=(struct widget_textbox_gtk3*)this_;
+	free(this);
+}
+
+static void textbox_set_enabled(struct widget_textbox * this_, bool enable)
+{
+	struct widget_textbox_gtk3 * this=(struct widget_textbox_gtk3*)this_;
+	gtk_widget_set_sensitive(GTK_WIDGET(this->i.base._widget), enable);
+}
+
+static void textbox_set_text(struct widget_textbox * this_, const char * text, unsigned int maxlen)
+{
+	struct widget_textbox_gtk3 * this=(struct widget_textbox_gtk3*)this_;
+	gtk_entry_set_max_length(GTK_ENTRY(this->i.base._widget), maxlen);
+	gtk_entry_set_text(GTK_ENTRY(this->i.base._widget), text);
+}
+
+static const char * textbox_get_text(struct widget_textbox * this_)
+{
+	struct widget_textbox_gtk3 * this=(struct widget_textbox_gtk3*)this_;
+	return gtk_entry_get_text(GTK_ENTRY(this->i.base._widget));
+}
+
+static void textbox_onchange(GtkEntry* entry, gpointer user_data)
+{
+	struct widget_textbox_gtk3 * this=(struct widget_textbox_gtk3*)user_data;
+	this->onchange((struct widget_textbox*)this, gtk_entry_get_text(GTK_ENTRY(this->i.base._widget)), this->ch_userdata);
+}
+
+static void textbox_set_onchange(struct widget_textbox * this_,
+                                 void (*onchange)(struct widget_textbox * subject, const char * text, void* userdata), void* userdata)
+{
+	struct widget_textbox_gtk3 * this=(struct widget_textbox_gtk3*)this_;
+	
+	g_signal_connect(this->i.base._widget, "change", G_CALLBACK(textbox_onchange), this);
+	this->onchange=onchange;
+	this->ch_userdata=userdata;
+}
+
+static void textbox_onactivate(GtkEntry* entry, gpointer user_data)
+{
+	struct widget_textbox_gtk3 * this=(struct widget_textbox_gtk3*)user_data;
+	this->onactivate((struct widget_textbox*)this, this->ac_userdata);
+}
+
+static void textbox_set_onactivate(struct widget_textbox * this_,
+                                   void (*onactivate)(struct widget_textbox * subject, void* userdata), void* userdata)
+{
+	struct widget_textbox_gtk3 * this=(struct widget_textbox_gtk3*)this_;
+	
+	g_signal_connect(this->i.base._widget, "activate", G_CALLBACK(textbox_onactivate), this);
+	this->onactivate=onactivate;
+	this->ac_userdata=userdata;
+}
 
 struct widget_textbox * widget_create_textbox()
 {
-return(struct widget_textbox*)widget_create_button("moo");
-	//struct widget_textbox_gtk3 * this=malloc(sizeof(struct widget_textbox_gtk3));
-	//this->i.base._widget=gtk_entry_new();
-	//this->i.base._widthprio=3;
-	//this->i.base._heightprio=1;
-	//this->i.base._free=textbox__free;
-	//
-	//this->i.set_enabled=textbox_set_enabled;
-	//this->i.set_text=textbox_set_text;
-	//this->i.set_onclick=textbox_set_onclick;
-	//
-	//return (struct widget_textbox*)this;
+	struct widget_textbox_gtk3 * this=malloc(sizeof(struct widget_textbox_gtk3));
+	this->i.base._widget=gtk_entry_new();
+	this->i.base._widthprio=3;
+	this->i.base._heightprio=1;
+	this->i.base._free=textbox__free;
+	
+	this->i.set_enabled=textbox_set_enabled;
+	this->i.get_text=textbox_get_text;
+	this->i.set_text=textbox_set_text;
+	this->i.set_onchange=textbox_set_onchange;
+	this->i.set_onactivate=textbox_set_onactivate;
+	
+	return (struct widget_textbox*)this;
 }
 
 
