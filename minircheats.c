@@ -42,6 +42,23 @@ struct minircheats_impl {
 	char celltmp[32];
 };
 
+//out length must be at least 16 bytes; return value is 'out'
+static const char * encodeval(enum cheat_dattype dattype, unsigned int datsize, uint32_t val, char * out)
+{
+	if (dattype==cht_hex)    sprintf(out, "%.*X", datsize*2, val);
+	if (dattype==cht_sign)   sprintf(out, "%i", (int32_t)val);
+	if (dattype==cht_unsign) sprintf(out, "%u", val);
+	return out;
+}
+
+static uint32_t decodeval(enum cheat_dattype dattype, const char * val)
+{
+	if (dattype==cht_hex) return strtoul(val, NULL, 16);
+	if (dattype==cht_sign) return strtol(val, NULL, 10);
+	if (dattype==cht_unsign) return strtoul(val, NULL, 10);
+	__builtin_unreachable();
+}
+
 static void search_update(struct minircheats_impl * this);
 
 static void set_core(struct minircheats * this_, struct libretro * core)
@@ -88,7 +105,7 @@ static void details_ok(struct widget_button * subject, void* userdata)
 	                                      this->addr->get_text(this->addr),
 	                                      this->datsize, (this->dattype==cht_sign), val, cht_const,//TODO: make this configurable
 	                                      this->desc->get_text(this->desc));
-	puts(code);
+puts(code);
 	                            //const char * addr,
 	                            //unsigned int vallen, bool issigned, uint32_t val, enum cheat_chngtype changetype,
 	                            //const char * description);
@@ -121,6 +138,8 @@ static void details_create(struct minircheats_impl * parent, struct window * par
 {
 	struct minircheatdetail * this=malloc(sizeof(struct minircheatdetail));
 	this->parent=parent;
+	this->dattype=parent->dattype;
+	this->datsize=parent->datsize;
 	strcpy(this->orgaddr, addr);
 	
 	struct widget_textbox * curvalbox;
@@ -134,7 +153,7 @@ static void details_create(struct minircheats_impl * parent, struct window * par
 			widget_create_label("New Value"), this->newval=widget_create_textbox(),
 			//TODO: size and type
 			widget_create_label("Description"), widget_create_textbox(),
-			widget_create_label(""), widget_create_layout_horz(
+			widget_create_padding_horz(), widget_create_layout_horz(
 				widget_create_padding_horz(),
 				ok=widget_create_button("OK"),
 				cancel=widget_create_button("Cancel"),
@@ -148,8 +167,8 @@ static void details_create(struct minircheats_impl * parent, struct window * par
 	
 	this->addr->set_text(this->addr, addr, 31);
 	
-	char valstr[9];
-	sprintf(valstr, "%.*X", parent->datsize*2, curval);//TODO: follow parent->dattype
+	char valstr[16];
+	encodeval(this->dattype, this->datsize, curval, valstr);
 	curvalbox->set_text(curvalbox, valstr, 0);
 	this->newval->set_text(this->newval, valstr, 0);//default to keep at current value
 	//TODO: newval->focus(newval);
@@ -217,9 +236,7 @@ static void search_dosearch(struct widget_button * subject, void* userdata)
 		}
 		else
 		{
-			if (this->dattype==cht_hex) compto_val=strtoul(compto_str, NULL, 16);
-			if (this->dattype==cht_sign) compto_val=strtol(compto_str, NULL, 10);
-			if (this->dattype==cht_unsign) compto_val=strtoul(compto_str, NULL, 10);
+			compto_val=decodeval(this->dattype, compto_str);
 		}
 	}
 	this->model->search_do_search(this->model, this->wndsrch_comptype->get_state(this->wndsrch_comptype), comptoprev, compto_val);
@@ -360,9 +377,8 @@ static const char * search_get_cell(struct widget_listbox * subject, unsigned in
 		uint32_t val;
 		if (column==1) this->model->search_get_vis_row(this->model, row, NULL, &val, NULL);
 		if (column==2) this->model->search_get_vis_row(this->model, row, NULL, NULL, &val);
-		if (this->dattype==cht_hex)    sprintf(this->celltmp, "%.*X", this->datsize*2, val);
-		if (this->dattype==cht_sign)   sprintf(this->celltmp, "%i", (int32_t)val);
-		if (this->dattype==cht_unsign) sprintf(this->celltmp, "%u", val);
+		encodeval(this->dattype, this->datsize, val, this->celltmp);
+if(column==2)sprintf(this->celltmp,"%i",val);
 	}
 	return this->celltmp;
 }
