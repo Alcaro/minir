@@ -748,9 +748,6 @@ struct minircheats_model {
 	void (*search_get_vis_row)(struct minircheats_model * this, unsigned int row,
 	                           char * addr, uint32_t * val, uint32_t * prevval);
 	
-	//TODO: Move to the end once this interface stabilizes.
-	void (*free)(struct minircheats_model * this);
-	
 	//Fails if the address doesn't refer to anything, or if the refered to memory block ends too soon.
 	bool (*cheat_read)(struct minircheats_model * this, const char * addr, unsigned int datsize, uint32_t * val);
 	
@@ -790,6 +787,8 @@ struct minircheats_model {
 	
 	//This one makes all cheat codes take effect.
 	bool (*cheat_apply)(struct minircheats_model * this);
+	
+	void (*free)(struct minircheats_model * this);
 };
 struct minircheats_model * minircheats_create_model();
 
