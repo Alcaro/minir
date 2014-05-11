@@ -15,8 +15,8 @@ struct cheat_impl {
 	bool restore :1;
 	//char padding2[2];
 	
-	unsigned int orgvalue;//value to restore to if disabled
-	unsigned int prevvalue;//value of last frame, for inconly/deconly
+	uint32_t orgvalue;//value to restore to if disabled
+	uint32_t prevvalue;//value of last frame, for inconly/deconly
 };
 
 struct memblock {
