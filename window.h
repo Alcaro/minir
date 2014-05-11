@@ -261,18 +261,27 @@ struct widget_textbox {
 	struct widget_base base;
 	void (*set_enabled)(struct widget_textbox * this, bool enable);
 	
-	//The return value is guaranteed valid until the next call to a function on this object, or window_run[_iter], whichever comes first.
+	//The return value is guaranteed valid until the next call to any function
+	// on this object, or the next window_run[_iter], whichever comes first.
 	const char * (*get_text)(struct widget_textbox * this);
 	//If the length is 0, it's unlimited.
 	void (*set_text)(struct widget_textbox * this, const char * text, unsigned int maxlen);
+	
+	//Highlights the widget as containing invalid data. Can paint the background red, focus it, and various other stuff.
+	//The invalidity highlight is removed as soon as the contents are changed, but may be restored on the onchange event.
+	void (*set_invalid)(struct widget_textbox * this, bool invalid);
 	
 	//Called whenever the text changes.
 	//Note that it is not guaranteed to fire only if the text has changed; it may, for example,
 	// fire if the user selects an E and types another E on top. Or for no reason at all.
 	//Also note that 'text' is invalidated under the same conditions as get_text is.
-	void (*set_onchange)(struct widget_textbox * this, void (*callback)(struct widget_textbox * subject, const char * text, void * userdata), void * userdata);
+	void (*set_onchange)(struct widget_textbox * this,
+	                     void (*onchange)(struct widget_textbox * subject, const char * text, void * userdata),
+	                     void * userdata);
 	//Called if the user hits Enter while this widget is focused. [TODO: Doesn't that activate the default button instead?]
-	void (*set_onactivate)(struct widget_textbox * this, void (*callback)(struct widget_textbox * subject, void * userdata), void * userdata);
+	void (*set_onactivate)(struct widget_textbox * this,
+	                       void (*onactivate)(struct widget_textbox * subject, void * userdata),
+	                       void * userdata);
 };
 struct widget_textbox * widget_create_textbox();
 

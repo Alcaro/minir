@@ -26,7 +26,8 @@
 
 #define TIMER_MOUSEHIDE 1
 
-//Keep noninteractive at 0 and defbutton at button+1. Otherwise, no rules for which values mean what; the IDs only mean anything inside this file.
+//Keep noninteractive at 0 and defbutton at button+1.
+//Otherwise, no rules for which values mean what; the IDs only mean anything inside this file.
 #define CTID_NONINTERACTIVE 0
 #define CTID_BUTTON 1
 #define CTID_DEFBUTTON 2
@@ -66,7 +67,8 @@ void _window_init_inner()
 	//dpiheight=GetDeviceCaps(hdc, LOGPIXELSY);
 	
 	dlgfont=try_create_font("Segoe UI", 9);
-	if (!dlgfont) dlgfont=try_create_font("MS Shell Dlg 2", 8);//I'm just gonna expect this one not to fail. If it does, we'll get the bad font.
+	if (!dlgfont) dlgfont=try_create_font("MS Shell Dlg 2", 8);//I'm just gonna expect this one not to fail.
+	                                                           //If it does, we'll get the bad font; no real catastrophe.
 	
 //	HGDIOBJ prevfont=SelectObject(hdc, dlgfont);
 //	TEXTMETRIC metrics;
@@ -85,7 +87,8 @@ void _window_init_inner()
 //		dlgbuttonheight=20;
 //	}
 	//"tmAveCharWidth is not precise". fuck that shit, I do the right thing if it's not a pain.
-	//actually, the right thing would probably be "fuck Microsoft, more Linux" and delete this file, because that's even less of a pain.
+	//actually, the right thing would probably be "fuck Microsoft, more Linux" and delete this file,
+	// because that's even less of a pain.
 	
 	//SelectObject(hdc, prevfont);
 	//ReleaseDC(NULL, hdc);
@@ -132,7 +135,8 @@ static unsigned int label__init(struct widget_base * this_, struct window * pare
 	struct widget_label_win32 * this=(struct widget_label_win32*)this_;
 	this->parent=parent;
 	char* text=(char*)this->hwnd;
-	this->hwnd=CreateWindow(WC_STATIC, text, WS_CHILD|WS_VISIBLE|SS_NOPREFIX, 0, 0, 16, 16, // just some random sizes, we'll resize it in _place()
+	this->hwnd=CreateWindow(WC_STATIC, text, WS_CHILD|WS_VISIBLE|SS_NOPREFIX,
+	                        0, 0, 16, 16, // just some random sizes, we'll resize it in _place()
 	                        (HWND)parenthandle, NULL, GetModuleHandle(NULL), NULL);
 	measure_text(text, &this->i.base._width, &this->i.base._height);
 	free(text);
@@ -142,7 +146,8 @@ static unsigned int label__init(struct widget_base * this_, struct window * pare
 
 static void label__measure(struct widget_base * this_) {}
 
-static void label__place(struct widget_base * this_, void* resizeinf, unsigned int x, unsigned int y, unsigned int width, unsigned int height)
+static void label__place(struct widget_base * this_, void* resizeinf,
+                         unsigned int x, unsigned int y, unsigned int width, unsigned int height)
 {
 	struct widget_label_win32 * this=(struct widget_label_win32*)this_;
 	place_window(this->hwnd, resizeinf, x,y+(height-this->i.base._height)/2, width,this->i.base._height);
@@ -211,7 +216,8 @@ static unsigned int button__init(struct widget_base * this_, struct window * par
 
 static void button__measure(struct widget_base * this_) {}
 
-static void button__place(struct widget_base * this_, void* resizeinf, unsigned int x, unsigned int y, unsigned int width, unsigned int height)
+static void button__place(struct widget_base * this_, void* resizeinf,
+                          unsigned int x, unsigned int y, unsigned int width, unsigned int height)
 {
 	struct widget_button_win32 * this=(struct widget_button_win32*)this_;
 	place_window(this->hwnd, resizeinf, x, y, width, height);
@@ -235,7 +241,9 @@ static void button_set_text(struct widget_button * this_, const char * text)
 	SetWindowText(this->hwnd, text);
 }
 
-static void button_set_onclick(struct widget_button * this_, void (*onclick)(struct widget_button * subject, void* userdata), void* userdata)
+static void button_set_onclick(struct widget_button * this_,
+                               void (*onclick)(struct widget_button * subject, void* userdata),
+                               void* userdata)
 {
 	struct widget_button_win32 * this=(struct widget_button_win32*)this_;
 	this->onclick=onclick;
@@ -303,7 +311,8 @@ static unsigned int radio__init(struct widget_base * this_, struct window * pare
 
 static void radio__measure(struct widget_base * this_) {}
 
-static void radio__place(struct widget_base * this_, void* resizeinf, unsigned int x, unsigned int y, unsigned int width, unsigned int height)
+static void radio__place(struct widget_base * this_, void* resizeinf,
+                         unsigned int x, unsigned int y, unsigned int width, unsigned int height)
 {
 	struct widget_radio_win32 * this=(struct widget_radio_win32*)this_;
 	place_window(this->hwnd, resizeinf, x, y, width, height);
@@ -428,7 +437,8 @@ static void textbox__measure(struct widget_base * this_)
 	this->i.base._height+=6;
 }
 
-static void textbox__place(struct widget_base * this_, void* resizeinf, unsigned int x, unsigned int y, unsigned int width, unsigned int height)
+static void textbox__place(struct widget_base * this_, void* resizeinf,
+                           unsigned int x, unsigned int y, unsigned int width, unsigned int height)
 {
 	struct widget_textbox_win32 * this=(struct widget_textbox_win32*)this_;
 	place_window(this->hwnd, resizeinf, x+1,y+1, width-2,height-2);//this math is to get the border to the inside of the widget
@@ -467,8 +477,17 @@ static void textbox_set_text(struct widget_textbox * this_, const char * text, u
 }
 
 static void textbox_set_onchange(struct widget_textbox * this_,
-                                 void (*callback)(struct widget_textbox * subject, const char * text, void * userdata),
-                                 void * userdata)
+                                 void (*onchange)(struct widget_textbox * subject, const char * text, void* userdata),
+                                 void* userdata)
+{
+	struct widget_textbox_win32 * this=(struct widget_textbox_win32*)this_;
+	this->onchange=callback;
+	this->userdata=userdata;
+}
+
+static void textbox_set_onactivate(struct widget_textbox * this_,
+                                   void (*onactivate)(struct widget_textbox * subject, const char * text, void* userdata),
+                                   void* userdata)
 {
 	struct widget_textbox_win32 * this=(struct widget_textbox_win32*)this_;
 	this->onchange=callback;
@@ -488,7 +507,9 @@ struct widget_textbox * widget_create_textbox()
 	this->i.set_enabled=textbox_set_enabled;
 	this->i.get_text=textbox_get_text;
 	this->i.set_text=textbox_set_text;
+	this->i.set_input=textbox_set_invalid;
 	this->i.set_onchange=textbox_set_onchange;
+	this->i.set_onactivate=textbox_set_onactivate;
 	
 	this->text=NULL;
 	this->onchange=NULL;
@@ -528,7 +549,8 @@ static unsigned int viewport__init(struct widget_base * this_, struct window * p
 
 static void viewport__measure(struct widget_base * this_) {}
 
-static void viewport__place(struct widget_base * this_, void* resizeinf, unsigned int x, unsigned int y, unsigned int width, unsigned int height)
+static void viewport__place(struct widget_base * this_, void* resizeinf,
+                            unsigned int x, unsigned int y, unsigned int width, unsigned int height)
 {
 	struct widget_viewport_win32 * this=(struct widget_viewport_win32*)this_;
 	place_window(this->hwnd, resizeinf, x, y, width, height);
@@ -686,17 +708,17 @@ struct widget_listbox_win32 {
 	unsigned int columnwidthsum;
 	unsigned int * columnwidths;
 	
-	const char * (*get_cell)(struct widget_listbox * subject, unsigned int row, unsigned int column, void * userdata);
-	int (*search)(struct widget_listbox * subject, unsigned int start, const char * str, void * userdata);
+	const char * (*get_cell)(struct widget_listbox * subject, unsigned int row, unsigned int column, void* userdata);
+	int (*search)(struct widget_listbox * subject, unsigned int start, const char * str, void* userdata);
 	void* virt_userdata;
 	
 	struct _widget_listbox_devirt * devirt;
 	
-	void (*onactivate)(struct widget_listbox * subject, unsigned int row, void * userdata);
+	void (*onactivate)(struct widget_listbox * subject, unsigned int row, void* userdata);
 	void* act_userdata;
 	
 	bool* checkboxes;
-	void (*ontoggle)(struct widget_listbox * subject, unsigned int row, bool state, void * userdata);
+	void (*ontoggle)(struct widget_listbox * subject, unsigned int row, bool state, void* userdata);
 	void* tg_userdata;
 };
 
@@ -705,8 +727,8 @@ static unsigned int listbox__init(struct widget_base * this_, struct window * pa
 	struct widget_listbox_win32 * this=(struct widget_listbox_win32*)this_;
 	this->parent=parent;
 	const char * * columns=(const char**)this->hwnd;
-	this->hwnd=CreateWindowEx(WS_EX_CLIENTEDGE, WC_LISTVIEW, "", WS_CHILD|WS_VISIBLE|WS_TABSTOP|LVS_REPORT|LVS_OWNERDATA, 0, 0, 16, 16,
-	                        (HWND)parenthandle, (HMENU)CTID_LISTVIEW, GetModuleHandle(NULL), NULL);
+	this->hwnd=CreateWindowEx(WS_EX_CLIENTEDGE, WC_LISTVIEW, "", WS_CHILD|WS_VISIBLE|WS_TABSTOP|LVS_REPORT|LVS_OWNERDATA,
+	                          0, 0, 16, 16, (HWND)parenthandle, (HMENU)CTID_LISTVIEW, GetModuleHandle(NULL), NULL);
 	
 	SetWindowLongPtr(this->hwnd, GWLP_USERDATA, (LONG_PTR)this);
 	SendMessage(this->hwnd, WM_SETFONT, (WPARAM)dlgfont, FALSE);
@@ -731,13 +753,15 @@ static unsigned int listbox__init(struct widget_base * this_, struct window * pa
 	this->checkboxes=NULL;
 	
 	free(columns);
-	return 1;//pretty sure the listbox has children, but I can't ask how many of those there are. Probably varies if I add checkboxes, too.
+	//pretty sure the listbox has children, but I can't ask how many of those there are. Probably varies if I add checkboxes, too.
 	//But I'm not the one resizing them, so whatever.
+	return 1;
 }
 
 static void listbox__measure(struct widget_base * this_) {}
 
-static void listbox__place(struct widget_base * this_, void* resizeinf, unsigned int x, unsigned int y, unsigned int width, unsigned int height)
+static void listbox__place(struct widget_base * this_, void* resizeinf,
+                           unsigned int x, unsigned int y, unsigned int width, unsigned int height)
 {
 	struct widget_listbox_win32 * this=(struct widget_listbox_win32*)this_;
 	place_window(this->hwnd, resizeinf, x, y, width, height);
@@ -788,10 +812,12 @@ static void listbox_set_contents(struct widget_listbox * this_, unsigned int row
 }
 
 static void listbox_set_contents_virtual(struct widget_listbox * this_, unsigned int rows,
-                                         const char * (*get_cell)(struct widget_listbox * subject, unsigned int row, unsigned int column,
-                                                                  void * userdata),
-                                         int (*search)(struct widget_listbox * subject, unsigned int start, const char * str, void * userdata),
-                                         void * userdata)
+                                         const char * (*get_cell)(struct widget_listbox * subject,
+                                                                  unsigned int row, unsigned int column,
+                                                                  void* userdata),
+                                         int (*search)(struct widget_listbox * subject, unsigned int start,
+                                                       const char * str, void* userdata),
+                                         void* userdata)
 {
 	struct widget_listbox_win32 * this=(struct widget_listbox_win32*)this_;
 	_widget_listbox_devirt_free(this->devirt);
@@ -860,7 +886,7 @@ static int listbox_get_active_row(struct widget_listbox * this_)
 }
 
 static void listbox_set_onactivate(struct widget_listbox * this_,
-                                   void (*onactivate)(struct widget_listbox * subject, unsigned int row, void * userdata),
+                                   void (*onactivate)(struct widget_listbox * subject, unsigned int row, void* userdata),
                                    void* userdata)
 {
 	struct widget_listbox_win32 * this=(struct widget_listbox_win32*)this_;
@@ -869,8 +895,8 @@ static void listbox_set_onactivate(struct widget_listbox * this_,
 }
 
 static void listbox_add_checkboxes(struct widget_listbox * this_,
-                                   void (*ontoggle)(struct widget_listbox * subject, unsigned int row, bool state, void * userdata),
-                                   void * userdata)
+                                   void (*ontoggle)(struct widget_listbox * subject, unsigned int row, bool state, void* userdata),
+                                   void* userdata)
 {
 	struct widget_listbox_win32 * this=(struct widget_listbox_win32*)this_;
 	ListView_SetExtendedListViewStyleEx(this->hwnd, LVS_EX_CHECKBOXES, LVS_EX_CHECKBOXES);
@@ -993,8 +1019,15 @@ puts("itc tg");
 		NMLVFINDITEM* find=(NMLVFINDITEM*)nmhdr;
 		if (!(find->lvfi.flags&LVFI_STRING)) return 0;
 		
-		if (this->search) return (uintptr_t)this->search((struct widget_listbox*)this, find->iStart, find->lvfi.psz, this->virt_userdata);
-		else return _widget_listbox_search((struct widget_listbox*)this, this->rows, this->get_cell, find->iStart, find->lvfi.psz, this->virt_userdata);
+		if (this->search)
+		{
+			return (uintptr_t)this->search((struct widget_listbox*)this, find->iStart, find->lvfi.psz, this->virt_userdata);
+		}
+		else
+		{
+			return _widget_listbox_search((struct widget_listbox*)this, this->rows, this->get_cell,
+			                              find->iStart, find->lvfi.psz, this->virt_userdata);
+		}
 	}
 	if (nmhdr->code==LVN_KEYDOWN)
 	{
@@ -1011,14 +1044,12 @@ puts("itc tg");
 		}
 		if (keydown->wVKey==VK_RETURN)
 		{
-puts("ntr");
 			int row=ListView_GetSelectionMark(this->hwnd);
 			if (row!=-1 && this->onactivate) this->onactivate((struct widget_listbox*)this, row, this->act_userdata);
 		}
 	}
 	if (nmhdr->code==NM_CLICK)
 	{
-puts("clk");
 		NMITEMACTIVATE* click=(NMITEMACTIVATE*)nmhdr;
 		LVHITTESTINFO hitinfo;
 		hitinfo.pt=click->ptAction;
@@ -1032,7 +1063,6 @@ puts("clk");
 	}
 	if (nmhdr->code==NM_DBLCLK)
 	{
-puts("dbclk");
 		NMITEMACTIVATE* click=(NMITEMACTIVATE*)nmhdr;
 		LVHITTESTINFO hitinfo;
 		hitinfo.pt=click->ptAction;
@@ -1080,10 +1110,12 @@ static void frame__measure(struct widget_base * this_)
 	this->i.base._heightprio=this->child->_heightprio;
 }
 
-static void frame__place(struct widget_base * this_, void* resizeinf, unsigned int x, unsigned int y, unsigned int width, unsigned int height)
+static void frame__place(struct widget_base * this_, void* resizeinf,
+                         unsigned int x, unsigned int y, unsigned int width, unsigned int height)
 {
 	struct widget_frame_win32 * this=(struct widget_frame_win32*)this_;
-	this->child->_place(this->child, resizeinf, x+frame_left, y+frame_top, width-frame_left-frame_right, height-frame_top-frame_bottom);
+	this->child->_place(this->child, resizeinf, x+frame_left, y+frame_top,
+	                    width-frame_left-frame_right, height-frame_top-frame_bottom);
 	place_window(this->hwnd, resizeinf, x, y, width, height);
 }
 
@@ -1149,7 +1181,10 @@ uintptr_t _window_notify_inner(void* notification)
 			if (nmhdr->code==EN_CHANGE)
 			{
 				struct widget_textbox_win32 * this=(struct widget_textbox_win32*)GetWindowLongPtr(nmhdr->hwndFrom, GWLP_USERDATA);
-				if (this->onchange) this->onchange((struct widget_textbox*)this, textbox_get_text((struct widget_textbox*)this), this->userdata);
+				if (this->onchange)
+				{
+					this->onchange((struct widget_textbox*)this, textbox_get_text((struct widget_textbox*)this), this->userdata);
+				}
 			}
 			break;
 		}
