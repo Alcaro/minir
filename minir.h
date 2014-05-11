@@ -730,6 +730,15 @@ void config_write(const char * path);
 //All functions on this object yield undefined behaviour if datsize is not within 1..4.
 enum cheat_compfunc { cht_lt, cht_gt, cht_lte, cht_gte, cht_eq, cht_neq };
 enum cheat_chngtype { cht_once, cht_inconly, cht_deconly, cht_const };
+struct cheat {
+	bool enabled;
+	bool issigned;
+	enum cheat_chngtype changetype :2;
+	unsigned int datsize :3;
+	uint32_t val;
+	const char * desc;
+	const char * addr;
+};
 struct minircheats_model {
 	void (*set_core)(struct minircheats_model * this, struct libretro * core);
 	
@@ -764,19 +773,18 @@ struct minircheats_model {
 	
 	//Fails if the address doesn't refer to anything, or if the refered to memory block ends too soon.
 	bool (*cheat_read)(struct minircheats_model * this, const char * addr, unsigned int datsize, uint32_t * val);
-	int (*cheat_find_for_addr)(struct minircheats_model * this, const char * addr);//-1 for none or invalid address
+	
+	//Don't cache cheat IDs. Use the address as unique key.
+	//If the address is invalid, or not targeted by any cheats, it returns -1.
+	int (*cheat_find_for_addr)(struct minircheats_model * this, unsigned int datsize, const char * addr);
 	
 	unsigned int (*cheat_get_count)(struct minircheats_model * this);
-	bool (*cheat_set)(struct minircheats_model * this, unsigned int pos,//to add a new cheat, use pos==count
-	                  bool enabled, const char * addr,
-	                  unsigned int vallen, uint32_t val, bool issigned, enum cheat_chngtype changetype,
-	                  const char * description);
-	bool (*cheat_set_as_code)(struct minircheats_model * this, unsigned int pos, const char * code);//to add, use pos==count
-	void (*cheat_get)(struct minircheats_model * this, unsigned int pos,
-	                  bool * enabled, char * addr,
-	                  unsigned int * vallen, uint32_t * val, bool * issigned, enum cheat_chngtype * changetype,
-	                  const char * * description);
-	const char * (*cheat_get_as_code)(struct minircheats_model * this, unsigned int pos, const char * code);//to add, use pos==count
+	//To add a new cheat, use pos==count. To check if a cheat is valid without actually adding it, use pos==-1.
+	//The only possible error is if the address is bad, or if the address does not point to anything sufficiently large.
+	bool (*cheat_set)(struct minircheats_model * this, int pos, const struct cheat * newcheat);
+	bool (*cheat_set_as_code)(struct minircheats_model * this, int pos, const char * code);
+	void (*cheat_get)(struct minircheats_model * this, unsigned int pos, struct cheat * newcheat);
+	const char * (*cheat_get_as_code)(struct minircheats_model * this, unsigned int pos);//to add, use pos==count
 	void (*cheat_set_enabled)(struct minircheats_model * this, unsigned int pos, bool enable);
 	void (*cheat_remove)(struct minircheats_model * this, unsigned int pos);
 	

@@ -4,7 +4,7 @@
 #include <string.h>
 #include <ctype.h>
 
-struct cheat {
+struct cheat_impl {
 	unsigned char memblk;
 	
 	unsigned int changemode :2;
@@ -94,6 +94,16 @@ static uint32_t readmem(const unsigned char * ptr, unsigned int nbytes, bool big
 	}
 }
 
+//static void writemem(unsigned char * ptr, enum cheat_size nbytes, bool bigendian, uint32_t value)
+//{
+//	if (nbytes==1)
+//	{
+//		*ptr=value;
+//		return;
+//	}
+//	__builtin_trap();
+//}
+
 static const uint32_t signs[]={0xFFFFFF80, 0xFFFF8000, 0xFF800000, 0x80000000};
 
 static uint32_t signex(uint32_t val, unsigned int nbytes, bool signextend)
@@ -107,16 +117,6 @@ static uint32_t readmemext(const unsigned char * ptr, unsigned int nbytes, bool 
 	return signex(readmem(ptr, nbytes, bigendian), nbytes, signextend);
 }
 
-//static void writemem(unsigned char * ptr, enum cheat_size nbytes, bool bigendian, uint32_t value)
-//{
-//	if (nbytes==1)
-//	{
-//		*ptr=value;
-//		return;
-//	}
-//	__builtin_trap();
-//}
-
 static uint8_t popcount32(uint32_t i)
 {
 //__builtin_popcount is implemented with a function call, but I'll just assume it's faster than this bithack. The compiler knows best.
@@ -129,6 +129,7 @@ static uint8_t popcount32(uint32_t i)
 	return ((i + (i >> 4) & 0xF0F0F0F) * 0x1010101) >> 24; // count
 #endif
 }
+
 
 static void delete_all_mem(struct minircheats_model_impl * this);
 
@@ -467,30 +468,19 @@ static void search_get_vis_row(struct minircheats_model * this_, unsigned int ro
 	if (prevval) *prevval=readmemext(mem->prev+mempos, this->datsize, mem->bigendian, this->issigned);
 }
 
-static bool cheat_read(struct minircheats_model * this_, const char * addr, unsigned int datsize, uint32_t * val)
-{
-	return false;
-}
-
-static bool cheat_parse(struct minircheats_model * this_, const char * code, bool * enabled, char * addr,
-                        unsigned int * vallen, uint32_t * val, bool * issigned, enum cheat_chngtype * changetype,
-                        const char * * description)
-{
-	return false;
-}
-
-static const char * cheat_build(struct minircheats_model * this_, bool enabled, const char * addr,
-                                unsigned int vallen, uint32_t val, bool issigned, enum cheat_chngtype changetype,
-                                const char * description)
+static const char * cheat_get_as_code(struct minircheats_model * this_, unsigned int pos)
 {
 	struct minircheats_model_impl * this=(struct minircheats_model_impl*)this_;
 	free(this->lastcheat);
+	struct cheat thischeat;
+	this_->cheat_get(this_, pos, &thischeat);//TODO: devirtualize
 	//disable address signspec value direction SP desc
-	this->lastcheat=malloc(1+strlen(addr)+8+1+1+1+strlen(description)+1);
+	this->lastcheat=malloc(1+strlen(thischeat.addr)+8+1+1+1+strlen(thischeat.desc)+1);
 	//TODO: verify that addr points to anything
 	const char * const chngtypenames[]={".", "+", "-", ""};
-	sprintf(this->lastcheat, "%s%s%.*X%s%s%s%s", enabled?"":"-", addr, vallen*2, val, issigned?"S":"", chngtypenames[changetype],
-	                         (description && *description) ? " " : "", (description ? description : ""));
+	sprintf(this->lastcheat, "%s%s%.*X%s%s%s%s", thischeat.enabled?"":"-", thischeat.addr,
+	                         thischeat.datsize*2, thischeat.val, thischeat.issigned?"S":"", chngtypenames[thischeat.changetype],
+	                         (thischeat.desc && *thischeat.desc) ? " " : "", (thischeat.desc ? thischeat.desc : ""));
 	return this->lastcheat;
 }
 
@@ -521,7 +511,7 @@ const struct minircheats_model_impl minircheats_model_base = {{
 	set_core,
 	search_reset, search_set_datsize, search_set_signed, search_do_search, search_get_num_rows, search_get_vis_row,
 	NULL, NULL, NULL,//cheat_read, cheat_find_for_addr, cheat_get_count,
-	NULL, NULL, NULL, NULL,//cheat_set, cheat_set_as_code, cheat_get, cheat_get_as_code,
+	NULL, NULL, NULL, cheat_get_as_code,//cheat_set, cheat_set_as_code, cheat_get, cheat_get_as_code,
 	NULL, NULL, NULL,//cheat_set_enabled, cheat_remove, cheat_apply,
 	free_
 }};

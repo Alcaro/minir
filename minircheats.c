@@ -101,23 +101,34 @@ static void details_ok(struct widget_button * subject, void* userdata)
 	uint32_t val;
 	if (!decodeval(this->dattype, this->newval->get_text(this->newval), &val))
 	{
-		//TODO: error
+puts("something something bad value hapen");//TODO: do this properly
 		return;
 	}
 	const char * addr=this->addr->get_text(this->addr);
 	const char * orgaddr=this->orgaddr;
-	int cheatid=this->parent->model->cheat_find_for_addr(this->parent->model, this->addr->get_text(this->addr));
-	if (cheatid==0) cheatnum=this->parent->model->cheat_get_count(this->parent->model);
-	code=this->parent->model->cheat_set(this->parent->model, cheatid, true, addr,
-	                                    this->datsize, val, (this->dattype==cht_sign), cht_const,//TODO: make changetype variable
-	                                    this->desc->get_text(this->desc));
-puts(code);
-	                            //const char * addr,
-	                            //unsigned int vallen, bool issigned, uint32_t val, enum cheat_chngtype changetype,
-	                            //const char * description);
-	//TODO: interact with model
-	//if a cheat code address equals this->orgaddr, replace it
-	//however, if this->addr does not equal this->orgaddr and there is also another cheat on this->addr, ask which to keep
+	struct cheat newcheat = {
+		.enabled=true,
+		.addr=addr,
+		.datsize=this->datsize,
+		.val=val,
+		.issigned=(this->dattype==cht_sign),
+		.changetype=cht_const,//TODO: make this variable
+		.desc=this->desc->get_text(this->desc)
+		};
+	if (!this->parent->model->cheat_set(this->parent->model, -1, &newcheat))
+	{
+puts("something something bad adres hapen");//TODO: do this properly
+		return;
+	}
+	int cheatid_org=this->parent->model->cheat_find_for_addr(this->parent->model, this->datsize, orgaddr);
+	int cheatid_new=this->parent->model->cheat_find_for_addr(this->parent->model, this->datsize, this->addr->get_text(this->addr));
+	if (cheatid_org<0) cheatid_org=this->parent->model->cheat_get_count(this->parent->model);
+	if (cheatid_new>=0 && cheatid_org!=cheatid_new)
+	{
+		//TODO: ask which to keep
+		this->parent->model->cheat_remove(this->parent->model, cheatid_new);
+	}
+	this->parent->model->cheat_set(this->parent->model, cheatid_org, &newcheat);
 	details_free(this);
 }
 
