@@ -465,6 +465,25 @@ static void search_get_vis_row(struct minircheats_model * this_, unsigned int ro
 	if (prevval) *prevval=readmemext(mem->prev+mempos, this->datsize, mem->bigendian, this->issigned);
 }
 
+static bool cheat_read(struct minircheats_model * this, const char * addr, unsigned int datsize, uint32_t * val)
+{
+	return false;
+}
+
+static bool cheat_parse(struct minircheats_model * this, const char * code, char * addr,
+                        unsigned int * vallen, bool * issigned, uint32_t * val, enum cheat_chngtype * changetype,
+                        const char * * description)
+{
+	return false;
+}
+
+static const char * cheat_build(struct minircheats_model * this, const char * addr,
+                                unsigned int vallen, bool issigned, uint32_t val, enum cheat_chngtype changetype,
+                                const char * description)
+{
+	return "eggplant";
+}
+
 static void delete_all_mem(struct minircheats_model_impl * this)
 {
 	for (unsigned int i=0;i<this->nummem;i++)
@@ -490,7 +509,7 @@ static void free_(struct minircheats_model * this_)
 const struct minircheats_model_impl minircheats_model_base = {{
 	set_core,
 	search_reset, search_set_datsize, search_set_signed, search_do_search, search_get_num_rows, search_get_vis_row,
-	NULL, NULL, NULL,//cheat_read, cheat_parse, cheat_build
+	cheat_read, cheat_parse, cheat_build,
 	NULL, NULL, NULL,//cheat_find_for_addr, cheat_add, cheat_replace
 	NULL, NULL, NULL,//cheat_replace, cheat_set_enabled, cheat_remove, cheat_get
 	NULL,//cheat_apply
