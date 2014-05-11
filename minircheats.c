@@ -100,7 +100,12 @@ static void details_free(struct minircheatdetail * this);
 static void details_ok(struct widget_button * subject, void* userdata)
 {
 	struct minircheatdetail * this=(struct minircheatdetail*)userdata;
-	uint32_t val=0x42;//TODO: fix this
+	uint32_t val;
+	if (!decodeval(this->dattype, this->newval->get_text(this->newval), &val))
+	{
+		//TODO: error
+		return;
+	}
 	const char * code;
 	code=this->parent->model->cheat_build(this->parent->model, true,
 	                                      this->addr->get_text(this->addr),
@@ -237,7 +242,11 @@ static void search_dosearch(struct widget_button * subject, void* userdata)
 		}
 		else
 		{
-			compto_val=decodeval(this->dattype, compto_str);
+			if (!decodeval(this->dattype, compto_str, &compto_val))
+			{
+				//TODO: error message; paint the box red?
+				return;
+			}
 		}
 	}
 	this->model->search_do_search(this->model, this->wndsrch_comptype->get_state(this->wndsrch_comptype), comptoprev, compto_val);
