@@ -737,7 +737,8 @@ struct cheat {
 	unsigned int datsize :3;
 	uint32_t val;
 	const char * desc;
-	char addr[32];
+	char * addr;//For cheat_set, this is constant.
+	            //For cheat_get, this is a buffer of size 32 or larger, and will be written.
 };
 struct minircheats_model {
 	void (*set_core)(struct minircheats_model * this, struct libretro * core);

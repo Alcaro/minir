@@ -107,7 +107,7 @@ static void details_ok(struct widget_button * subject, void* userdata)
 	const char * orgaddr=this->orgaddr;
 	struct cheat newcheat = {
 		.enabled=true,
-		.addr=this->addr->get_text(this->addr),
+		.addr=(char*)this->addr->get_text(this->addr),
 		.datsize=this->datsize,
 		.val=val,
 		.issigned=(this->dattype==cht_sign),
