@@ -106,7 +106,6 @@ static void details_ok(struct widget_button * subject, void* userdata)
 	                                      (this->dattype==cht_sign), this->datsize, val, cht_const,
 	                                      this->desc->get_text(this->desc));
 puts(code);
-//touch
 	                            //const char * addr,
 	                            //unsigned int vallen, bool issigned, uint32_t val, enum cheat_chngtype changetype,
 	                            //const char * description);

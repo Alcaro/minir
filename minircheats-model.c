@@ -487,7 +487,8 @@ static const char * cheat_build(struct minircheats_model * this_, bool enabled, 
 	free(this->lastcheat);
 	//disable address signspec value direction SP desc
 	this->lastcheat=malloc(1+strlen(addr)+8+1+1+1+strlen(description)+1);
-	sprintf(this->lastcheat, "%s%s%s%.*X%s%s%s", enabled?"":"-", addr, issigned?"S":"", vallen*2, val, "_",
+	const char * const chngtypenames[]={".", "+", "-", ""};
+	sprintf(this->lastcheat, "%s%s%s%.*X%s%s%s", enabled?"":"-", addr, issigned?"S":"", vallen*2, val, chngtypenames[changetype],
 	                         (description && *description) ? " " : "", (description ? description : ""));
 	return this->lastcheat;
 }
