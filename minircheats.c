@@ -101,11 +101,12 @@ static void details_ok(struct widget_button * subject, void* userdata)
 	struct minircheatdetail * this=(struct minircheatdetail*)userdata;
 	uint32_t val=0x7E1234;//TODO: fix this
 	const char * code;
-	code=this->parent->model->cheat_build(this->parent->model, 
+	code=this->parent->model->cheat_build(this->parent->model, true,
 	                                      this->addr->get_text(this->addr),
-	                                      this->datsize, (this->dattype==cht_sign), val, cht_const,//TODO: make this configurable
+	                                      (this->dattype==cht_sign), this->datsize, val, cht_const,
 	                                      this->desc->get_text(this->desc));
 puts(code);
+//touch
 	                            //const char * addr,
 	                            //unsigned int vallen, bool issigned, uint32_t val, enum cheat_chngtype changetype,
 	                            //const char * description);

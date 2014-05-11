@@ -65,6 +65,8 @@ struct minircheats_model_impl {
 	bool issigned :1;
 	//char padding :4;
 	//char padding[3];
+	
+	char * lastcheat;
 };
 
 #define div_rndup(a,b) (((a)+(b)-1)/(b))
@@ -465,23 +467,29 @@ static void search_get_vis_row(struct minircheats_model * this_, unsigned int ro
 	if (prevval) *prevval=readmemext(mem->prev+mempos, this->datsize, mem->bigendian, this->issigned);
 }
 
-static bool cheat_read(struct minircheats_model * this, const char * addr, unsigned int datsize, uint32_t * val)
+static bool cheat_read(struct minircheats_model * this_, const char * addr, unsigned int datsize, uint32_t * val)
 {
 	return false;
 }
 
-static bool cheat_parse(struct minircheats_model * this, const char * code, char * addr,
-                        unsigned int * vallen, bool * issigned, uint32_t * val, enum cheat_chngtype * changetype,
+static bool cheat_parse(struct minircheats_model * this_, const char * code, bool * enabled, char * addr,
+                        bool * issigned, unsigned int * vallen, uint32_t * val, enum cheat_chngtype * changetype,
                         const char * * description)
 {
 	return false;
 }
 
-static const char * cheat_build(struct minircheats_model * this, const char * addr,
-                                unsigned int vallen, bool issigned, uint32_t val, enum cheat_chngtype changetype,
+static const char * cheat_build(struct minircheats_model * this_, bool enabled, const char * addr,
+                                bool issigned, unsigned int vallen, uint32_t val, enum cheat_chngtype changetype,
                                 const char * description)
 {
-	return "eggplant";
+	struct minircheats_model_impl * this=(struct minircheats_model_impl*)this_;
+	free(this->lastcheat);
+	//disable address signspec value direction SP desc
+	this->lastcheat=malloc(1+strlen(addr)+8+1+1+1+strlen(description)+1);
+	sprintf(this->lastcheat, "%s%s%s%.*X%s%s%s", enabled?"":"-", addr, issigned?"S":"", vallen*2, val, "_",
+	                         (description && *description) ? " " : "", (description ? description : ""));
+	return this->lastcheat;
 }
 
 static void delete_all_mem(struct minircheats_model_impl * this)
@@ -503,6 +511,7 @@ static void free_(struct minircheats_model * this_)
 {
 	struct minircheats_model_impl * this=(struct minircheats_model_impl*)this_;
 	delete_all_mem(this);
+	free(this->lastcheat);
 	free(this);
 }
 
@@ -511,7 +520,8 @@ const struct minircheats_model_impl minircheats_model_base = {{
 	search_reset, search_set_datsize, search_set_signed, search_do_search, search_get_num_rows, search_get_vis_row,
 	cheat_read, cheat_parse, cheat_build,
 	NULL, NULL, NULL,//cheat_find_for_addr, cheat_add, cheat_replace
-	NULL, NULL, NULL,//cheat_replace, cheat_set_enabled, cheat_remove, cheat_get
+	NULL, NULL,//cheat_set_enabled, cheat_remove
+	NULL, NULL,//cheat_get_count, cheat_get
 	NULL,//cheat_apply
 	free_
 }};
@@ -519,5 +529,6 @@ struct minircheats_model * minircheats_create_model()
 {
 	struct minircheats_model_impl * this=malloc(sizeof(struct minircheats_model_impl));
 	memcpy(this, &minircheats_model_base, sizeof(struct minircheats_model_impl));
+	this->lastcheat=NULL;
 	return (struct minircheats_model*)this;
 }

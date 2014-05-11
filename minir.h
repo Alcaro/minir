@@ -752,15 +752,15 @@ struct minircheats_model {
 	bool (*cheat_read)(struct minircheats_model * this, const char * addr, unsigned int datsize, uint32_t * val);
 	
 	//Cheat code structure:
-	//disable address value signspec direction SP desc
+	//disable address signspec value direction SP desc
 	//disable is '-' if the cheat is currently disabled, otherwise blank.
 	//address is a namespace identifier and an address inside this prefix, in hex. There is no
 	// separator from the value; all addresses in a namespace have the same length.
+	//signspec is 'S' if the cheat code is signed, or empty otherwise. For
+	// addresses not allowed to change, the sign is irrelevant and should be empty.
 	//value is what to set it to, also in hex. It's either two, four, six or eight digits.
 	//direction is '+' if the address is allowed to increase, '-' if it's allowed to decrease, or
 	// empty if the given value should always be there.
-	//signspec is 'S' if the cheat code is signed, or empty otherwise. For
-	// addresses not allowed to change, the sign is irrelevant and should be empty.
 	//SP is a simple space character. Optional if the description is blank.
 	//desc is a human readable description of the cheat code. May not contain ASCII control characters
 	// (0..31 and 127), but is otherwise freeform.
@@ -769,13 +769,13 @@ struct minircheats_model {
 	//Like search_get_vis_row, the address must be a 32 byte buffer. The description will point back
 	// into the given cheat code, or to the trailing NUL if there is no description.
 	bool (*cheat_parse)(struct minircheats_model * this, const char * code,
-	                    char * addr,
-	                    unsigned int * vallen, bool * issigned, uint32_t * val, enum cheat_chngtype * changetype,
+	                    bool * enabled, char * addr,
+	                    bool * issigned, unsigned int * vallen, uint32_t * val, enum cheat_chngtype * changetype,
 	                    const char * * description);
-	//The pointer is valid until the next cheat_build() or free().
+	//The pointer is valid until the next cheat_build(), cheat_get() or free().
 	const char * (*cheat_build)(struct minircheats_model * this,
-	                            const char * addr,
-	                            unsigned int vallen, bool issigned, uint32_t val, enum cheat_chngtype changetype,
+	                            bool enabled, const char * addr,
+	                            bool issigned, unsigned int vallen, uint32_t val, enum cheat_chngtype changetype,
 	                            const char * description);
 	
 	int (*cheat_find_for_addr)(struct minircheats_model * this, const char * addr);
@@ -783,6 +783,8 @@ struct minircheats_model {
 	void (*cheat_replace)(struct minircheats_model * this, unsigned int pos, const char * code);
 	void (*cheat_set_enabled)(struct minircheats_model * this, unsigned int pos, bool enable);
 	void (*cheat_remove)(struct minircheats_model * this, unsigned int pos);
+	
+	unsigned int (*cheat_get_count)(struct minircheats_model * this);
 	const char * (*cheat_get)(struct minircheats_model * this, unsigned int pos);
 	
 	//This one makes all cheat codes take effect.
