@@ -1162,7 +1162,10 @@ uintptr_t _window_notify_inner(void* notification)
 			if (nmhdr->code==BN_CLICKED)
 			{
 				struct widget_button_win32 * this=(struct widget_button_win32*)GetWindowLongPtr(nmhdr->hwndFrom, GWLP_USERDATA);
-				if (this->onclick) this->onclick((struct widget_button*)this, this->userdata);
+				if (this->onclick)
+				{
+					this->onclick((struct widget_button*)this, this->userdata);
+				}
 			}
 			break;
 		}
@@ -1172,7 +1175,10 @@ uintptr_t _window_notify_inner(void* notification)
 			{
 				struct widget_radio_win32 * this=(struct widget_radio_win32*)GetWindowLongPtr(nmhdr->hwndFrom, GWLP_USERDATA);
 				radio_set_state((struct widget_radio*)this->leader, this->id);
-				if (this->leader->onclick) this->leader->onclick((struct widget_radio*)this->leader, this->id, this->leader->userdata);
+				if (this->leader->onclick)
+				{
+					this->leader->onclick((struct widget_radio*)this->leader, this->id, this->leader->userdata);
+				}
 			}
 			break;
 		}
