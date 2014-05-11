@@ -507,7 +507,7 @@ struct widget_textbox * widget_create_textbox()
 	this->i.set_enabled=textbox_set_enabled;
 	this->i.get_text=textbox_get_text;
 	this->i.set_text=textbox_set_text;
-	this->i.set_input=textbox_set_invalid;
+	this->i.set_invalid=textbox_set_invalid;
 	this->i.set_onchange=textbox_set_onchange;
 	this->i.set_onactivate=textbox_set_onactivate;
 	

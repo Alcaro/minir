@@ -104,11 +104,10 @@ static void details_ok(struct widget_button * subject, void* userdata)
 		this->newval->set_invalid(this->newval, true);
 		return;
 	}
-	const char * addr=this->addr->get_text(this->addr);
 	const char * orgaddr=this->orgaddr;
 	struct cheat newcheat = {
 		.enabled=true,
-		.addr=addr,
+		.addr=this->addr->get_text(this->addr),
 		.datsize=this->datsize,
 		.val=val,
 		.issigned=(this->dattype==cht_sign),
