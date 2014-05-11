@@ -6,6 +6,7 @@
 
 struct cheat_impl {
 	unsigned char memblk;
+	uint32_t addr;
 	
 	unsigned int changemode :2;
 	unsigned int size :3;//only values 1..4 are allowed, but it's easier to give an extra bit than adding 1 on every use.
