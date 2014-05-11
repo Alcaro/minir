@@ -314,11 +314,9 @@ static void textbox_set_invalid(struct widget_textbox * this_, bool invalid)
 	else
 	{
 		gtk_widget_set_name(this->i.base._widget, "x");
-		//gtk_widget_reset_style(this->i.base._widget);
-		//gtk_widget_override_background_color(this->i.base._widget, GTK_STATE_FLAG_NORMAL, NULL);
 	}
 }
-//GtkCssProvider *    gtk_css_provider_get_default 
+
 static const char * textbox_get_text(struct widget_textbox * this_)
 {
 	struct widget_textbox_gtk3 * this=(struct widget_textbox_gtk3*)this_;
