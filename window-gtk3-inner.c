@@ -16,7 +16,7 @@ void _window_init_inner()
 	gtk_css_provider_load_from_data(cssprovider,
 		"GtkEntry#invalid { background-image: none; background-color: #F66; color: #FFF; }"
 		"GtkEntry#invalid:selected { background-color: #3465A4; color: #FFF; }"
-		//this selection doesn't look too good, but not terrible either...
+		//this selection doesn't look too good, but not terrible either.
 		, -1, NULL);
 }
 
@@ -375,7 +375,7 @@ struct widget_textbox * widget_create_textbox()
 	this->i.set_onchange=textbox_set_onchange;
 	this->i.set_onactivate=textbox_set_onactivate;
 	
-	this->onactivate=NULL;
+	this->onchange=NULL;
 	g_signal_connect(this->i.base._widget, "changed", G_CALLBACK(textbox_onchange), this);
 	
 	return (struct widget_textbox*)this;
