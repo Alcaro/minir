@@ -473,22 +473,23 @@ static bool cheat_read(struct minircheats_model * this_, const char * addr, unsi
 }
 
 static bool cheat_parse(struct minircheats_model * this_, const char * code, bool * enabled, char * addr,
-                        bool * issigned, unsigned int * vallen, uint32_t * val, enum cheat_chngtype * changetype,
+                        unsigned int * vallen, uint32_t * val, bool * issigned, enum cheat_chngtype * changetype,
                         const char * * description)
 {
 	return false;
 }
 
 static const char * cheat_build(struct minircheats_model * this_, bool enabled, const char * addr,
-                                bool issigned, unsigned int vallen, uint32_t val, enum cheat_chngtype changetype,
+                                unsigned int vallen, uint32_t val, bool issigned, enum cheat_chngtype changetype,
                                 const char * description)
 {
 	struct minircheats_model_impl * this=(struct minircheats_model_impl*)this_;
 	free(this->lastcheat);
 	//disable address signspec value direction SP desc
 	this->lastcheat=malloc(1+strlen(addr)+8+1+1+1+strlen(description)+1);
+	//TODO: verify that addr points to anything
 	const char * const chngtypenames[]={".", "+", "-", ""};
-	sprintf(this->lastcheat, "%s%s%s%.*X%s%s%s", enabled?"":"-", addr, issigned?"S":"", vallen*2, val, chngtypenames[changetype],
+	sprintf(this->lastcheat, "%s%s%.*X%s%s%s%s", enabled?"":"-", addr, vallen*2, val, issigned?"S":"", chngtypenames[changetype],
 	                         (description && *description) ? " " : "", (description ? description : ""));
 	return this->lastcheat;
 }

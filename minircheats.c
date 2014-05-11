@@ -51,12 +51,13 @@ static const char * encodeval(enum cheat_dattype dattype, unsigned int datsize, 
 	return out;
 }
 
-static uint32_t decodeval(enum cheat_dattype dattype, const char * val)
+static bool decodeval(enum cheat_dattype dattype, const char * str, uint32_t * val)
 {
-	if (dattype==cht_hex) return strtoul(val, NULL, 16);
-	if (dattype==cht_sign) return strtol(val, NULL, 10);
-	if (dattype==cht_unsign) return strtoul(val, NULL, 10);
-	__builtin_unreachable();
+	const char * out;
+	if (dattype==cht_hex) *val=strtoul(str, (char**)&out, 16);
+	if (dattype==cht_sign) *val=strtol(str, (char**)&out, 10);
+	if (dattype==cht_unsign) *val=strtoul(str, (char**)&out, 10);
+	return (str!=out && !*out);
 }
 
 static void search_update(struct minircheats_impl * this);
@@ -99,11 +100,11 @@ static void details_free(struct minircheatdetail * this);
 static void details_ok(struct widget_button * subject, void* userdata)
 {
 	struct minircheatdetail * this=(struct minircheatdetail*)userdata;
-	uint32_t val=0x7E1234;//TODO: fix this
+	uint32_t val=0x42;//TODO: fix this
 	const char * code;
 	code=this->parent->model->cheat_build(this->parent->model, true,
 	                                      this->addr->get_text(this->addr),
-	                                      (this->dattype==cht_sign), this->datsize, val, cht_const,
+	                                      this->datsize, val, (this->dattype==cht_sign), cht_const,//TODO: make changetype variable
 	                                      this->desc->get_text(this->desc));
 puts(code);
 	                            //const char * addr,
@@ -152,7 +153,7 @@ static void details_create(struct minircheats_impl * parent, struct window * par
 			widget_create_label("Current Value"), curvalbox=widget_create_textbox(),
 			widget_create_label("New Value"), this->newval=widget_create_textbox(),
 			//TODO: size and type
-			widget_create_label("Description"), widget_create_textbox(),
+			widget_create_label("Description"), this->desc=widget_create_textbox(),
 			widget_create_padding_horz(), widget_create_layout_horz(
 				widget_create_padding_horz(),
 				ok=widget_create_button("OK"),

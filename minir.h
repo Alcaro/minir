@@ -752,13 +752,13 @@ struct minircheats_model {
 	bool (*cheat_read)(struct minircheats_model * this, const char * addr, unsigned int datsize, uint32_t * val);
 	
 	//Cheat code structure:
-	//disable address signspec value direction SP desc
+	//disable address value signspec direction SP desc
 	//disable is '-' if the cheat is currently disabled, otherwise blank.
 	//address is a namespace identifier and an address inside this prefix, in hex. There is no
 	// separator from the value; all addresses in a namespace have the same length.
-	//signspec is 'S' if the cheat code is signed, or empty otherwise. For
-	// addresses not allowed to change, the sign is irrelevant and should be empty.
 	//value is what to set it to, also in hex. It's either two, four, six or eight digits.
+	//signspec is 'S' if the cheat code is signed, or empty otherwise. For addresses
+	// not allowed to change, the sign makes no difference, and should be empty.
 	//direction is '+' if the address is allowed to increase, '-' if it's allowed to decrease, '.' for
 	// single-use cheats, or empty if the given value should always be there.
 	//SP is a simple space character. Optional if the description is blank.
@@ -770,14 +770,15 @@ struct minircheats_model {
 	// into the given cheat code, or to the trailing NUL if there is no description.
 	bool (*cheat_parse)(struct minircheats_model * this, const char * code,
 	                    bool * enabled, char * addr,
-	                    bool * issigned, unsigned int * vallen, uint32_t * val, enum cheat_chngtype * changetype,
+	                    unsigned int * vallen, uint32_t * val, bool * issigned, enum cheat_chngtype * changetype,
 	                    const char * * description);
 	//The pointer is valid until the next cheat_build(), cheat_get() or free().
 	const char * (*cheat_build)(struct minircheats_model * this,
 	                            bool enabled, const char * addr,
-	                            bool issigned, unsigned int vallen, uint32_t val, enum cheat_chngtype changetype,
+	                            unsigned int vallen, uint32_t val, bool issigned, enum cheat_chngtype changetype,
 	                            const char * description);
 	
+	//-1 for none or invalid address
 	int (*cheat_find_for_addr)(struct minircheats_model * this, const char * addr);
 	bool (*cheat_add)(struct minircheats_model * this, const char * code);
 	void (*cheat_replace)(struct minircheats_model * this, unsigned int pos, const char * code);
