@@ -747,10 +747,6 @@ struct minircheats_model {
 	// access patterns; the last queried row and the one directly after that may be faster.
 	void (*search_get_vis_row)(struct minircheats_model * this, unsigned int row,
 	                           char * addr, uint32_t * val, uint32_t * prevval);
-	
-	//Fails if the address doesn't refer to anything, or if the refered to memory block ends too soon.
-	bool (*cheat_read)(struct minircheats_model * this, const char * addr, unsigned int datsize, uint32_t * val);
-	
 	//Cheat code structure:
 	//disable address value signspec direction SP desc
 	//disable is '-' if the cheat is currently disabled, otherwise blank.
@@ -766,29 +762,25 @@ struct minircheats_model {
 	// (0..31 and 127), but is otherwise freeform.
 	//The format is designed so that a SNES Gameshark code is valid.
 	
-	//Like search_get_vis_row, the address must be a 32 byte buffer. The description will point back
-	// into the given cheat code, or to the trailing NUL if there is no description.
-	bool (*cheat_parse)(struct minircheats_model * this, const char * code,
-	                    bool * enabled, char * addr,
-	                    unsigned int * vallen, uint32_t * val, bool * issigned, enum cheat_chngtype * changetype,
-	                    const char * * description);
-	//The pointer is valid until the next cheat_build(), cheat_get() or free().
-	const char * (*cheat_build)(struct minircheats_model * this,
-	                            bool enabled, const char * addr,
-	                            unsigned int vallen, uint32_t val, bool issigned, enum cheat_chngtype changetype,
-	                            const char * description);
+	//Fails if the address doesn't refer to anything, or if the refered to memory block ends too soon.
+	bool (*cheat_read)(struct minircheats_model * this, const char * addr, unsigned int datsize, uint32_t * val);
+	int (*cheat_find_for_addr)(struct minircheats_model * this, const char * addr);//-1 for none or invalid address
 	
-	//-1 for none or invalid address
-	int (*cheat_find_for_addr)(struct minircheats_model * this, const char * addr);
-	bool (*cheat_add)(struct minircheats_model * this, const char * code);
-	void (*cheat_replace)(struct minircheats_model * this, unsigned int pos, const char * code);
+	unsigned int (*cheat_get_count)(struct minircheats_model * this);
+	bool (*cheat_set)(struct minircheats_model * this, unsigned int pos,//to add a new cheat, use pos==count
+	                  bool enabled, const char * addr,
+	                  unsigned int vallen, uint32_t val, bool issigned, enum cheat_chngtype changetype,
+	                  const char * description);
+	bool (*cheat_set_as_code)(struct minircheats_model * this, unsigned int pos, const char * code);//to add, use pos==count
+	void (*cheat_get)(struct minircheats_model * this, unsigned int pos,
+	                  bool * enabled, char * addr,
+	                  unsigned int * vallen, uint32_t * val, bool * issigned, enum cheat_chngtype * changetype,
+	                  const char * * description);
+	const char * (*cheat_get_as_code)(struct minircheats_model * this, unsigned int pos, const char * code);//to add, use pos==count
 	void (*cheat_set_enabled)(struct minircheats_model * this, unsigned int pos, bool enable);
 	void (*cheat_remove)(struct minircheats_model * this, unsigned int pos);
 	
-	unsigned int (*cheat_get_count)(struct minircheats_model * this);
-	const char * (*cheat_get)(struct minircheats_model * this, unsigned int pos);
-	
-	//This one makes all cheat codes take effect.
+	//This one makes all cheat codes take effect. Call it each frame.
 	bool (*cheat_apply)(struct minircheats_model * this);
 	
 	void (*free)(struct minircheats_model * this);

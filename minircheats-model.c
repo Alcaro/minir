@@ -520,11 +520,9 @@ static void free_(struct minircheats_model * this_)
 const struct minircheats_model_impl minircheats_model_base = {{
 	set_core,
 	search_reset, search_set_datsize, search_set_signed, search_do_search, search_get_num_rows, search_get_vis_row,
-	cheat_read, cheat_parse, cheat_build,
-	NULL, NULL, NULL,//cheat_find_for_addr, cheat_add, cheat_replace
-	NULL, NULL,//cheat_set_enabled, cheat_remove
-	NULL, NULL,//cheat_get_count, cheat_get
-	NULL,//cheat_apply
+	NULL, NULL, NULL,//cheat_read, cheat_find_for_addr, cheat_get_count,
+	NULL, NULL, NULL, NULL,//cheat_set, cheat_set_as_code, cheat_get, cheat_get_as_code,
+	NULL, NULL, NULL,//cheat_set_enabled, cheat_remove, cheat_apply,
 	free_
 }};
 struct minircheats_model * minircheats_create_model()

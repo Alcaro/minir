@@ -94,8 +94,6 @@ struct minircheatdetail {//these windows are not referenced within the main chea
 	char orgaddr[32];
 };
 
-//TODO: check that gtk listbox supports all needed features
-//TODO: also check that gtk supports freeing from the callbacks
 static void details_free(struct minircheatdetail * this);
 static void details_ok(struct widget_button * subject, void* userdata)
 {
@@ -106,11 +104,13 @@ static void details_ok(struct widget_button * subject, void* userdata)
 		//TODO: error
 		return;
 	}
-	const char * code;
-	code=this->parent->model->cheat_build(this->parent->model, true,
-	                                      this->addr->get_text(this->addr),
-	                                      this->datsize, val, (this->dattype==cht_sign), cht_const,//TODO: make changetype variable
-	                                      this->desc->get_text(this->desc));
+	const char * addr=this->addr->get_text(this->addr);
+	const char * orgaddr=this->orgaddr;
+	int cheatid=this->parent->model->cheat_find_for_addr(this->parent->model, this->addr->get_text(this->addr));
+	if (cheatid==0) cheatnum=this->parent->model->cheat_get_count(this->parent->model);
+	code=this->parent->model->cheat_set(this->parent->model, cheatid, true, addr,
+	                                    this->datsize, val, (this->dattype==cht_sign), cht_const,//TODO: make changetype variable
+	                                    this->desc->get_text(this->desc));
 puts(code);
 	                            //const char * addr,
 	                            //unsigned int vallen, bool issigned, uint32_t val, enum cheat_chngtype changetype,
