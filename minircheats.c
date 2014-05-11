@@ -124,7 +124,7 @@ static void details_ok(struct widget_button * subject, void* userdata)
 	if (cheatid_org<0) cheatid_org=this->parent->model->cheat_get_count(this->parent->model);
 	if (cheatid_new>=0 && cheatid_org!=cheatid_new)
 	{
-		//TODO: ask which to keep
+		//TODO: There is already a cheat set for that address. Do you wish to replace it? (Yes/No)
 		this->parent->model->cheat_remove(this->parent->model, cheatid_new);
 	}
 	this->parent->model->cheat_set(this->parent->model, cheatid_org, &newcheat);
