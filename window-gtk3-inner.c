@@ -355,9 +355,9 @@ static void textbox_set_onactivate(struct widget_textbox * this_,
 {
 	struct widget_textbox_gtk3 * this=(struct widget_textbox_gtk3*)this_;
 	
+	g_signal_connect(this->i.base._widget, "activate", G_CALLBACK(textbox_onactivate), this);
 	this->onactivate=onactivate;
 	this->ac_userdata=userdata;
-	g_signal_connect(this->i.base._widget, "activate", G_CALLBACK(textbox_onactivate), this);
 }
 
 struct widget_textbox * widget_create_textbox()
@@ -375,8 +375,8 @@ struct widget_textbox * widget_create_textbox()
 	this->i.set_onchange=textbox_set_onchange;
 	this->i.set_onactivate=textbox_set_onactivate;
 	
-	this->onchange=NULL;
 	g_signal_connect(this->i.base._widget, "changed", G_CALLBACK(textbox_onchange), this);
+	this->onchange=NULL;
 	
 	return (struct widget_textbox*)this;
 }
@@ -568,7 +568,6 @@ static void viewport_set_support_drop(struct widget_viewport * this_,
 	gtk_target_list_unref(list);
 	
 	g_signal_connect(this->i.base._widget, "drag-data-received", G_CALLBACK(viewport_drop_handler), this);
-	
 	this->on_file_drop=on_file_drop;
 	this->dropuserdata=userdata;
 }
