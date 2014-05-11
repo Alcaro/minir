@@ -294,6 +294,12 @@ static void textbox_set_enabled(struct widget_textbox * this_, bool enable)
 	gtk_widget_set_sensitive(GTK_WIDGET(this->i.base._widget), enable);
 }
 
+static void textbox_focus(struct widget_textbox * this_)
+{
+	struct widget_textbox_gtk3 * this=(struct widget_textbox_gtk3*)this_;
+		gtk_widget_grab_focus(this->i.base._widget);
+}
+
 static void textbox_set_text(struct widget_textbox * this_, const char * text, unsigned int maxlen)
 {
 	struct widget_textbox_gtk3 * this=(struct widget_textbox_gtk3*)this_;
