@@ -260,6 +260,7 @@ struct widget_layout * widget_create_radio_group(struct widget_radio * * leader,
 struct widget_textbox {
 	struct widget_base base;
 	void (*set_enabled)(struct widget_textbox * this, bool enable);
+	void (*focus)(struct widget_textbox * this);
 	
 	//The return value is guaranteed valid until the next call to any function
 	// on this object, or the next window_run[_iter], whichever comes first.

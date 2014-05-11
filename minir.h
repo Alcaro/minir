@@ -737,7 +737,7 @@ struct cheat {
 	unsigned int datsize :3;
 	uint32_t val;
 	const char * desc;
-	const char * addr;
+	char addr[32];
 };
 struct minircheats_model {
 	void (*set_core)(struct minircheats_model * this, struct libretro * core);

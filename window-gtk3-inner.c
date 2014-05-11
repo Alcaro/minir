@@ -369,6 +369,7 @@ struct widget_textbox * widget_create_textbox()
 	this->i.base._free=textbox__free;
 	
 	this->i.set_enabled=textbox_set_enabled;
+	this->i.focus=textbox_focus;
 	this->i.get_text=textbox_get_text;
 	this->i.set_text=textbox_set_text;
 	this->i.set_invalid=textbox_set_invalid;
