@@ -101,7 +101,7 @@ static void details_ok(struct widget_button * subject, void* userdata)
 	uint32_t val;
 	if (!decodeval(this->dattype, this->newval->get_text(this->newval), &val))
 	{
-puts("something something bad value hapen");//TODO: do this properly
+		this->newval->set_invalid(this->newval, true);
 		return;
 	}
 	const char * addr=this->addr->get_text(this->addr);
@@ -117,7 +117,7 @@ puts("something something bad value hapen");//TODO: do this properly
 		};
 	if (!this->parent->model->cheat_set(this->parent->model, -1, &newcheat))
 	{
-puts("something something bad adres hapen");//TODO: do this properly
+		this->addr->set_invalid(this->addr, true);
 		return;
 	}
 	int cheatid_org=this->parent->model->cheat_find_for_addr(this->parent->model, this->datsize, orgaddr);

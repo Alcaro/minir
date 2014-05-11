@@ -8,6 +8,17 @@
 #endif
 
 static bool in_callback=false;
+static GtkCssProvider* cssprovider;
+
+void _window_init_inner()
+{
+	cssprovider=gtk_css_provider_new();
+	gtk_css_provider_load_from_data(cssprovider,
+		"GtkEntry#invalid { background-image: none; background-color: #F66; color: #FFF; }"
+		"GtkEntry#invalid:selected { background-color: #3465A4; color: #FFF; }"
+		//this selection doesn't look too good, but not terrible either...
+		, -1, NULL);
+}
 
 
 
@@ -293,9 +304,21 @@ static void textbox_set_text(struct widget_textbox * this_, const char * text, u
 static void textbox_set_invalid(struct widget_textbox * this_, bool invalid)
 {
 	struct widget_textbox_gtk3 * this=(struct widget_textbox_gtk3*)this_;
-	
+	if (invalid)
+	{
+		GtkStyleContext* context=gtk_widget_get_style_context(this->i.base._widget);
+		gtk_style_context_add_provider(context, GTK_STYLE_PROVIDER(cssprovider), GTK_STYLE_PROVIDER_PRIORITY_APPLICATION);
+		gtk_widget_set_name(this->i.base._widget, "invalid");
+		gtk_widget_grab_focus(this->i.base._widget);
+	}
+	else
+	{
+		gtk_widget_set_name(this->i.base._widget, "x");
+		//gtk_widget_reset_style(this->i.base._widget);
+		//gtk_widget_override_background_color(this->i.base._widget, GTK_STATE_FLAG_NORMAL, NULL);
+	}
 }
-
+//GtkCssProvider *    gtk_css_provider_get_default 
 static const char * textbox_get_text(struct widget_textbox * this_)
 {
 	struct widget_textbox_gtk3 * this=(struct widget_textbox_gtk3*)this_;
@@ -305,7 +328,11 @@ static const char * textbox_get_text(struct widget_textbox * this_)
 static void textbox_onchange(GtkEntry* entry, gpointer user_data)
 {
 	struct widget_textbox_gtk3 * this=(struct widget_textbox_gtk3*)user_data;
-	this->onchange((struct widget_textbox*)this, gtk_entry_get_text(GTK_ENTRY(this->i.base._widget)), this->ch_userdata);
+	gtk_widget_set_name(this->i.base._widget, "x");
+	if (this->onchange)
+	{
+		this->onchange((struct widget_textbox*)this, gtk_entry_get_text(GTK_ENTRY(this->i.base._widget)), this->ch_userdata);
+	}
 }
 
 static void textbox_set_onchange(struct widget_textbox * this_,
@@ -313,7 +340,6 @@ static void textbox_set_onchange(struct widget_textbox * this_,
 {
 	struct widget_textbox_gtk3 * this=(struct widget_textbox_gtk3*)this_;
 	
-	g_signal_connect(this->i.base._widget, "change", G_CALLBACK(textbox_onchange), this);
 	this->onchange=onchange;
 	this->ch_userdata=userdata;
 }
@@ -329,9 +355,9 @@ static void textbox_set_onactivate(struct widget_textbox * this_,
 {
 	struct widget_textbox_gtk3 * this=(struct widget_textbox_gtk3*)this_;
 	
-	g_signal_connect(this->i.base._widget, "activate", G_CALLBACK(textbox_onactivate), this);
 	this->onactivate=onactivate;
 	this->ac_userdata=userdata;
+	g_signal_connect(this->i.base._widget, "activate", G_CALLBACK(textbox_onactivate), this);
 }
 
 struct widget_textbox * widget_create_textbox()
@@ -348,6 +374,9 @@ struct widget_textbox * widget_create_textbox()
 	this->i.set_invalid=textbox_set_invalid;
 	this->i.set_onchange=textbox_set_onchange;
 	this->i.set_onactivate=textbox_set_onactivate;
+	
+	this->onactivate=NULL;
+	g_signal_connect(this->i.base._widget, "changed", G_CALLBACK(textbox_onchange), this);
 	
 	return (struct widget_textbox*)this;
 }
