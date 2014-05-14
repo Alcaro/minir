@@ -336,18 +336,30 @@ static unsigned int get_core_option(struct libretro * this_, unsigned int option
 	return this->core_opt_current_values[option];
 }
 
-static const char * get_memory_info(struct libretro * this_)
+static const struct libretro_memory_descriptor * get_memory_info(struct libretro * this_, unsigned int * nummemdesc)
 {
 	struct libretro_impl * this=(struct libretro_impl*)this_;
 	
 	struct retro_system_info info;
 	this->raw.get_system_info(&info);
-	//TODO: convince squarepusher to add this to libretro proper instead of lamehacking it
-	if (strstr(info.library_name, "snes") || strstr(info.library_name, "SNES")) return "2::7E0000:000000";
+	*nummemdesc=0;
+	//TODO: convince Squarepusher to add this to libretro proper instead of lamehacking it
+	//TODO: before the above, finalize the format and ensure I won't want to change it anymore. Attempting to change any part of libretro when not strictly mandatory would become very painful very quickly.
+	if (strstr(info.library_name, "snes") || strstr(info.library_name, "SNES"))
+	{
+		*nummemdesc=2;
+		static struct libretro_memory_descriptor desc[]={
+			{ .map_start=0x7E0000, .map_size=0x20000 },
+			{ .memory_loop=0x2000, .map_const_bits=0x40E000, .map_size=0x2000*64*2 },
+			};
+		desc[0].memory_ptr=this->raw.get_memory_data(RETRO_MEMORY_SYSTEM_RAM);
+		desc[1].memory_ptr=desc[0].memory_ptr;
+		return desc;
+	}
 	else return NULL;
 }
 
-static void get_memory(struct libretro * this_, enum libretro_memtype which, unsigned int * size, void* * ptr)
+static void get_memory(struct libretro * this_, enum libretro_memtype which, size_t * size, void* * ptr)
 {
 	struct libretro_impl * this=(struct libretro_impl*)this_;
 	
@@ -493,7 +505,7 @@ static bool environment(unsigned cmd, void *data)
 		}
 		else return false;
 	}
-	//11 SET_INPUT_DESCRIPTORS, no known supported core uses it, but it could be useful later. (RetroArch just dumps it to stdout.)
+	//11 SET_INPUT_DESCRIPTORS, seemingly deprecated by 35 SET_CONTROLLER_INFO.
 	//12 SET_KEYBOARD_CALLBACK, no supported core uses keyboards but it may be desirable.
 	//13 SET_DISK_CONTROL_INTERFACE, ignored because no supported core uses disks. Maybe Famicom Disk System, but low priority.
 	//14 SET_HW_RENDER, unimplemented because it's a huge thing. I'll consider it later.
@@ -609,6 +621,9 @@ static bool environment(unsigned cmd, void *data)
 	//30 GET_CONTENT_DIRECTORY, see 9.
 	//31 GET_SAVE_DIRECTORY, should be added. Should return the ROM folder.
 	//32 SET_SYSTEM_AV_INFO, should be added. Seems reasonably easy.
+	//33 SET_PROC_ADDRESS_CALLBACK, ignored because there are no extensions.
+	//34 SET_SUBSYSTEM_INFO, should probably be added.
+	//35 SET_CONTROLLER_INFO, should probably be added.
 	log_callback(RETRO_LOG_WARN, "Unsupported environ command #%u.", cmd);
 	return false;
 }
@@ -651,7 +666,7 @@ struct libretro libretro_iface = {
 	load_rom, load_rom_mem, load_rom_mem_supported,
 	get_video_settings, get_sample_rate,
 	get_core_options_changed, get_core_options, set_core_option, get_core_option,
-	get_memory_info, get_memory, reset,
+	get_memory, get_memory_info, reset,
 	state_size, state_save, state_load,
 	run,
 	free_
@@ -810,8 +825,10 @@ const char * const * libretro_default_cores()
 {
 	core_setup_search();
 	
-	const char * selfpath=window_get_proc_path();//if minir is run out of a browser download dir, don't look for cores there
-	const char * selfpathend=strrchr(selfpath, '/');//
+	const char * selfpath=window_get_proc_path();
+	const char * selfpathend=strrchr(selfpath, '/');
+	
+	//if minir is run out of a browser download dir, don't look for cores there
 	if (!strstr(selfpathend, "download") && !strstr(selfpathend, "Download"))
 	{
 		core_look_in_path(selfpath, true, true, false, 0);

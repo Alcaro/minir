@@ -13,12 +13,8 @@ window_firstrun
 ()
 {
 GtkWidget*dialog=gtk_message_dialog_new(NULL, 0, GTK_MESSAGE_WARNING, GTK_BUTTONS_OK,
-	"This piece of software is far from finished.\r\n"
-	"One missing feature is that there is no configuration panel, so most options require "
-	  "pointing a text editor at minir.cfg (it'll appear once you close this program).\r\n"
-	"Error messages if the given ROMs or cores weren't understood are not guaranteed, either.\r\n"
-	"\r\n"
-	"Finally, please do not redistribute minir without the author's permission. (This rule will be relaxed once it's less unfinished.)"
+	"This piece of software is far from finished. There is no configuration panel, and some components are bad at emitting error messages.\r\n"
+	"All valid settings will show up in minir.cfg, which will appear beside the executable once it's closed.\r\n"
 );
 gtk_dialog_run(GTK_DIALOG(dialog));
 gtk_widget_destroy(dialog);

@@ -12,6 +12,16 @@
 
 //static LARGE_INTEGER timer_freq;
 
+void
+window_firstrun
+()
+{
+MessageBox(NULL,
+	"This piece of software is far from finished. There is no configuration panel, and some components are bad at emitting error messages.\r\n"
+	"All valid settings will show up in minir.cfg, which will appear beside the executable once it's closed.\r\n"
+,"Warning",MB_ICONWARNING);
+}
+
 void window_init(int * argc, char * * argv[])
 {
 	for (int i=0;(*argv)[0][i];i++)

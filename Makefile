@@ -21,7 +21,7 @@ ifeq ($(platform),)
 endif
 
 #TESTSRC = libretro.c rewind*.c inputraw-*keymaps.c dylib.c thread-*.c
-TESTSRC = 
+TESTSRC = audio*.c
 TESTSEPSRC = window*.c test-*.c
 
 OBJS = $(patsubst %.c,obj/%.o,$(wildcard *.c))

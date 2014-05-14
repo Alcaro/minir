@@ -276,9 +276,9 @@ struct widget_radio * widget_create_radio(const char * text)
 struct widget_textbox_gtk3 {
 	struct widget_textbox i;
 	
-	void (*onchange)(struct widget_textbox * textbox, const char * text, void* userdata);
+	void (*onchange)(struct widget_textbox * subject, const char * text, void* userdata);
 	void* ch_userdata;
-	void (*onactivate)(struct widget_textbox * textbox, void* userdata);
+	void (*onactivate)(struct widget_textbox * subject, void* userdata);
 	void* ac_userdata;
 };
 

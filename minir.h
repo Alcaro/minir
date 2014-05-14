@@ -482,6 +482,8 @@ struct libretro_core_option {
 	const char * name_internal;
 	const char * name_display;
 	
+	bool reset_only;//This one is hackishly calculated by setting it to true if it's checked before retro_load_game, then false if it's checked during retro_run.
+	
 	unsigned int numvalues;
 	const char * const * values;
 };
@@ -492,6 +494,86 @@ enum libretro_memtype { // These IDs are the same as RETRO_MEMORY_*.
 	libretromem_wram,
 	libretromem_vram
 };
+
+//This one means the core will never change it once retro_load_rom has returned; however, the core
+// will read from this area, and the frontend may assume it has prmission to write to this area.
+#define LIBRETRO_MEMFLAG_CONST     (1 << 0)
+//This flag means that this memory area contains big endian data. Default is little endian.
+#define LIBRETRO_MEMFLAG_BIGENDIAN (1 << 1)
+//If this is set, all memory access in this area is aligned; for example, no two-byte data starts at
+// odd addresses. Three-byte data is absent in these areas.
+#define LIBRETRO_MEMFLAG_ALIGNED   (1 << 2)
+
+//If the core does not describe its memory maps, the frontend may create one from various RETRO_MEMORY_* as a fallback.
+//Implementing this without also exposing RETRO_MEMORY_SYSTEM_RAM is highly discouraged.
+struct libretro_memory_descriptor {
+	uint64_t flags;
+	
+	//If two memory descriptors have the same pointer, they must be consecutive in the descriptor array.
+	//The first mappings for each memory descriptor must together define the primary, unique way to
+	// access each byte of the memory area, in order of ascending memory_offset. Once any duplicate
+	// has been defined for a memory area, no descriptor may map a byte of that area that has not been previously seen.
+	//(Typically, this is done by just mapping the full memory area before mapping any mirrors.)
+	//If a byte is mapped to two places, the latter mapping takes precedence. If this is wrong, but can't
+	// be changed due to the primary-first rule, put a copy of the mapping latter in the array too.
+	//The flags must be the same for everything using the same memory_ptr.
+	void * memory_ptr;
+	//If this is nonzero, all access to this pointer is done modulo this value.
+	size_t memory_loop;
+	//This is added to all access through this mapping (after applying memory_loop). Use this and multiple
+	// memory descriptors if the mapping is too complex to express through the other values here.
+	size_t memory_offset;
+	
+	//The address space name must consist of only a-zA-Z0-9_, should be as short as feasible (maximum length is 8 excluding the NUL),
+	// and may not be any other address space plus one or more 0-9A-F at the end.
+	//However, multiple memory descriptors for the same address space is allowed, and the address
+	// space name can be empty. NULL is treated as empty.
+	//Address space names are case sensitive. If possible, keep them to purely A-Z_.
+	//No two mappings may have the same memory_ptr but different address space names.
+	//Examples:
+	// blank+blank - valid (multiple things may be mapped in the same namespace)
+	// 'Sp'+'Sp' - valid (multiple things may be mapped in the same namespace)
+	// 'A'+'B' - valid (neither is a prefix of each other)
+	// 'S'+blank - valid ('S' is not in 0-9A-F)
+	// 'a'+blank - valid ('a' is not in 0-9A-F)
+	// 'a'+'A' - valid (neither is a prefix of each other)
+	// 'AR'+blank - valid (the R makes it impossible for the A to be part of the address)
+	// 'ARB'+blank - valid (the B can't be part of the address either, because there is no namespace 'AR')
+	// blank+'B' - not valid, because it's ambigous which address space B1234 would refer to.
+	//  The length can't be used for that purpose, because cheat codes have no separator between address and data,
+	//   so the cheat code B123456 could be either 'set B12 to 3456' or 'set B1234 to 56'.
+	//  While the lowest bit of the length could be used, it would become rather messy rather quickly.
+	const char * addr_name;
+	//This one is how many digits an address has in this address space. This must be the same for each mapping
+	// in this address space, and the sum of this and the address space name length must be 16 or lower.
+	//Can be 0, in which case the length is calculated from the last byte defined by this mapping.
+	unsigned addr_str_len;
+	
+	//Where in this address the first byte in this mapping is placed.
+	size_t map_start;
+	//This one tells how many bytes this mapping defines. If map_const_bits is nonzero, this must be a power of two.
+	size_t map_size;
+	//For some mappings, some bits are skipped over.
+	size_t map_const_bits;
+};
+//Sample descriptors (minus memory_ptr and memory_id):
+//SNES WRAM:
+// .map_start=0x7E0000, .map_size=0x20000
+//SNES SPC700 RAM:
+// .addr_name="S", .map_size=0x10000
+//SNES WRAM mirrors:
+// .memory_loop=0x2000, .map_start=0x000000, .map_const_bits=0xE000, .map_size=0x2000*64
+// .memory_loop=0x2000, .map_start=0x800000, .map_const_bits=0xE000, .map_size=0x2000*64
+//SNES WRAM mirrors, alternative equivalent definition:
+// .memory_loop=0x2000, .map_start=0x000000, .map_const_bits=0x40E000, .map_size=0x2000*64*2
+//SNES LoROM (512KB, mirrored a couple of times):
+// .flags=LIBRETRO_MEMFLAG_CONST, .memory_loop=512*1024, .map_start=0x008000, .map_const_bits=0x8000, .map_size=0x400000
+// .flags=LIBRETRO_MEMFLAG_CONST, .memory_loop=512*1024, .map_start=0x808000, .map_const_bits=0x8000, .map_size=0x400000
+//SNES ExHiROM (8MB):
+// .flags=LIBRETRO_MEMFLAG_CONST, .memory_offset=0x000000, .map_size=0x400000, .map_start=0xC00000
+// .flags=LIBRETRO_MEMFLAG_CONST, .memory_offset=0x400000, .map_size=0x400000, .map_start=0x400000
+// .flags=LIBRETRO_MEMFLAG_CONST, .memory_offset=0x000000, .map_size=0x200000, .map_start=0x808000, .map_const_bits=0x8000
+// .flags=LIBRETRO_MEMFLAG_CONST, .memory_offset=0x400000, .map_size=0x200000, .map_start=0x008000, .map_const_bits=0x8000
 
 struct libretro {
 	//Any returned pointer is, unless otherwise specified, valid only until the next call to a function here, and freed by this object.
@@ -506,7 +588,7 @@ struct libretro {
 	//Whether the core supports load_rom(NULL).
 	bool (*supports_no_game)(struct libretro * this);
 	
-	//The interface pointers are expected to be valid for as long as this structure. If they are not, you may not call run().
+	//The interface pointers must be valid during every call to run().
 	//It is safe to attach new interfaces without recreating the structure.
 	//It is safe to attach new interfaces if the previous ones are destroyed.
 	void (*attach_interfaces)(struct libretro * this, struct video * v, struct audio * a, struct libretroinput * i);
@@ -530,51 +612,12 @@ struct libretro {
 	void (*set_core_option)(struct libretro * this, unsigned int option, unsigned int value);
 	unsigned int (*get_core_option)(struct libretro * this, unsigned int option);
 	
-	//[NOTE: This format is not finalized. It needs support for SNES LoROM skipping the 0x8000 bit, and probably some other stuff.]
-	//Format of the memory descriptors: [flags] id : [namesp] nsstart
-	//Spaces in the above format are to be ignored.
-	//Brackets signify optional components. If absent, assume whichever of blank, 0, or 0xFFFFFFFF makes the most sense.
-	//Anything else must be copied verbatim, if its bracket is chosen for inclusion.
-	//flags is zero or more of:
-	// 'C' means the core will never change it.
-	// 'M' means mirrored area; another memory descriptor already defines how to access this area.
-	// 'B' means that this memory area contains big endian data.
-	// Order is irrelevant.
-	// All flags that apply to a memory area should be included.
-	//id a valid ID to retro_get_memory_*, in decimal.
-	// If a memory area is mapped to the address space multiple times, the same memory ID may be
-	//  repeated.
-	// It is allowed to expose IDs that are not defined through libretro, though those must be above
-	//  1000 to ensure there are no collisions if libretro is extended. [TODO: Is 1000+ the correct IDs for undefined memory areas?]
-	// The frontend may assume it is allowed to edit all exposed memory areas, including the ones the
-	//  core has declared constant.
-	//start is the offset from the start of the memory area.
-	//namesp is a prefix to tell which address space this cheat code refers to, if there are multiple.
-	// The prefix can be blank, should be alphabetical, should be as short as feasible (maximum length is 8),
-	// and should not consist of any existing prefix plus one or more uppercase A-F at the end. For example 'A'
-	// and 'B' may coexist, as may blank and 'a', but blank and 'B' may not.
-	//nsmask is which bits are constant for this memory area, in hex, if it's not linearly mapped.
-	// Should be padded to same length as start. If not defined, it's 0.
-	//start is where the first byte is mapped in the address space, in hex. Should be padded with
-	// zeroes to the size of the highest address possible in that address space.
-	//size is how much of this memory block is exposed here. If not defined, ask retro_get_memory_size.
-	//start is the offset from the start of retro_get_memory_area. If not defined, it's 0.
-	//Multiple memory areas are in order of decreasing likelihood of being useful to modify, separated
-	// by semicolons. Memory areas that the game can't change should be put last.
-	//Here are a few sample descriptors:
-	// 2:7E0000 - SNES WRAM
-	// 1001:S0000 - SNES SPC RAM
-	// aaa - SNES WRAM mirrors
-	// aaa - SNES LoROM
-	// aaa - SNES LoROM, FastROM mirror
-	//A trailing semicolon is allowed.
-	//Can be NULL, in which case any user is expected to assume a reasonable default.
-	//Can only be called after loading a ROM.
-	const char * (*get_memory_info)(struct libretro * this);
 	//You can write to the returned pointer.
 	//Will return 0:NULL if the core doesn't know what the given memory type is.
 	//(If that happens, you can still read and write the indicated amount to the pointer.)
-	void (*get_memory)(struct libretro * this, enum libretro_memtype which, unsigned int * size, void* * ptr);
+	void (*get_memory)(struct libretro * this, enum libretro_memtype which, size_t * size, void* * ptr);
+	
+	const struct libretro_memory_descriptor * (*get_memory_info)(struct libretro * this, unsigned int * nummemdesc);
 	
 	void (*reset)(struct libretro * this);
 	
@@ -737,11 +780,11 @@ struct cheat {
 	unsigned int datsize :3;
 	uint32_t val;
 	const char * desc;
-	char * addr;//For cheat_set, this is constant.
-	            //For cheat_get, this is a buffer of size 32 or larger, and will be written.
+	char * addr;//For cheat_set, this is only read, and may be a casted const char *.
+	            //For cheat_get, this is a caller-allocated buffer of size 32 or larger, and will be written.
 };
 struct minircheats_model {
-	void (*set_core)(struct minircheats_model * this, struct libretro * core);
+	void (*set_memory)(struct minircheats_model * this, const struct libretro_memory_descriptor * memory, unsigned int nummemory);
 	
 	void (*search_reset)(struct minircheats_model * this);
 	void (*search_set_datsize)(struct minircheats_model * this, unsigned int datsize);//Default 1.
@@ -785,7 +828,7 @@ struct minircheats_model {
 	bool (*cheat_set)(struct minircheats_model * this, int pos, const struct cheat * newcheat);
 	bool (*cheat_set_as_code)(struct minircheats_model * this, int pos, const char * code);
 	void (*cheat_get)(struct minircheats_model * this, unsigned int pos, struct cheat * newcheat);
-	const char * (*cheat_get_as_code)(struct minircheats_model * this, unsigned int pos);//to add, use pos==count
+	const char * (*cheat_get_as_code)(struct minircheats_model * this, unsigned int pos);
 	void (*cheat_set_enabled)(struct minircheats_model * this, unsigned int pos, bool enable);
 	void (*cheat_remove)(struct minircheats_model * this, unsigned int pos);
 	
@@ -797,8 +840,8 @@ struct minircheats_model {
 struct minircheats_model * minircheats_create_model();
 
 struct minircheats {
-	void (*set_core)(struct minircheats * this, struct libretro * core);
 	void (*set_parent)(struct minircheats * this, struct window * parent);
+	void (*set_core)(struct minircheats * this, struct libretro * core);
 	
 	void (*show_search)(struct minircheats * this);
 	void (*show_list)(struct minircheats * this);
@@ -811,8 +854,10 @@ struct minircheats {
 	//ramwatch tells whether RAM watch should be updated (both cheat search and ram watch).
 	void (*update)(struct minircheats * this, bool ramwatch);
 	
-	const char * const * (*get_cheat_list)(struct minircheats * this, unsigned int * count);
-	void (*set_cheat_list)(struct minircheats * this, const char * const * cheats);
+	unsigned int (*get_cheat_count)(struct minircheats * this);
+	//The returned pointer is valid until the next get_cheat() or free()
+	const char * (*get_cheat)(struct minircheats * this, unsigned int id);
+	void (*set_cheat)(struct minircheats * this, unsigned int id, const char * code);
 	
 	void (*free)(struct minircheats * this);
 };

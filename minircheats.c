@@ -62,10 +62,32 @@ static bool decodeval(enum cheat_dattype dattype, const char * str, uint32_t * v
 
 static void search_update(struct minircheats_impl * this);
 
+//static void set_core(struct minircheats * this_, const struct libretro_memory_descriptor * memory, unsigned int nummemory)
 static void set_core(struct minircheats * this_, struct libretro * core)
 {
 	struct minircheats_impl * this=(struct minircheats_impl*)this_;
-	this->model->set_core(this->model, core);
+	unsigned int nummem;
+	const struct libretro_memory_descriptor * memory;
+	memory=core->get_memory_info(core, &nummem);
+	if (memory)
+	{
+		this->model->set_memory(this->model, memory, nummem);
+	}
+	else
+	{
+		void* wram;
+		size_t wramlen;
+		core->get_memory(core, libretromem_wram, &wramlen, &wram);
+		if (wram)
+		{
+			struct libretro_memory_descriptor wramdesc={ .memory_ptr=wram, .map_size=wramlen };
+			this->model->set_memory(this->model, &wramdesc, 1);
+		}
+		else
+		{
+			this->model->set_memory(this->model, NULL, 0);
+		}
+	}
 	search_update(this);
 }
 
@@ -398,7 +420,7 @@ static const char * search_get_cell(struct widget_listbox * subject, unsigned in
 		if (column==1) this->model->search_get_vis_row(this->model, row, NULL, &val, NULL);
 		if (column==2) this->model->search_get_vis_row(this->model, row, NULL, NULL, &val);
 		encodeval(this->dattype, this->datsize, val, this->celltmp);
-if(column==2)sprintf(this->celltmp,"%i",val);
+//if(column==2)sprintf(this->celltmp,"%i",val);
 	}
 	return this->celltmp;
 }

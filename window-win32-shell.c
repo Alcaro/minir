@@ -7,16 +7,6 @@
 #include <ctype.h>
 #include<stdio.h>
 
-void
-window_firstrun
-()
-{
-MessageBox(NULL,
-	"This piece of software is far from finished. There is no configuration panel, and some components are bad at emitting error messages.\r\n"
-	"All valid settings will show up in minir.cfg, which will appear beside the executable once it's closed.\r\n"
-,"Warning",MB_ICONWARNING);
-}
-
 //TODO:
 //menu_create: check where it's resized if size changes
 
@@ -91,7 +81,7 @@ struct windowmenu_win32 {
 //indexed by WM_COMMAND wParam
 static struct windowmenu_win32 * * menumap=NULL;
 static WORD * menumap_radiostate=NULL;
-static WORD menudatafirstfree=1;//the pointed to item is not necessarily free, but all before are guaranteed to be used
+static DWORD menudatafirstfree=1;//the pointed to item is not necessarily free, but all before are guaranteed to be used; it's DWORD to terminate a loop
 static DWORD menudatabuflen=1;//this is DWORD only to allow exactly 0x10000
 
 struct window_win32 {
@@ -237,11 +227,13 @@ static WORD menu_alloc_id()
 		if (!menumap[menudatafirstfree]) return menudatafirstfree;
 		menudatafirstfree++;
 	}
-	if (menudatafirstfree==0) abort();
+	if (menudatafirstfree>0xFFFF) abort();
+	size_t buflenbytes=sizeof(struct windowmenu_win32*)*menudatabuflen;
 	menudatabuflen*=2;
-	menumap=realloc(menumap, sizeof(struct windowmenu_win32*)*menudatabuflen);
+	menumap=realloc(menumap, buflenbytes*2);
 	menumap_radiostate=realloc(menumap_radiostate, sizeof(WORD)*menudatabuflen);
 	if (!menumap || !menumap_radiostate) abort();//high index possible - verify success
+	memset((char*)menumap+buflenbytes, 0, buflenbytes);
 	return menudatafirstfree;
 }
 
@@ -723,7 +715,7 @@ static void _reflow(struct window * this_)
 	bool badx=(this->contents->_width  > size.right  || (!this->resizable && this->contents->_width  != size.right));
 	bool bady=(this->contents->_height > size.bottom || (!this->resizable && this->contents->_height != size.bottom));
 	
-printf("want=%u,%u have=%u,%u",this->contents->_width,this->contents->_height,size.right,size.bottom);
+//printf("want=%u,%u have=%u,%u",this->contents->_width,this->contents->_height,size.right,size.bottom);
 	if (badx) size.right=this->contents->_width;
 	if (bady) size.bottom=this->contents->_height;
 	
@@ -738,10 +730,10 @@ printf("want=%u,%u have=%u,%u",this->contents->_width,this->contents->_height,si
 		
 		GetClientRect(this->hwnd, &size);
 		if (this->status) size.bottom-=statsize.bottom;
-printf(" resz=%u,%u",size.right,size.bottom);
+//printf(" resz=%u,%u",size.right,size.bottom);
 		resize_stbar(this, size.right);
 	}
-puts("");
+//puts("");
 	
 	HDWP hdwp=BeginDeferWindowPos(this->numchildwin);
 	this->contents->_place(this->contents, &hdwp, 0,0, size.right, size.bottom);
@@ -788,6 +780,7 @@ static LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM l
 	struct window_win32 * this=(struct window_win32*)GetWindowLongPtr(hwnd, GWLP_USERDATA);
 	switch (uMsg)
 	{
+	case WM_CTLCOLOREDIT: return _window_get_widget_color(uMsg, (HWND)lParam, (HDC)wParam, hwnd);
 	case WM_GETMINMAXINFO:
 		{
 			if (this)
@@ -844,7 +837,7 @@ static LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM l
 		break;
 	case WM_SYSCOMMAND:
 		{
-printf("SC=%.4X\n",wParam&0xFFFF);
+//printf("SC=%.4X\n",wParam&0xFFFF);
 			if ((wParam&0xFFF0)==SC_KEYMENU) break;//go away, we don't want automenues. Alt could be hit by accident.
 			goto _default;
 		}

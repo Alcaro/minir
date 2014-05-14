@@ -270,6 +270,7 @@ struct widget_textbox {
 	
 	//Highlights the widget as containing invalid data. Can paint the background red, focus it, and various other stuff.
 	//The invalidity highlight is removed as soon as the contents are changed, but may be restored on the onchange event.
+	//Making a widget invalid and disabled simultaneously is undefined behaviour.
 	void (*set_invalid)(struct widget_textbox * this, bool invalid);
 	
 	//Called whenever the text changes.
@@ -281,7 +282,7 @@ struct widget_textbox {
 	                     void * userdata);
 	//Called if the user hits Enter while this widget is focused. [TODO: Doesn't that activate the default button instead?]
 	void (*set_onactivate)(struct widget_textbox * this,
-	                       void (*onactivate)(struct widget_textbox * subject, void * userdata),
+	                       void (*onactivate)(struct widget_textbox * subject, const char * text, void * userdata),
 	                       void * userdata);
 };
 struct widget_textbox * widget_create_textbox();
@@ -513,16 +514,19 @@ void* file_find_create(const char * path);
 bool file_find_next(void* find, char* * path, bool * isdir);
 void file_find_close(void* find);
 
-//The different components may want to initialize various parts each. It is very likely that only two of them exist.
+//The different components may want to initialize various parts each. It's very unlikely for all three to exist.
 void _window_init_inner();
 void _window_init_misc();
 void _window_init_shell();
-//If interaction with a widget is sent to the outer window, this sends it back to the inner area.
+//If the window shell is the one told about interaction with a widget, this sends it back to the inner area.
 uintptr_t _window_notify_inner(void* notification);
+//Because Windows is a douchebag.
+uintptr_t _window_get_widget_color(unsigned int type, void* handle, void* draw, void* parent);
 //If the window manager does not implement any non-native paths (like gvfs), it can use this one;
 // it's implemented by something that knows the local file system, but not the window manager.
-//There is no _window_native_get_native_path; since the local file system doesn't understand whatever the window
-// manager is doing, such a thing would be equivalent to window_native_get_absolute_path and therefore useless.
+//There is no _window_native_get_native_path; since the local file system doesn't understand
+// anything except the local file system, it would only be able to return the input, or be
+// equivalent to _window_native_get_absolute_path. Empty and/or duplicate functions are useless.
 char * _window_native_get_absolute_path(const char * path);
 
 //Devirtualizing a listbox means implementing widget_listbox->set_contents in terms of set_contents_virtual.

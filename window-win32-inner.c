@@ -6,7 +6,6 @@
 #include <windowsx.h>
 #include <commctrl.h>
 #include <stdlib.h>
-#include<stdio.h>
 
 //controls HIG and screenshots of them http://msdn.microsoft.com/en-us/library/aa511482.aspx
 //controls docs http://msdn.microsoft.com/en-us/library/windows/desktop/bb773169%28v=vs.85%29.aspx
@@ -39,6 +38,8 @@
 static LRESULT CALLBACK viewport_WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam);
 static HFONT dlgfont;
 static unsigned int xwidth;
+
+static HBRUSH bg_invalid;
 
 //static bool recursive=false;
 
@@ -112,6 +113,8 @@ void _window_init_inner()
 	initctrls.dwSize=sizeof(initctrls);
 	initctrls.dwICC=ICC_LISTVIEW_CLASSES|ICC_STANDARD_CLASSES;
 	InitCommonControlsEx(&initctrls);
+	
+	bg_invalid=CreateSolidBrush(RGB(0xFF,0x66,0x66));
 }
 
 static void place_window(HWND hwnd, void* resizeinf, unsigned int x, unsigned int y, unsigned int width, unsigned int height)
@@ -415,9 +418,17 @@ struct widget_textbox_win32 {
 	
 	char * text;
 	
+	bool invalid;
+	
 	void (*onchange)(struct widget_textbox * subject, const char * text, void* userdata);
-	void* userdata;
+	void* ch_userdata;
+	void (*onactivate)(struct widget_textbox * subject, const char * text, void* userdata);
+	void* ac_userdata;
+	
+	WNDPROC orgWndProc;
 };
+
+static LRESULT CALLBACK textbox_WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam);
 
 static unsigned int textbox__init(struct widget_base * this_, struct window * parent, uintptr_t parenthandle)
 {
@@ -426,6 +437,7 @@ static unsigned int textbox__init(struct widget_base * this_, struct window * pa
 	                        (HWND)parenthandle, (HMENU)CTID_TEXTBOX, GetModuleHandle(NULL), NULL);
 	SetWindowLongPtr(this->hwnd, GWLP_USERDATA, (LONG_PTR)this);
 	SendMessage(this->hwnd, WM_SETFONT, (WPARAM)dlgfont, FALSE);
+	this->orgWndProc=(WNDPROC)SetWindowLongPtr(this->hwnd, GWLP_WNDPROC, (LONG_PTR)textbox_WindowProc);
 	return 1;
 }
 
@@ -457,6 +469,12 @@ static void textbox_set_enabled(struct widget_textbox * this_, bool enable)
 	EnableWindow(this->hwnd, enable);
 }
 
+static void textbox_focus(struct widget_textbox * this_)
+{
+	struct widget_textbox_win32 * this=(struct widget_textbox_win32*)this_;
+	SetFocus(this->hwnd);
+}
+
 static const char * textbox_get_text(struct widget_textbox * this_)
 {
 	struct widget_textbox_win32 * this=(struct widget_textbox_win32*)this_;
@@ -476,13 +494,21 @@ static void textbox_set_text(struct widget_textbox * this_, const char * text, u
 	Edit_LimitText(this->hwnd, maxlen);//conveniently, we both chose 0 to mean unlimited
 }
 
+static void textbox_set_invalid(struct widget_textbox * this_, bool invalid)
+{
+	struct widget_textbox_win32 * this=(struct widget_textbox_win32*)this_;
+	this->invalid=invalid;
+	InvalidateRect(this->hwnd, NULL, FALSE);
+	if (invalid) SetFocus(this->hwnd);
+}
+
 static void textbox_set_onchange(struct widget_textbox * this_,
                                  void (*onchange)(struct widget_textbox * subject, const char * text, void* userdata),
                                  void* userdata)
 {
 	struct widget_textbox_win32 * this=(struct widget_textbox_win32*)this_;
-	this->onchange=callback;
-	this->userdata=userdata;
+	this->onchange=onchange;
+	this->ch_userdata=userdata;
 }
 
 static void textbox_set_onactivate(struct widget_textbox * this_,
@@ -490,8 +516,8 @@ static void textbox_set_onactivate(struct widget_textbox * this_,
                                    void* userdata)
 {
 	struct widget_textbox_win32 * this=(struct widget_textbox_win32*)this_;
-	this->onchange=callback;
-	this->userdata=userdata;
+	this->onactivate=onactivate;
+	this->ac_userdata=userdata;
 }
 
 struct widget_textbox * widget_create_textbox()
@@ -514,8 +540,26 @@ struct widget_textbox * widget_create_textbox()
 	
 	this->text=NULL;
 	this->onchange=NULL;
+	this->invalid=false;
 	
 	return (struct widget_textbox*)this;
+}
+
+static LRESULT CALLBACK textbox_WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
+{
+	struct widget_textbox_win32 * this=(struct widget_textbox_win32*)GetWindowLongPtr(hwnd, GWLP_USERDATA);
+	switch (uMsg)
+	{
+		case WM_KEYDOWN:
+			if (wParam==VK_RETURN && !(lParam & 0x40000000) && this->onactivate)
+			{
+				this->onactivate((struct widget_textbox*)this, textbox_get_text((struct widget_textbox*)this), this->ac_userdata);
+				return 0;
+			}
+		default:
+			return CallWindowProc(this->orgWndProc, hwnd, uMsg, wParam, lParam);
+	}
+	return 0;
 }
 
 
@@ -875,7 +919,7 @@ static void listbox_set_size(struct widget_listbox * this_, unsigned int height,
 	DWORD widthheight=ListView_ApproximateViewRect(this->hwnd, widthpx, heightpx, height);
 	this->i.base._width=LOWORD(widthheight);
 	this->i.base._height=HIWORD(widthheight)-GetSystemMetrics(SM_CYHSCROLL)+2;//microsoft really aren't making this easy for me
-printf("%u->%u %u->%u\n",widthpx,this->i.base._width,heightpx,this->i.base._height);
+//printf("%u->%u %u->%u\n",widthpx,this->i.base._width,heightpx,this->i.base._height);
 	
 	this->parent->_reflow(this->parent);
 }
@@ -1188,9 +1232,14 @@ uintptr_t _window_notify_inner(void* notification)
 			if (nmhdr->code==EN_CHANGE)
 			{
 				struct widget_textbox_win32 * this=(struct widget_textbox_win32*)GetWindowLongPtr(nmhdr->hwndFrom, GWLP_USERDATA);
+				if (this->invalid)
+				{
+					this->invalid=false;
+					InvalidateRect(this->hwnd, NULL, FALSE);
+				}
 				if (this->onchange)
 				{
-					this->onchange((struct widget_textbox*)this, textbox_get_text((struct widget_textbox*)this), this->userdata);
+					this->onchange((struct widget_textbox*)this, textbox_get_text((struct widget_textbox*)this), this->ch_userdata);
 				}
 			}
 			break;
@@ -1202,5 +1251,23 @@ uintptr_t _window_notify_inner(void* notification)
 		}
 	}
 	return 0;
+}
+
+uintptr_t _window_get_widget_color(unsigned int type, void* handle, void* draw, void* parent)
+{
+	switch (GetDlgCtrlID(handle))
+	{
+		case CTID_TEXTBOX:
+		{
+			struct widget_textbox_win32 * this=(struct widget_textbox_win32*)GetWindowLongPtr(handle, GWLP_USERDATA);
+			if (this->invalid)
+			{
+				SetBkMode((HDC)draw, TRANSPARENT);
+				return (HRESULT)bg_invalid;
+			}
+			break;
+		}
+	}
+	return DefWindowProcA(parent, type, (WPARAM)draw, (LPARAM)handle);
 }
 #endif
