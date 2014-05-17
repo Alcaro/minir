@@ -323,7 +323,7 @@ void unload_rom()
 	}
 	if (romloaded && config.sram_write_unload)
 	{
-		unsigned int sramsize;
+		size_t sramsize;
 		void* sramptr;
 		core->get_memory(core, libretromem_sram, &sramsize, &sramptr);
 		if (sramsize) file_write(sram_path(), sramptr, sramsize);
@@ -516,7 +516,7 @@ void load_rom_finish()
 	
 	reset_config();
 	
-	unsigned int sramsize;
+	size_t sramsize;
 	void* sramptr;
 	core->get_memory(core, libretromem_sram, &sramsize, &sramptr);
 	file_read_to(sram_path(), sramptr, sramsize);

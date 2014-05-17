@@ -347,14 +347,15 @@ static const struct libretro_memory_descriptor * get_memory_info(struct libretro
 	//TODO: before the above, finalize the format and ensure I won't want to change it anymore. Attempting to change any part of libretro when not strictly mandatory would become very painful very quickly.
 	if (strstr(info.library_name, "snes") || strstr(info.library_name, "SNES"))
 	{
-		*nummemdesc=2;
-		static struct libretro_memory_descriptor desc[]={
-			{ .map_start=0x7E0000, .map_size=0x20000 },
-			{ .memory_loop=0x2000, .map_const_bits=0x40E000, .map_size=0x2000*64*2 },
-			};
-		desc[0].memory_ptr=this->raw.get_memory_data(RETRO_MEMORY_SYSTEM_RAM);
-		desc[1].memory_ptr=desc[0].memory_ptr;
-		return desc;
+		return NULL;//TODO: fix this
+		//*nummemdesc=2;
+		//static struct libretro_memory_descriptor desc[]={
+			//{ .map_start=0x7E0000, .map_size=0x20000 },
+			//{ .memory_loop=0x2000, .map_const_bits=0x40E000, .map_size=0x2000*64*2 },
+			//};
+		//desc[0].memory_ptr=this->raw.get_memory_data(RETRO_MEMORY_SYSTEM_RAM);
+		//desc[1].memory_ptr=desc[0].memory_ptr;
+		//return desc;
 	}
 	else return NULL;
 }

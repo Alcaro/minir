@@ -78,12 +78,13 @@ static void set_core(struct minircheats * this_, struct libretro * core)
 		void* wram;
 		size_t wramlen;
 		core->get_memory(core, libretromem_wram, &wramlen, &wram);
-		if (wram)
-		{
-			struct libretro_memory_descriptor wramdesc={ .memory_ptr=wram, .map_size=wramlen };
-			this->model->set_memory(this->model, &wramdesc, 1);
-		}
-		else
+		//TODO: fix
+		//if (wram)
+		//{
+			//struct libretro_memory_descriptor wramdesc={ .memory_ptr=wram, .map_size=wramlen };
+			//this->model->set_memory(this->model, &wramdesc, 1);
+		//}
+		//else
 		{
 			this->model->set_memory(this->model, NULL, 0);
 		}

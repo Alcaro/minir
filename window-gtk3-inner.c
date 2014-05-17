@@ -278,7 +278,7 @@ struct widget_textbox_gtk3 {
 	
 	void (*onchange)(struct widget_textbox * subject, const char * text, void* userdata);
 	void* ch_userdata;
-	void (*onactivate)(struct widget_textbox * subject, void* userdata);
+	void (*onactivate)(struct widget_textbox * subject, const char * text, void* userdata);
 	void* ac_userdata;
 };
 
@@ -340,7 +340,8 @@ static void textbox_onchange(GtkEntry* entry, gpointer user_data)
 }
 
 static void textbox_set_onchange(struct widget_textbox * this_,
-                                 void (*onchange)(struct widget_textbox * subject, const char * text, void* userdata), void* userdata)
+                                 void (*onchange)(struct widget_textbox * subject, const char * text, void* userdata),
+                                 void* userdata)
 {
 	struct widget_textbox_gtk3 * this=(struct widget_textbox_gtk3*)this_;
 	
@@ -351,11 +352,12 @@ static void textbox_set_onchange(struct widget_textbox * this_,
 static void textbox_onactivate(GtkEntry* entry, gpointer user_data)
 {
 	struct widget_textbox_gtk3 * this=(struct widget_textbox_gtk3*)user_data;
-	this->onactivate((struct widget_textbox*)this, this->ac_userdata);
+	this->onactivate((struct widget_textbox*)this, gtk_entry_get_text(GTK_ENTRY(this->i.base._widget)), this->ac_userdata);
 }
 
 static void textbox_set_onactivate(struct widget_textbox * this_,
-                                   void (*onactivate)(struct widget_textbox * subject, void* userdata), void* userdata)
+                                   void (*onactivate)(struct widget_textbox * subject, const char * text, void* userdata),
+                                   void* userdata)
 {
 	struct widget_textbox_gtk3 * this=(struct widget_textbox_gtk3*)this_;
 	

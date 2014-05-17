@@ -495,17 +495,19 @@ enum libretro_memtype { // These IDs are the same as RETRO_MEMORY_*.
 	libretromem_vram
 };
 
-//This one means the core will never change it once retro_load_rom has returned; however, the core
+//This flag means the core will never change it once retro_load_rom has returned; however, the core
 // will read from this area, and the frontend may assume it has prmission to write to this area.
 #define LIBRETRO_MEMFLAG_CONST     (1 << 0)
+//This one means that this is not the primary way to access this memory area.
+#define LIBRETRO_MEMFLAG_MIRROR    (1 << 1)
 //This flag means that this memory area contains big endian data. Default is little endian.
-#define LIBRETRO_MEMFLAG_BIGENDIAN (1 << 1)
+#define LIBRETRO_MEMFLAG_BIGENDIAN (1 << 2)
 //If this is set, all memory access in this area is aligned; for example, no two-byte data starts at
-// odd addresses. Three-byte data is absent in these areas.
-#define LIBRETRO_MEMFLAG_ALIGNED   (1 << 2)
+// odd addresses.
+#define LIBRETRO_MEMFLAG_ALIGNED   (1 << 3)
 
 //If the core does not describe its memory maps, the frontend may create one from various RETRO_MEMORY_* as a fallback.
-//Implementing this without also exposing RETRO_MEMORY_SYSTEM_RAM is highly discouraged.
+//Implementing this without also exposing (at least) RETRO_MEMORY_SYSTEM_RAM is highly discouraged.
 struct libretro_memory_descriptor {
 	uint64_t flags;
 	
@@ -517,12 +519,11 @@ struct libretro_memory_descriptor {
 	//If a byte is mapped to two places, the latter mapping takes precedence. If this is wrong, but can't
 	// be changed due to the primary-first rule, put a copy of the mapping latter in the array too.
 	//The flags must be the same for everything using the same memory_ptr.
-	void * memory_ptr;
-	//If this is nonzero, all access to this pointer is done modulo this value.
-	size_t memory_loop;
-	//This is added to all access through this mapping (after applying memory_loop). Use this and multiple
-	// memory descriptors if the mapping is too complex to express through the other values here.
-	size_t memory_offset;
+	void * ptr;
+	size_t len;
+	
+	//This is where the first byte in the mapping resides.
+	size_t map_start;
 	
 	//The address space name must consist of only a-zA-Z0-9_, should be as short as feasible (maximum length is 8 excluding the NUL),
 	// and may not be any other address space plus one or more 0-9A-F at the end.
@@ -549,12 +550,12 @@ struct libretro_memory_descriptor {
 	//Can be 0, in which case the length is calculated from the last byte defined by this mapping.
 	unsigned addr_str_len;
 	
-	//Where in this address the first byte in this mapping is placed.
-	size_t map_start;
-	//This one tells how many bytes this mapping defines. If map_const_bits is nonzero, this must be a power of two.
-	size_t map_size;
-	//For some mappings, some bits are skipped over.
-	size_t map_const_bits;
+	//loop_count tells how 
+	size_t loop_count;
+	size_t loop_incr_mapped;
+	size_t loop_incr_ptr;
+	//Example: count=2, incr_mapped=0x10000, incr_ptr=0x8000 maps the first
+	// half to address 00000-07FFF, and the second half to 10000-17FFF.
 };
 //Sample descriptors (minus memory_ptr and memory_id):
 //SNES WRAM:
@@ -562,13 +563,13 @@ struct libretro_memory_descriptor {
 //SNES SPC700 RAM:
 // .addr_name="S", .map_size=0x10000
 //SNES WRAM mirrors:
-// .memory_loop=0x2000, .map_start=0x000000, .map_const_bits=0xE000, .map_size=0x2000*64
-// .memory_loop=0x2000, .map_start=0x800000, .map_const_bits=0xE000, .map_size=0x2000*64
-//SNES WRAM mirrors, alternative equivalent definition:
-// .memory_loop=0x2000, .map_start=0x000000, .map_const_bits=0x40E000, .map_size=0x2000*64*2
+// .flags=LIBRETRO_MEMFLAG_MIRROR, .map_start=0x000000, .len=0x2000, .loop_count=0x40, .loop_incr_map=0x10000, .loop_incr_ptr=0
+// .flags=LIBRETRO_MEMFLAG_MIRROR, .map_start=0x800000, .len=0x2000, .loop_count=0x40, .loop_incr_map=0x10000, .loop_incr_ptr=0
 //SNES LoROM (512KB, mirrored a couple of times):
 // .flags=LIBRETRO_MEMFLAG_CONST, .memory_loop=512*1024, .map_start=0x008000, .map_const_bits=0x8000, .map_size=0x400000
 // .flags=LIBRETRO_MEMFLAG_CONST, .memory_loop=512*1024, .map_start=0x808000, .map_const_bits=0x8000, .map_size=0x400000
+//SNES HiROM:
+// .flags=LIBRETRO_MEMFLAG_CONST
 //SNES ExHiROM (8MB):
 // .flags=LIBRETRO_MEMFLAG_CONST, .memory_offset=0x000000, .map_size=0x400000, .map_start=0xC00000
 // .flags=LIBRETRO_MEMFLAG_CONST, .memory_offset=0x400000, .map_size=0x400000, .map_start=0x400000
