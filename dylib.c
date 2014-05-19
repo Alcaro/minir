@@ -6,15 +6,18 @@
 #endif
 
 #ifdef DYLIB_WIN32
+#undef _WIN32_WINNT
 #define _WIN32_WINNT 0x0501
 #include <windows.h>
 
-BOOL WINAPI SetDllDirectoryA(LPCSTR lpPathName);
-BOOL WINAPI SetDllDirectoryW(LPCWSTR lpPathName);
+#ifndef SetDllDirectory
+WINBASEAPI BOOL WINAPI SetDllDirectoryA(LPCSTR lpPathName);
+WINBASEAPI BOOL WINAPI SetDllDirectoryW(LPCWSTR lpPathName);
 #ifdef UNICODE
 #define SetDllDirectory SetDllDirectoryW
 #else
 #define SetDllDirectory SetDllDirectoryA
+#endif
 #endif
 
 #endif

@@ -19,6 +19,7 @@
 #endif
 
 #define STATIC_ASSERT(cond, name) extern char name[(cond)?1:-1]
+#define STATIC_ASSERT_CAN_EVALUATE(cond, name) extern char name[(sizeof(cond)>=0)?1:-1]
 
 #include "window.h"
 

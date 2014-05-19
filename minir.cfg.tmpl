@@ -145,6 +145,10 @@ bool rewind_stats=false
 #And finally, this one is what to press to trigger it.
 input input_rewind=KB1::Backspace
 
+#Maximum amount of memory used by the cheat search to store the previous memory values, in megabytes.
+#
+int[0-65536] cheat_mem=65536
+
 #Whether to create an SRAM file upon unloading the ROM (closing minir counts as ROM unload),
 # and when detecting that game has been saved in-game, respectively.
 #Note that the in-game saving detection mechanism isn't perfect, and may trigger on loading a new level in some games.

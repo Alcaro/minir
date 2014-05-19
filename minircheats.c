@@ -94,8 +94,9 @@ static void set_core(struct minircheats * this_, struct libretro * core, size_t 
 			this->model->set_memory(this->model, NULL, 0);
 		}
 	}
-	this->prev_enabled=(prev_limit <= this->model->prev_get_size(this->model));
-	this->model->prev_set_enabled(this->model, this->prev_enabled);
+	//TODO: uncomment once these two start existing
+	//this->prev_enabled=(prev_limit <= this->model->prev_get_size(this->model));
+	//this->model->prev_set_enabled(this->model, this->prev_enabled);
 	search_update(this);
 }
 
@@ -487,14 +488,10 @@ struct minircheats * minircheats_create()
 	this->i.set_enabled=set_enabled;
 	this->i.get_enabled=get_enabled;
 	this->i.update=update;
-	//this->i.get_cheat_count=get_cheat_count;
-	//this->i.get_cheat=get_cheat;
-	//this->i.set_cheat=set_cheat;
 	this->i.free=free_;
 	
 	this->enabled=true;
 	this->model=minircheats_create_model();
-	this->prevlimit=(size_t)-1;
 	
 	return (struct minircheats*)this;
 }

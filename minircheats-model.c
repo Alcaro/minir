@@ -142,6 +142,7 @@ static void free_(struct minircheats_model * this_)
 
 const struct minircheats_model_impl minircheats_model_base = {{
 	set_memory,
+	NULL, NULL, NULL,//prev_get_size, prev_set_enabled, prev_get_enabled
 	search_reset, search_set_datsize, search_set_signed, search_do_search, search_get_num_rows, search_get_vis_row,
 	NULL, NULL, NULL,//cheat_read, cheat_find_for_addr, cheat_get_count,
 	NULL, NULL, NULL, NULL,//cheat_set, cheat_set_as_code, cheat_get, cheat_get_as_code,

@@ -278,7 +278,19 @@ void reset_config()
 		}
 	}
 	
-	if (core) cheats->set_core(cheats, core);
+	if (core)
+	{
+		//do not attempt to optimize this, the funky math is needed to ensure we don't overflow the multiplication
+		//the compiler optimizes it well enough anyways
+		if (((size_t)-1)/1024/1024 > 65536 && config.cheat_mem > ((size_t)-1)/1024/1024)
+		{
+			cheats->set_core(cheats, core, (size_t)-1);
+		}
+		else
+		{
+			cheats->set_core(cheats, core, config.cheat_mem*1024*1024);
+		}
+	}
 	
 	update_menu();
 }
