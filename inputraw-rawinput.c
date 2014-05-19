@@ -14,6 +14,7 @@
 //this file is heavily based on ruby by byuu
 
 #ifdef INPUT_DIRECTINPUT
+#undef _WIN32_WINNT
 #define _WIN32_WINNT 0x0501
 #include <windows.h>
 #include <stdlib.h>

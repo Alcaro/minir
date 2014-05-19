@@ -99,7 +99,7 @@ struct video_opengl {
 	HDC display;
 	HGLRC wglcontext;
 	
-	int (STDCALL *glSwapInterval)(int);
+	int (WINAPI *glSwapInterval)(int);
 #endif
 	
 	unsigned int screenwidth;
@@ -463,7 +463,7 @@ struct video * video_create_opengl(uintptr_t windowhandle, unsigned int screen_w
 	
 	//vertical synchronization
 	this->glSwapInterval=NULL;
-	if(!this->glSwapInterval) this->glSwapInterval = (BOOL (APIENTRY*)(int))glGetProcAddress("wglSwapIntervalEXT");
+	if(!this->glSwapInterval) this->glSwapInterval = (BOOL (WINAPI*)(int))glGetProcAddress("wglSwapIntervalEXT");
 	if( this->glSwapInterval) this->glSwapInterval(1);
 	else goto cancel;
 #endif
