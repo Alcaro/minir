@@ -1266,7 +1266,7 @@ uintptr_t _window_get_widget_color(unsigned int type, void* handle, void* draw, 
 			if (this->invalid)
 			{
 				SetBkMode((HDC)draw, TRANSPARENT);
-				return (HRESULT)bg_invalid;
+				return (LRESULT)bg_invalid;
 			}
 			break;
 		}

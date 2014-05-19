@@ -175,7 +175,7 @@ struct inputraw * _inputraw_create_rawinput(uintptr_t windowhandle)
 	RegisterClass(&wc);//this could fail if it's already regged, but in that case, the previous registration remains so who cares.
 	
 	this->hwnd=CreateWindow("RawInputClass", "RawInputClass", WS_POPUP, 0, 0, 64, 64, HWND_MESSAGE, NULL, GetModuleHandle(NULL), NULL);
-	SetWindowLongPtr(this->hwnd, GWLP_USERDATA, (LONG)this);
+	SetWindowLongPtr(this->hwnd, GWLP_USERDATA, (LONG_PTR)this);
 	
 	this->numkb=0;
 	this->kbhandle=NULL;
