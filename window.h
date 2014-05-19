@@ -234,7 +234,7 @@ struct widget_radio {
 	//It is undefined behaviour to attempt to redefine a group.
 	//It is undefined behaviour to set the onclick handler, or set or get the state, for anything except the group leader.
 	//It is undefined behaviour to do anything with a radio button before grouping them, except put them in a window.
-	//However, the window may not be shown before grouping them.
+	//The window may not be shown before grouping them.
 	void (*group)(struct widget_radio * this, unsigned int numitems, struct widget_radio * * group);
 	
 	//Returns which one is active. The group leader is 0.
@@ -244,8 +244,7 @@ struct widget_radio {
 	void (*set_state)(struct widget_radio * this, unsigned int state);
 	
 	//Called whenever the state changes. It is allowed to set the state in response to this.
-	//For a grouped radio box, the callback contains the group leader.
-	//It is undefined whether clicking on the same radio button twice makes the callback fire twice.
+	//It is undefined whether the callback can fire for the previously active state, for example due to clicking the button twice.
 	void (*set_onclick)(struct widget_radio * this,
 	                    void (*onclick)(struct widget_radio * subject, unsigned int state, void* userdata),
 	                    void* userdata);

@@ -424,11 +424,9 @@ struct widget_textbox_win32 {
 	void* ch_userdata;
 	void (*onactivate)(struct widget_textbox * subject, const char * text, void* userdata);
 	void* ac_userdata;
-	
-	WNDPROC orgWndProc;
 };
 
-static LRESULT CALLBACK textbox_WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam);
+static LRESULT CALLBACK textbox_SubclassProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam, UINT_PTR uIdSubclass, DWORD_PTR dwRefData);
 
 static unsigned int textbox__init(struct widget_base * this_, struct window * parent, uintptr_t parenthandle)
 {
@@ -437,7 +435,7 @@ static unsigned int textbox__init(struct widget_base * this_, struct window * pa
 	                        (HWND)parenthandle, (HMENU)CTID_TEXTBOX, GetModuleHandle(NULL), NULL);
 	SetWindowLongPtr(this->hwnd, GWLP_USERDATA, (LONG_PTR)this);
 	SendMessage(this->hwnd, WM_SETFONT, (WPARAM)dlgfont, FALSE);
-	this->orgWndProc=(WNDPROC)SetWindowLongPtr(this->hwnd, GWLP_WNDPROC, (LONG_PTR)textbox_WindowProc);
+	SetWindowSubclass(this->hwnd, textbox_SubclassProc, 0, 0);
 	return 1;
 }
 
@@ -545,7 +543,9 @@ struct widget_textbox * widget_create_textbox()
 	return (struct widget_textbox*)this;
 }
 
-static LRESULT CALLBACK textbox_WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
+
+static LRESULT CALLBACK textbox_SubclassProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam,
+                                             UINT_PTR uIdSubclass, DWORD_PTR dwRefData)
 {
 	struct widget_textbox_win32 * this=(struct widget_textbox_win32*)GetWindowLongPtr(hwnd, GWLP_USERDATA);
 	switch (uMsg)
@@ -556,10 +556,12 @@ static LRESULT CALLBACK textbox_WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, 
 				this->onactivate((struct widget_textbox*)this, textbox_get_text((struct widget_textbox*)this), this->ac_userdata);
 				return 0;
 			}
-		default:
-			return CallWindowProc(this->orgWndProc, hwnd, uMsg, wParam, lParam);
+			break;
+		case WM_NCDESTROY:
+			RemoveWindowSubclass(hwnd, textbox_SubclassProc, 0);
+			break;
 	}
-	return 0;
+	return DefSubclassProc(hwnd, uMsg, wParam, lParam);
 }
 
 

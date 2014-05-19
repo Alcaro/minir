@@ -35,6 +35,7 @@ struct minircheats_impl {
 	struct window * wndwatch;
 	
 	bool enabled :1;
+	bool prev_enabled :1;
 	
 	unsigned int datsize :3;
 	enum cheat_dattype dattype :2;
@@ -57,13 +58,18 @@ static bool decodeval(enum cheat_dattype dattype, const char * str, uint32_t * v
 	if (dattype==cht_hex) *val=strtoul(str, (char**)&out, 16);
 	if (dattype==cht_sign) *val=strtol(str, (char**)&out, 10);
 	if (dattype==cht_unsign) *val=strtoul(str, (char**)&out, 10);
-	return (str!=out && !*out);
+	return (str!=out && !*out && str[1]!='x' && str[1]!='X');
 }
 
 static void search_update(struct minircheats_impl * this);
 
-//static void set_core(struct minircheats * this_, const struct libretro_memory_descriptor * memory, unsigned int nummemory)
-static void set_core(struct minircheats * this_, struct libretro * core)
+static void set_parent(struct minircheats * this_, struct window * parent)
+{
+	struct minircheats_impl * this=(struct minircheats_impl*)this_;
+	this->parent=parent;
+}
+
+static void set_core(struct minircheats * this_, struct libretro * core, size_t prev_limit)
 {
 	struct minircheats_impl * this=(struct minircheats_impl*)this_;
 	unsigned int nummem;
@@ -78,24 +84,19 @@ static void set_core(struct minircheats * this_, struct libretro * core)
 		void* wram;
 		size_t wramlen;
 		core->get_memory(core, libretromem_wram, &wramlen, &wram);
-		//TODO: fix
-		//if (wram)
-		//{
-			//struct libretro_memory_descriptor wramdesc={ .memory_ptr=wram, .map_size=wramlen };
-			//this->model->set_memory(this->model, &wramdesc, 1);
-		//}
-		//else
+		if (wram)
+		{
+			struct libretro_memory_descriptor wramdesc={ .ptr=wram, .len=wramlen };
+			this->model->set_memory(this->model, &wramdesc, 1);
+		}
+		else
 		{
 			this->model->set_memory(this->model, NULL, 0);
 		}
 	}
+	this->prev_enabled=(prev_limit <= this->model->prev_get_size(this->model));
+	this->model->prev_set_enabled(this->model, this->prev_enabled);
 	search_update(this);
-}
-
-static void set_parent(struct minircheats * this_, struct window * parent)
-{
-	struct minircheats_impl * this=(struct minircheats_impl*)this_;
-	this->parent=parent;
 }
 
 
@@ -479,17 +480,21 @@ struct minircheats * minircheats_create()
 {
 	struct minircheats_impl * this=malloc(sizeof(struct minircheats_impl));
 	memset(this, 0, sizeof(struct minircheats_impl));
-	this->i.set_core=set_core;
 	this->i.set_parent=set_parent;
+	this->i.set_core=set_core;
 	this->i.show_search=show_search;
 	this->i.show_list=show_list;
 	this->i.set_enabled=set_enabled;
 	this->i.get_enabled=get_enabled;
 	this->i.update=update;
+	//this->i.get_cheat_count=get_cheat_count;
+	//this->i.get_cheat=get_cheat;
+	//this->i.set_cheat=set_cheat;
 	this->i.free=free_;
 	
 	this->enabled=true;
 	this->model=minircheats_create_model();
+	this->prevlimit=(size_t)-1;
 	
 	return (struct minircheats*)this;
 }

@@ -21,8 +21,8 @@ ifeq ($(platform),)
 endif
 
 #TESTSRC = libretro.c rewind*.c inputraw-*keymaps.c dylib.c thread-*.c
-TESTSRC = audio*.c
-TESTSEPSRC = window*.c test-*.c
+TESTSRC = minircheats-model.c
+TESTSEPSRC = test-*.c
 
 OBJS = $(patsubst %.c,obj/%.o,$(wildcard *.c))
 TESTOBJS = $(patsubst %.c,obj/%.o,$(wildcard $(TESTSRC))) $(patsubst %.c,obj/%-test.o,$(wildcard $(TESTSEPSRC)))

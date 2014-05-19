@@ -18,6 +18,8 @@
 #define STRUCT_END
 #endif
 
+#define STATIC_ASSERT(cond, name) extern char name[(cond)?1:-1]
+
 #include "window.h"
 
 void         //delete
@@ -145,71 +147,6 @@ struct video * video_create_none(uintptr_t windowhandle, unsigned int screen_wid
 struct video * video_create_thread(const char * backend, uintptr_t windowhandle,
                                    unsigned int screen_width, unsigned int screen_height,
                                    unsigned int depth, double fps);
-
-//This one can't be threaded.
-struct video3d {
-	struct video * (*get_parent)(struct video3d * this);
-	
-	bool (*set_shader)(struct video3d * this, const char * filename);
-	
-};
-struct video3d * video3d_create(uintptr_t windowhandle,
-                                   unsigned int screen_width, unsigned int screen_height,
-                                   unsigned int depth, double fps);
-
-#if 0
-http://www.libretro.com/index.php/wiki/shaders/glsl-shaders/
-http://www.libretro.com/index.php/wiki/shaders/cg-shaders/
-
-// Pass this to retro_video_refresh_t if rendering to hardware.
-// Passing NULL to retro_video_refresh_t is still a frame dupe as normal.
-#define RETRO_HW_FRAME_BUFFER_VALID ((void*)-1)
-
-// Invalidates the current HW context.
-// Any GL state is lost, and must not be deinitialized explicitly. If explicit deinitialization is desired by the libretro core,
-// it should implement context_destroy callback.
-// If called, all GPU resources must be reinitialized.
-// Usually called when frontend reinits video driver.
-// Also called first time video driver is initialized, allowing libretro core to init resources.
-typedef void (*retro_hw_context_reset_t)(void);
-// Gets current framebuffer which is to be rendered to. Could change every frame potentially.
-typedef uintptr_t (*retro_hw_get_current_framebuffer_t)(void);
-
-// Get a symbol from HW context.
-typedef void (*retro_proc_address_t)(void);
-typedef retro_proc_address_t (*retro_hw_get_proc_address_t)(const char *sym);
-
-enum retro_hw_context_type
-{
-   RETRO_HW_CONTEXT_NONE = 0,
-   RETRO_HW_CONTEXT_OPENGL, // OpenGL 2.x. Latest version available before 3.x+. Driver can choose to use latest compatibility context.
-   RETRO_HW_CONTEXT_OPENGLES2, // GLES 2.0
-   RETRO_HW_CONTEXT_OPENGL_CORE, // Modern desktop core GL context. Use major/minor fields to set GL version.
-   RETRO_HW_CONTEXT_OPENGLES3, // GLES 3.0
-
-   RETRO_HW_CONTEXT_DUMMY = INT_MAX
-};
-
-struct retro_hw_render_callback
-{
-   enum retro_hw_context_type context_type; // Which API to use. Set by libretro core.
-   retro_hw_context_reset_t context_reset; // Called when a context has been created or when it has been reset.
-   retro_hw_get_current_framebuffer_t get_current_framebuffer; // Set by frontend.
-   retro_hw_get_proc_address_t get_proc_address; // Set by frontend.
-   bool depth; // Set if render buffers should have depth component attached.
-   bool stencil; // Set if stencil buffers should be attached.
-   // If depth and stencil are true, a packed 24/8 buffer will be added. Only attaching stencil is invalid and will be ignored.
-   bool bottom_left_origin; // Use conventional bottom-left origin convention. Is false, standard libretro top-left origin semantics are used.
-   unsigned version_major; // Major version number for core GL context.
-   unsigned version_minor; // Minor version number for core GL context.
-
-   bool cache_context; // If this is true, the frontend will go very far to avoid resetting context in scenarios like toggling fullscreen, etc.
-   // The reset callback might still be called in extreme situations such as if the context is lost beyond recovery. 
-   // For optimal stability, set this to false, and allow context to be reset at any time.
-   retro_hw_context_reset_t context_destroy; // A callback to be called before the context is destroyed. Resources can be deinitialized at this step. This can be set to NULL, in which resources will just be destroyed without any notification.
-   bool debug_context; // Creates a debug context.
-};
-#endif
 
 
 
@@ -437,7 +374,9 @@ extern const unsigned char icon_minir_64x64_png[1300];
 
 
 //A compressing, lossy stack. Optimized for large, mostly similar, blocks of data; optimized for
-// writing, less so for reading. Will discard old data if its capacity is exhausted.
+// writing, less so for reading.
+//"Lossy" means that it will discard old data if its capacity is exhausted, not that it will give
+// out any memory block it wasn't given.
 struct rewindstack {
 	//This is equivalent to deleting and recreating the structure, with the exception that
 	// it won't reallocate the big block if the capacity is unchanged. It is safe to set the capacity
@@ -468,7 +407,7 @@ struct rewindstack {
 	//Tells how many entries are in the structure, how many bytes are used, and whether the structure
 	// is likely to discard something if a new item is appended. The full flag is guaranteed true if
 	// it has discarded anything since the last pull() or reset(); however, it may be set even before
-	// discarding, if the implementation believes that will simplify things elsewhere.
+	// discarding, if the implementation believes that will simplify the implementation.
 	void (*capacity)(struct rewindstack * this, unsigned int * entries, size_t * bytes, bool * full);
 	
 	void (*free)(struct rewindstack * this);
@@ -482,7 +421,8 @@ struct libretro_core_option {
 	const char * name_internal;
 	const char * name_display;
 	
-	bool reset_only;//This one is hackishly calculated by setting it to true if it's checked before retro_load_game, then false if it's checked during retro_run.
+	//This one is hackishly calculated by checking whether it's checked during retro_run.
+	bool reset_only;
 	
 	unsigned int numvalues;
 	const char * const * values;
@@ -496,40 +436,51 @@ enum libretro_memtype { // These IDs are the same as RETRO_MEMORY_*.
 };
 
 //This flag means the core will never change it once retro_load_rom has returned; however, the core
-// will read from this area, and the frontend may assume it has prmission to write to this area.
+// will read from this area, and the frontend may assume it has permission to write to this area.
 #define LIBRETRO_MEMFLAG_CONST     (1 << 0)
-//This one means that this is not the primary way to access this memory area.
-#define LIBRETRO_MEMFLAG_MIRROR    (1 << 1)
 //This flag means that this memory area contains big endian data. Default is little endian.
-#define LIBRETRO_MEMFLAG_BIGENDIAN (1 << 2)
-//If this is set, all memory access in this area is aligned; for example, no two-byte data starts at
-// odd addresses.
-#define LIBRETRO_MEMFLAG_ALIGNED   (1 << 3)
+#define LIBRETRO_MEMFLAG_BIGENDIAN (1 << 1)
+//If this is set, all memory access in this area is aligned to their own size, and no non-power-of-two sized data exists.
+//For example, no two-byte data starts at odd addresses.
+#define LIBRETRO_MEMFLAG_ALIGNED   (1 << 2)
 
 //If the core does not describe its memory maps, the frontend may create one from various RETRO_MEMORY_* as a fallback.
 //Implementing this without also exposing (at least) RETRO_MEMORY_SYSTEM_RAM is highly discouraged.
+//Guaranteed to not change during retro_load_game.
+//The first descriptor to claim a byte in an address space is the one that applies.
+//The first claimed byte in any address space to point to a physical byte is the primary way to access that byte.
 struct libretro_memory_descriptor {
 	uint64_t flags;
 	
-	//If two memory descriptors have the same pointer, they must be consecutive in the descriptor array.
-	//The first mappings for each memory descriptor must together define the primary, unique way to
-	// access each byte of the memory area, in order of ascending memory_offset. Once any duplicate
-	// has been defined for a memory area, no descriptor may map a byte of that area that has not been previously seen.
-	//(Typically, this is done by just mapping the full memory area before mapping any mirrors.)
-	//If a byte is mapped to two places, the latter mapping takes precedence. If this is wrong, but can't
-	// be changed due to the primary-first rule, put a copy of the mapping latter in the array too.
-	//The flags must be the same for everything using the same memory_ptr.
+	//It is not allowed to do any math on the pointer; the frontend may compare them for equality.
+	//If 'start' does not point to the first byte in the pointer, put the difference in 'offset'.
 	void * ptr;
+	size_t offset;
+	
+	//This is the location in the emulated address space where the mapping starts.
+	size_t start;
+	
+	//If (this->start xor current address) & select equals zero, this mapping applies to this address.
+	//Can be zero, in which case the frontend will calculate this based on 'len'.
+	size_t select;
+	
+	//If this is nonzero, the set bits are shifted off. Applies after 'select' is used to zero unrelated bits.
+	size_t disconnect;
+	
+	//This one tells the size of the current memory area.
+	//If, after select+disconnect are applied, the address is higher than this, the highest bit of the address is cleared.
+	//If the address is still too high, the next highest bit is cleared.
+	//Can be zero, in which case select+1 is used. However, both select and len can't be zero simultaneously; that wouldn't make sense.
 	size_t len;
 	
-	//This is where the first byte in the mapping resides.
-	size_t map_start;
+	//To go from emulated address to physical address, the following order applies:
+	//Subtract 'start', pick off 'disconnect', apply 'len', add 'offset'.
 	
 	//The address space name must consist of only a-zA-Z0-9_, should be as short as feasible (maximum length is 8 excluding the NUL),
 	// and may not be any other address space plus one or more 0-9A-F at the end.
 	//However, multiple memory descriptors for the same address space is allowed, and the address
 	// space name can be empty. NULL is treated as empty.
-	//Address space names are case sensitive. If possible, keep them to purely A-Z_.
+	//Address space names are case sensitive, but avoid lowercase if possible.
 	//No two mappings may have the same memory_ptr but different address space names.
 	//Examples:
 	// blank+blank - valid (multiple things may be mapped in the same namespace)
@@ -544,37 +495,38 @@ struct libretro_memory_descriptor {
 	//  The length can't be used for that purpose, because cheat codes have no separator between address and data,
 	//   so the cheat code B123456 could be either 'set B12 to 3456' or 'set B1234 to 56'.
 	//  While the lowest bit of the length could be used, it would become rather messy rather quickly.
-	const char * addr_name;
+	const char * addrspace;
 	//This one is how many digits an address has in this address space. This must be the same for each mapping
 	// in this address space, and the sum of this and the address space name length must be 16 or lower.
-	//Can be 0, in which case the length is calculated from the last byte defined by this mapping.
+	//Can be 0, in which case the length is calculated from 'select'.
+	//Should only be set in very rare cases.
 	unsigned addr_str_len;
-	
-	//loop_count tells how 
-	size_t loop_count;
-	size_t loop_incr_mapped;
-	size_t loop_incr_ptr;
-	//Example: count=2, incr_mapped=0x10000, incr_ptr=0x8000 maps the first
-	// half to address 00000-07FFF, and the second half to 10000-17FFF.
 };
-//Sample descriptors (minus memory_ptr and memory_id):
+//Sample descriptors (minus .ptr, and LIBRETRO_MEMFLAG_ on the flags):
 //SNES WRAM:
-// .map_start=0x7E0000, .map_size=0x20000
+// .start=0x7E0000, .len=0x20000
+//(Note that this must be mapped before the ROM in most cases; some of the ROM mappers want to claim $7E0000 for themselves.)
 //SNES SPC700 RAM:
-// .addr_name="S", .map_size=0x10000
+// .addrspace="S", .len=0x10000
 //SNES WRAM mirrors:
-// .flags=LIBRETRO_MEMFLAG_MIRROR, .map_start=0x000000, .len=0x2000, .loop_count=0x40, .loop_incr_map=0x10000, .loop_incr_ptr=0
-// .flags=LIBRETRO_MEMFLAG_MIRROR, .map_start=0x800000, .len=0x2000, .loop_count=0x40, .loop_incr_map=0x10000, .loop_incr_ptr=0
+// .flags=MIRROR, .start=0x000000, .select=0xC0E000, .len=0x2000
+// .flags=MIRROR, .start=0x800000, .select=0xC0E000, .len=0x2000
+//SNES WRAM mirrors, alternate equivalent descriptor:
+// .flags=MIRROR, .select=0x40E000, .disconnect=~0x1FFF
+//(Various similar constructions can be created by combining parts of the above two.)
 //SNES LoROM (512KB, mirrored a couple of times):
-// .flags=LIBRETRO_MEMFLAG_CONST, .memory_loop=512*1024, .map_start=0x008000, .map_const_bits=0x8000, .map_size=0x400000
-// .flags=LIBRETRO_MEMFLAG_CONST, .memory_loop=512*1024, .map_start=0x808000, .map_const_bits=0x8000, .map_size=0x400000
-//SNES HiROM:
-// .flags=LIBRETRO_MEMFLAG_CONST
+// .flags=CONST, .start=0x008000, .select=0x408000, .disconnect=0x8000, .len=512*1024
+// .flags=CONST, .start=0x400000, .select=0x400000, .disconnect=0x8000, .len=512*1024
+//SNES HiROM (4MB):
+// .flags=CONST,                 .start=0x400000, .select=0x400000, .len=4*1024*1024
+// .flags=CONST, .offset=0x8000, .start=0x008000, .select=0x408000, .len=4*1024*1024
 //SNES ExHiROM (8MB):
-// .flags=LIBRETRO_MEMFLAG_CONST, .memory_offset=0x000000, .map_size=0x400000, .map_start=0xC00000
-// .flags=LIBRETRO_MEMFLAG_CONST, .memory_offset=0x400000, .map_size=0x400000, .map_start=0x400000
-// .flags=LIBRETRO_MEMFLAG_CONST, .memory_offset=0x000000, .map_size=0x200000, .map_start=0x808000, .map_const_bits=0x8000
-// .flags=LIBRETRO_MEMFLAG_CONST, .memory_offset=0x400000, .map_size=0x200000, .map_start=0x008000, .map_const_bits=0x8000
+// .flags=CONST, .offset=4*1024*1024,        .start=0x400000, .select=0xC00000, .len=4*1024*1024
+// .flags=CONST, .offset=0,                  .start=0xC00000, .select=0xC00000, .len=4*1024*1024
+// .flags=CONST, .offset=4*1024*1024+0x8000, .start=0x008000, .select=0xC08000, .len=4*1024*1024
+// .flags=CONST, .offset=0x8000,             .start=0x808000, .select=0xC08000, .len=4*1024*1024
+//.len can be implied by .select in many of them, but was included for clarity.
+//In case of inconsistency between this and the descriptions, the examples shall prevail. Then report the bug.
 
 struct libretro {
 	//Any returned pointer is, unless otherwise specified, valid only until the next call to a function here, and freed by this object.
@@ -772,13 +724,14 @@ void config_write(const char * path);
 
 
 //All functions on this object yield undefined behaviour if datsize is not within 1..4.
+//This object has a fair amount of do-it-yourself mentality.
 enum cheat_compfunc { cht_lt, cht_gt, cht_lte, cht_gte, cht_eq, cht_neq };
 enum cheat_chngtype { cht_once, cht_inconly, cht_deconly, cht_const };
 struct cheat {
 	bool enabled;
 	bool issigned;
-	enum cheat_chngtype changetype :2;
-	unsigned int datsize :3;
+	unsigned char changetype;//this is an enum cheat_chngtype, but they are hard to set the size of.
+	unsigned char datsize;
 	uint32_t val;
 	const char * desc;
 	char * addr;//For cheat_set, this is only read, and may be a casted const char *.
@@ -787,6 +740,13 @@ struct cheat {
 struct minircheats_model {
 	void (*set_memory)(struct minircheats_model * this, const struct libretro_memory_descriptor * memory, unsigned int nummemory);
 	
+	//The relevant size is how much memory it would take to create the 'prev' arrays.
+	//it doesn't change depending on whether they exist, and doesn't account for malloc overhead.
+	//Defaults to disabled, and switches to that on every set_memory.
+	size_t (*prev_get_size)(struct minircheats_model * this);
+	void (*prev_set_enabled)(struct minircheats_model * this, bool enable);
+	bool (*prev_get_enabled)(struct minircheats_model * this);
+	
 	void (*search_reset)(struct minircheats_model * this);
 	void (*search_set_datsize)(struct minircheats_model * this, unsigned int datsize);//Default 1.
 	void (*search_set_signed)(struct minircheats_model * this, bool issigned);//Default unsigned.
@@ -794,13 +754,12 @@ struct minircheats_model {
 	                         enum cheat_compfunc compfunc, bool comptoprev, unsigned int compto);
 	
 	unsigned int (*search_get_num_rows)(struct minircheats_model * this);
-	//Returns all information about a currently visible row.
-	//The address will be written to, and must be at least 32 bytes long (31 plus NUL), though it's unlikely for all of it to be used.
-	//The data size is set by the functions above.
-	//Note that it may vary its runtime depending on both the row number, and previous
-	// access patterns; the last queried row and the one directly after that may be faster.
+	//Returns all information about a currently visible row. The data size is set by the functions above.
+	//The address will be written to, and must be at least 32 bytes long (31 plus NUL).
+	//If 'prev' is disabled, 'prevval' will remain unchanged if queried.
 	void (*search_get_vis_row)(struct minircheats_model * this, unsigned int row,
 	                           char * addr, uint32_t * val, uint32_t * prevval);
+	
 	//Cheat code structure:
 	//disable address value signspec direction SP desc
 	//disable is '-' if the cheat is currently disabled, otherwise blank.
@@ -816,16 +775,23 @@ struct minircheats_model {
 	// (0..31 and 127), but is otherwise freeform.
 	//The format is designed so that a SNES Gameshark code is valid.
 	
-	//Fails if the address doesn't refer to anything, or if the refered to memory block ends too soon.
+	//Fails if:
+	//- There is no such namespace
+	//- That address is not mapped in that namespace
+	//- The relevant memory block ends too soon
+	//- Alignment says you can't use that address
+	//In all cases is it fair to blame the address.
 	bool (*cheat_read)(struct minircheats_model * this, const char * addr, unsigned int datsize, uint32_t * val);
 	
-	//Don't cache cheat IDs. Use the address as unique key.
+	//Don't cache cheat IDs; use the address as unique key.
 	//If the address is invalid, or not targeted by any cheats, it returns -1.
 	int (*cheat_find_for_addr)(struct minircheats_model * this, unsigned int datsize, const char * addr);
 	
 	unsigned int (*cheat_get_count)(struct minircheats_model * this);
 	//To add a new cheat, use pos==count. To check if a cheat is valid without actually adding it, use pos==-1.
-	//The only possible error is if the address is bad, or if the address does not point to anything sufficiently large.
+	//The possible errors are the same as cheat_read.
+	//It is not guaranteed that cheat_get returns the same values as given to cheat_set; for example, mirroring may be undone.
+	//However, it is guaranteed that setting a cheat to itself will do nothing.
 	bool (*cheat_set)(struct minircheats_model * this, int pos, const struct cheat * newcheat);
 	bool (*cheat_set_as_code)(struct minircheats_model * this, int pos, const char * code);
 	void (*cheat_get)(struct minircheats_model * this, unsigned int pos, struct cheat * newcheat);
@@ -842,7 +808,7 @@ struct minircheats_model * minircheats_create_model();
 
 struct minircheats {
 	void (*set_parent)(struct minircheats * this, struct window * parent);
-	void (*set_core)(struct minircheats * this, struct libretro * core);
+	void (*set_core)(struct minircheats * this, struct libretro * core, size_t prev_limit);
 	
 	void (*show_search)(struct minircheats * this);
 	void (*show_list)(struct minircheats * this);
@@ -856,7 +822,7 @@ struct minircheats {
 	void (*update)(struct minircheats * this, bool ramwatch);
 	
 	unsigned int (*get_cheat_count)(struct minircheats * this);
-	//The returned pointer is valid until the next get_cheat() or free()
+	//The returned pointer is valid until the next get_cheat() or free().
 	const char * (*get_cheat)(struct minircheats * this, unsigned int id);
 	void (*set_cheat)(struct minircheats * this, unsigned int id, const char * code);
 	

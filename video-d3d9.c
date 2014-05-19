@@ -5,16 +5,18 @@
 #include <stdio.h>
 
 #define D3DSWAPEFFECT_FLIPEX ((D3DSWAPEFFECT)5)//lazy compiler. and it's an enum so I can't #ifdef it
-                                               //(if this one exists, it's safe to ignore; 5 is still 5, and they can't break ABI so it must remain 5.)
+                                               //(if this one exists, it's safe to ignore; 5 is still 5,
+                                               // and they can't break ABI so it must remain 5.)
 
 #ifndef D3DPRESENT_FORCEIMMEDIATE
 #define D3DPRESENT_FORCEIMMEDIATE 0x00000100L
 #endif
 
-extern char fix_your_d3d9_header[sizeof(((IDirect3D9Ex*)NULL)->lpVtbl->RegisterSoftwareDevice)];
-//IF THIS ONE GIVES ERRORS:
-//The DirectX SDK, at least versions November 2008 and August 2009 (others untested), lacks an entry in the vtable for IDirect3D9Ex (it's present in IDirect3D9).
-//This causes runtime crashes; I have chosen to test it at compile time, for easier debugging.
+STATIC_ASSERT(((IDirect3D9Ex*)NULL)->lpVtbl->RegisterSoftwareDevice, fix_your_d3d9_header);
+//IF THIS ONE FIRES:
+//The DirectX SDK, at least versions November 2008 and August 2009 (others untested),
+// lacks an entry in the vtable for IDirect3D9Ex (it's present in IDirect3D9).
+//This can cause rather nasty runtime crashes; for ease of debugging, it's documented here and tested at compile time.
 //The fix is as follows:
 //Look up the following line in your D3d9.h
 //  DECLARE_INTERFACE_(IDirect3D9Ex, IDirect3D9)
