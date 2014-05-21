@@ -19,7 +19,7 @@
 #endif
 
 #define STATIC_ASSERT(cond, name) extern char name[(cond)?1:-1]
-#define STATIC_ASSERT_CAN_EVALUATE(cond, name) extern char name[(sizeof(cond)>=0)?1:-1]
+#define STATIC_ASSERT_CAN_EVALUATE(cond, name) STATIC_ASSERT(sizeof(cond), name)
 
 #include "window.h"
 
@@ -454,7 +454,8 @@ struct libretro_memory_descriptor {
 	uint64_t flags;
 	
 	//It is not allowed to do any math on the pointer; the frontend may compare them for equality.
-	//If 'start' does not point to the first byte in the pointer, put the difference in 'offset'.
+	//If 'start' does not point to the first byte in the pointer, put the difference in 'offset' instead.
+	//May be NULL if there's nothing usable here (e.g. hardware registers).
 	void * ptr;
 	size_t offset;
 	
@@ -466,12 +467,14 @@ struct libretro_memory_descriptor {
 	size_t select;
 	
 	//If this is nonzero, the set bits are shifted off. Applies after 'select' is used to zero unrelated bits.
+	//It is not allowed for 'start' to have any bit set if it's clear in 'select'.
 	size_t disconnect;
 	
 	//This one tells the size of the current memory area.
 	//If, after select+disconnect are applied, the address is higher than this, the highest bit of the address is cleared.
 	//If the address is still too high, the next highest bit is cleared.
-	//Can be zero, in which case select+1 is used. However, both select and len can't be zero simultaneously; that wouldn't make sense.
+	//Can be zero, in which case it's calculated based on the other values.
+	//However, both select and len can't be zero simultaneously; that wouldn't make sense.
 	size_t len;
 	
 	//To go from emulated address to physical address, the following order applies:
@@ -497,11 +500,6 @@ struct libretro_memory_descriptor {
 	//   so the cheat code B123456 could be either 'set B12 to 3456' or 'set B1234 to 56'.
 	//  While the lowest bit of the length could be used, it would become rather messy rather quickly.
 	const char * addrspace;
-	//This one is how many digits an address has in this address space. This must be the same for each mapping
-	// in this address space, and the sum of this and the address space name length must be 16 or lower.
-	//Can be 0, in which case the length is calculated from 'select'.
-	//Should only be set in very rare cases.
-	unsigned addr_str_len;
 };
 //Sample descriptors (minus .ptr, and LIBRETRO_MEMFLAG_ on the flags):
 //SNES WRAM:

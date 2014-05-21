@@ -115,7 +115,7 @@ input input_speedup=KB1::KP_Plus
 # defined as whatever input_slowdown and input_speedup say, multiplied by rewind_speedup).
 bool rewind_enable=false
 #The granularity is how many frames to wait between saving the states. 1 is the smoothest, but also the most CPU intensive.
-#The framerate penalty should be around 10-15%, depending on the savestate size and how much CPU the core needs.
+#The framerate penalty should be around 10-15%[TODO: does this number still apply? it looks old], depending on the savestate size and how much CPU the core needs.
 #Alternatively, if you prefer ZSNES style rewinds, you can set the granularity to something really high, and minir will go
 # back to the previous rewind slot every time you press the button. The CPU penalty should, in this case, be neglible.
 #("Really high" isn't defined; minir will go back to the previous slot on press even if the timer is low, and will go
@@ -126,27 +126,26 @@ int[1-600] rewind_granularity=1
 #Setting this one higher than rewind_delay is possible, but pointless.
 int[0-600] rewind_granularity_turbo=1
 #This one makes rewinding go N times faster than realtime. It's independent of rewind_granularity,
-## though you should probably set this lower than or equal to the granularity.
+# though you should probably set this lower than or equal to the granularity.
 int[1-20] rewind_speedup=1
 #This controls how much memory should be used by the rewind buffer, in megabytes.
 #One rewind point usually takes about 0.5-2% of the size of a savestate on average, but it varies
 # between cores, between games, and between parts of the game; for example, scene transitions and
 # loading screens uses more. (But you shouldn't need to rewind to the previous level, anyways.)
-#If the buffer is filled up, the oldest few frames are discarded.
+#If the buffer is filled up, the oldest data is discarded.
 int[1-1024] rewind_mem=64
 #This one makes minir print how much the rewind buffer contains, as well as a guess on how much will fit before it fills up, on the status bar.
 #Note that if rewind_delay does not equal rewind_delay_turbo and fastforward has been used, the reported value does not
-# reflect how much fits in the rewind buffer; instead, it reflects how much would fit there if you had not rewinded.
-#It also reflects how much was inserted, not how long you can hold Rewind.
+# reflect how much fits in the rewind buffer; instead, it reflects how much would fit there if you had not used fastforward.
 #Also note that scene transitions and loading screens take more space in the rewind buffer than normal gameplay.
-#Finally, note that it is not guaranteed accurate, nor fully stable. The guess may be wrong, in both directions, and the amount of
-# data that fits may change without obvious provocation (probably, but not necessarily, due to a loading screen being pushed out).
+#Finally, note that it is not guaranteed accurate, nor fully stable. The guess may be wrong,
+# in both directions, and the amount of data that fits may change without obvious provocation.
 bool rewind_stats=false
 #And finally, this one is what to press to trigger it.
 input input_rewind=KB1::Backspace
 
-#Maximum amount of memory used by the cheat search to store the previous memory values, in megabytes.
-#
+#Maximum amount of memory used by the cheat search, in megabytes.
+#If more memory than this would be needed, searching for a relationship with the previous value will be disabled.
 int[0-65536] cheat_mem=65536
 
 #Whether to create an SRAM file upon unloading the ROM (closing minir counts as ROM unload),
