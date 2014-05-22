@@ -36,7 +36,11 @@ struct libretro_raw {
 
 static bool load_raw_iface(struct dylib * lib, struct libretro_raw * interface)
 {
+#if defined(__GNUC__)
 #define sym(name) interface->name=(__typeof(interface->name))lib->sym_func(lib, "retro_"#name); if (!interface->name) return false;
+#else
+#error __typeof looks gcc specific, fix it up.
+#endif
 	sym(set_environment);
 	sym(set_video_refresh);
 	sym(set_audio_sample);
