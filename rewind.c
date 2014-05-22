@@ -108,20 +108,28 @@ static void * push_begin(struct rewindstack * this_)
 }
 
 #if __SSE2__
+	//The input can be anything in the range FFFF0001 to FFFFFFFF, inclusive. Other values, including 0, are known impossible.
 #if defined(__GNUC__)
 static inline int compat_ctz(unsigned int x)
 {
 	return __builtin_ctz(x);
 }
-#else
-// Only checks at nibble granularity, because that's what we need.
+#elif defined(_MSC_VER)
+#error should be tested
+//#include <intrin.h>
+//#pragma intrinsic(_BitScanForward)
 static inline int compat_ctz(unsigned int x)
 {
-	if (x&0x000f) return 0;
-	if (x&0x00f0) return 4;
-	if (x&0x0f00) return 8;
-	if (x&0xf000) return 12;
-	return 16;
+	unsigned long index;
+	_BitScanForward(&index, x);
+	return index;
+}
+#else
+static inline int compat_ctz(unsigned int x)
+{
+	// Only checks at nibble granularity, because that's what we need.
+	if (x&0x00ff) return (x&0x000f) ? 0 : 4;
+	else return (x&0x0f00) ? 8 : 12;
 }
 #endif
 

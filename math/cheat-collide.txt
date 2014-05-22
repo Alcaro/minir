@@ -1,0 +1,114 @@
+collide:
+start=0 select=F0 (addr=0_)
+start=0 select=0F (addr=_0)
+
+collide:
+start=0 select=0 (addr=_)
+start=0 select=F (addr=0)
+
+collide:
+start=0 select=0 (addr=_)
+start=F select=F (addr=F)
+
+nocollide:
+start=00 select=0F (addr=0_)
+start=10 select=0F (addr=1_)
+
+collide:
+start=0 select=F (addr=0)
+start=0 select=F (addr=0)
+
+collide:
+start=0 select=0 (addr=_)
+start=0 select=0 (addr=_)
+
+nocollide:
+.start=0x7E0000, .len=0x20000
+.flags=CONST, .start=0x008000, .select=0x408000, .disconnect=0x8000, .len=512*1024
+start=7E0000 select=FE0000
+start=008000 select=408000
+
+collide:
+.start=0x7E0000, .len=0x20000
+.flags=CONST, .start=0x400000, .select=0x400000, .disconnect=0x8000, .len=512*1024
+start=7E0000 select=FE0000
+start=400000 select=400000
+
+start=0, select=0 -> dont-care
+start=0, select=1 -> 0
+start=1, select=1 -> 1
+start=1, select=0 -> error
+
+collision if:
+A.start=0 A.select=0 -> true
+A.start=0 A.select=1 -> (B.select=0 || B.start=0)
+A.start=1 A.select=1 -> (B.select=0 || B.start=1)
+collision if true for all
+
+collision if:
+A.select=0 -> true
+A.select=1 -> (B.select=0 || B.start==A.start)
+
+collision if:
+!A.select || !B.select || A.start^B.start==0
+
+collision if:
+~A.select | ~B.select | ~(A.start^B.start)
+
+~A | ~B
+ 01
+011
+110
+~(A&B)
+
+collision if:
+~(A.select & B.select & (A.start^B.start))
+
+collision if:
+(A.select & B.select & (A.start^B.start)) == 0
+
+collide:
+start=0 select=F0 (addr=0_)
+start=0 select=0F (addr=_0)
+0F & F0 & 0 == 0
+
+collide:
+start=0 select=0 (addr=_)
+start=0 select=F (addr=0)
+F & 0 & 0 == 0
+
+collide:
+start=0 select=0 (addr=_)
+start=F select=F (addr=F)
+F & 0 & F = 0
+
+nocollide:
+start=00 select=0F (addr=0_)
+start=10 select=0F (addr=1_)
+F0 & F0 & 10 != 0
+
+collide:
+start=0 select=F (addr=0)
+start=0 select=F (addr=0)
+F & F & 0 = 0
+
+collide:
+start=0 select=0 (addr=_)
+start=0 select=0 (addr=_)
+F & F & 0 = 0
+
+(A.select & B.select & (A.start^B.start)) == 0
+
+nocollide:
+.start=0x7E0000, .len=0x20000
+.flags=CONST, .start=0x008000, .select=0x408000, .disconnect=0x8000, .len=512*1024
+start=7E0000 select=FE0000
+start=008000 select=408000
+(FE0000 & 408000) & (7E0000 ^ 008000) = 400000 & 7E8000 != 0
+
+collide:
+.start=0x7E0000, .len=0x20000
+.flags=CONST, .start=0x400000, .select=0x400000, .disconnect=0x8000, .len=512*1024
+start=7E0000 select=FE0000
+start=400000 select=400000
+(FE0000 & 400000) & (7E0000 ^ 400000) = 400000 & 3E0000 = 0

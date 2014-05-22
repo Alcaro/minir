@@ -345,17 +345,17 @@ static const struct libretro_memory_descriptor * get_memory_info(struct libretro
 	*nummemdesc=0;
 	//TODO: convince Squarepusher to add this to libretro proper instead of lamehacking it
 	//TODO: before the above, finalize the format and ensure I won't want to change it anymore. Attempting to change any part of libretro when not strictly mandatory would become very painful very quickly.
+	//TODO: convince Squarepusher to add this to libretro proper instead of lamehacking it, but marked as EXPERIMENTAL
 	if (strstr(info.library_name, "snes") || strstr(info.library_name, "SNES"))
 	{
-		return NULL;//TODO: fix this
-		//*nummemdesc=2;
-		//static struct libretro_memory_descriptor desc[]={
-			//{ .map_start=0x7E0000, .map_size=0x20000 },
-			//{ .memory_loop=0x2000, .map_const_bits=0x40E000, .map_size=0x2000*64*2 },
-			//};
-		//desc[0].memory_ptr=this->raw.get_memory_data(RETRO_MEMORY_SYSTEM_RAM);
-		//desc[1].memory_ptr=desc[0].memory_ptr;
-		//return desc;
+		*nummemdesc=2;
+		static struct libretro_memory_descriptor desc[]={
+			{ .start=0x7E0000, .len=0x20000 },
+			{ .select=0x40E000, .len=0x2000 },
+			};
+		desc[0].ptr=this->raw.get_memory_data(RETRO_MEMORY_SYSTEM_RAM);
+		desc[1].ptr=desc[0].ptr;
+		return desc;
 	}
 	else return NULL;
 }
@@ -463,11 +463,11 @@ static void log_callback(enum retro_log_level level, const char *fmt, ...)
 //"Known supported core" means a supported core that has been tested somewhat.
 //Brief status on support of each environ command:
 //              1         2         3
-//     12345678901234567890123456789012
-//Done   x     xx    xxxxx    x  x  x    = 11
-//Todo           xxxx                xx  = 6
-//Nope xx   xxx            xxx xx xx     = 12
-//Gone    xx              x              = 3
+//     12345678901234567890123456789012345
+//Done   x     xx    xxxxx    x  x  x       = 11
+//Todo           xxxx                xx xx  = 8
+//Nope xx   xxx            xxx xx xx   x    = 13
+//Gone    xx              x                 = 3
 //Detailed information on why the unsupported ones don't exist can be found in this function.
 static bool environment(unsigned cmd, void *data)
 {
@@ -480,7 +480,7 @@ static bool environment(unsigned cmd, void *data)
 	}
 	//4 was removed and can safely be ignored.
 	//5 was removed and can safely be ignored.
-	//6 SET_MESSAGE, ignored because no known supported core uses it, and it's unlikely to be critical.
+	//6 SET_MESSAGE, ignored because I don't know what to do with that.
 	//7 SHUTDOWN, ignored because no supported core has any reason to have Off buttons.
 	//8 SET_PERFORMANCE_LEVEL, ignored because I don't support a wide range of powers.
 	if (cmd==RETRO_ENVIRONMENT_GET_SYSTEM_DIRECTORY || //9

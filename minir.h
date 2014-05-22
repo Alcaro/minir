@@ -18,8 +18,16 @@
 #define STRUCT_END
 #endif
 
+//#define STATIC_ASSERT(cond, name) (sizeof(struct { int:-!!(cond); }))
 #define STATIC_ASSERT(cond, name) extern char name[(cond)?1:-1]
 #define STATIC_ASSERT_CAN_EVALUATE(cond, name) STATIC_ASSERT(sizeof(cond), name)
+
+void* malloc_check(size_t size);
+void* try_malloc(size_t size);
+#define malloc malloc_check
+void* realloc_check(void* ptr, size_t size);
+void* try_realloc(void* ptr, size_t size);
+#define realloc realloc_check
 
 #include "window.h"
 
@@ -447,7 +455,7 @@ enum libretro_memtype { // These IDs are the same as RETRO_MEMORY_*.
 
 //If the core does not describe its memory maps, the frontend may create one from various RETRO_MEMORY_* as a fallback.
 //Implementing this without also exposing (at least) RETRO_MEMORY_SYSTEM_RAM is highly discouraged.
-//Guaranteed to not change during retro_load_game.
+//Guaranteed to not change except during retro_load_game.
 //The first descriptor to claim a byte in an address space is the one that applies.
 //The first claimed byte in any address space to point to a physical byte is the primary way to access that byte.
 struct libretro_memory_descriptor {
@@ -462,8 +470,10 @@ struct libretro_memory_descriptor {
 	//This is the location in the emulated address space where the mapping starts.
 	size_t start;
 	
-	//If (this->start xor current address) & select equals zero, this mapping applies to this address.
-	//Can be zero, in which case the frontend will calculate this based on 'len'.
+	//If ('start' xor current address) & 'select' equals zero, this mapping applies to this address.
+	//Can be zero, in which case the frontend will calculate this based on 'len';
+	// however, if that happens, 'len' must be a power of 2, and 'disconnect' must be zero.
+	//A bit which is true in 'start' must also be true in this.
 	size_t select;
 	
 	//If this is nonzero, the set bits are shifted off. Applies after 'select' is used to zero unrelated bits.
@@ -471,16 +481,16 @@ struct libretro_memory_descriptor {
 	size_t disconnect;
 	
 	//This one tells the size of the current memory area.
-	//If, after select+disconnect are applied, the address is higher than this, the highest bit of the address is cleared.
+	//If, after start+disconnect are applied, the address is higher than this, the highest bit of the address is cleared.
 	//If the address is still too high, the next highest bit is cleared.
 	//Can be zero, in which case it's calculated based on the other values.
-	//However, both select and len can't be zero simultaneously; that wouldn't make sense.
+	//If both select and len are zero, this mapping is one byte long, and 'select' is calculated from 'start'.
 	size_t len;
 	
 	//To go from emulated address to physical address, the following order applies:
 	//Subtract 'start', pick off 'disconnect', apply 'len', add 'offset'.
 	
-	//The address space name must consist of only a-zA-Z0-9_, should be as short as feasible (maximum length is 8 excluding the NUL),
+	//The address space name must consist of only a-zA-Z0-9_, should be as short as feasible (maximum length is 8 plus the NUL),
 	// and may not be any other address space plus one or more 0-9A-F at the end.
 	//However, multiple memory descriptors for the same address space is allowed, and the address
 	// space name can be empty. NULL is treated as empty.
@@ -501,10 +511,13 @@ struct libretro_memory_descriptor {
 	//  While the lowest bit of the length could be used, it would become rather messy rather quickly.
 	const char * addrspace;
 };
+//The front may use the largest value of 'select' in a certain namespace (including ones calculated from 'len')
+// to infer the size of the address space. If there is nothing mapped to the latter half of the address space,
+// a mapping with .ptr=NULL should be at the end of the array, with .start or .select set so that the latter half is touched.
 //Sample descriptors (minus .ptr, and LIBRETRO_MEMFLAG_ on the flags):
 //SNES WRAM:
 // .start=0x7E0000, .len=0x20000
-//(Note that this must be mapped before the ROM in most cases; some of the ROM mappers want to claim $7E0000 for themselves.)
+//(Note that this must be mapped before the ROM in most cases; some of the ROM mappers try to claim $7E0000, or at least $7E8000.)
 //SNES SPC700 RAM:
 // .addrspace="S", .len=0x10000
 //SNES WRAM mirrors:
@@ -520,10 +533,10 @@ struct libretro_memory_descriptor {
 // .flags=CONST,                 .start=0x400000, .select=0x400000, .len=4*1024*1024
 // .flags=CONST, .offset=0x8000, .start=0x008000, .select=0x408000, .len=4*1024*1024
 //SNES ExHiROM (8MB):
-// .flags=CONST, .offset=4*1024*1024,        .start=0x400000, .select=0xC00000, .len=4*1024*1024
 // .flags=CONST, .offset=0,                  .start=0xC00000, .select=0xC00000, .len=4*1024*1024
-// .flags=CONST, .offset=4*1024*1024+0x8000, .start=0x008000, .select=0xC08000, .len=4*1024*1024
+// .flags=CONST, .offset=4*1024*1024,        .start=0x400000, .select=0xC00000, .len=4*1024*1024
 // .flags=CONST, .offset=0x8000,             .start=0x808000, .select=0xC08000, .len=4*1024*1024
+// .flags=CONST, .offset=4*1024*1024+0x8000, .start=0x008000, .select=0xC08000, .len=4*1024*1024
 //.len can be implied by .select in many of them, but was included for clarity.
 //In case of inconsistency between this and the descriptions, the examples shall prevail. Then report the bug.
 

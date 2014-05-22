@@ -20,8 +20,7 @@ ifeq ($(platform),)
   endif
 endif
 
-#TESTSRC = libretro.c rewind*.c inputraw-*keymaps.c dylib.c thread-*.c
-TESTSRC = minircheats-model.c
+TESTSRC = memory.c minircheats-model.c
 TESTSEPSRC = test-*.c
 
 OBJS = $(patsubst %.c,obj/%.o,$(wildcard *.c))
