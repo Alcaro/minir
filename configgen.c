@@ -8,6 +8,9 @@
 //TODO: platform-specific things
 //remember the comment coalescing cache, it could screw stuff up
 
+//TODO: gzip the bytecode
+//TODO: use bytecode instead of clear_defaults
+
 #define error(why) do { printf("%s: "why"\n", linecopy); return 1; } while(0);
 
 int main()

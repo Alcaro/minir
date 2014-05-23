@@ -95,8 +95,10 @@ static void set_core(struct minircheats * this_, struct libretro * core, size_t 
 		}
 	}
 	//TODO: uncomment once these two start existing
+this->prev_enabled=false;
 	//this->prev_enabled=(prev_limit <= this->model->prev_get_size(this->model));
 	//this->model->prev_set_enabled(this->model, this->prev_enabled);
+	//TODO: disable compare to prev
 	search_update(this);
 }
 
@@ -212,7 +214,7 @@ static void details_create(struct minircheats_impl * parent, struct window * par
 	encodeval(this->dattype, this->datsize, curval, valstr);
 	curvalbox->set_text(curvalbox, valstr, 0);
 	this->newval->set_text(this->newval, valstr, 0);//default to keep at current value
-	//TODO: newval->focus(newval);
+	this->newval->focus(this->newval);
 	curvalbox->set_enabled(curvalbox, false);
 	
 	ok->set_onclick(ok, details_ok, this);
@@ -411,6 +413,7 @@ static void show_search(struct minircheats * this_)
 
 static const char * search_get_cell(struct widget_listbox * subject, unsigned int row, unsigned int column, void* userdata)
 {
+return "sje";
 	struct minircheats_impl * this=(struct minircheats_impl*)userdata;
 	
 	if (column==0)
@@ -421,7 +424,11 @@ static const char * search_get_cell(struct widget_listbox * subject, unsigned in
 	{
 		uint32_t val;
 		if (column==1) this->model->search_get_vis_row(this->model, row, NULL, &val, NULL);
-		if (column==2) this->model->search_get_vis_row(this->model, row, NULL, NULL, &val);
+		if (column==2)
+		{
+			if (this->prev_enabled) this->model->search_get_vis_row(this->model, row, NULL, NULL, &val);
+			else return "---";
+		}
 		encodeval(this->dattype, this->datsize, val, this->celltmp);
 //if(column==2)sprintf(this->celltmp,"%i",val);
 	}
