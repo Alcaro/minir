@@ -12,6 +12,8 @@
 //controls docs http://msdn.microsoft.com/en-us/library/windows/desktop/bb773169%28v=vs.85%29.aspx
 //alternatively http://msdn.microsoft.com/en-us/library/aa368039%28v=vs.85%29.aspx for some widgets
 
+//NOTE: Widgets must respond to _measure() before _init() is called. Do not measure them in _init.
+
 #define dpi_vert 96
 #define dpi_horz 96
 
@@ -142,7 +144,6 @@ static unsigned int label__init(struct widget_base * this_, struct window * pare
 	this->hwnd=CreateWindow(WC_STATIC, text, WS_CHILD|WS_VISIBLE|SS_NOPREFIX,
 	                        0, 0, 16, 16, // just some random sizes, we'll resize it in _place()
 	                        (HWND)parenthandle, NULL, GetModuleHandle(NULL), NULL);
-	measure_text(text, &this->i.base._width, &this->i.base._height);
 	free(text);
 	SendMessage(this->hwnd, WM_SETFONT, (WPARAM)dlgfont, FALSE);
 	return 1;
@@ -191,6 +192,7 @@ struct widget_label * widget_create_label(const char * text)
 	this->i.set_text=label_set_text;
 	
 	this->hwnd=(HWND)strdup(text);
+	measure_text(text, &this->i.base._width, &this->i.base._height);
 	
 	return (struct widget_label*)this;
 }
@@ -781,8 +783,6 @@ static unsigned int listbox__init(struct widget_base * this_, struct window * pa
 	SetWindowLongPtr(this->hwnd, GWLP_USERDATA, (LONG_PTR)this);
 	SendMessage(this->hwnd, WM_SETFONT, (WPARAM)dlgfont, FALSE);
 	
-	this->i.base._width=1+19+1+this->columns*20;
-	this->i.base._height=1+25+19*0+2;
 	LVCOLUMN col;
 	col.mask=/*LVCF_FMT|*/LVCF_WIDTH|LVCF_TEXT;
 	col.fmt=LVCFMT_LEFT|256/*LVCFMT_FIXED_WIDTH*/;
@@ -1001,6 +1001,9 @@ struct widget_listbox * widget_create_listbox_l(unsigned int numcolumns, const c
 	this->devirt=NULL;
 	this->onactivate=NULL;
 	this->checkboxes=NULL;
+	
+	this->i.base._width=1+19+1+this->columns*20;
+	this->i.base._height=1+25+19*0+2;
 	
 	this->hwnd=malloc(sizeof(const char*)*numcolumns);
 	memcpy(this->hwnd, columns, sizeof(const char*)*numcolumns);
