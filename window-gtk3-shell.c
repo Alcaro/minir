@@ -344,7 +344,7 @@ static void menu_insert_child(struct windowmenu * this_, unsigned int pos, struc
 	gtk_widget_show_all(GTK_WIDGET(child->item));
 	if ((this->numchildren&(this->numchildren-1))==0)
 	{
-		this->children=realloc(this->children, (this->numchildren*2)*sizeof(struct windowmenu_gtk3*));
+		this->children=realloc(this->children, (this->numchildren+1)*2*sizeof(struct windowmenu_gtk3*));
 		if (!this->children) abort();
 	}
 	memmove(this->children+pos+1, this->children+pos, (this->numchildren-pos)*sizeof(struct windowmenu_gtk3*));

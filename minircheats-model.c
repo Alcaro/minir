@@ -689,7 +689,7 @@ static void search_get_vis_row(struct minircheats_model * this_, unsigned int ro
 		unsigned int addrspace;
 		size_t p_addr;
 		conv_phys_guest(this, mem->ptr, mempos, &addrspace, &p_addr);
-		sprintf(addr, "%s%.*X", this->addrspaces[addrspace].name, this->addrspaces[addrspace].addrlen, p_addr);
+		sprintf(addr, "%s%.*lX", this->addrspaces[addrspace].name, this->addrspaces[addrspace].addrlen, p_addr);
 	}
 	if (val)     *val  =  readmemext(mem->ptr +mempos, this->search_datsize, mem->bigendian, this->search_signed);
 	if (prevval) *prevval=readmemext(mem->prev+mempos, this->search_datsize, mem->bigendian, this->search_signed);
