@@ -413,7 +413,6 @@ static void show_search(struct minircheats * this_)
 
 static const char * search_get_cell(struct widget_listbox * subject, unsigned int row, unsigned int column, void* userdata)
 {
-return "sje";
 	struct minircheats_impl * this=(struct minircheats_impl*)userdata;
 	
 	if (column==0)
