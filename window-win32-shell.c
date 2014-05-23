@@ -754,12 +754,12 @@ struct window * window_create(void * contents)
 	memcpy(this, &window_win32_base, sizeof(struct window_win32));
 	
 	this->contents=contents;
-	this->numchildwin=this->contents->_init(this->contents, (struct window*)this, (uintptr_t)this->hwnd);
 	this->contents->_measure(this->contents);
 	//the 6 and 28 are arbitrary; we'll set ourselves to a better size later. Windows' default placement algorithm sucks, anyways.
 	this->hwnd=CreateWindow("minir", isxp?"Bug reports from XP users will be ignored. Get a new computer.":"", WS_NONRESIZ, CW_USEDEFAULT, CW_USEDEFAULT,
 	                        this->contents->_width+6, this->contents->_height+28, NULL, NULL, GetModuleHandle(NULL), NULL);
 	SetWindowLongPtr(this->hwnd, GWLP_USERDATA, (LONG_PTR)this);
+	this->numchildwin=this->contents->_init(this->contents, (struct window*)this, (uintptr_t)this->hwnd);
 	
 	this->status=NULL;
 	this->menu=NULL;
