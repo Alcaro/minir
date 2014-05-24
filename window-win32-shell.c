@@ -637,8 +637,8 @@ static void set_visible(struct window * this_, bool visible)
 	struct window_win32 * this=(struct window_win32*)this_;
 	if (visible)
 	{
-		ShowWindow(this->hwnd, SW_SHOWNORMAL);
 		_reflow(this_);
+		ShowWindow(this->hwnd, SW_SHOWNORMAL);
 	}
 	else
 	{
