@@ -287,9 +287,9 @@ struct minircheats_model_impl {
 	
 	uint8_t search_datsize;
 	bool search_signed;
+	bool prev_enabled;
 	//char padding[2];
 	
-	unsigned int search_lastblock;
 	size_t search_lastmempos;
 	size_t search_lastrow;
 	
@@ -298,7 +298,7 @@ struct minircheats_model_impl {
 	size_t addrcache_end;
 	size_t addrcache_offset;
 	unsigned int addrcache_addrspace;
-	//char padding2[4];
+	unsigned int search_lastblock;//moved to reduce padding
 };
 
 
@@ -469,6 +469,49 @@ static void conv_phys_guest(struct minircheats_model_impl * this, void* ptr, siz
 *addrspace=0;
 *addr=offset;
 	//for (unsigned int i=0;i<
+}
+
+
+
+static void prev_set_to_cur(struct minircheats_model_impl * this)
+{
+	for (unsigned int i=0;i<this->nummem;i++)
+	{
+		if (this->mem[i].prev) memcpy(this->mem[i].prev, this->mem[i].ptr, this->mem[i].len);
+	}
+}
+
+static size_t prev_get_size(struct minircheats_model * this_)
+{
+	struct minircheats_model_impl * this=(struct minircheats_model_impl*)this_;
+	size_t size=0;
+	for (unsigned int i=0;i<this->nummem;i++)
+	{
+		if (this->mem[i].showinsearch) size+=this->mem[i].len;
+	}
+	return size;
+}
+
+static void prev_set_enabled(struct minircheats_model * this_, bool enable)
+{
+	struct minircheats_model_impl * this=(struct minircheats_model_impl*)this_;
+	for (unsigned int i=0;i<this->nummem;i++)
+	{
+		free(this->mem[i].prev);
+		this->mem[i].prev=NULL;
+	}
+	this->prev_enabled=enable;
+	for (unsigned int i=0;i<this->nummem;i++)
+	{
+		if (this->mem[i].showinsearch) this->mem[i].prev=malloc(this->mem[i].len);
+	}
+	prev_set_to_cur(this);
+}
+
+static bool prev_get_enabled(struct minircheats_model * this_)
+{
+	struct minircheats_model_impl * this=(struct minircheats_model_impl*)this_;
+	return this->prev_enabled;
 }
 
 
@@ -737,7 +780,7 @@ static void free_(struct minircheats_model * this_)
 
 const struct minircheats_model_impl minircheats_model_base = {{
 	set_memory,
-	NULL, NULL, NULL,//prev_get_size, prev_set_enabled, prev_get_enabled
+	prev_get_size, prev_set_enabled, prev_get_enabled,
 	search_reset, search_set_datsize, search_set_signed, search_do_search, search_get_num_rows, search_get_vis_row,
 	NULL, NULL, NULL,//cheat_read, cheat_find_for_addr, cheat_get_count,
 	NULL, NULL, NULL, NULL,//cheat_set, cheat_set_as_code, cheat_get, cheat_get_as_code,

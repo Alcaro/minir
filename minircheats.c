@@ -24,6 +24,7 @@ struct minircheats_impl {
 	struct widget_listbox * wndsrch_listbox;
 	struct widget_radio * wndsrch_comptype;
 	struct widget_radio * wndsrch_compto_select;
+	struct widget_radio * wndsrch_compto_select_prev;
 	struct widget_textbox * wndsrch_compto_entry;
 	struct widget_label * wndsrch_compto_label;
 	struct widget_radio * wndsrch_dattype;
@@ -62,6 +63,7 @@ static bool decodeval(enum cheat_dattype dattype, const char * str, uint32_t * v
 }
 
 static void search_update(struct minircheats_impl * this);
+static void search_update_compto_prev(struct minircheats_impl * this);
 
 static void set_parent(struct minircheats * this_, struct window * parent)
 {
@@ -94,11 +96,9 @@ static void set_core(struct minircheats * this_, struct libretro * core, size_t 
 			this->model->set_memory(this->model, NULL, 0);
 		}
 	}
-	//TODO: uncomment once these two start existing
-this->prev_enabled=false;
-	//this->prev_enabled=(prev_limit <= this->model->prev_get_size(this->model));
-	//this->model->prev_set_enabled(this->model, this->prev_enabled);
-	//TODO: disable compare to prev
+	this->prev_enabled=(prev_limit <= this->model->prev_get_size(this->model));
+	this->model->prev_set_enabled(this->model, this->prev_enabled);
+	search_update_compto_prev(this);
 	search_update(this);
 }
 
@@ -324,6 +324,18 @@ static void search_add_cheat_button(struct widget_button * subject, void* userda
 	search_add_cheat(this, this->wndsrch_listbox->get_active_row(this->wndsrch_listbox));
 }
 
+static void search_update_compto_prev(struct minircheats_impl * this)
+{
+	if (this->wndsrch)
+	{
+		this->wndsrch_compto_select_prev->set_enabled(this->wndsrch_compto_select_prev, this->prev_enabled);
+		if (!this->prev_enabled && this->wndsrch_compto_select->get_state(this->wndsrch_compto_select)==cht_prev)
+		{
+			this->wndsrch_compto_select->set_state(this->wndsrch_compto_select, cht_cur);
+		}
+	}
+}
+
 static void show_search(struct minircheats * this_)
 {
 	struct minircheats_impl * this=(struct minircheats_impl*)this_;
@@ -332,6 +344,8 @@ static void show_search(struct minircheats * this_)
 	{
 		struct widget_button * reset;
 		struct widget_button * addcheat;
+		
+		struct widget_radio * compto_select[3];
 		
 		this->wndsrch=window_create(
 			widget_create_layout_vert(
@@ -351,14 +365,19 @@ static void show_search(struct minircheats * this_)
 				widget_create_layout_horz(
 						widget_create_frame("Comparison Type",
 								widget_create_radio_group(&this->wndsrch_comptype, true,
-									"< (Less Than)", "> (Greater Than)",
+									"< (Less Than)",              "> (Greater Than)",
 									"<= (Less Than or Equal To)", ">= (Greater Than or Equal To)",
-									"= (Equal To)", "!= (Not Equal To)",
+									"= (Equal To)",               "!= (Not Equal To)",
 									NULL)
 							),
 					widget_create_layout_vert(
 						widget_create_frame("Compare To",
-							widget_create_radio_group(&this->wndsrch_compto_select, true, "Previous Value", "Entered Value", "Entered Address", NULL)
+							//widget_create_radio_group(&this->wndsrch_compto_select, true, "Previous Value", "Entered Value", "Entered Address", NULL)
+							widget_create_layout_vert(
+								compto_select[0]=widget_create_radio("Previous Value"),
+								compto_select[1]=widget_create_radio("Entered Value"),
+								compto_select[2]=widget_create_radio("Entered Address"),
+							NULL)
 							),
 						widget_create_frame("Data Type",
 							widget_create_radio_group(&this->wndsrch_dattype, true, "Unsigned (>= 0)", "Signed (+/-)", "Hexadecimal", NULL)
@@ -379,6 +398,11 @@ static void show_search(struct minircheats * this_)
 					NULL),
 				NULL)
 			);
+		
+		compto_select[0]->group(compto_select[0], 3, compto_select);
+		this->wndsrch_compto_select=compto_select[0];
+		this->wndsrch_compto_select_prev=compto_select[cht_prev];
+		search_update_compto_prev(this);
 		
 		this->wndsrch->set_is_dialog(this->wndsrch);
 		this->wndsrch->set_parent(this->wndsrch, this->parent);
@@ -429,7 +453,6 @@ static const char * search_get_cell(struct widget_listbox * subject, unsigned in
 			else return "---";
 		}
 		encodeval(this->dattype, this->datsize, val, this->celltmp);
-//if(column==2)sprintf(this->celltmp,"%i",val);
 	}
 	return this->celltmp;
 }
