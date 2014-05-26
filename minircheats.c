@@ -9,6 +9,8 @@
 //Cheat Entry and Editor
 //Cheat Details
 
+//TODO: Destroy all cheat detail windows if the core is replaced
+
 enum cheat_compto { cht_prev, cht_cur, cht_curptr };
 enum cheat_dattype { cht_unsign, cht_sign, cht_hex };
 struct minircheats_impl {
@@ -74,27 +76,35 @@ static void set_parent(struct minircheats * this_, struct window * parent)
 static void set_core(struct minircheats * this_, struct libretro * core, size_t prev_limit)
 {
 	struct minircheats_impl * this=(struct minircheats_impl*)this_;
-	unsigned int nummem;
-	const struct libretro_memory_descriptor * memory;
-	memory=core->get_memory_info(core, &nummem);
-	if (memory)
+	//TODO: Close cheat detail windows
+	if (core)
 	{
-		this->model->set_memory(this->model, memory, nummem);
-	}
-	else
-	{
-		void* wram;
-		size_t wramlen;
-		core->get_memory(core, libretromem_wram, &wramlen, &wram);
-		if (wram)
+		unsigned int nummem;
+		const struct libretro_memory_descriptor * memory;
+		memory=core->get_memory_info(core, &nummem);
+		if (memory)
 		{
-			struct libretro_memory_descriptor wramdesc={ .ptr=wram, .len=wramlen };
-			this->model->set_memory(this->model, &wramdesc, 1);
+			this->model->set_memory(this->model, memory, nummem);
 		}
 		else
 		{
-			this->model->set_memory(this->model, NULL, 0);
+			void* wram;
+			size_t wramlen;
+			core->get_memory(core, libretromem_wram, &wramlen, &wram);
+			if (wram)
+			{
+				struct libretro_memory_descriptor wramdesc={ .ptr=wram, .len=wramlen };
+				this->model->set_memory(this->model, &wramdesc, 1);
+			}
+			else
+			{
+				this->model->set_memory(this->model, NULL, 0);
+			}
 		}
+	}
+	else
+	{
+		this->model->set_memory(this->model, NULL, 0);
 	}
 	this->prev_enabled=(prev_limit <= this->model->prev_get_size(this->model));
 	this->model->prev_set_enabled(this->model, this->prev_enabled);
@@ -214,11 +224,13 @@ static void details_create(struct minircheats_impl * parent, struct window * par
 	encodeval(this->dattype, this->datsize, curval, valstr);
 	curvalbox->set_text(curvalbox, valstr, 0);
 	this->newval->set_text(this->newval, valstr, 0);//default to keep at current value
-	this->newval->focus(this->newval);
 	curvalbox->set_enabled(curvalbox, false);
 	
 	ok->set_onclick(ok, details_ok, this);
 	cancel->set_onclick(cancel, details_cancel, this);
+	
+	if (*addr) this->newval->focus(this->newval);
+	else this->addr->focus(this->addr);
 	
 	this->wndw->set_visible(this->wndw, true);
 	this->wndw->focus(this->wndw);
@@ -281,7 +293,7 @@ static void search_dosearch(struct widget_button * subject, void* userdata)
 		{
 			if (!decodeval(this->dattype, compto_str, &compto_val))
 			{
-				//TODO: error message; paint the box red?
+				this->wndsrch_compto_entry->set_invalid(this->wndsrch_compto_entry, true);
 				return;
 			}
 		}
@@ -491,7 +503,7 @@ static void update(struct minircheats * this_, bool ramwatch)
 	//Note that various windows should be updated even if cheats are disabled. If the user wants them gone, he can close them.
 	if (ramwatch && this->wndsrch_listbox) this->wndsrch_listbox->refresh(this->wndsrch_listbox);
 	if (!this->enabled) return;
-	
+	this->model->cheat_apply(this->model);
 }
 
 static void free_(struct minircheats * this_)
@@ -517,6 +529,9 @@ struct minircheats * minircheats_create()
 	this->i.set_enabled=set_enabled;
 	this->i.get_enabled=get_enabled;
 	this->i.update=update;
+	//this->i.get_cheat_count=get_cheat_count;
+	//this->i.get_cheat=get_cheat;
+	//this->i.set_cheat=set_cheat;
 	this->i.free=free_;
 	
 	this->enabled=true;

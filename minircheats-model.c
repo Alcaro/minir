@@ -4,9 +4,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
-
-//#define malloc(x) malloc(x+128)
-//#define realloc(x,y) realloc(x,y+128)
+#include <ctype.h>
 
 //how address conversion works
 //----------------------------
@@ -35,17 +33,17 @@
 //  inflate 'len' with 'disconnect', take the highest bit of that, and add it to variable_bits
 //  (do not optimize to topbit(len)<<popcount(disconnect & topbit(len)-1); it's painful if the shift adds more disconnected bits)
 // 
-// create variable 'disconnect_mask' for mapping, set it to ~add_bits_down(len)
-// clear any bit in 'disconnect' that's set in 'disconnect_mask'
-// while the highest set bit in 'disconnect' is directly below the lowest set bit in 'disconnect_mask', move it over
+// create variable 'disconnect_mask' for mapping, set it to add_bits_down(len)
+// clear any bit in 'disconnect' that's clear in 'disconnect_mask'
+// while the highest set bit in 'disconnect' is directly below the lowest clear bit in 'disconnect_mask', move it over
 // in any future reference to 'disconnect', use 'disconnect_mask' too
 // math:
-//  disconnect_mask = ~add_bits_down(len)
-//  disconnect &=~ disconnect_mask
-//  while (disconnect_mask>>1 & disconnect)
+//  disconnect_mask = add_bits_down(len)
+//  disconnect &= disconnect_mask
+//  while ((~disconnect_mask)>>1 & disconnect)
 //  {
-//   disconnect_mask |= disconnect_mask>>1
-//   disconnect &=~ disconnect_mask
+//   disconnect_mask >>= 1
+//   disconnect &= disconnect_mask
 //  }
 // 
 // check if any previous mapping claims any byte claimed by this mapping
@@ -77,6 +75,9 @@
 //  fill in an 1 in the lowest hole permitted by 'length' or 'disconnect', try again
 //  if we're out of holes, use next mapping
 //  if there is no next mapping, segfault because all bytes must be mapped somewhere.
+
+//in this file, 'address' means address in any emulated address space (also known as guest address),
+// and 'offset' means offset to any memory block (physical address)
 
 STATIC_ASSERT(sizeof(size_t)==4 || sizeof(size_t)==8, fix_this_function);
 static size_t add_bits_down(size_t n)
@@ -167,7 +168,7 @@ static uint32_t readmem(const unsigned char * ptr, unsigned int nbytes, bool big
 	if (nbytes==1) return *ptr;
 	if (bigendian)
 	{
-		unsigned int ret=0;
+		uint32_t ret=0;
 		while (nbytes--)
 		{
 			ret=(ret<<8)|(*ptr++);
@@ -176,24 +177,41 @@ static uint32_t readmem(const unsigned char * ptr, unsigned int nbytes, bool big
 	}
 	else
 	{
-		unsigned int ret=0;
+		uint32_t ret=0;
+		ptr+=nbytes;
 		while (nbytes--)
 		{
-			ret|=(*ptr++)<<(nbytes*8);
+			ret=(ret<<8)|(*--ptr);
 		}
 		return ret;
 	}
 }
 
-//static void writemem(unsigned char * ptr, enum cheat_size nbytes, bool bigendian, uint32_t value)
-//{
-//	if (nbytes==1)
-//	{
-//		*ptr=value;
-//		return;
-//	}
-//	__builtin_trap();
-//}
+static void writemem(unsigned char * ptr, unsigned int nbytes, bool bigendian, uint32_t value)
+{
+	if (nbytes==1)
+	{
+		*ptr=value;
+		return;
+	}
+	if (bigendian)
+	{
+		while (nbytes--)
+		{
+			(*ptr++)=value;
+			value>>=8;
+		}
+	}
+	else
+	{
+		ptr+=nbytes;
+		while (nbytes--)
+		{
+			(*--ptr)=value;
+			value>>=8;
+		}
+	}
+}
 
 static const uint32_t signs[]={0xFFFFFF80, 0xFFFF8000, 0xFF800000, 0x80000000};
 
@@ -276,6 +294,28 @@ struct addrspace {
 	struct mapping * map;
 };
 
+
+struct cheat_impl {
+	unsigned int memid;
+	//char padding[4];
+	size_t offset;
+	
+	unsigned int changetype :2;
+	unsigned int datsize :3;//only values 1..4 are allowed, but it's easier to give an extra bit than adding 1 on every use.
+	bool issigned :1;
+	bool enabled :1;
+	bool restore :1;
+	//char padding2[2];
+	
+	uint32_t value;//for cht_const: value it's forced to remain at
+	               //for inconly/deconly: value of previous frame
+	               //for once: cht_once does not get a cheat_impl
+	uint32_t orgvalue;//value to restore to if the cheat is disabled
+	
+	char* desc;
+};
+
+
 struct minircheats_model_impl {
 	struct minircheats_model i;
 	
@@ -290,26 +330,30 @@ struct minircheats_model_impl {
 	bool prev_enabled;
 	//char padding[2];
 	
-	size_t search_lastmempos;
 	size_t search_lastrow;
+	size_t search_lastmempos;
 	
 	void* addrcache_ptr;
 	size_t addrcache_start;
 	size_t addrcache_end;
 	size_t addrcache_offset;
-	unsigned int addrcache_addrspace;
-	unsigned int search_lastblock;//moved to reduce padding
+	
+	struct cheat_impl * cheats;
+	unsigned int numcheats;
+	unsigned int search_lastblock;//moved elsewhere due to alignment
 };
 
 
 
-static void delete_all_mem(struct minircheats_model_impl * this);
+static void free_mem(struct minircheats_model_impl * this);
+static void free_cheats(struct minircheats_model_impl * this);
 
 static void set_memory(struct minircheats_model * this_, const struct libretro_memory_descriptor * memory, unsigned int nummemory)
 {
 	struct minircheats_model_impl * this=(struct minircheats_model_impl*)this_;
-	delete_all_mem(this);
-	//see top of file for what all this math does
+	free_mem(this);
+	free_cheats(this);
+	//all the weird math in this file is explained at the top
 	for (unsigned int i=0;i<nummemory;i++)
 	{
 		const struct libretro_memory_descriptor * desc=&memory[i];
@@ -409,12 +453,12 @@ static void set_memory(struct minircheats_model * this_, const struct libretro_m
 			// but it'd be painful if the shift adds more disconnected bits
 			if (map->len & (map->len-1)) map->variable_bits|=highest_bit(inflate(map->len, map->disconnect));
 			
-			map->disconnect_mask=~add_bits_down(map->len);
-			map->disconnect&=~map->disconnect_mask;
-			while (map->disconnect_mask>>1 & map->disconnect)
+			map->disconnect_mask=add_bits_down(map->len);
+			map->disconnect&=map->disconnect_mask;
+			while ((~map->disconnect_mask)>>1 & map->disconnect)
 			{
-				map->disconnect_mask |= map->disconnect_mask>>1;
-				map->disconnect&=~map->disconnect_mask;
+				map->disconnect_mask >>= 1;
+				map->disconnect &= map->disconnect_mask;
 			}
 			
 			map->has_overlaps=false;
@@ -433,7 +477,7 @@ static void set_memory(struct minircheats_model * this_, const struct libretro_m
 	}
 }
 
-static bool conv_guest_phys(struct minircheats_model_impl * this, unsigned int addrspace, size_t addr, unsigned char * * ptr, size_t * out)
+static bool addr_guest_to_phys(struct minircheats_model_impl * this, unsigned int addrspace, size_t addr, unsigned int * memid, size_t * offset)
 {
 	for (unsigned int i=0;i<this->addrspaces[addrspace].nummap;i++)
 	{
@@ -444,36 +488,92 @@ static bool conv_guest_phys(struct minircheats_model_impl * this, unsigned int a
 			if (!mem->ptr) return false;
 			addr=reduce((addr - map->start)&map->disconnect_mask, map->disconnect);
 			if (addr >= mem->len) addr-=highest_bit(addr);
-			*out = addr+map->offset;
-			*ptr = mem->ptr;
+			*memid = map->memid;
+			*offset = addr+map->offset;
 			return true;
 		}
 	}
 	return false;
 }
 
-static void conv_phys_guest(struct minircheats_model_impl * this, void* ptr, size_t offset, unsigned int * addrspace, size_t * addr)
+static size_t addr_phys_to_guest(struct minircheats_model_impl * this, void* ptr, size_t offset, unsigned int addrspace)
 //this one can't fail
 {
 	//void* addrcache_ptr;
 	//size_t addrcache_start;
 	//size_t addrcache_end;
 	//size_t addrcache_offset;
-	//unsigned int addrcache_addrspace;
 	if (ptr==this->addrcache_ptr && offset>=this->addrcache_start && offset<this->addrcache_end)
 	{
-		*addrspace=this->addrcache_addrspace;
-		*addr=offset-this->addrcache_start+this->addrcache_offset;
+		return offset-this->addrcache_start+this->addrcache_offset;
 	}
-(void)conv_guest_phys;
-*addrspace=0;
-*addr=offset;
-	//for (unsigned int i=0;i<
+	struct mapping * map=this->addrspaces[addrspace].map;
+	while (true)
+	{
+		//there is no end condition if this byte shows up nowhere - such a situation is forbidden
+		struct memblock * mem=&this->mem[map->memid];
+		if (mem->ptr!=ptr || map->offset>offset || offset-map->offset > map->len) goto wrongmapping;
+		size_t thisaddr=inflate(offset, map->disconnect)+map->start;
+		if (false)
+		{
+		add_a_bit: ;
+			size_t canadd=(~thisaddr & map->variable_bits);//bits that can change
+			if (!canadd) goto wrongmapping;
+			canadd&=-canadd;//bit that should change
+			thisaddr|=canadd;
+			thisaddr&=~((canadd-1) & map->variable_bits);//clear lower bits
+			
+			//check if adding that bit allows len to screw us over
+			size_t tryaddr=reduce((thisaddr - map->start)&map->disconnect_mask, map->disconnect);
+			if (tryaddr >= mem->len) goto add_a_bit;
+		}
+		if (map->has_overlaps)
+		{
+			struct mapping * prevmap=this->addrspaces[addrspace].map;
+			while (prevmap < map)
+			{
+				if (((map->start ^ thisaddr) & map->select) == 0)
+				{
+					goto add_a_bit;
+				}
+				prevmap++;
+			}
+		}
+//TODO:
+//  find how long this mapping is linear, that is how far we can go while still ensuring that moving one guest byte still moves one physical byte
+//   (use the most strict of 'length', 'disconnect', 'select', and other mappings)
+//  put start and size of linear area, as well as where it points, in the cache
+//  return this address, ignoring the above linearity calculations
+		return thisaddr;
+	wrongmapping:
+		map++;
+		continue;
+	}
+}
+
+static bool addr_parse(struct minircheats_model_impl * this, const char * rawaddr, const char * * remainder, unsigned int * addrspace, size_t * addr)
+{
+	unsigned int minblklen=0;
+	for (unsigned int i=0;isalpha(rawaddr[i]);i++)
+	{
+		if (rawaddr[i]<'A' || rawaddr[i]>'F') minblklen=i;
+	}
+	for (unsigned int i=0;i<this->numaddrspace;i++)
+	{
+		size_t addrnamelen=strlen(this->addrspaces[i].name);
+		if (addrnamelen>=minblklen && !strncmp(rawaddr, this->addrspaces[i].name, addrnamelen))
+		{
+			*addrspace=i;
+			*addr=strtoul(rawaddr+addrnamelen, (char**)remainder, 16);
+			return true;
+		}
+	}
+	return false;
 }
 
 
 
-static void prev_set_to_cur(struct minircheats_model_impl * this)
+static void search_prev_set_to_cur(struct minircheats_model_impl * this)
 {
 	for (unsigned int i=0;i<this->nummem;i++)
 	{
@@ -481,7 +581,7 @@ static void prev_set_to_cur(struct minircheats_model_impl * this)
 	}
 }
 
-static size_t prev_get_size(struct minircheats_model * this_)
+static size_t search_prev_get_size(struct minircheats_model * this_)
 {
 	struct minircheats_model_impl * this=(struct minircheats_model_impl*)this_;
 	size_t size=0;
@@ -492,7 +592,7 @@ static size_t prev_get_size(struct minircheats_model * this_)
 	return size;
 }
 
-static void prev_set_enabled(struct minircheats_model * this_, bool enable)
+static void search_prev_set_enabled(struct minircheats_model * this_, bool enable)
 {
 	struct minircheats_model_impl * this=(struct minircheats_model_impl*)this_;
 	for (unsigned int i=0;i<this->nummem;i++)
@@ -505,16 +605,14 @@ static void prev_set_enabled(struct minircheats_model * this_, bool enable)
 	{
 		if (this->mem[i].showinsearch) this->mem[i].prev=malloc(this->mem[i].len);
 	}
-	prev_set_to_cur(this);
+	search_prev_set_to_cur(this);
 }
 
-static bool prev_get_enabled(struct minircheats_model * this_)
+static bool search_prev_get_enabled(struct minircheats_model * this_)
 {
 	struct minircheats_model_impl * this=(struct minircheats_model_impl*)this_;
 	return this->prev_enabled;
 }
-
-
 
 
 
@@ -618,7 +716,9 @@ static void search_reset(struct minircheats_model * this_)
 	struct minircheats_model_impl * this=(struct minircheats_model_impl*)this_;
 	for (unsigned int i=0;i<this->nummem;i++)
 	{
-		search_show_all(&this->mem[i], this->search_datsize);
+		struct memblock * mem=&this->mem[i];
+		search_show_all(mem, this->search_datsize);
+		if (mem->prev) memcpy(mem->prev, mem->ptr, mem->len);
 	}
 }
 
@@ -676,7 +776,7 @@ static void search_do_search(struct minircheats_model * this_, enum cheat_compfu
 			{
 				if (show & (1<<bit))
 				{
-					uint32_t val=readmem(mem->ptr+pos+bit, this->search_datsize, mem->bigendian);
+					uint32_t val=readmem(mem->ptr+pos+bit, this->search_datsize, mem->bigendian);//not readmemext - we're handling the sign ourselves
 					
 					uint32_t other;
 					if (comptoprev) other=readmem(mem->prev+pos+bit, this->search_datsize, mem->bigendian);
@@ -729,10 +829,8 @@ static void search_get_vis_row(struct minircheats_model * this_, unsigned int ro
 	
 	if (addr)
 	{
-		unsigned int addrspace;
-		size_t p_addr;
-		conv_phys_guest(this, mem->ptr, mempos, &addrspace, &p_addr);
-		sprintf(addr, "%s%.*lX", this->addrspaces[addrspace].name, this->addrspaces[addrspace].addrlen, p_addr);
+		size_t p_addr=addr_phys_to_guest(this, mem->ptr, mempos, mem->addrspace);
+		sprintf(addr, "%s%.*lX", this->addrspaces[mem->addrspace].name, this->addrspaces[mem->addrspace].addrlen, p_addr);
 	}
 	if (val)     *val  =  readmemext(mem->ptr +mempos, this->search_datsize, mem->bigendian, this->search_signed);
 	if (prevval) *prevval=readmemext(mem->prev+mempos, this->search_datsize, mem->bigendian, this->search_signed);
@@ -742,7 +840,145 @@ static void search_get_vis_row(struct minircheats_model * this_, unsigned int ro
 
 
 
-static void delete_all_mem(struct minircheats_model_impl * this)
+//TODO
+static bool cheat_read(struct minircheats_model * this_, const char * addr, unsigned int datsize, uint32_t * val)
+{
+	return false;
+}
+
+//TODO
+static int cheat_find_for_addr(struct minircheats_model * this_, unsigned int datsize, const char * addr)
+{
+	return -1;
+}
+
+static unsigned int cheat_get_count(struct minircheats_model * this_)
+{
+	struct minircheats_model_impl * this=(struct minircheats_model_impl*)this_;
+	return this->numcheats;
+}
+
+
+
+static bool cheat_set(struct minircheats_model * this_, int pos, const struct cheat * newcheat)
+{
+	struct minircheats_model_impl * this=(struct minircheats_model_impl*)this_;
+	const char * remainder;
+	unsigned int addrspace;
+	size_t addr;
+	if (!addr_parse(this, newcheat->addr, &remainder, &addrspace, &addr)) return false;
+	if (*remainder) return false;
+	
+	unsigned int memid;
+	size_t offset;
+	if (!addr_guest_to_phys(this, addrspace, addr, &memid, &offset)) return false;
+printf("conv %X->%X\n",addr,offset);
+	
+	if (pos<0) return true;
+	
+	if (newcheat->changetype == cht_once)
+	{
+		//FIXME: Just write to the given address.
+		return true;
+	}
+	if (pos==this->numcheats)
+	{
+		this->numcheats++;
+		this->cheats=realloc(this->cheats, sizeof(struct cheat_impl)*this->numcheats);
+		this->cheats[pos].desc=NULL;
+		this->cheats[pos].enabled=false;
+	}
+	struct cheat_impl * cht=&this->cheats[pos];
+	if (cht->enabled && cht->restore)
+	{
+		//TODO: Restore
+	}
+	cht->memid=memid;
+	cht->offset=offset;
+	cht->changetype=newcheat->changetype;
+	cht->datsize=newcheat->datsize;
+	cht->issigned=newcheat->issigned;
+	cht->enabled=newcheat->enabled;
+	cht->restore=true;
+	cht->orgvalue=readmem(this->mem[cht->memid].ptr+cht->offset, cht->datsize, this->mem[cht->memid].bigendian);
+	if (newcheat->changetype == cht_const) cht->value=newcheat->val;
+	else cht->value=cht->orgvalue;
+	if (cht->desc != newcheat->desc)
+	{
+		free(cht->desc);
+		cht->desc=(newcheat->desc ? strdup(newcheat->desc) : NULL);
+	}
+	return true;
+}
+
+//TODO
+static bool cheat_set_as_code(struct minircheats_model * this_, int pos, const char * code)
+{
+	return false;
+}
+
+//TODO
+static void cheat_get(struct minircheats_model * this_, unsigned int pos, struct cheat * newcheat)
+{
+}
+
+//TODO
+static const char * cheat_get_as_code(struct minircheats_model * this_, unsigned int pos)
+{
+//static const char * cheat_get_as_code(struct minircheats_model * this_, unsigned int pos)
+//{
+//	struct minircheats_model_impl * this=(struct minircheats_model_impl*)this_;
+//	free(this->lastcheat);
+//	struct cheat thischeat;
+//	this_->cheat_get(this_, pos, &thischeat);//TODO: devirtualize
+//	//disable address signspec value direction SP desc
+//	this->lastcheat=malloc(1+strlen(thischeat.addr)+8+1+1+1+strlen(thischeat.desc)+1);
+//	//TODO: verify that addr points to anything
+//	const char * const chngtypenames[]={"", "+", "-", "."};
+//	sprintf(this->lastcheat, "%s%s%.*X%s%s%s%s", thischeat.enabled?"":"-", thischeat.addr,
+//	                         thischeat.datsize*2, thischeat.val, thischeat.issigned?"S":"", chngtypenames[thischeat.changetype],
+//	                         (thischeat.desc && *thischeat.desc) ? " " : "", (thischeat.desc ? thischeat.desc : ""));
+//	return this->lastcheat;
+//}
+	return "milk 1337 moocows";
+}
+
+static void cheat_remove(struct minircheats_model * this_, unsigned int pos)
+{
+	struct minircheats_model_impl * this=(struct minircheats_model_impl*)this_;
+	free(this->cheats[pos].desc);
+	memmove(this->cheats+pos, this->cheats+pos+1, sizeof(struct cheat_impl)*(this->numcheats-pos-1));
+	this->numcheats--;
+}
+
+
+
+static void cheat_apply(struct minircheats_model * this_)
+{
+	struct minircheats_model_impl * this=(struct minircheats_model_impl*)this_;
+	for (unsigned int i=0;i<this->numcheats;i++)
+	{
+		struct cheat_impl * cht=&this->cheats[i];
+		if (!cht->enabled) continue;
+		uint32_t signadd=(cht->issigned ? 0x80000000 : 0);
+		if (cht->changetype!=cht_const)
+		{
+			uint32_t curval=readmem(this->mem[cht->memid].ptr+cht->offset, cht->datsize, this->mem[cht->memid].bigendian);
+//printf("chg %X %X->%X\n",cht->offset,curval,cht->value);
+			if (cht->changetype==cht_inconly && curval+signadd > cht->value+signadd) continue;
+			if (cht->changetype==cht_deconly && curval+signadd < cht->value+signadd) continue;
+//if (cht->changetype!=cht_const)
+			cht->value=curval;
+		}
+		writemem(this->mem[cht->memid].ptr+cht->offset, cht->datsize, this->mem[cht->memid].bigendian, cht->value);
+	}
+}
+
+
+
+
+
+static void free_mem(struct minircheats_model_impl * this)
 {
 	for (unsigned int i=0;i<this->numaddrspace;i++)
 	{
@@ -770,21 +1006,31 @@ static void delete_all_mem(struct minircheats_model_impl * this)
 	this->nummem=0;
 }
 
+static void free_cheats(struct minircheats_model_impl * this)
+{
+	for (unsigned int i=0;i<this->numcheats;i++)
+	{
+		free(this->cheats[i].desc);
+	}
+	this->cheats=NULL;
+	this->numcheats=0;
+}
+
 static void free_(struct minircheats_model * this_)
 {
 	struct minircheats_model_impl * this=(struct minircheats_model_impl*)this_;
-	delete_all_mem(this);
-	//FIXME
+	free_mem(this);
+	free_cheats(this);
 	free(this);
 }
 
 const struct minircheats_model_impl minircheats_model_base = {{
 	set_memory,
-	prev_get_size, prev_set_enabled, prev_get_enabled,
+	search_prev_get_size, search_prev_set_enabled, search_prev_get_enabled,
 	search_reset, search_set_datsize, search_set_signed, search_do_search, search_get_num_rows, search_get_vis_row,
-	NULL, NULL, NULL,//cheat_read, cheat_find_for_addr, cheat_get_count,
-	NULL, NULL, NULL, NULL,//cheat_set, cheat_set_as_code, cheat_get, cheat_get_as_code,
-	NULL, NULL, NULL,//cheat_set_enabled, cheat_remove, cheat_apply,
+	cheat_read, cheat_find_for_addr, cheat_get_count,
+	cheat_set, cheat_set_as_code, cheat_get, cheat_get_as_code,
+	cheat_remove, cheat_apply,
 	free_
 }};
 struct minircheats_model * minircheats_create_model()

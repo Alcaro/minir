@@ -736,18 +736,18 @@ void config_write(const char * path);
 
 
 //All functions on this object yield undefined behaviour if datsize is not within 1..4.
-//This object has a fair amount of do-it-yourself mentality.
+//This object forces you to do a bit of stuff by yourself.
 enum cheat_compfunc { cht_lt, cht_gt, cht_lte, cht_gte, cht_eq, cht_neq };
-enum cheat_chngtype { cht_once, cht_inconly, cht_deconly, cht_const };
+enum cheat_chngtype { cht_const, cht_inconly, cht_deconly, cht_once };
 struct cheat {
-	bool enabled;
-	bool issigned;
-	unsigned char changetype;//this is an enum cheat_chngtype, but they are hard to set the size of.
-	unsigned char datsize;
-	uint32_t val;
-	const char * desc;
 	char * addr;//For cheat_set, this is only read, and may be a casted const char *.
 	            //For cheat_get, this is a caller-allocated buffer of size 32 or larger, and will be written.
+	uint32_t val;
+	unsigned char changetype;//this is an enum cheat_chngtype, but I want sizeof==1, so I have to do this.
+	unsigned char datsize;
+	bool enabled;
+	bool issigned;
+	const char * desc;//Do not free if you get this from cheat_get; it's owned by the cheat model.
 };
 struct minircheats_model {
 	void (*set_memory)(struct minircheats_model * this, const struct libretro_memory_descriptor * memory, unsigned int nummemory);
@@ -792,7 +792,6 @@ struct minircheats_model {
 	//- That address is not mapped in that namespace
 	//- The relevant memory block ends too soon
 	//- Alignment says you can't use that address
-	//In all cases is it fair to blame the address.
 	bool (*cheat_read)(struct minircheats_model * this, const char * addr, unsigned int datsize, uint32_t * val);
 	
 	//Don't cache cheat IDs; use the address as unique key.
@@ -801,18 +800,19 @@ struct minircheats_model {
 	
 	unsigned int (*cheat_get_count)(struct minircheats_model * this);
 	//To add a new cheat, use pos==count. To check if a cheat is valid without actually adding it, use pos==-1.
-	//The possible errors are the same as cheat_read.
+	//The possible errors are the same as cheat_read. In all such cases, it's fair to blame the address.
 	//It is not guaranteed that cheat_get returns the same values as given to cheat_set; for example, mirroring may be undone.
 	//However, it is guaranteed that setting a cheat to itself will do nothing.
 	bool (*cheat_set)(struct minircheats_model * this, int pos, const struct cheat * newcheat);
 	bool (*cheat_set_as_code)(struct minircheats_model * this, int pos, const char * code);
 	void (*cheat_get)(struct minircheats_model * this, unsigned int pos, struct cheat * newcheat);
 	const char * (*cheat_get_as_code)(struct minircheats_model * this, unsigned int pos);
-	void (*cheat_set_enabled)(struct minircheats_model * this, unsigned int pos, bool enable);
 	void (*cheat_remove)(struct minircheats_model * this, unsigned int pos);
 	
+	//This one disables all cheat codes.
+	//void (*cheat_set_enabled)(struct minircheats_model * this, bool enabled);
 	//This one makes all cheat codes take effect. Call it each frame.
-	bool (*cheat_apply)(struct minircheats_model * this);
+	void (*cheat_apply)(struct minircheats_model * this);
 	
 	void (*free)(struct minircheats_model * this);
 };
@@ -820,6 +820,7 @@ struct minircheats_model * minircheats_create_model();
 
 struct minircheats {
 	void (*set_parent)(struct minircheats * this, struct window * parent);
+	//It is allowed to set the core to NULL, and all operations are safe if the core is NULL.
 	void (*set_core)(struct minircheats * this, struct libretro * core, size_t prev_limit);
 	
 	void (*show_search)(struct minircheats * this);

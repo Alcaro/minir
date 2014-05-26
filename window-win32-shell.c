@@ -6,7 +6,7 @@
 #include <windows.h>
 #include <commctrl.h>
 #include <ctype.h>
-#include<stdio.h>
+//#include<stdio.h>
 
 //TODO:
 //menu_create: check where it's resized if size changes
