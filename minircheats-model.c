@@ -673,7 +673,6 @@ static void search_get_pos(struct minircheats_model_impl * this, size_t visrow, 
 		visrow-=mem->show_tot;
 		mem++;
 	}
-if(visrow==0x10001)printf("A mem=%p off=%zu T=%zu L=%zu\n",mem->ptr,visrow,mem->show_tot,mem->len);
 	
 	*memblk = (mem - this->mem);
 	
@@ -683,7 +682,6 @@ if(visrow==0x10001)printf("A mem=%p off=%zu T=%zu L=%zu\n",mem->ptr,visrow,mem->
 		visrow-=mem->show_treehigh[bigpage];
 		bigpage++;
 	}
-if(visrow==0x10001)printf("B mem=%p bp=%u off=%zu\n",mem->ptr,bigpage,visrow);
 	
 	uint32_t smallpage = bigpage*(SIZE_PAGE_HIGH/SIZE_PAGE_LOW);
 	while (visrow >= mem->show_treelow[smallpage])
@@ -691,7 +689,6 @@ if(visrow==0x10001)printf("B mem=%p bp=%u off=%zu\n",mem->ptr,bigpage,visrow);
 		visrow-=mem->show_treelow[smallpage];
 		smallpage++;
 	}
-if(visrow==0x10001)printf("C mem=%p sp=%u off=%zu\n",mem->ptr,smallpage,visrow);
 	
 	uint32_t * bits = mem->show + smallpage*(SIZE_PAGE_LOW/32);
 	while (true)
@@ -704,7 +701,6 @@ if(visrow==0x10001)printf("C mem=%p sp=%u off=%zu\n",mem->ptr,smallpage,visrow);
 		}
 		else break;
 	}
-if(visrow==0x10001)printf("D mem=%p b=%zu off=%zu\n",mem->ptr,bits-mem->show,visrow);
 	
 	uint32_t lastbits=*bits;
 	unsigned int lastbitcount=0;
