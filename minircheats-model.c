@@ -284,7 +284,7 @@ struct memblock {
 	UNION_END
 };
 
-struct addrspace {
+struct addressspace {
 	char name[9];
 	
 	uint8_t numbits;//valid values are 1..64; 24 for SNES
@@ -320,7 +320,7 @@ struct cheat_impl {
 struct minircheats_model_impl {
 	struct minircheats_model i;
 	
-	struct addrspace * addrspaces;
+	struct addressspace * addrspaces;
 	unsigned int numaddrspace;
 	
 	unsigned int nummem;
@@ -373,7 +373,7 @@ memory[i].addrspace);
 	{
 		const struct libretro_memory_descriptor * desc=&memory[i];
 		
-		struct addrspace * addr;
+		struct addressspace * addr;
 		unsigned int addrspace;
 		for (addrspace=0;addrspace<this->numaddrspace;addrspace++)
 		{
@@ -382,7 +382,7 @@ memory[i].addrspace);
 		if (addrspace == this->numaddrspace)
 		{
 			this->numaddrspace++;
-			this->addrspaces=realloc(this->addrspaces, sizeof(struct addrspace)*this->numaddrspace);
+			this->addrspaces=realloc(this->addrspaces, sizeof(struct addressspace)*this->numaddrspace);
 			addr=&this->addrspaces[addrspace];
 			strcpy(addr->name, desc->addrspace ? desc->addrspace : "");
 			for (int i=0;addr->name[i];i++)
@@ -440,7 +440,7 @@ memory[i].addrspace);
 	
 	for (unsigned int i=0;i<this->numaddrspace;i++)
 	{
-		struct addrspace * addr=&this->addrspaces[i];
+		struct addressspace * addr=&this->addrspaces[i];
 		size_t top_addr=1;//to avoid trouble if the size is 0. A zero-bit address space isn't an address space at all, anyways.
 		for (unsigned int i=0;i<addr->nummap;i++)
 		{
