@@ -467,7 +467,6 @@ memory[i].addrspace);
 				map->len=add_bits_down(reduce(top_addr&~map->select, map->disconnect))+1;
 				this->mem[map->memid].len=map->len;
 			}
-printf("le=%zX\n",map->len);
 			if (map->start & ~map->select) abort();//this combination is invalid
 			
 			while (reduce(top_addr&~map->select, map->disconnect)>>1 > map->len-1)

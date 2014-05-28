@@ -350,6 +350,7 @@ static int listbox_get_active_row(struct widget_listbox * this_)
 	int ret;
 	if (list) ret=gtk_tree_path_get_indices(list->data)[0];
 	else ret=-1;
+	if (ret==MAX_ROWS) ret=-1;
 	g_list_free_full(list, (GDestroyNotify)gtk_tree_path_free);
 	return ret;
 }
@@ -359,7 +360,11 @@ static void listbox_onactivate(GtkTreeView* tree_view, GtkTreePath* path, GtkTre
 	struct widget_listbox_gtk3 * this=(struct widget_listbox_gtk3*)user_data;
 	if (this->onactivate)
 	{
-		this->onactivate((struct widget_listbox*)this, gtk_tree_path_get_indices(path)[0], this->activate_userdata);
+		int item=gtk_tree_path_get_indices(path)[0];
+		if (item!=MAX_ROWS)
+		{
+			this->onactivate((struct widget_listbox*)this, item, this->activate_userdata);
+		}
 	}
 }
 
