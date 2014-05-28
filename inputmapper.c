@@ -63,11 +63,11 @@ static const char * const keynames[]={
 		"Power",      "Euro",        "Undo",
 };
 
-static unsigned int str_to_id(const char * str, int strlen)
+static unsigned int str_to_id(const char * str, int str_len)
 {
 	for (int i=0;i<RETROK_LAST;i++)
 	{
-		if (keynames[i] && !strncmp(str, keynames[i], strlen) && !keynames[i][strlen]) return i;
+		if (keynames[i] && !strncmp(str, keynames[i], str_len) && !keynames[i][str_len]) return i;
 	}
 	return 0;
 }
