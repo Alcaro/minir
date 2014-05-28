@@ -1,0 +1,55 @@
+echo "Checking if build environment is sane..."
+
+echo "
+#define WNDPROT_X11
+#define WINDOW_GTK3
+#define FILEPATH_POSIX
+#define DYLIB_POSIX
+#define THREAD_PTHREAD
+#define INPUT_X11_XINPUT2
+#define INPUT_X11
+#define VIDEO_OPENGL
+#define VIDEO_XSHM
+#define AUDIO_PULSEAUDIO
+#define HAVE_ASPRINTF
+
+#define NEED_ICON_PNG
+" > host.h
+#uname := $(shell uname -a)
+#ifeq ($(uname),) win
+#ifneq ($(findstring Darwin,$(uname)),) osx
+#else x
+echo "
+CFLAGS = -g
+LFLAGS =
+TRUE_CFLAGS = \$(CFLAGS) `pkg-config --cflags gtk+-3.0 libpulse` -pthread
+TRUE_LFLAGS = \$(LFLAGS) `pkg-config --libs   gtk+-3.0 libpulse` -pthread -ldl -lX11 -lGL -lXi -lXext -lpulse
+EXTRAOBJ = 
+" > Makefile.custom
+#Rules for which dependencies are allowed:
+#If there is no reasonable way to continue the program without this library, then make use of it.
+#If a library matches the above rule, no effort needs to be spent on getting rid of it from other locations.
+#If the library is only a link-time dependency and not needed at runtime, then it's fine.
+#Otherwise, effort shall be spent on getting rid of this dependency. It's fine temporarily, but don't leave it there forever.
+
+#Linux:
+#pthread - core (thread), links in threadsafe malloc
+#gtk+-3.0 - core (window)
+#libpulse - audio.pulseaudio - link only
+#dl - core (dylib)
+#X11 - core (libretro/hardware mapping), video.opengl, input.x11-xinput2? - FIXME
+#GL - video.opengl - FIXME
+#Xi - input.x11-xinput2 - FIXME
+#Xext - video.xshm - FIXME
+#pulse - audio.pulseaudio - FIXME
+
+#Windows:
+#gdi32 - core (window - fonts), video.gdi, video.opengl
+#comctl32 - core (window - inner)
+#comdlg32 - core (window - open file dialog)
+#dinput8 - input.directinput - link only
+#dxguid - audio.directsound, input.directinput - link only
+#opengl32 - video.opengl - FIXME
+#dsound - audio.directsound - FIXME
+
+echo "...whatever, it probably is. Configuration is done."
