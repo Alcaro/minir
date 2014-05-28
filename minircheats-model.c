@@ -415,6 +415,8 @@ memory[i].addrspace);
 			mem->align=(desc->flags & LIBRETRO_MEMFLAG_ALIGNED);
 			mem->bigendian=(desc->flags & LIBRETRO_MEMFLAG_BIGENDIAN);
 			mem->addrspace=addrspace;
+			//mem->show=NULL;
+			//mem->show_tot=0;
 		}
 		mem=&this->mem[memid];
 		
@@ -849,12 +851,13 @@ static void search_do_search(struct minircheats_model * this_, enum cheat_compfu
 	}
 }
 
-static unsigned int search_get_num_rows(struct minircheats_model * this_)
+static size_t search_get_num_rows(struct minircheats_model * this_)
 {
 	struct minircheats_model_impl * this=(struct minircheats_model_impl*)this_;
 	search_ensure_mem_exists(this);
-	unsigned int numrows=0;
+	size_t numrows=0;
 	for (unsigned int i=0;i<this->nummem;i++) numrows+=this->mem[i].show_tot;
+printf("nr=%zu\n",numrows);
 	return numrows;
 }
 

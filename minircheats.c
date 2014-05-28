@@ -3,6 +3,7 @@
 #include <string.h>
 #include <stdio.h>
 #include <ctype.h>
+#include <limits.h>
 
 //window titles:
 //Cheat Search
@@ -246,8 +247,10 @@ static void search_update(struct minircheats_impl * this)
 {
 	if (this->wndsrch_listbox)
 	{
+		size_t num_rows=this->model->search_get_num_rows(this->model);
+		if (num_rows > UINT_MAX) num_rows=UINT_MAX;
 		this->wndsrch_listbox->set_contents_virtual(this->wndsrch_listbox,
-		                                            this->model->search_get_num_rows(this->model),
+		                                            num_rows,
 		                                            search_get_cell, NULL, this);
 	}
 }

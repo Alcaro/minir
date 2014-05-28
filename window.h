@@ -365,8 +365,6 @@ struct widget_listbox {
 	//It's optional to implement; if NULL is given, the implementation will provide one based on get_cell. The implementation is
 	// not obliged to use this callback, either.
 	//The same userdata will be given to both callbacks.
-	//
-	//Note that this widget is rather slow on GTK+ on large lists.
 	void (*set_contents_virtual)(struct widget_listbox * this, unsigned int rows,
 	                             const char * (*get_cell)(struct widget_listbox * subject, unsigned int row, unsigned int column,
 	                                                      void * userdata),

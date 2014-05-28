@@ -767,7 +767,7 @@ struct minircheats_model {
 	void (*search_do_search)(struct minircheats_model * this,
 	                         enum cheat_compfunc compfunc, bool comptoprev, unsigned int compto);
 	
-	unsigned int (*search_get_num_rows)(struct minircheats_model * this);
+	size_t (*search_get_num_rows)(struct minircheats_model * this);
 	//Returns all information about a currently visible row. The data size is set by the functions above.
 	//The address will be written to, and must be at least 32 bytes long (31 plus NUL).
 	//If 'prev' is disabled, 'prevval' will remain unchanged if queried.
