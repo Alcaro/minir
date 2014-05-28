@@ -10,6 +10,8 @@
 #include <stdlib.h>
 #include <string.h>
 
+#define MAX_ROWS 0x10000 // GtkTreeView seems to be at least O(n log n) for creating a long list. Let's just add a hard cap.
+
 //http://scentric.net/tutorial/
 static GType M_VIRTUAL_TYPE=0;
 #define M_VIRTUAL_LIST(obj) (G_TYPE_CHECK_INSTANCE_CAST((obj), M_VIRTUAL_TYPE, struct VirtualList))
@@ -91,6 +93,27 @@ static void virtual_list_get_value(GtkTreeModel* tree_model, GtkTreeIter* iter, 
 	
 	struct VirtualList* virtual_list=M_VIRTUAL_LIST(tree_model);
 	uintptr_t row=(uintptr_t)iter->user_data;
+	
+	if (row == MAX_ROWS)
+	{
+		if (column == 0)
+		{
+			g_value_init(value, G_TYPE_STRING);
+			g_value_set_string(value, "(sorry, not supported)");
+		}
+		else if (column == virtual_list->columns)
+		{
+			g_value_init(value, G_TYPE_BOOLEAN);
+			g_value_set_boolean(value, false);
+			return;
+		}
+		else
+		{
+			g_value_init(value, G_TYPE_STRING);
+			g_value_set_string(value, "");
+		}
+		return;
+	}
 	
 	if (column == virtual_list->columns)
 	{
@@ -266,6 +289,8 @@ static void listbox_set_contents_virtual(struct widget_listbox * this_, unsigned
                     void * userdata)
 {
 	struct widget_listbox_gtk3 * this=(struct widget_listbox_gtk3*)this_;
+	
+	if (rows > MAX_ROWS) rows=MAX_ROWS+1;
 	
 	_widget_listbox_devirt_free(this->devirt);
 	this->devirt=NULL;
