@@ -96,11 +96,6 @@ static void virtual_list_get_value(GtkTreeModel* tree_model, GtkTreeIter* iter, 
 	
 	if (row == MAX_ROWS)
 	{
-		if (column == 0)
-		{
-			g_value_init(value, G_TYPE_STRING);
-			g_value_set_string(value, "(sorry, not supported)");
-		}
 		if (column == virtual_list->columns)
 		{
 			g_value_init(value, G_TYPE_BOOLEAN);
