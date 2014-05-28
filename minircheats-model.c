@@ -658,7 +658,7 @@ static bool search_prev_get_enabled(struct minircheats_model * this_)
 
 static void search_get_pos(struct minircheats_model_impl * this, size_t visrow, unsigned int * memblk, size_t * mempos)
 {
-	//TODO: make searching for lastrow+1 faster
+	//TODO: can searching for lastrow+1 be made faster?
 	if (visrow==this->search_lastrow)
 	{
 		*memblk=this->search_lastblock;
