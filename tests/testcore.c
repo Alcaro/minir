@@ -31,7 +31,7 @@ int groupsizes[]={5,2,1};
 //#define PIXFMT 0//0RGB1555
 //#define PIXFMT 1//XRGB8888
 #define PIXFMT 2//RGB565
-//For the formats with 0 and X, 1a will set the 0Xs to 1, while 1b will set them to 0.
+//For XRGB8888, 1a will set the Xs to 1, while 1b will set them to 0.
 //Note that test 3a will give different colors for each of the pixel formats. Therefore, for any comparison to be meaningful, the pixel format must be the same.
 
 #if PIXFMT==0
@@ -108,10 +108,10 @@ void test1a()
 
 void test1b()
 {
-	for (int y=0;y<240;y++)
+	for (int p=0;p<320*240;p++)
 	{
-		if ((y+state.frame)%30 > 15) memset(pixels[y], 0x00, sizeof(*pixels));
-		else memset(pixels[y], 0xFF, sizeof(*pixels));
+		if ((y+state.frame)%30 > 15) pixels[0][p]=p_blk;
+		else pixels[0][p]=p_wht;
 	}
 }
 
