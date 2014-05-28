@@ -109,7 +109,7 @@ static void virtual_list_get_value(GtkTreeModel* tree_model, GtkTreeIter* iter, 
 			else if (virtual_list->columns==1) g_value_set_string(value, "(sorry, not supported)");
 			else if (virtual_list->columns==2 && column==0) g_value_set_string(value, "(sorry, not");
 			else if (virtual_list->columns==2 && column==1) g_value_set_string(value, "supported)");
-			else if (virtual_list->columns==3 && column==0) g_value_set_string(value, "(sorry");
+			else if (virtual_list->columns==3 && column==0) g_value_set_string(value, "(sorry,");
 			else if (virtual_list->columns==3 && column==1) g_value_set_string(value, "not");
 			else if (virtual_list->columns==3 && column==2) g_value_set_string(value, "supported)");
 			else g_value_set_string(value, "");
