@@ -429,13 +429,19 @@ struct widget_layout {
 #define widget_create_layout_horz(...) widget_create_layout(false, false, __VA_ARGS__)
 #define widget_create_layout_vert(...) widget_create_layout(true, false, __VA_ARGS__)
 struct widget_layout * widget_create_layout(bool vertical, bool uniform, void * firstchild, ...);
-//The widgets are stored row by row. There is no NULL terminator, because the size is known from the arguments already.
-struct widget_layout * widget_create_layout_grid(unsigned int width, unsigned int height,
-                                                 void * firstchild, ...);
 //numchildren can be 0. In this case, the array is assumed terminated with a NULL.
 struct widget_layout * widget_create_layout_l(bool vertical, bool uniform, unsigned int numchildren, void * * children);
-struct widget_layout * widget_create_layout_grid_l(unsigned int width, unsigned int height,
-                                                   unsigned int numchildren, void * * children);
+
+//The widgets are stored row by row. There is no NULL terminator, because the size is known from the arguments already.
+struct widget_grid * widget_create_grid(unsigned int width, unsigned int height,
+                                        void * firstchild, ...);
+//This one allows some widgets to take up multiple boxes of the grid.
+struct widget_grid * widget_create_grid_v(unsigned int width, unsigned int height,
+                                          unsigned int firstwidth, unsigned int firstheight, void * firstchild, ...);
+//The widths/heights arrays can be NULL, which makes them filled by 1.
+struct widget_grid * widget_create_grid_l(unsigned int cols, unsigned int * widths,  bool uniformwidths,
+                                          unsigned int rows, unsigned int * heights, bool uniformheights,
+                                          void * * children);
 
 
 

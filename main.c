@@ -1523,7 +1523,8 @@ window_firstrun
 ();
 config.firstrun
 =false;
-cheats->show_search(cheats);
+//cheats->show_search(cheats);
+cheats->show_list(cheats);
 	mainloop();
 	deinit();
 }

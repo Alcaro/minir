@@ -6,6 +6,13 @@
 #include <ctype.h>
 #include "libretro.h"
 
+#define RETRO_ENVIRONMENT_SET_MEMORY_MAPS (36 | RETRO_ENVIRONMENT_EXPERIMENTAL)
+struct retro_memory_map
+{
+const struct libretro_memory_descriptor * descriptors;
+unsigned num_descriptors;
+};
+
 struct libretro_raw {
 	void (*set_environment)(retro_environment_t);
 	void (*set_video_refresh)(retro_video_refresh_t);
@@ -98,6 +105,9 @@ struct libretro_impl {
 	unsigned int core_opt_num;
 	struct libretro_core_option * core_opts;
 	unsigned int * core_opt_current_values;
+	
+	struct libretro_memory_descriptor * memdesc;
+	unsigned int nummemdesc;
 };
 
 #ifdef __GNUC__
@@ -253,6 +263,26 @@ static bool load_rom(struct libretro * this_, const char * filename)
 	if (!file_read(filename, (char**)&game.data, &game.size)) return false;
 	bool ret=this->raw.load_game(&game);
 	free((char*)game.data);
+if(!this->memdesc)
+{
+struct retro_system_info info;
+this->raw.get_system_info(&info);
+if (strstr(info.library_name, "snes") || strstr(info.library_name, "SNES"))
+{
+struct libretro_memory_descriptor desc[]={
+{ .start=0x7E0000, .len=0x20000 },
+{ .select=0x40E000, .len=0x2000 },
+};
+desc[0].ptr=this->raw.get_memory_data(RETRO_MEMORY_SYSTEM_RAM);
+desc[1].ptr=desc[0].ptr;
+if (desc[0].ptr)
+{
+this->memdesc=malloc(sizeof(struct libretro_memory_descriptor)*2);
+memcpy(this->memdesc,desc,sizeof(struct libretro_memory_descriptor)*2);
+this->nummemdesc=2;
+}
+}
+}
 	return ret;
 }
 
@@ -269,7 +299,30 @@ static bool load_rom_mem(struct libretro * this_, const char * data, size_t data
 	game.data=data;
 	game.size=datalen;
 	game.meta=NULL;
-	return this->raw.load_game(&game);
+	//return this->raw.load_game(&game);
+//TODO: this is temporary
+bool ret=this->raw.load_game(&game);
+if(!this->memdesc)
+{
+struct retro_system_info info;
+this->raw.get_system_info(&info);
+if (strstr(info.library_name, "snes") || strstr(info.library_name, "SNES"))
+{
+struct libretro_memory_descriptor desc[]={
+{ .start=0x7E0000, .len=0x20000 },
+{ .select=0x40E000, .len=0x2000 },
+};
+desc[0].ptr=this->raw.get_memory_data(RETRO_MEMORY_SYSTEM_RAM);
+desc[1].ptr=desc[0].ptr;
+if (desc[0].ptr)
+{
+this->memdesc=malloc(sizeof(struct libretro_memory_descriptor)*2);
+memcpy(this->memdesc,desc,sizeof(struct libretro_memory_descriptor)*2);
+this->nummemdesc=2;
+}
+}
+}
+return ret;
 }
 
 static bool load_rom_mem_supported(struct libretro * this_)
@@ -344,24 +397,8 @@ static const struct libretro_memory_descriptor * get_memory_info(struct libretro
 {
 	struct libretro_impl * this=(struct libretro_impl*)this_;
 	
-	struct retro_system_info info;
-	this->raw.get_system_info(&info);
-	*nummemdesc=0;
-	//TODO: convince Squarepusher to add this to libretro proper instead of lamehacking it
-	//TODO: before the above, finalize the format and ensure I won't want to change it anymore. Attempting to change any part of libretro when not strictly mandatory would become very painful very quickly.
-	//TODO: convince Squarepusher to add this to libretro proper instead of lamehacking it, but marked as EXPERIMENTAL
-	if (strstr(info.library_name, "snes") || strstr(info.library_name, "SNES"))
-	{
-		*nummemdesc=2;
-		static struct libretro_memory_descriptor desc[]={
-			{ .start=0x7E0000, .len=0x20000 },
-			{ .select=0x40E000, .len=0x2000 },
-			};
-		desc[0].ptr=this->raw.get_memory_data(RETRO_MEMORY_SYSTEM_RAM);
-		desc[1].ptr=desc[0].ptr;
-		return desc;
-	}
-	else return NULL;
+	*nummemdesc=this->nummemdesc;
+	return this->memdesc;
 }
 
 static void get_memory(struct libretro * this_, enum libretro_memtype which, size_t * size, void* * ptr)
@@ -417,6 +454,7 @@ static void free_(struct libretro * this_)
 {
 	struct libretro_impl * this=(struct libretro_impl*)this_;
 	free_core_opts(this);
+	free(this->memdesc);
 	free(this->tmpptr[0]);
 	free(this->tmpptr[1]);
 	free(this->tmpptr[2]);
@@ -475,6 +513,7 @@ static void log_callback(enum retro_log_level level, const char *fmt, ...)
 //Detailed information on why the unsupported ones don't exist can be found in this function.
 static bool environment(unsigned cmd, void *data)
 {
+	struct libretro_impl * this=g_this;
 	//1 SET_ROTATION, no known supported core uses that. Cores are expected to deal with failures, anyways.
 	//2 GET_OVERSCAN, I have no opinion. Use the default.
 	if (cmd==RETRO_ENVIRONMENT_GET_CAN_DUPE) //3
@@ -491,8 +530,8 @@ static bool environment(unsigned cmd, void *data)
 	    cmd==RETRO_ENVIRONMENT_GET_LIBRETRO_PATH || //19
 	    cmd==RETRO_ENVIRONMENT_GET_CONTENT_DIRECTORY) //30
 	{
-		char * ret=strdup(g_this->libpath);
-		appendtmpptr(g_this, ret);
+		char * ret=strdup(this->libpath);
+		appendtmpptr(this, ret);
 		char * retend=strrchr(ret, '/');
 		if (retend) *retend='\0';
 		(*(const char**)data)=ret;
@@ -505,7 +544,7 @@ static bool environment(unsigned cmd, void *data)
 				newfmt==RETRO_PIXEL_FORMAT_RGB565)
 		{
 			int depths[3]={15, 32, 16};
-			g_this->videodepth=depths[newfmt];
+			this->videodepth=depths[newfmt];
 			return true;
 		}
 		else return false;
@@ -519,34 +558,34 @@ static bool environment(unsigned cmd, void *data)
 		struct retro_variable * variable=(struct retro_variable*)data;
 		
 		variable->value=NULL;
-		for (unsigned int i=0;i<g_this->core_opt_num;i++)
+		for (unsigned int i=0;i<this->core_opt_num;i++)
 		{
-			if (!strcmp(variable->key, g_this->core_opts[i].name_internal))
+			if (!strcmp(variable->key, this->core_opts[i].name_internal))
 			{
-				variable->value=g_this->core_opts[i].values[g_this->core_opt_current_values[i]];
+				variable->value=this->core_opts[i].values[this->core_opt_current_values[i]];
 			}
 		}
-		g_this->core_opt_changed=false;
+		this->core_opt_changed=false;
 		return true;
 	}
 	if (cmd==RETRO_ENVIRONMENT_SET_VARIABLES)//16
 	{
 		const struct retro_variable * variables=(const struct retro_variable*)data;
-		free_core_opts(g_this);
+		free_core_opts(this);
 		
 		const struct retro_variable * variables_count=variables;
 		while (variables_count->key) variables_count++;
 		unsigned int numvars=variables_count-variables;
 		
-		g_this->core_opt_list_changed=true;
-		g_this->core_opt_changed=true;
-		g_this->core_opt_num=numvars;
-		g_this->core_opts=malloc(sizeof(struct libretro_core_option)*(numvars+1));
-		g_this->core_opt_current_values=malloc(sizeof(unsigned int)*numvars);
+		this->core_opt_list_changed=true;
+		this->core_opt_changed=true;
+		this->core_opt_num=numvars;
+		this->core_opts=malloc(sizeof(struct libretro_core_option)*(numvars+1));
+		this->core_opt_current_values=malloc(sizeof(unsigned int)*numvars);
 		
 		for (unsigned int i=0;i<numvars;i++)
 		{
-			g_this->core_opts[i].name_internal=strdup(variables[i].key);
+			this->core_opts[i].name_internal=strdup(variables[i].key);
 			
 			const char * values=strstr(variables[i].value, "; ");
 			//if the value does not contain "; ", the core is broken, and broken cores can break shit in whatever way they want, anyways.
@@ -556,7 +595,7 @@ static bool environment(unsigned cmd, void *data)
 			char* name=malloc(namelen+1);
 			memcpy(name, variables[i].value, namelen);
 			name[namelen]='\0';
-			g_this->core_opts[i].name_display=name;
+			this->core_opts[i].name_display=name;
 			
 			unsigned int numvalues=1;
 			const char * valuescount=values;
@@ -566,7 +605,7 @@ static bool environment(unsigned cmd, void *data)
 				valuescount++;
 			}
 			
-			g_this->core_opts[i].numvalues=numvalues;
+			this->core_opts[i].numvalues=numvalues;
 			char** values_out=malloc(sizeof(char*)*(numvalues+1));
 			const char * nextvalue=values;
 			for (unsigned int j=0;j<numvalues;j++)
@@ -580,27 +619,27 @@ static bool environment(unsigned cmd, void *data)
 				values=nextvalue+1;
 			}
 			values_out[numvalues]=NULL;
-			g_this->core_opts[i].values=(const char * const *)values_out;
-			//g_this->core_opt_possible_values[i][numvalues-1]=strdup(values);
+			this->core_opts[i].values=(const char * const *)values_out;
+			//this->core_opt_possible_values[i][numvalues-1]=strdup(values);
 			
-			g_this->core_opt_current_values[i]=0;
+			this->core_opt_current_values[i]=0;
 		}
-		g_this->core_opts[numvars].name_internal=NULL;
-		g_this->core_opts[numvars].name_display=NULL;
-		g_this->core_opts[numvars].numvalues=0;
-		g_this->core_opts[numvars].values=NULL;
+		this->core_opts[numvars].name_internal=NULL;
+		this->core_opts[numvars].name_display=NULL;
+		this->core_opts[numvars].numvalues=0;
+		this->core_opts[numvars].values=NULL;
 		
 		return true;
 	}
 	if (cmd==RETRO_ENVIRONMENT_GET_VARIABLE_UPDATE) //17
 	{
-		*(bool*)data = g_this->core_opt_changed;
+		*(bool*)data = this->core_opt_changed;
 		return true;
 	}
 	if (cmd==RETRO_ENVIRONMENT_SET_SUPPORT_NO_GAME) //18
 	{
 		if (!*(bool*)data) return true;//if this hits, someone's joking with us.
-		g_this->i.supports_no_game=void_true;
+		this->i.supports_no_game=void_true;
 		return true;
 	}
 	//19 GET_LIBRETRO_PATH, see 9.
@@ -629,6 +668,14 @@ static bool environment(unsigned cmd, void *data)
 	//33 SET_PROC_ADDRESS_CALLBACK, ignored because there are no extensions.
 	//34 SET_SUBSYSTEM_INFO, should probably be added.
 	//35 SET_CONTROLLER_INFO, should probably be added.
+	if (cmd==RETRO_ENVIRONMENT_SET_MEMORY_MAPS) //probably 36
+	{
+		free(this->memdesc);
+		struct retro_memory_map * map=(struct retro_memory_map*)data;
+		this->nummemdesc=map->num_descriptors;
+		this->memdesc=malloc(sizeof(struct libretro_memory_descriptor)*map->num_descriptors);
+		memcpy(this->memdesc, map->descriptors, sizeof(struct libretro_memory_descriptor)*map->num_descriptors);
+	}
 	log_callback(RETRO_LOG_WARN, "Unsupported environ command #%u.", cmd);
 	return false;
 }
@@ -712,6 +759,9 @@ struct libretro * libretro_create(const char * corepath, void (*message_cb)(int 
 	this->core_opt_num=0;
 	this->core_opts=NULL;
 	this->core_opt_current_values=NULL;
+	
+	this->memdesc=NULL;
+	this->nummemdesc=0;
 	
 	this->raw.set_environment(environment);
 	this->raw.set_video_refresh(video_refresh);

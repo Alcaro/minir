@@ -34,6 +34,7 @@ struct minircheats_impl {
 	struct widget_radio * wndsrch_datsize;
 	
 	struct window * wndlist;
+	struct widget_listbox * wndlist_listbox;
 	
 	struct window * wndwatch;
 	
@@ -210,7 +211,7 @@ static void details_create(struct minircheats_impl * parent, struct window * par
 				widget_create_padding_horz(),
 				ok=widget_create_button("OK"),
 				cancel=widget_create_button("Cancel"),
-				NULL),NULL)
+				NULL),NULL/*TODO: remove this null*/)
 		);
 	
 	this->wndw->set_is_dialog(this->wndw);
@@ -420,8 +421,8 @@ static void show_search(struct minircheats * this_)
 		this->wndsrch->set_parent(this->wndsrch, this->parent);
 		this->wndsrch->set_title(this->wndsrch, "Cheat Search");
 		
-		//const unsigned int tmp[]={15, 15, 15};
-		const unsigned int tmp[]={1,2,2};
+		const unsigned int tmp[]={15, 15, 15};
+		//const unsigned int tmp[]={1,2,2};
 		this->wndsrch_listbox->set_size(this->wndsrch_listbox, 16, tmp);
 		
 		this->wndsrch_listbox->set_onactivate(this->wndsrch_listbox, search_add_cheat_listbox, this);
@@ -475,8 +476,39 @@ static const char * search_get_cell(struct widget_listbox * subject, unsigned in
 
 static void show_list(struct minircheats * this_)
 {
-	//struct minircheats_impl * this=(struct minircheats_impl*)this_;
+	struct minircheats_impl * this=(struct minircheats_impl*)this_;
+	if (!this->wndlist)
+	{
+		this->wndlist=window_create(
+			widget_create_layout_vert(
+				widget_create_layout_horz(
+					widget_create_listbox("Address", "Value", "Description", NULL),
+					widget_create_layout_vert(
+						widget_create_button("Add"),
+						widget_create_button("Delete"),
+						widget_create_button("Update"),
+						widget_create_button("Clear"),
+						NULL),
+					NULL),
+					//widget_create_layout_grid(2, 3,//TODO: use this
+					widget_create_layout_vert(
+						widget_create_label("Cheat Code"),
+						widget_create_textbox(),
+						widget_create_label("Cheat Description"),
+						widget_create_textbox(),
+						widget_create_label("Cheat Address (hex)"),
+						widget_create_layout_horz(
+							widget_create_textbox(),
+							widget_create_label("New Value"),
+							widget_create_textbox(),
+						NULL),
+					NULL/*TODO: remove null*/),
+				NULL)
+			);
+	}
 	
+	this->wndlist->set_visible(this->wndlist, true);
+	this->wndlist->focus(this->wndlist);
 }
 
 

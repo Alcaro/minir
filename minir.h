@@ -60,6 +60,8 @@ window_firstrun//this
 // even if they are (potentially) non-unique, following the instructed method to free them is safe;
 // either they're owned by the one one giving them to you, or their free() handlers are empty, or
 // they could even be refcounted.
+//If a pointer is valid until anything from a set of functions is called (including if the set
+// contains only one listed function), free() will also invalidate that pointer.
 //"Implementation" means the implementation of the interfaces; the blocks of code that are called
 // when a function is called on an interface.
 //"User" means the one using the interfaces. Some interface implementations are users of other
@@ -463,7 +465,7 @@ struct libretro_memory_descriptor {
 	
 	//It is not allowed to do any math on the pointer; the frontend may compare them for equality.
 	//If 'start' does not point to the first byte in the pointer, put the difference in 'offset' instead.
-	//May be NULL if there's nothing usable here (e.g. hardware registers).
+	//May be NULL if there's nothing usable here (e.g. hardware registers and open bus).
 	void * ptr;
 	size_t offset;
 	
@@ -787,6 +789,7 @@ struct minircheats_model {
 	// (0..31 and 127), but is otherwise freeform.
 	//The format is designed so that a SNES Gameshark code is valid.
 	
+	//This one tells the current value of an address.
 	//Fails if:
 	//- There is no such namespace
 	//- That address is not mapped in that namespace
@@ -804,15 +807,19 @@ struct minircheats_model {
 	//It is not guaranteed that cheat_get returns the same values as given to cheat_set; for example, mirroring may be undone.
 	//However, it is guaranteed that setting a cheat to itself will do nothing.
 	bool (*cheat_set)(struct minircheats_model * this, int pos, const struct cheat * newcheat);
-	bool (*cheat_set_as_code)(struct minircheats_model * this, int pos, const char * code);
-	void (*cheat_get)(struct minircheats_model * this, unsigned int pos, struct cheat * newcheat);
-	const char * (*cheat_get_as_code)(struct minircheats_model * this, unsigned int pos);
+	//bool (*cheat_set_as_code)(struct minircheats_model * this, int pos, const char * code);
+	void (*cheat_get)(struct minircheats_model * this, unsigned int pos, struct cheat * thecheat);
+	//const char * (*cheat_get_as_code)(struct minircheats_model * this, unsigned int pos);
 	void (*cheat_remove)(struct minircheats_model * this, unsigned int pos);
 	
 	//This one disables all cheat codes.
 	//void (*cheat_set_enabled)(struct minircheats_model * this, bool enabled);
 	//This one makes all cheat codes take effect. Call it each frame.
 	void (*cheat_apply)(struct minircheats_model * this);
+	
+	//The returned code is invalidated on the next call to cheat_convert_to_code.
+	const char * (*code_create)(struct minircheats_model * this, struct cheat * thecheat);
+	bool (*code_parse)(struct minircheats_model * this, const char * code, struct cheat * thecheat);
 	
 	void (*free)(struct minircheats_model * this);
 };
