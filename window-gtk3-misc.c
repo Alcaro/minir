@@ -83,9 +83,9 @@ const char * const * window_file_picker(struct window * parent,
 	                           title,
 	                           (parent?parent->_get_handle(parent):NULL),
 	                           GTK_FILE_CHOOSER_ACTION_OPEN,
-	                           GTK_STOCK_CANCEL,
+	                           "_Cancel",
 	                           GTK_RESPONSE_CANCEL,
-	                           GTK_STOCK_OPEN,
+	                           "_Open",
 	                           GTK_RESPONSE_ACCEPT,
 	                           NULL));
 	gtk_file_chooser_set_select_multiple(dialog, multiple);
