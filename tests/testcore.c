@@ -31,7 +31,7 @@ int groupsizes[]={5,2,1};
 //#define PIXFMT 0//0RGB1555
 //#define PIXFMT 1//XRGB8888
 #define PIXFMT 2//RGB565
-//For XRGB8888, 1a will set the Xs to 1, while 1b will set them to 0.
+//For XRGB8888, 1a will set the Xs to 0, while 1b will set them to 1.
 //Note that test 3a will give different colors for each of the pixel formats. Therefore, for any comparison to be meaningful, the pixel format must be the same.
 
 #if PIXFMT==0
@@ -39,6 +39,7 @@ int groupsizes[]={5,2,1};
 #define p_red 0x001F
 #define p_grn 0x03E0
 #define p_blu 0x7C00
+#define p_x 0
 #define p_dark 0x3DEF
 #endif
 #if PIXFMT==1
@@ -46,6 +47,7 @@ int groupsizes[]={5,2,1};
 #define p_red 0x0000FF
 #define p_grn 0x00FF00
 #define p_blu 0xFF0000
+#define p_x 0xFF000000
 #define p_dark 0x7F7F7F
 #endif
 #if PIXFMT==2
@@ -53,6 +55,7 @@ int groupsizes[]={5,2,1};
 #define p_red 0x001F
 #define p_grn 0x07E0
 #define p_blu 0xF800
+#define p_x 0
 #define p_dark 0x7BEF
 #endif
 #define p_blk 0
@@ -110,8 +113,8 @@ void test1b()
 {
 	for (int p=0;p<320*240;p++)
 	{
-		if ((y+state.frame)%30 > 15) pixels[0][p]=p_blk;
-		else pixels[0][p]=p_wht;
+		if ((y+state.frame)%30 > 15) pixels[0][p]=p_blk|p_x;
+		else pixels[0][p]=p_wht|p_x;
 	}
 }
 
