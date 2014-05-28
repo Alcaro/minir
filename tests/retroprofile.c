@@ -2,7 +2,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 /*
-gcc -I. -std=c99 tests/retroprofile.c libretro.c dylib.c -ldl -lrt -DWINDOW_MINIMAL window-none.c -Os -s -o retroprofile
+gcc -I. -std=c99 tests/retroprofile.c libretro.c dylib.c memory.c -ldl -lrt -DWINDOW_MINIMAL window-none.c -Os -s -o retroprofile
 mv retroprofile ~/bin
 */
 
@@ -15,6 +15,11 @@ int main(int argc, char * argv[])
 	//window_init(&argc, &argv);
 	uint64_t t_init=window_get_time();
 	struct libretro * core=libretro_create(argv[1], NULL, false);
+	if (!core)
+	{
+		puts("Couldn't load core.");
+		return 1;
+	}
 	
 	static struct video novideo;
 	novideo.draw=no_video;
@@ -28,7 +33,11 @@ int main(int argc, char * argv[])
 	core->attach_interfaces(core, &novideo, &noaudio, &noinput);
 	
 	uint64_t t_load_rom=window_get_time();
-	core->load_rom(core, argv[2]);
+	if (!core->load_rom(core, argv[2]))
+	{
+		puts("Couldn't load ROM.");
+		return 1;
+	}
 	
 	unsigned int frames=atoi(argv[3]);
 	
