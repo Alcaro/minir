@@ -465,7 +465,7 @@ memory[i].addrspace);
 			if (!map->len)
 			{
 				map->len=add_bits_down(reduce(top_addr&~map->select, map->disconnect))+1;
-				this->mem[map->memid].len=map->len;
+				if (!this->mem[map->memid].len) this->mem[map->memid].len=map->len;
 			}
 			if (map->start & ~map->select) abort();//this combination is invalid
 			
@@ -658,6 +658,7 @@ static bool search_prev_get_enabled(struct minircheats_model * this_)
 
 static void search_get_pos(struct minircheats_model_impl * this, size_t visrow, unsigned int * memblk, size_t * mempos)
 {
+	//TODO: make searching for lastrow+1 faster
 	if (visrow==this->search_lastrow)
 	{
 		*memblk=this->search_lastblock;
@@ -672,22 +673,25 @@ static void search_get_pos(struct minircheats_model_impl * this, size_t visrow, 
 		visrow-=mem->show_tot;
 		mem++;
 	}
+if(visrow==0x10001)printf("A mem=%p off=%zu T=%zu L=%zu\n",mem->ptr,visrow,mem->show_tot,mem->len);
 	
 	*memblk = (mem - this->mem);
 	
-	unsigned int bigpage=0;
+	uint32_t bigpage=0;
 	while (visrow >= mem->show_treehigh[bigpage])
 	{
 		visrow-=mem->show_treehigh[bigpage];
 		bigpage++;
 	}
+if(visrow==0x10001)printf("B mem=%p bp=%u off=%zu\n",mem->ptr,bigpage,visrow);
 	
-	unsigned int smallpage = bigpage*(SIZE_PAGE_HIGH/SIZE_PAGE_LOW);
-	while (visrow >= mem->show_treehigh[bigpage])
+	uint32_t smallpage = bigpage*(SIZE_PAGE_HIGH/SIZE_PAGE_LOW);
+	while (visrow >= mem->show_treelow[smallpage])
 	{
-		visrow-=mem->show_treehigh[bigpage];
-		bigpage++;
+		visrow-=mem->show_treelow[smallpage];
+		smallpage++;
 	}
+if(visrow==0x10001)printf("C mem=%p sp=%u off=%zu\n",mem->ptr,smallpage,visrow);
 	
 	uint32_t * bits = mem->show + smallpage*(SIZE_PAGE_LOW/32);
 	while (true)
@@ -700,6 +704,7 @@ static void search_get_pos(struct minircheats_model_impl * this, size_t visrow, 
 		}
 		else break;
 	}
+if(visrow==0x10001)printf("D mem=%p b=%zu off=%zu\n",mem->ptr,bits-mem->show,visrow);
 	
 	uint32_t lastbits=*bits;
 	unsigned int lastbitcount=0;
