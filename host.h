@@ -1,5 +1,3 @@
-//This is configured for Windows; the configure script will configure it for Linux.
-
 #if (!defined(WINDOW_WIN32) && !defined(WINDOW_GTK3))
 #define WINDOW_GTK3
 #endif
