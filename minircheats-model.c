@@ -555,7 +555,7 @@ static size_t addr_phys_to_guest(struct minircheats_model_impl * this, void* ptr
 			struct mapping * prevmap=this->addrspaces[addrspace].map;
 			while (prevmap < map)
 			{
-				if (((map->start ^ thisaddr) & map->select) == 0)
+				if (((prevmap->start ^ thisaddr) & prevmap->select) == 0)
 				{
 					goto add_a_bit;
 				}

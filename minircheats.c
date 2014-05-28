@@ -449,9 +449,8 @@ static void show_search(struct minircheats * this_)
 	
 	this->wndsrch->set_visible(this->wndsrch, true);
 	this->wndsrch->focus(this->wndsrch);
-//size_t n=this->model->search_get_num_rows(this->model);
-//for(size_t i=0xff00;i<0x10100;i++)puts(search_get_cell(NULL,i,0,this));
-search_get_cell(NULL,0x10001,0,this);
+size_t n=this->model->search_get_num_rows(this->model);
+for(size_t i=0;i<n;i+=0x1000)puts(search_get_cell(NULL,i,0,this));
 }
 
 static const char * search_get_cell(struct widget_listbox * subject, unsigned int row, unsigned int column, void* userdata)
