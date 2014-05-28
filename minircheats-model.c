@@ -352,6 +352,18 @@ static void free_cheats(struct minircheats_model_impl * this);
 
 static void set_memory(struct minircheats_model * this_, const struct libretro_memory_descriptor * memory, unsigned int nummemory)
 {
+for (unsigned int i=0;i<nummemory;i++)
+{
+printf("desc: fl=%lu pt=%p of=%zx st=%zx se=%zx di=%zx le=%zx sp=%s\n",
+memory[i].flags,
+memory[i].ptr,
+memory[i].offset,
+memory[i].start,
+memory[i].select,
+memory[i].disconnect,
+memory[i].len,
+memory[i].addrspace);
+}
 	struct minircheats_model_impl * this=(struct minircheats_model_impl*)this_;
 	free_mem(this);
 	free_cheats(this);
@@ -437,7 +449,7 @@ static void set_memory(struct minircheats_model * this_, const struct libretro_m
 			
 			//start+len is garbage if the length isn't a power of 2, if disconnect is nonzero, or if len is larger than select
 			//but in that case, select is the one we want, so we can ignore this.
-			if (!map->select) top_addr |= map->start+map->len-1;
+			if (map->select==0) top_addr |= map->start+map->len-1;
 		}
 		top_addr=add_bits_down(top_addr);
 		
@@ -450,8 +462,14 @@ static void set_memory(struct minircheats_model * this_, const struct libretro_m
 				if (map->len & (map->len-1)) abort();//select==0 and len not power of two
 				map->select=top_addr&~inflate(add_bits_down(map->len-1), map->disconnect);
 			}
-			if (!map->len) map->len=add_bits_down(reduce(map->variable_bits, map->disconnect))+1;
+			if (!map->len)
+			{
+				map->len=add_bits_down(reduce(top_addr&~map->select, map->disconnect))+1;
+				this->mem[map->memid].len=map->len;
+			}
+printf("le=%zX\n",map->len);
 			if (map->start & ~map->select) abort();//this combination is invalid
+			
 			while (reduce(top_addr&~map->select, map->disconnect)>>1 > map->len-1)
 			{
 				map->disconnect|=highest_bit(top_addr&~map->select&~map->disconnect);

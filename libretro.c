@@ -6,6 +6,7 @@
 #include <ctype.h>
 #include "libretro.h"
 
+//copying this from snes9x libretro.h
 #define RETRO_ENVIRONMENT_SET_MEMORY_MAPS (36 | RETRO_ENVIRONMENT_EXPERIMENTAL)
 struct retro_memory_map
 {
@@ -670,11 +671,12 @@ static bool environment(unsigned cmd, void *data)
 	//35 SET_CONTROLLER_INFO, should probably be added.
 	if (cmd==RETRO_ENVIRONMENT_SET_MEMORY_MAPS) //probably 36
 	{
-		free(this->memdesc);
 		struct retro_memory_map * map=(struct retro_memory_map*)data;
+		free(this->memdesc);
 		this->nummemdesc=map->num_descriptors;
 		this->memdesc=malloc(sizeof(struct libretro_memory_descriptor)*map->num_descriptors);
 		memcpy(this->memdesc, map->descriptors, sizeof(struct libretro_memory_descriptor)*map->num_descriptors);
+		return true;
 	}
 	log_callback(RETRO_LOG_WARN, "Unsupported environ command #%u.", cmd);
 	return false;
