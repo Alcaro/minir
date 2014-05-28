@@ -415,8 +415,6 @@ memory[i].addrspace);
 			mem->align=(desc->flags & LIBRETRO_MEMFLAG_ALIGNED);
 			mem->bigendian=(desc->flags & LIBRETRO_MEMFLAG_BIGENDIAN);
 			mem->addrspace=addrspace;
-			//mem->show=NULL;
-			//mem->show_tot=0;
 		}
 		mem=&this->mem[memid];
 		
