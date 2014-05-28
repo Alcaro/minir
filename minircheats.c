@@ -505,6 +505,10 @@ static void show_list(struct minircheats * this_)
 					NULL/*TODO: remove null*/),
 				NULL)
 			);
+		
+		this->wndlist->set_is_dialog(this->wndlist);
+		this->wndlist->set_parent(this->wndlist, this->parent);
+		this->wndlist->set_title(this->wndlist, "Cheat Entry and Editor");
 	}
 	
 	this->wndlist->set_visible(this->wndlist, true);
