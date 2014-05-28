@@ -101,7 +101,7 @@ static void virtual_list_get_value(GtkTreeModel* tree_model, GtkTreeIter* iter, 
 			g_value_init(value, G_TYPE_STRING);
 			g_value_set_string(value, "(sorry, not supported)");
 		}
-		else if (column == virtual_list->columns)
+		if (column == virtual_list->columns)
 		{
 			g_value_init(value, G_TYPE_BOOLEAN);
 			g_value_set_boolean(value, false);
@@ -110,7 +110,14 @@ static void virtual_list_get_value(GtkTreeModel* tree_model, GtkTreeIter* iter, 
 		else
 		{
 			g_value_init(value, G_TYPE_STRING);
-			g_value_set_string(value, "");
+			if(0);
+			else if (virtual_list->columns==1) g_value_set_string(value, "(sorry, not supported)");
+			else if (virtual_list->columns==2 && column==0) g_value_set_string(value, "(sorry, not");
+			else if (virtual_list->columns==2 && column==1) g_value_set_string(value, "supported)");
+			else if (virtual_list->columns==3 && column==0) g_value_set_string(value, "(sorry");
+			else if (virtual_list->columns==3 && column==1) g_value_set_string(value, "not");
+			else if (virtual_list->columns==3 && column==2) g_value_set_string(value, "supported)");
+			else g_value_set_string(value, "");
 		}
 		return;
 	}
