@@ -1,7 +1,9 @@
 CC = gcc
-CFLAGS = -g -Wall -Werror -Wno-error=deprecated
+CFLAGS = -g
 LD = gcc
 LFLAGS =
+
+-include Makefile.custom
 
 ifeq ($(platform),)
   uname := $(shell uname -a)

@@ -31,7 +31,9 @@ gtk_widget_destroy(dialog);
 void window_init(int * argc, char * * argv[])
 {
 //struct rlimit core_limits;core_limits.rlim_cur=core_limits.rlim_max=64*1024*1024;setrlimit(RLIMIT_CORE,&core_limits);
+#ifdef DEBUG
 g_log_set_always_fatal(G_LOG_LEVEL_CRITICAL|G_LOG_LEVEL_WARNING);
+#endif
 #ifdef WNDPROT_X11
 	XInitThreads();
 #endif
