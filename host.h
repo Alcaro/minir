@@ -1,8 +1,8 @@
 #if (!defined(WINDOW_WIN32) && !defined(WINDOW_GTK3))
-#define WINDOW_GTK3
+#define WINDOW_WIN32
 #endif
 
-#ifdef FRONT_GTK3
+#ifdef WINDOW_GTK3
 //Which window protocol is in use. Only select one. Some IO drivers work only on some protocols.
 //This refers to the deepest underlying API; for example X11, Wayland or Win32.
 #define WNDPROT_X11
@@ -10,7 +10,7 @@
 
 //Which window toolkit to use. Pick exactly one.
 //This refers to the top-level API that draws the widgets. Can be Qt, GTK+, Win32, or similar.
-#define WINDOW_GTK3
+//#define WINDOW_GTK3
 //#define WINDOW_WIN32
 
 //Which system to use for file paths.
@@ -51,6 +51,10 @@
 //#define WNDPROT_X11
 #define WNDPROT_WINDOWS
 
+//Which window toolkit to use. Pick exactly one.
+//#define WINDOW_GTK3
+//#define WINDOW_WIN32
+
 //Which system to use for file paths.
 //#define FILEPATH_POSIX
 #define FILEPATH_WINDOWS
@@ -63,10 +67,6 @@
 
 //#define THREAD_PTHREAD
 #define THREAD_WIN32
-
-//Which window toolkit to use. Pick exactly one.
-//#define WINDOW_GTK3
-#define WINDOW_WIN32
 
 //Which input/video/audio drivers to enable. Multiple of each kind may be enabled.
 //#define INPUT_X11_XINPUT2
