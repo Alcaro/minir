@@ -13,6 +13,8 @@ int16_t no_input(struct libretroinput * this, unsigned port, unsigned device, un
 int main(int argc, char * argv[])
 {
 	//window_init(&argc, &argv);
+	unsigned int frames=atoi(argv[3]);
+	
 	uint64_t t_init=window_get_time();
 	struct libretro * core=libretro_create(argv[1], NULL, false);
 	if (!core)
@@ -32,16 +34,14 @@ int main(int argc, char * argv[])
 	
 	core->attach_interfaces(core, &novideo, &noaudio, &noinput);
 	
-	uint64_t t_load_rom=window_get_time();
 	if (!core->load_rom(core, argv[2]))
 	{
 		puts("Couldn't load ROM.");
 		return 1;
 	}
 	
-	unsigned int frames=atoi(argv[3]);
-	
 	uint64_t t_run=window_get_time();
+	
 	for (unsigned int i=0;i<frames;i++)
 	{
 		printf("%i/%i\r", i, frames);
@@ -52,8 +52,7 @@ int main(int argc, char * argv[])
 	core->free(core);
 	uint64_t t_end=window_get_time();
 	
-	printf("Time to initialize: %luus\n", t_load_rom-t_init);
-	printf("Time to load ROM: %luus\n", t_run-t_load_rom);
+	printf("Time to load ROM: %luus\n", t_run-t_init);
 	if (frames)
 	{
 		printf("Time per frame: %luus / ", (t_run_done-t_run)/frames);
