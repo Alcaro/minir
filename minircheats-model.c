@@ -993,25 +993,19 @@ static void cheat_apply(struct minircheats_model * this_)
 
 
 
-//TODO
+//TODO: test
 static const char * code_create(struct minircheats_model * this, struct cheat * thecheat)
 {
-//static const char * cheat_get_as_code(struct minircheats_model * this_, unsigned int pos)
-//{
-//	struct minircheats_model_impl * this=(struct minircheats_model_impl*)this_;
-//	free(this->lastcheat);
-//	struct cheat thischeat;
-//	this_->cheat_get(this_, pos, &thischeat);//TODO: devirtualize
-//	//disable address signspec value direction SP desc
-//	this->lastcheat=malloc(1+strlen(thischeat.addr)+8+1+1+1+strlen(thischeat.desc)+1);
-//	//TODO: verify that addr points to anything
-//	const char * const chngtypenames[]={"", "+", "-", "."};
-//	sprintf(this->lastcheat, "%s%s%.*X%s%s%s%s", thischeat.enabled?"":"-", thischeat.addr,
-//	                         thischeat.datsize*2, thischeat.val, thischeat.issigned?"S":"", chngtypenames[thischeat.changetype],
-//	                         (thischeat.desc && *thischeat.desc) ? " " : "", (thischeat.desc ? thischeat.desc : ""));
-//	return this->lastcheat;
-//}
-	return "milk 1337 moocows";
+	struct minircheats_model_impl * this=(struct minircheats_model_impl*)this_;
+	free(this->lastcheat);
+	//disable address signspec value direction SP desc
+	this->lastcheat=malloc(1+strlen(thecheat->addr)+8+1+1+1+strlen(thecheat->desc)+1);
+	//TODO: verify that addr points to anything
+	const char * const chngtypenames[]={"", "+", "-", "."};
+	sprintf(this->lastcheat, "%s%s%.*X%s%s%s%s", thecheat->enabled?"":"-", thecheat->addr,
+	                         thecheat->datsize*2, thecheat->val, thecheat->issigned?"S":"", chngtypenames[thecheat->changetype],
+	                         (thecheat->desc && *thecheat->desc) ? " " : "", (thecheat->desc ? thecheat->desc : ""));
+	return this->lastcheat;
 }
 
 //TODO
@@ -1067,6 +1061,7 @@ static void free_(struct minircheats_model * this_)
 	struct minircheats_model_impl * this=(struct minircheats_model_impl*)this_;
 	free_mem(this);
 	free_cheats(this);
+	free(this->lastcheat);
 	free(this);
 }
 
