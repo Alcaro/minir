@@ -1,20 +1,5 @@
 echo "Checking if build environment is sane..."
 
-echo "
-#define WNDPROT_X11
-#define WINDOW_GTK3
-#define FILEPATH_POSIX
-#define DYLIB_POSIX
-#define THREAD_PTHREAD
-#define INPUT_X11_XINPUT2
-#define INPUT_X11
-#define VIDEO_OPENGL
-#define VIDEO_XSHM
-#define AUDIO_PULSEAUDIO
-#define HAVE_ASPRINTF
-
-#define NEED_ICON_PNG
-" > host.h
 #uname := $(shell uname -a)
 #ifeq ($(uname),) win
 #ifneq ($(findstring Darwin,$(uname)),) osx
