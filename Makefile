@@ -5,11 +5,13 @@ CFLAGS = -g
 LD = gcc
 LFLAGS =
 
-#Compile flags for Windows go here - there is no Makefile.custom on Windows.
+#Stuff needed for Windows goes here; there is no Makefile.custom on Windows.
 TRUE_CFLAGS = $(CFLAGS) -Wno-format
 TRUE_LFLAGS = $(LFLAGS) -lgdi32 -lcomctl32 -lcomdlg32 -ldinput8 -ldxguid -lopengl32 -ldsound
 EXESUFFIX = .exe
 EXTRAOBJ = obj/resource.o
+obj/resource.o: ico/*
+	windres ico/minir.rc obj/resource.o
 
 -include Makefile.custom
 
