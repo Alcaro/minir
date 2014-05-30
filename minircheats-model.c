@@ -411,7 +411,7 @@ memory[i].addrspace);
 			memset(mem, 0, sizeof(struct memblock));
 			mem->ptr=desc->ptr;
 			mem->prev=NULL;
-			mem->len=desc->len;
+			mem->len=0;
 			mem->showinsearch=!(desc->flags & LIBRETRO_MEMFLAG_CONST);
 			mem->align=(desc->flags & LIBRETRO_MEMFLAG_ALIGNED);
 			mem->bigendian=(desc->flags & LIBRETRO_MEMFLAG_BIGENDIAN);
@@ -467,8 +467,8 @@ memory[i].addrspace);
 			if (!map->len)
 			{
 				map->len=add_bits_down(reduce(top_addr&~map->select, map->disconnect))+1;
-				if (map->len > this->mem[map->memid].len) this->mem[map->memid].len=map->len;
 			}
+			if (map->len > this->mem[map->memid].len) this->mem[map->memid].len=map->len;
 			if (map->start & ~map->select) abort();//this combination is invalid
 			
 			while (reduce(top_addr&~map->select, map->disconnect)>>1 > map->len-1)
