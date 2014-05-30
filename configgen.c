@@ -5,6 +5,9 @@
 #include <stdbool.h>
 #include <stdlib.h>
 
+#define MINIZ_HEADER_FILE_ONLY
+#include "miniz.c"
+
 //TODO: platform-specific things
 //remember the comment coalescing cache, it could screw stuff up
 
@@ -12,6 +15,62 @@
 //TODO: use bytecode instead of clear_defaults
 
 #define error(why) do { printf("%s: "why"\n", linecopy); return 1; } while(0);
+
+enum {
+	CFGB_END,
+	
+	CFGB_COMMENT,
+	CFGB_LINEBREAK,//Linebreaks that appear only in the root node are in comments.
+	
+	CFGB_GLOBAL,
+	CFGB_ARRAY,
+	CFGB_ARRAY_SHUFFLED,
+	CFGB_ARRAY_SAME,
+	
+	CFGB_INPUT,
+	CFGB_STR,
+	CFGB_INT,
+	CFGB_UINT,
+	CFGB_ENUM,
+	CFGB_BOOL,
+};
+
+//#define V
+
+struct mem {
+	void* ptr;
+	size_t len;
+	size_t buflen;
+};
+
+static mz_bool mem_append(const void* pBuf, int len, void* pUser)
+{
+	struct mem * m=pUser;
+	if (m->len + len > m->buflen)
+	{
+		while (m->len + len > m->buflen) m->buflen*=2;
+		m->ptr=realloc(m->ptr, m->buflen);
+	}
+	memcpy((char*)m->ptr + m->len, pBuf, len);
+	m->len+=len;
+	return true;
+}
+
+static void* compress(void* data, size_t inlen, size_t * outlen)
+{
+	struct mem m;
+	m.buflen=1024;
+	m.ptr=malloc(m.buflen);
+	m.len=0;
+	
+	tdefl_compressor d;
+	tdefl_init(&d, mem_append, &m, TDEFL_DEFAULT_MAX_PROBES);
+	tdefl_compress_buffer(&d, data, inlen, TDEFL_FINISH);
+	
+	*outlen=m.len;
+	return m.ptr;
+}
+
 
 int main()
 {
@@ -53,8 +112,11 @@ int main()
 #define emit_clear_defaults(...) do { if (pass==p_clear_defaults) fprintf(out, __VA_ARGS__); } while(0)
 		emit_clear_defaults("#ifdef CONFIG_CLEAR_DEFAULTS\n");
 		
-#define emit_bytecode(...) do { if (pass==p_bytecode) fprintf(out, __VA_ARGS__); } while(0)
-		emit_bytecode("#ifdef CONFIG_BYTECODE\n");
+		unsigned char bytecode[65536];
+		int bytecodepos=0;
+#define emit_bytecode(byte) do { if (pass==p_bytecode) bytecode[bytecodepos++]=byte; } while(0)
+#define emit_bytecode_2(word) do { emit_bytecode(((word)>>8)&255); emit_bytecode(((word)>>0)&255); } while(0)
+#define emit_bytecode_4(dword) do { emit_bytecode_2(((dword)>>16)&65535); emit_bytecode_2(((dword)>>0)&65535); } while(0)
 		
 		int numinputs=0;
 		int numstrs=0;
@@ -112,23 +174,20 @@ int main()
 				{
 					if (!(i%255))
 					{
-						if (i!=0) emit_bytecode("\n");
 						int remaining=commentlen-i;
-						emit_bytecode("CFGB_COMMENT, %i, ", remaining>255?255:remaining);
+						emit_bytecode(CFGB_COMMENT);
+						emit_bytecode(remaining>255?255:remaining);
 					}
 					if (comment[i]=='\r') {}
-					else if (comment[i]=='\n') emit_bytecode("'\\n',");
-					else if (strchr("'\"\\", comment[i])) emit_bytecode("'\\%c',", comment[i]);
-					else emit_bytecode("'%c',", comment[i]);
+					else emit_bytecode(comment[i]);
 				}
-				emit_bytecode("\n");
 				
 				commentlen=0;
 			}
 			
 			if (!*line)
 			{
-				emit_bytecode("CFGB_LINEBREAK,\n");
+				emit_bytecode(CFGB_LINEBREAK);
 			}
 			else if (*line=='#') {}//handled above
 			else if (!strcmp(line, "-")) {}//handled above
@@ -138,7 +197,7 @@ int main()
 				if (!strncmp(line, "global ", 7))
 				{
 					line+=7;
-					emit_bytecode("CFGB_GLOBAL, ");
+					emit_bytecode(CFGB_GLOBAL);
 				}
 				
 				enum { num, str, flag, enumer } type;
@@ -345,14 +404,15 @@ int main()
 					strcat(thiscfgname_c, loop[0].before);
 					
 					char table_num[4096];
-					char * table_num_end=table_num;
+					int table_num_pos=0;
 					
 					char table_byte[4096];
+					int table_byte_pos=0;
 					static char table_byte_prev[4096];
-					char * table_byte_end=table_byte;
+					static int table_byte_pos_prev;
 					
-#define append_table_num(...) do { if (pass==p_bytecode) table_num_end+=sprintf(table_num_end, __VA_ARGS__); } while(0)
-#define append_table_byte(...) do { if (pass==p_bytecode) table_byte_end+=sprintf(table_byte_end, __VA_ARGS__); } while(0)
+#define append_table_num(byte) do { if (pass==p_bytecode) table_num[table_num_pos++]=byte; } while(0)
+#define append_table_byte(byte) do { if (pass==p_bytecode) table_byte[table_byte_pos++]=byte; } while(0)
 					
 					while (true)
 					{
@@ -367,18 +427,17 @@ int main()
 							index+=loop[thisdepth].index[loop[thisdepth].at]*loop[thisdepth].multiplier;
 						}
 						
-						char varandindex[256];
-						sprintf(varandindex, "%s[%i]", varname, index);
+						//char varandindex[256];
+						//sprintf(varandindex, "%s[%i]", varname, index);
 						
-						append_table_num("%u,", index);
+						append_table_num(index);
 						
 						int i;
 						for (i=0;i<maxdynamiclen && thiscfgname_d[i];i++)
 						{
-							append_table_byte("'%c',", thiscfgname_d[i]);
+							append_table_byte(thiscfgname_d[i]);
 						}
-						while (i++ < maxdynamiclen) append_table_byte("'\\0',");
-						append_table_byte(" ");
+						while (i++ < maxdynamiclen) append_table_byte('\0');
 						
 						for (thisdepth=maxloopdepth-1;thisdepth>=0;thisdepth--)
 						{
@@ -394,17 +453,34 @@ int main()
 					
 					if (pass==p_bytecode)
 					{
-						if (strcmp(table_byte, table_byte_prev))
+						if (table_byte_pos!=table_byte_pos_prev || memcmp(table_byte, table_byte_prev, table_byte_pos))
 						{
-							strcpy(table_byte_prev, table_byte);
+							table_byte_pos_prev=table_byte_pos;
+							memcpy(table_byte_prev, table_byte, table_byte_pos);
 							
-							if (!shuffled) emit_bytecode("CFGB_ARRAY, %i,%i,%i,\n\t", arraylen, maxdynamiclen, arrayshowtop);
-							if (shuffled) emit_bytecode("CFGB_ARRAY_SHUFFLED, %i,%i,%i, %s\n\t", arraylen, maxdynamiclen, arrayshowtop, table_num);
-							emit_bytecode("%s\n\t", table_byte);
+							if (!shuffled)
+							{
+								emit_bytecode(CFGB_ARRAY);
+								emit_bytecode(arraylen);
+								emit_bytecode(maxdynamiclen);
+								emit_bytecode(arrayshowtop);
+							}
+							if (shuffled)
+							{
+								emit_bytecode(CFGB_ARRAY_SHUFFLED);
+								emit_bytecode(arraylen);
+								emit_bytecode(maxdynamiclen);
+								emit_bytecode(arrayshowtop);
+								for (int i=0;i<table_num_pos;i++) emit_bytecode(table_num[i]);
+							}
+							for (int i=0;i<table_byte_pos;i++) emit_bytecode(table_byte[i]);
 						}
 						else
 						{
-							emit_bytecode("CFGB_ARRAY_SAME, %i,%i,%i, ", arraylen, maxdynamiclen, arrayshowtop);
+							emit_bytecode(CFGB_ARRAY_SAME);
+							emit_bytecode(arraylen);
+							emit_bytecode(maxdynamiclen);
+							emit_bytecode(arrayshowtop);
 						}
 					}
 				}
@@ -441,43 +517,43 @@ int main()
 				{
 					if (isinput)
 					{
-						emit_bytecode("CFGB_INPUT, %i,%i, ", numinputs>>8, numinputs&255);
+						emit_bytecode(CFGB_INPUT);
+						emit_bytecode_2(numinputs);
 					}
 					else
 					{
-						emit_bytecode("CFGB_STR, %i,%i, ", numstrs>>8, numstrs&255);
+						emit_bytecode(CFGB_STR);
+						emit_bytecode_2(numstrs);
 					}
 				}
 				if (type==num && rangelow>=0)
 				{
-					emit_bytecode("CFGB_UINT, %i,%i, ", numuints>>8, numuints&255);
-					emit_bytecode("%lli,%lli,%lli,%lli, ", (rangelow>>24)&255, (rangelow>>16)&255,
-					                                       (rangelow>>8 )&255, (rangelow>>0 )&255);
-					emit_bytecode("%lli,%lli,%lli,%lli, ", (rangehigh>>24)&255, (rangehigh>>16)&255,
-					                                       (rangehigh>>8 )&255, (rangehigh>>0 )&255);
+					emit_bytecode(CFGB_UINT);
+					emit_bytecode_2(numuints);
+					emit_bytecode_4(rangelow);
+					emit_bytecode_4(rangehigh);
 				}
 				if (type==num && rangelow<0)
 				{
-					emit_bytecode("CFGB_INT, %i,%i, ", numints>>8, numints&255);
-					emit_bytecode("%lli,%lli,%lli,%lli, ", ((-rangelow)>>24)&255, ((-rangelow)>>16)&255,
-					                                       ((-rangelow)>>8 )&255, ((-rangelow)>>0 )&255);
-					emit_bytecode("%lli,%lli,%lli,%lli, ", (rangehigh>>24)&255, (rangehigh>>16)&255,
-					                                       (rangehigh>>8 )&255, (rangehigh>>0 )&255);
+					emit_bytecode(CFGB_INT);
+					emit_bytecode_2(numints);
+					emit_bytecode_4(-rangelow);
+					emit_bytecode_4(rangehigh);
 				}
 				if (type==flag)
 				{
-					emit_bytecode("CFGB_BOOL, %i,%i, ", numbools>>8, numbools&255);
+					emit_bytecode(CFGB_BOOL);
+					emit_bytecode_2(numbools);
 				}
 				if (type==enumer)
 				{
-					//emit_bytecode("CFGB_ENUM, %i,%i, ", numenums>>8, numenums&255);
+					//emit_bytecode_raw("CFGB_ENUM, %i,%i, ", numenums>>8, numenums&255);
 				}
-				emit_bytecode("%i, ", (int)strlen(thiscfgname_c));
+				emit_bytecode(strlen(thiscfgname_c));
 				for (int i=0;thiscfgname_c[i];i++)
 				{
-					emit_bytecode("'%c',", thiscfgname_c[i]);
+					emit_bytecode(thiscfgname_c[i]);
 				}
-				emit_bytecode("\n");
 				
 				
 				
@@ -620,6 +696,22 @@ int main()
 		emit_header_override_enum("}; bool _overrides_enum[%i]; };\n", numenums);
 		emit_header_override_bool("}; bool _overrides_bool[%i]; };\n", numbools);
 		emit_header_override_bool("}; bool _overrides[%i]; };\n", numoverrides);
+		
+		emit_bytecode(CFGB_END);
+		
+		if (pass==p_bytecode)
+		{
+			fprintf(out, "#ifdef CONFIG_BYTECODE\n");
+			fprintf(out, "#define CONFIG_BYTECODE_LEN %i\n", bytecodepos);
+			size_t complen;
+			unsigned char * comp=compress(bytecode, bytecodepos, &complen);
+			for (int i=0;i<complen;i++)
+			{
+				fprintf(out, "0x%.2X,", comp[i]);
+				if (i%16 == 15) fprintf(out, "\n");
+			}
+			fprintf(out, "\n");
+		}
 		
 		if (pass>=p_header_override_bool)
 		{

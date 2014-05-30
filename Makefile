@@ -1,4 +1,4 @@
-dummy: all
+all: minir_dummy
 
 CC = gcc
 CFLAGS = -g
@@ -45,10 +45,10 @@ obj/%-test.o: %.c | obj obj/config.c
 
 obj/config.c: obj/configgen$(EXESUFFIX) minir.cfg.tmpl
 	obj/configgen$(EXESUFFIX)
-obj/configgen$(EXESUFFIX): configgen.c
-	$(CC) $(TRUE_CFLAGS) $(TRUE_LFLAGS) -DCONFIGGEN configgen.c -o obj/configgen$(EXESUFFIX)
+obj/configgen$(EXESUFFIX): configgen.c miniz.c
+	$(CC) $(TRUE_CFLAGS) $(TRUE_LFLAGS) -DCONFIGGEN configgen.c miniz.c -o obj/configgen$(EXESUFFIX)
 
 minir$(EXESUFFIX): $(OBJS)
 	$(LD) $+ $(TRUE_LFLAGS) -o $@ -lm
 
-all: minir$(EXESUFFIX)
+minir_dummy: minir$(EXESUFFIX)

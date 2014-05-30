@@ -5,6 +5,9 @@
 #include <ctype.h>
 #include <stdio.h>
 
+#define MINIZ_HEADER_FILE_ONLY
+#include "miniz.c"
+
 struct minirconfig config={};
 
 #define count(array) (sizeof(array)/sizeof(*(array)))
@@ -594,12 +597,12 @@ enum {
 	CFGB_ENUM,
 	CFGB_BOOL,
 };
-const unsigned char config_bytecode[]={
+const unsigned char config_bytecode_comp[]={
 #define CONFIG_BYTECODE
 #include "obj/config.c"
 #undef CONFIG_BYTECODE
-	CFGB_END
 };
+unsigned char config_bytecode[CONFIG_BYTECODE_LEN];
 
 static void read_bytecode(const char * name, const char * value, struct minirconfig * thisconf, bool global)
 {
@@ -721,6 +724,8 @@ static void read_bytecode(const char * name, const char * value, struct minircon
 
 void config_read(const char * path)
 {
+	tinfl_decompress_mem_to_mem(config_bytecode, CONFIG_BYTECODE_LEN, config_bytecode_comp, sizeof(config_bytecode_comp), TINFL_FLAG_USING_NON_WRAPPING_OUTPUT_BUF);
+	
 	bycore.num=1;
 	bycore.buflen=1;
 	bycore.config=malloc(sizeof(struct minirconfig));
