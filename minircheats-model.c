@@ -262,7 +262,8 @@ struct memblock {
 	
 	size_t len;
 	//No attempt has been made to care about performance for mem blocks larger than 2^32; I don't think there are any of those.
-	//That, and performance will be trash at other places too for large mem blocks. Manipulating 2^29 bytes in 'show' isn't cheap.
+	//That, and performance will be trash at other places too for large mem blocks. Manipulating 2^29 bytes in 'show' isn't cheap,
+	// and neither is manipulating the actual 2^32 bytes.
 	
 	unsigned int addrspace;
 	
@@ -417,6 +418,7 @@ memory[i].addrspace);
 			mem->addrspace=addrspace;
 		}
 		mem=&this->mem[memid];
+		if (desc->len > mem->len) mem->len=desc->len;
 		
 		addr->nummap++;
 		addr->map=realloc(addr->map, sizeof(struct mapping)*addr->nummap);
@@ -465,7 +467,7 @@ memory[i].addrspace);
 			if (!map->len)
 			{
 				map->len=add_bits_down(reduce(top_addr&~map->select, map->disconnect))+1;
-				if (!this->mem[map->memid].len) this->mem[map->memid].len=map->len;
+				if (map->len > this->mem[map->memid].len) this->mem[map->memid].len=map->len;
 			}
 			if (map->start & ~map->select) abort();//this combination is invalid
 			
