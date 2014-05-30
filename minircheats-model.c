@@ -287,9 +287,8 @@ struct memblock {
 struct addressspace {
 	char name[9];
 	
-	uint8_t numbits;//valid values are 1..64; 24 for SNES
-	uint8_t addrlen;//equal to (numbits+3)/4
-	//char padding[1];
+	uint8_t addrlen;//how many hex digits are needed for an address here (1..16, 6 for SNES; the actual number of bits isn't used)
+	//char padding[2];
 	
 	unsigned int nummap;
 	struct mapping * map;
@@ -392,7 +391,6 @@ memory[i].addrspace);
 				if (islower(addr->name[i])) this->addrspace_case_sensitive=true;
 				if (!isalnum(addr->name[i]) && addr->name[i]!='_' && addr->name[i]!='-') abort();//invalid character in the name
 			}
-			addr->numbits=1;
 			addr->nummap=0;
 			addr->map=NULL;
 		}
@@ -432,7 +430,7 @@ memory[i].addrspace);
 	}
 	
 	//at this point:
-	//addr->numbits is uninitialized
+	//addr->addrlen is uninitialized
 	//map->select is possibly zero
 	//map->len is possibly zero
 	//map->variable_bits is uninitialized
@@ -501,8 +499,7 @@ memory[i].addrspace);
 			}
 		}
 		
-		addr->numbits=popcountS(top_addr);
-		addr->addrlen=div_rndup(addr->numbits, 4);
+		addr->addrlen=div_rndup(popcountS(top_addr), 4);
 	}
 }
 
