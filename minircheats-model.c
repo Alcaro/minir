@@ -343,6 +343,8 @@ struct minircheats_model_impl {
 	struct cheat_impl * cheats;
 	unsigned int numcheats;
 	unsigned int search_lastblock;//moved elsewhere due to alignment
+	
+	char * lastcheat;
 };
 
 
@@ -994,7 +996,7 @@ static void cheat_apply(struct minircheats_model * this_)
 
 
 //TODO: test
-static const char * code_create(struct minircheats_model * this, struct cheat * thecheat)
+static const char * code_create(struct minircheats_model * this_, struct cheat * thecheat)
 {
 	struct minircheats_model_impl * this=(struct minircheats_model_impl*)this_;
 	free(this->lastcheat);
