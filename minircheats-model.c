@@ -356,8 +356,8 @@ static void set_memory(struct minircheats_model * this_, const struct libretro_m
 {
 for (unsigned int i=0;i<nummemory;i++)
 {
-printf("desc: fl=%lu pt=%p of=%zx st=%zx se=%zx di=%zx le=%zx sp=%s\n",
-memory[i].flags,
+printf("desc: fl=%X pt=%p of=%zx st=%zx se=%zx di=%zx le=%zx sp=%s\n",
+(unsigned int)memory[i].flags,
 memory[i].ptr,
 memory[i].offset,
 memory[i].start,
