@@ -10,7 +10,7 @@ LFLAGS =
 TRUE_CFLAGS = \$(CFLAGS) `pkg-config --cflags gtk+-3.0 libpulse` -pthread -DWINDOW_GTK3
 TRUE_LFLAGS = \$(LFLAGS) `pkg-config --libs   gtk+-3.0 libpulse` -pthread -ldl -lX11 -lGL -lXi -lXext -lpulse
 EXESUFFIX =
-EXTRAOBJ = 
+EXTRAOBJ =
 " > Makefile.custom
 #Rules for which dependencies are allowed:
 #If there is no reasonable way to continue the program without this library, then make use of it.

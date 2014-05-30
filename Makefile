@@ -6,7 +6,7 @@ LD = gcc
 LFLAGS =
 
 #Stuff needed for Windows goes here; there is no Makefile.custom on Windows.
-TRUE_CFLAGS = $(CFLAGS) -Wno-format
+TRUE_CFLAGS = $(CFLAGS)
 TRUE_LFLAGS = $(LFLAGS) -lgdi32 -lcomctl32 -lcomdlg32 -ldinput8 -ldxguid -lopengl32 -ldsound
 EXESUFFIX = .exe
 EXTRAOBJ = obj/resource.o
