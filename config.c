@@ -41,9 +41,6 @@ static void clear_to_parent(struct minirconfig * this)
 {
 	memset(this, 0, sizeof(struct minirconfig));
 	for (int i=0;i<count(this->_overrides);i++) this->_overrides[i]=false;
-//#define CONFIG_CLEAR_PARENT
-//#include "obj/config.c"
-//#undef CONFIG_CLEAR_PARENT
 }
 
 static void join_config(struct minirconfig * parent, struct minirconfig * child)
@@ -61,9 +58,6 @@ static void join_config(struct minirconfig * parent, struct minirconfig * child)
 	JOIN(_enums,_overrides_enum);
 	JOIN(_bools,_overrides_bool);
 #undef JOIN
-//#define CONFIG_JOIN
-//#include "obj/config.c"
-//#undef CONFIG_JOIN
 }
 
 static size_t create_core()
@@ -724,7 +718,7 @@ static void read_bytecode(const char * name, const char * value, struct minircon
 
 void config_read(const char * path)
 {
-	tinfl_decompress_mem_to_mem(config_bytecode, CONFIG_BYTECODE_LEN, config_bytecode_comp, sizeof(config_bytecode_comp), TINFL_FLAG_USING_NON_WRAPPING_OUTPUT_BUF);
+	tinfl_decompress_mem_to_mem(config_bytecode, CONFIG_BYTECODE_LEN, config_bytecode_comp, sizeof(config_bytecode_comp), 0);
 	
 	bycore.num=1;
 	bycore.buflen=1;
