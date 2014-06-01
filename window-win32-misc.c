@@ -11,6 +11,16 @@
 //WM_SYSCOMMAND is sometimes ignored.
 //I have to keep track of the mouse position so I can ignore various bogus instances of WM_MOUSEMOVE.
 
+//XP incompatibility status:
+//Level 1 - a feature is usable, but behaves weirdly
+//Level 2 - attempting to use a feature throws an error box, or reports failure in a way the program can handle
+//Level 3 - attempting to use a feature reports success internally, but nothing happens
+//Level 4 - attempting to use a feature crashes the program
+//Level 5 - program won't start
+//Maximum allowed incompatibility level: 3 [4 at January 1, 2015] [will be increased later, and eventually this list removed]
+//List:
+//Level 1: LVCFMT_FIXED_WIDTH on the listbox requires Vista+
+
 //static LARGE_INTEGER timer_freq;
 
 void
