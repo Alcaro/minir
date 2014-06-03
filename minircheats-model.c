@@ -482,7 +482,7 @@ memory[i].addrspace);
 			// but it'd be painful if the shift adds more disconnected bits
 			if (map->len & (map->len-1)) map->variable_bits|=highest_bit(inflate(map->len, map->disconnect));
 			
-			map->disconnect_mask=add_bits_down(map->len);
+			map->disconnect_mask=add_bits_down(map->len-1);
 			map->disconnect&=map->disconnect_mask;
 			while ((~map->disconnect_mask)>>1 & map->disconnect)
 			{
