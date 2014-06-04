@@ -24,8 +24,8 @@ struct libretro_raw {
 	void (*init)(void);
 	void (*deinit)(void);
 	unsigned (*api_version)(void);
-	void (*get_system_info)(struct retro_system_info *info);
-	void (*get_system_av_info)(struct retro_system_av_info *info);
+	void (*get_system_info)(struct retro_system_info * info);
+	void (*get_system_av_info)(struct retro_system_av_info * info);
 	void (*set_controller_port_device)(unsigned port, unsigned device);
 	void (*reset)(void);
 	void (*run)(void);
@@ -33,12 +33,12 @@ struct libretro_raw {
 	bool (*serialize)(void *data, size_t size);
 	bool (*unserialize)(const void *data, size_t size);
 	void (*cheat_reset)(void);
-	void (*cheat_set)(unsigned index, bool enabled, const char *code);
-	bool (*load_game)(const struct retro_game_info *game);
-	bool (*load_game_special)(unsigned game_type, const struct retro_game_info *info, size_t num_info);
+	void (*cheat_set)(unsigned index, bool enabled, const char * code);
+	bool (*load_game)(const struct retro_game_info * game);
+	bool (*load_game_special)(unsigned game_type, const struct retro_game_info * info, size_t num_info);
 	void (*unload_game)(void);
 	unsigned (*get_region)(void);
-	void *(*get_memory_data)(unsigned id);
+	void* (*get_memory_data)(unsigned id);
 	size_t (*get_memory_size)(unsigned id);
 };
 
