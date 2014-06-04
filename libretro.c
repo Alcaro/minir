@@ -30,8 +30,8 @@ struct libretro_raw {
 	void (*reset)(void);
 	void (*run)(void);
 	size_t (*serialize_size)(void);
-	bool (*serialize)(void *data, size_t size);
-	bool (*unserialize)(const void *data, size_t size);
+	bool (*serialize)(void* data, size_t size);
+	bool (*unserialize)(const void* data, size_t size);
 	void (*cheat_reset)(void);
 	void (*cheat_set)(unsigned index, bool enabled, const char * code);
 	bool (*load_game)(const struct retro_game_info * game);
