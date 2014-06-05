@@ -461,7 +461,7 @@ memory[i].addrspace);
 			struct mapping * map=&addr->map[i];
 			if (map->select==0)
 			{
-				if (map->len==0) map->len=1;
+				if (map->len==0) abort();//select==0 and len==0 is bad
 				if (map->len & (map->len-1)) abort();//select==0 and len not power of two
 				map->select=top_addr&~inflate(add_bits_down(map->len-1), map->disconnect);
 			}
