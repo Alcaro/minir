@@ -235,6 +235,33 @@ static void attach_interfaces(struct libretro * this_, struct video * v, struct 
 	this->in=i;
 }
 
+//TODO: this is temporary
+static void add_snes_mmap(struct libretro_impl * this)
+{
+#ifdef _WIN32
+if(!this->memdesc)
+{
+struct retro_system_info info;
+this->raw.get_system_info(&info);
+if (strstr(info.library_name, "snes") || strstr(info.library_name, "SNES"))
+{
+struct retro_memory_descriptor desc[]={
+{ .start=0x7E0000, .len=0x20000 },
+{ .select=0x40E000, .len=0x2000 },
+};
+desc[0].ptr=this->raw.get_memory_data(RETRO_MEMORY_SYSTEM_RAM);
+desc[1].ptr=desc[0].ptr;
+if (desc[0].ptr)
+{
+this->memdesc=malloc(sizeof(struct retro_memory_descriptor)*2);
+memcpy(this->memdesc,desc,sizeof(struct retro_memory_descriptor)*2);
+this->nummemdesc=2;
+}
+}
+}
+#endif
+}
+
 static bool load_rom(struct libretro * this_, const char * filename)
 {
 	struct libretro_impl * this=(struct libretro_impl*)this_;
@@ -256,26 +283,7 @@ static bool load_rom(struct libretro * this_, const char * filename)
 	if (!file_read(filename, (char**)&game.data, &game.size)) return false;
 	bool ret=this->raw.load_game(&game);
 	free((char*)game.data);
-if(!this->memdesc)
-{
-struct retro_system_info info;
-this->raw.get_system_info(&info);
-if (strstr(info.library_name, "snes") || strstr(info.library_name, "SNES"))
-{
-struct retro_memory_descriptor desc[]={
-{ .start=0x7E0000, .len=0x20000 },
-{ .select=0x40E000, .len=0x2000 },
-};
-desc[0].ptr=this->raw.get_memory_data(RETRO_MEMORY_SYSTEM_RAM);
-desc[1].ptr=desc[0].ptr;
-if (desc[0].ptr)
-{
-this->memdesc=malloc(sizeof(struct retro_memory_descriptor)*2);
-memcpy(this->memdesc,desc,sizeof(struct retro_memory_descriptor)*2);
-this->nummemdesc=2;
-}
-}
-}
+add_snes_mmap(this);
 	return ret;
 }
 
@@ -293,28 +301,8 @@ static bool load_rom_mem(struct libretro * this_, const char * data, size_t data
 	game.size=datalen;
 	game.meta=NULL;
 	//return this->raw.load_game(&game);
-//TODO: this is temporary
 bool ret=this->raw.load_game(&game);
-if(!this->memdesc)
-{
-struct retro_system_info info;
-this->raw.get_system_info(&info);
-if (strstr(info.library_name, "snes") || strstr(info.library_name, "SNES"))
-{
-struct retro_memory_descriptor desc[]={
-{ .start=0x7E0000, .len=0x20000 },
-{ .select=0x40E000, .len=0x2000 },
-};
-desc[0].ptr=this->raw.get_memory_data(RETRO_MEMORY_SYSTEM_RAM);
-desc[1].ptr=desc[0].ptr;
-if (desc[0].ptr)
-{
-this->memdesc=malloc(sizeof(struct retro_memory_descriptor)*2);
-memcpy(this->memdesc,desc,sizeof(struct retro_memory_descriptor)*2);
-this->nummemdesc=2;
-}
-}
-}
+add_snes_mmap(this);
 return ret;
 }
 
