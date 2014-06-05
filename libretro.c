@@ -6,14 +6,6 @@
 #include <ctype.h>
 #include "libretro.h"
 
-//copying this from snes9x libretro.h
-#define RETRO_ENVIRONMENT_SET_MEMORY_MAPS (36 | RETRO_ENVIRONMENT_EXPERIMENTAL)
-struct retro_memory_map
-{
-const struct libretro_memory_descriptor * descriptors;
-unsigned num_descriptors;
-};
-
 struct libretro_raw {
 	void (*set_environment)(retro_environment_t);
 	void (*set_video_refresh)(retro_video_refresh_t);
@@ -107,7 +99,7 @@ struct libretro_impl {
 	struct libretro_core_option * core_opts;
 	unsigned int * core_opt_current_values;
 	
-	struct libretro_memory_descriptor * memdesc;
+	struct retro_memory_descriptor * memdesc;
 	unsigned int nummemdesc;
 };
 
@@ -270,7 +262,7 @@ struct retro_system_info info;
 this->raw.get_system_info(&info);
 if (strstr(info.library_name, "snes") || strstr(info.library_name, "SNES"))
 {
-struct libretro_memory_descriptor desc[]={
+struct retro_memory_descriptor desc[]={
 { .start=0x7E0000, .len=0x20000 },
 { .select=0x40E000, .len=0x2000 },
 };
@@ -278,8 +270,8 @@ desc[0].ptr=this->raw.get_memory_data(RETRO_MEMORY_SYSTEM_RAM);
 desc[1].ptr=desc[0].ptr;
 if (desc[0].ptr)
 {
-this->memdesc=malloc(sizeof(struct libretro_memory_descriptor)*2);
-memcpy(this->memdesc,desc,sizeof(struct libretro_memory_descriptor)*2);
+this->memdesc=malloc(sizeof(struct retro_memory_descriptor)*2);
+memcpy(this->memdesc,desc,sizeof(struct retro_memory_descriptor)*2);
 this->nummemdesc=2;
 }
 }
@@ -309,7 +301,7 @@ struct retro_system_info info;
 this->raw.get_system_info(&info);
 if (strstr(info.library_name, "snes") || strstr(info.library_name, "SNES"))
 {
-struct libretro_memory_descriptor desc[]={
+struct retro_memory_descriptor desc[]={
 { .start=0x7E0000, .len=0x20000 },
 { .select=0x40E000, .len=0x2000 },
 };
@@ -317,8 +309,8 @@ desc[0].ptr=this->raw.get_memory_data(RETRO_MEMORY_SYSTEM_RAM);
 desc[1].ptr=desc[0].ptr;
 if (desc[0].ptr)
 {
-this->memdesc=malloc(sizeof(struct libretro_memory_descriptor)*2);
-memcpy(this->memdesc,desc,sizeof(struct libretro_memory_descriptor)*2);
+this->memdesc=malloc(sizeof(struct retro_memory_descriptor)*2);
+memcpy(this->memdesc,desc,sizeof(struct retro_memory_descriptor)*2);
 this->nummemdesc=2;
 }
 }
@@ -394,7 +386,7 @@ static unsigned int get_core_option(struct libretro * this_, unsigned int option
 	return this->core_opt_current_values[option];
 }
 
-static const struct libretro_memory_descriptor * get_memory_info(struct libretro * this_, unsigned int * nummemdesc)
+static const struct retro_memory_descriptor * get_memory_info(struct libretro * this_, unsigned int * nummemdesc)
 {
 	struct libretro_impl * this=(struct libretro_impl*)this_;
 	
@@ -674,8 +666,8 @@ static bool environment(unsigned cmd, void *data)
 		struct retro_memory_map * map=(struct retro_memory_map*)data;
 		free(this->memdesc);
 		this->nummemdesc=map->num_descriptors;
-		this->memdesc=malloc(sizeof(struct libretro_memory_descriptor)*map->num_descriptors);
-		memcpy(this->memdesc, map->descriptors, sizeof(struct libretro_memory_descriptor)*map->num_descriptors);
+		this->memdesc=malloc(sizeof(struct retro_memory_descriptor)*map->num_descriptors);
+		memcpy(this->memdesc, map->descriptors, sizeof(struct retro_memory_descriptor)*map->num_descriptors);
 		return true;
 	}
 	log_callback(RETRO_LOG_WARN, "Unsupported environ command #%u.", cmd);

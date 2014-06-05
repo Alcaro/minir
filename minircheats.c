@@ -4,6 +4,7 @@
 #include <stdio.h>
 #include <ctype.h>
 #include <limits.h>
+#include "libretro.h"
 
 //window titles:
 //Cheat Search
@@ -89,7 +90,7 @@ static void set_core(struct minircheats * this_, struct libretro * core, size_t 
 	if (core)
 	{
 		unsigned int nummem;
-		const struct libretro_memory_descriptor * memory;
+		const struct retro_memory_descriptor * memory;
 		memory=core->get_memory_info(core, &nummem);
 		if (memory)
 		{
@@ -102,7 +103,7 @@ static void set_core(struct minircheats * this_, struct libretro * core, size_t 
 			core->get_memory(core, libretromem_wram, &wramlen, &wram);
 			if (wram)
 			{
-				struct libretro_memory_descriptor wramdesc={ .ptr=wram, .len=wramlen };
+				struct retro_memory_descriptor wramdesc={ .ptr=wram, .len=wramlen };
 				this->model->set_memory(this->model, &wramdesc, 1);
 			}
 			else

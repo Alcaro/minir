@@ -5,6 +5,7 @@
 #include <string.h>
 #include <stdio.h>
 #include <ctype.h>
+#include "libretro.h"
 
 //how address conversion works
 //----------------------------
@@ -352,7 +353,7 @@ struct minircheats_model_impl {
 static void free_mem(struct minircheats_model_impl * this);
 static void free_cheats(struct minircheats_model_impl * this);
 
-static void set_memory(struct minircheats_model * this_, const struct libretro_memory_descriptor * memory, unsigned int nummemory)
+static void set_memory(struct minircheats_model * this_, const struct retro_memory_descriptor * memory, unsigned int nummemory)
 {
 for (unsigned int i=0;i<nummemory;i++)
 {
@@ -373,7 +374,7 @@ memory[i].addrspace);
 	//all the weird math in this file is explained at the top
 	for (unsigned int i=0;i<nummemory;i++)
 	{
-		const struct libretro_memory_descriptor * desc=&memory[i];
+		const struct retro_memory_descriptor * desc=&memory[i];
 		
 		struct addressspace * addr;
 		unsigned int addrspace;
@@ -412,9 +413,9 @@ memory[i].addrspace);
 			mem->ptr=desc->ptr;
 			mem->prev=NULL;
 			mem->len=0;
-			mem->showinsearch=!(desc->flags & LIBRETRO_MEMFLAG_CONST);
-			mem->align=(desc->flags & LIBRETRO_MEMFLAG_ALIGNED);
-			mem->bigendian=(desc->flags & LIBRETRO_MEMFLAG_BIGENDIAN);
+			mem->showinsearch=!(desc->flags & RETRO_MEMDESC_CONST);
+			mem->align=false;//TODO
+			mem->bigendian=(desc->flags & RETRO_MEMDESC_BIGENDIAN);
 			mem->addrspace=addrspace;
 		}
 		mem=&this->mem[memid];

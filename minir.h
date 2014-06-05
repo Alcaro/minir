@@ -445,103 +445,7 @@ enum libretro_memtype { // These IDs are the same as RETRO_MEMORY_*.
 	libretromem_wram,
 	libretromem_vram
 };
-
-//This flag means the core will never change it once retro_load_rom has returned; however, the core
-// will read from this area, and the frontend may assume it has permission to write to this area.
-#define LIBRETRO_MEMFLAG_CONST     (1 << 0)
-//This flag means that this memory area contains big endian data. Default is little endian.
-#define LIBRETRO_MEMFLAG_BIGENDIAN (1 << 1)
-//If this is set, all memory access in this area is aligned to their own size, and no non-power-of-two sized data exists.
-//For example, no two-byte data starts at odd addresses.
-#define LIBRETRO_MEMFLAG_ALIGNED   (1 << 2)
-
-//If the core does not describe its memory maps, the frontend may create one from various RETRO_MEMORY_* as a fallback.
-//Implementing this without also exposing (at least) RETRO_MEMORY_SYSTEM_RAM is highly discouraged.
-//Guaranteed to not change except during retro_load_game.
-//The first descriptor to claim a byte in an address space is the one that applies.
-//The first claimed byte in any address space to point to a physical byte is the primary way to access that byte.
-struct libretro_memory_descriptor {
-	uint64_t flags;
-	
-	//It is not allowed to do any math on the pointer; the frontend may compare them for equality.
-	//If 'start' does not point to the first byte in the pointer, put the difference in 'offset' instead.
-	//May be NULL if there's nothing usable here (e.g. hardware registers and open bus).
-	void * ptr;
-	size_t offset;
-	
-	//This is the location in the emulated address space where the mapping starts.
-	size_t start;
-	
-	//If ('start' xor current address) & 'select' equals zero, this mapping applies to this address.
-	//Can be zero, in which case the frontend will calculate this based on 'len';
-	// however, if that happens, 'len' must be a power of 2, and 'disconnect' must be zero.
-	//A bit which is true in 'start' must also be true in this.
-	size_t select;
-	
-	//If this is nonzero, the set bits are shifted off. Applies after 'select' is used to zero unrelated bits.
-	//It is not allowed for 'start' to have any bit set if it's clear in 'select'.
-	size_t disconnect;
-	
-	//This one tells the size of the current memory area.
-	//If, after start+disconnect are applied, the address is higher than this, the highest bit of the address is cleared.
-	//If the address is still too high, the next highest bit is cleared.
-	//Can be zero, in which case it's calculated based on the other values.
-	//If both select and len are zero, this mapping is one byte long, and 'select' is calculated from 'start'.
-	size_t len;
-	
-	//To go from emulated address to physical address, the following order applies:
-	//Subtract 'start', pick off 'disconnect', apply 'len', add 'offset'.
-	
-	//The address space name must consist of only a-zA-Z0-9_, should be as short as feasible (maximum length is 8 plus the NUL),
-	// and may not be any other address space plus one or more 0-9A-F at the end.
-	//However, multiple memory descriptors for the same address space is allowed, and the address
-	// space name can be empty. NULL is treated as empty.
-	//Address space names are case sensitive, but avoid lowercase if possible.
-	//No two mappings may have the same memory_ptr but different address space names.
-	//Examples:
-	// blank+blank - valid (multiple things may be mapped in the same namespace)
-	// 'Sp'+'Sp' - valid (multiple things may be mapped in the same namespace)
-	// 'A'+'B' - valid (neither is a prefix of each other)
-	// 'S'+blank - valid ('S' is not in 0-9A-F)
-	// 'a'+blank - valid ('a' is not in 0-9A-F)
-	// 'a'+'A' - valid (neither is a prefix of each other)
-	// 'AR'+blank - valid (the R makes it impossible for the A to be part of the address)
-	// 'ARB'+blank - valid (the B can't be part of the address either, because there is no namespace 'AR')
-	// blank+'B' - not valid, because it's ambigous which address space B1234 would refer to.
-	//  The length can't be used for that purpose, because cheat codes have no separator between address and data,
-	//   so the cheat code B123456 could be either 'set B12 to 3456' or 'set B1234 to 56'.
-	//  While the lowest bit of the length could be used, it would become rather messy rather quickly.
-	const char * addrspace;
-};
-//The front may use the largest value of 'select' in a certain namespace (including ones calculated from 'len')
-// to infer the size of the address space. If there is nothing mapped to the latter half of the address space,
-// a mapping with .ptr=NULL should be at the end of the array, with .start or .select set so that the latter half is touched.
-//Sample descriptors (minus .ptr, and LIBRETRO_MEMFLAG_ on the flags):
-//SNES WRAM:
-// .start=0x7E0000, .len=0x20000
-//(Note that this must be mapped before the ROM in most cases; some of the ROM mappers try to claim $7E0000, or at least $7E8000.)
-//SNES SPC700 RAM:
-// .addrspace="S", .len=0x10000
-//SNES WRAM mirrors:
-// .flags=MIRROR, .start=0x000000, .select=0xC0E000, .len=0x2000
-// .flags=MIRROR, .start=0x800000, .select=0xC0E000, .len=0x2000
-//SNES WRAM mirrors, alternate equivalent descriptor:
-// .flags=MIRROR, .select=0x40E000, .disconnect=~0x1FFF
-//(Various similar constructions can be created by combining parts of the above two.)
-//SNES LoROM (512KB, mirrored a couple of times):
-// .flags=CONST, .start=0x008000, .select=0x408000, .disconnect=0x8000, .len=512*1024
-// .flags=CONST, .start=0x400000, .select=0x400000, .disconnect=0x8000, .len=512*1024
-//SNES HiROM (4MB):
-// .flags=CONST,                 .start=0x400000, .select=0x400000, .len=4*1024*1024
-// .flags=CONST, .offset=0x8000, .start=0x008000, .select=0x408000, .len=4*1024*1024
-//SNES ExHiROM (8MB):
-// .flags=CONST, .offset=0,                  .start=0xC00000, .select=0xC00000, .len=4*1024*1024
-// .flags=CONST, .offset=4*1024*1024,        .start=0x400000, .select=0xC00000, .len=4*1024*1024
-// .flags=CONST, .offset=0x8000,             .start=0x808000, .select=0xC08000, .len=4*1024*1024
-// .flags=CONST, .offset=4*1024*1024+0x8000, .start=0x008000, .select=0xC08000, .len=4*1024*1024
-//.len can be implied by .select in many of them, but was included for clarity.
-//In case of inconsistency between this and the descriptions, the examples shall prevail. Then report the bug.
-
+struct retro_memory_descriptor;//If you want to use this, include libretro.h.
 struct libretro {
 	//Any returned pointer is, unless otherwise specified, valid only until the next call to a function here, and freed by this object.
 	//Input pointers are, unless otherwise specified, not expected valid after the function returns.
@@ -584,7 +488,7 @@ struct libretro {
 	//(If that happens, you can still read and write the indicated amount to the pointer.)
 	void (*get_memory)(struct libretro * this, enum libretro_memtype which, size_t * size, void* * ptr);
 	
-	const struct libretro_memory_descriptor * (*get_memory_info)(struct libretro * this, unsigned int * nummemdesc);
+	const struct retro_memory_descriptor * (*get_memory_info)(struct libretro * this, unsigned int * nummemdesc);
 	
 	void (*reset)(struct libretro * this);
 	
@@ -741,6 +645,7 @@ void config_write(const char * path);
 //This object forces you to do a bit of stuff by yourself.
 enum cheat_compfunc { cht_lt, cht_gt, cht_lte, cht_gte, cht_eq, cht_neq };
 enum cheat_chngtype { cht_const, cht_inconly, cht_deconly, cht_once };
+struct retro_memory_descriptor;
 struct cheat {
 	char * addr;//For cheat_set, this is only read, and may be a casted const char *.
 	            //For cheat_get, this is a caller-allocated buffer of size 32 or larger, and will be written.
@@ -752,7 +657,7 @@ struct cheat {
 	const char * desc;//Do not free if you get this from cheat_get; it's owned by the cheat model.
 };
 struct minircheats_model {
-	void (*set_memory)(struct minircheats_model * this, const struct libretro_memory_descriptor * memory, unsigned int nummemory);
+	void (*set_memory)(struct minircheats_model * this, const struct retro_memory_descriptor * memory, unsigned int nummemory);
 	
 	//The relevant size is how much memory it would take to create the 'prev' arrays.
 	//it doesn't change depending on whether they exist, and doesn't account for malloc overhead.
