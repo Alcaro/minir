@@ -8,6 +8,17 @@
 #define MINIZ_HEADER_FILE_ONLY
 #include "miniz.c"
 
+#ifdef _WIN32
+#define WIN 1
+#else
+#define WIN 0
+#endif
+#ifdef __linux__
+#define LIN 1
+#else
+#define LIN 0
+#endif
+
 //TODO: platform-specific things
 //remember the comment coalescing cache, it could screw stuff up
 
@@ -154,6 +165,11 @@ int main()
 			strcpy(linecopy, line);
 			
 			while (*line==' ') line++;
+			
+			if (*line=='@')
+			{
+				//TODO: platform-specific stuff
+			}
 			
 			if (*line=='#')
 			{

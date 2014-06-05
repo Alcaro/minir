@@ -14,6 +14,8 @@
 
 enum cheat_compto { cht_prev, cht_cur, cht_curptr };
 enum cheat_dattype { cht_unsign, cht_sign, cht_hex };
+struct minircheatdetail;
+static void details_free(struct minircheatdetail * this);
 struct minircheats_impl {
 	struct minircheats i;
 	
@@ -38,6 +40,11 @@ struct minircheats_impl {
 	struct widget_listbox * wndlist_listbox;
 	
 	struct window * wndwatch;
+	
+	//This is one random cheat detail window; it's used to destroy them all when destroying the core.
+	//The rest are available as a linked list. The list is not sorted; the order in which things are
+	// destroyed isn't relevant, and that's all it's used for.
+	struct minircheatdetail * details;
 	
 	bool enabled :1;
 	bool prev_enabled :1;
@@ -78,7 +85,7 @@ static void set_parent(struct minircheats * this_, struct window * parent)
 static void set_core(struct minircheats * this_, struct libretro * core, size_t prev_limit)
 {
 	struct minircheats_impl * this=(struct minircheats_impl*)this_;
-	//TODO: Close cheat detail windows
+	while (this->details) details_free(this->details);
 	if (core)
 	{
 		unsigned int nummem;
@@ -108,7 +115,7 @@ static void set_core(struct minircheats * this_, struct libretro * core, size_t 
 	{
 		this->model->set_memory(this->model, NULL, 0);
 	}
-	this->prev_enabled=(prev_limit <= this->model->prev_get_size(this->model));
+	this->prev_enabled=(this->model->prev_get_size(this->model) <= prev_limit);
 	this->model->prev_set_enabled(this->model, this->prev_enabled);
 	search_update_compto_prev(this);
 	search_update(this);
@@ -117,7 +124,7 @@ static void set_core(struct minircheats * this_, struct libretro * core, size_t 
 
 
 
-struct minircheatdetail {//these windows are not referenced within the main cheat structures; there can be multiple
+struct minircheatdetail {
 	struct minircheats_impl * parent;
 	
 	struct window * wndw;
@@ -131,9 +138,12 @@ struct minircheatdetail {//these windows are not referenced within the main chea
 	//char padding[7];
 	
 	char orgaddr[32];
+	
+	//See minircheats_impl for details on those.
+	struct minircheatdetail * prev;
+	struct minircheatdetail * next;
 };
 
-static void details_free(struct minircheatdetail * this);
 static void details_ok(struct widget_button * subject, void* userdata)
 {
 	struct minircheatdetail * this=(struct minircheatdetail*)userdata;
@@ -145,12 +155,12 @@ static void details_ok(struct widget_button * subject, void* userdata)
 	}
 	const char * orgaddr=this->orgaddr;
 	struct cheat newcheat = {
-		.enabled=true,
 		.addr=(char*)this->addr->get_text(this->addr),
 		.datsize=this->datsize,
 		.val=val,
 		.issigned=(this->dattype==cht_sign),
 		.changetype=cht_const,//TODO: make this variable
+		.enabled=true,
 		.desc=this->desc->get_text(this->desc)
 		};
 	if (!this->parent->model->cheat_set(this->parent->model, -1, &newcheat))
@@ -185,16 +195,21 @@ static bool details_onclose(struct window * subject, void* userdata)
 
 static void details_free(struct minircheatdetail * this)
 {
+	if (this->prev) this->prev->next=this->next;
+	else this->parent->details=this->next;
+	if (this->next) this->next->prev=this->prev;
 	this->wndw->free(this->wndw);
 	free(this);
 }
 
-static void details_create(struct minircheats_impl * parent, struct window * parentwndw, const char * addr, uint32_t curval)
+static void details_create(struct minircheats_impl * parent, struct window * parentwndw, const struct cheat * thecheat, bool hex)
 {
 	struct minircheatdetail * this=malloc(sizeof(struct minircheatdetail));
 	this->parent=parent;
-	this->dattype=parent->dattype;
-	this->datsize=parent->datsize;
+	this->dattype=hex ? cht_hex : thecheat->issigned ? cht_sign : cht_unsign;
+	this->datsize=thecheat->datsize;
+	const char * addr=thecheat->addr;
+	if (!addr) addr="";
 	strcpy(this->orgaddr, addr);
 	
 	struct widget_textbox * curvalbox;
@@ -223,7 +238,7 @@ static void details_create(struct minircheats_impl * parent, struct window * par
 	this->addr->set_text(this->addr, addr, 31);
 	
 	char valstr[16];
-	encodeval(this->dattype, this->datsize, curval, valstr);
+	encodeval(this->dattype, this->datsize, thecheat->val, valstr);
 	curvalbox->set_text(curvalbox, valstr, 0);
 	this->newval->set_text(this->newval, valstr, 0);//default to keep at current value
 	curvalbox->set_enabled(curvalbox, false);
@@ -236,6 +251,10 @@ static void details_create(struct minircheats_impl * parent, struct window * par
 	
 	this->wndw->set_visible(this->wndw, true);
 	this->wndw->focus(this->wndw);
+	
+	this->next=this->parent->details;
+	if (this->next) this->next->prev=this;
+	this->parent->details=this;
 }
 
 
@@ -318,13 +337,27 @@ static void search_add_cheat(struct minircheats_impl * this, int row)
 	if (row>=0)
 	{
 		char addr[32];
-		uint32_t val;
-		this->model->search_get_vis_row(this->model, row, addr, &val, NULL);
-		details_create(this, this->wndsrch, addr, val);
+		
+		struct cheat thecheat = {
+			.addr=addr,
+			.changetype=cht_const,
+			.datsize=this->datsize,
+			.issigned=(this->dattype==cht_sign),
+			.enabled=true
+		};
+		this->model->search_get_vis_row(this->model, row, thecheat.addr, &thecheat.val, NULL);
+		
+		details_create(this, this->wndsrch, &thecheat, (this->dattype==cht_hex));
 	}
 	else
 	{
-		details_create(this, this->wndsrch, "", 0);
+		struct cheat thecheat = {
+			.changetype=cht_const,
+			.datsize=this->datsize,
+			.issigned=(this->dattype==cht_sign),
+			.enabled=true
+		};
+		details_create(this, this->wndsrch, &thecheat, (this->dattype==cht_hex));
 	}
 }
 
@@ -449,8 +482,6 @@ static void show_search(struct minircheats * this_)
 	
 	this->wndsrch->set_visible(this->wndsrch, true);
 	this->wndsrch->focus(this->wndsrch);
-size_t n=this->model->search_get_num_rows(this->model);
-for(size_t i=0;i<n;i+=0x1000)puts(search_get_cell(NULL,i,0,this));
 }
 
 static const char * search_get_cell(struct widget_listbox * subject, unsigned int row, unsigned int column, void* userdata)
@@ -479,17 +510,23 @@ static const char * search_get_cell(struct widget_listbox * subject, unsigned in
 
 
 
+void list_add_cheat(struct widget_button * subject, void * userdata)
+{
+	
+}
+
 static void show_list(struct minircheats * this_)
 {
 	struct minircheats_impl * this=(struct minircheats_impl*)this_;
 	if (!this->wndlist)
 	{
+		struct widget_button * add;
 		this->wndlist=window_create(
 			widget_create_layout_vert(
 				widget_create_layout_horz(
 					widget_create_listbox("Address", "Value", "Description", NULL),
 					widget_create_layout_vert(
-						widget_create_button("Add"),
+						add=widget_create_button("Add"),
 						widget_create_button("Delete"),
 						widget_create_button("Update"),
 						widget_create_button("Clear"),
@@ -510,6 +547,8 @@ static void show_list(struct minircheats * this_)
 					NULL/*TODO: remove null*/),
 				NULL)
 			);
+		
+		add->set_onclick(add, list_add_cheat, this);
 		
 		this->wndlist->set_is_dialog(this->wndlist);
 		this->wndlist->set_parent(this->wndlist, this->parent);
@@ -550,6 +589,8 @@ static void update(struct minircheats * this_, bool ramwatch)
 static void free_(struct minircheats * this_)
 {
 	struct minircheats_impl * this=(struct minircheats_impl*)this_;
+	
+	while (this->details) details_free(this->details);
 	
 	if (this->wndsrch) this->wndsrch->free(this->wndsrch);
 	if (this->wndlist) this->wndlist->free(this->wndlist);

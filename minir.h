@@ -782,8 +782,8 @@ struct minircheats_model {
 	//value is what to set it to, also in hex. It's either two, four, six or eight digits.
 	//signspec is 'S' if the cheat code is signed, or empty otherwise. For addresses
 	// not allowed to change, the sign makes no difference, and should be empty.
-	//direction is '+' if the address is allowed to increase, '-' if it's allowed to decrease, '.' for
-	// single-use cheats, or empty if the given value should always be there.
+	//direction is '+' if the value at this address is allowed to increase, '-' if it's allowed to
+	// decrease, '=' for single-use cheats, or empty if the given value should always be there.
 	//SP is a simple space character. Optional if the description is blank.
 	//desc is a human readable description of the cheat code. May not contain ASCII control characters
 	// (0..31 and 127), but is otherwise freeform.

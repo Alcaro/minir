@@ -857,7 +857,6 @@ static size_t search_get_num_rows(struct minircheats_model * this_)
 	search_ensure_mem_exists(this);
 	size_t numrows=0;
 	for (unsigned int i=0;i<this->nummem;i++) numrows+=this->mem[i].show_tot;
-printf("nr=%zu\n",numrows);
 	return numrows;
 }
 

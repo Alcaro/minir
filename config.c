@@ -1158,7 +1158,9 @@ void config_write(const char * path)
 												" and they will override the global or core-specific settings.\n"
 												"#You can also set core=C:/path/to/core_libretro.dll to pick another"
 												" core for that ROM specifically.\n"
-												"#Use forward slashes, even on Windows.\n"
+#ifdef _WIN32
+												"#Use forward slashes.\n"
+#endif
 												);
 		if (bygame.config[i]._name)
 		{
