@@ -541,6 +541,8 @@ void load_rom_finish()
 	set_window_title();
 	if (romloaded==coreloaded) set_status_bar("Loaded %s", config.gamename);
 	else set_status_bar("Loaded %s with %s", config.gamename, config.corename);
+printf("Chosen core: %s\n", coreloaded);
+printf("Chosen ROM: %s\n", romloaded);
 }
 
 void select_rom()
