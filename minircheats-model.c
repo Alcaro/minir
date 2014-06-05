@@ -12,7 +12,7 @@
 //
 //preparation:
 //for each mapping:
-// if both 'len' and 'select' are zero, use len=1
+// if both 'len' and 'select' are zero, whine
 // if 'select' is zero, fill it in with len-1
 // 
 // if a bit is set in start but not in select (start & ~select) is nonzero, panic
