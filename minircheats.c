@@ -41,7 +41,7 @@ struct minircheats_impl {
 	
 	struct window * wndwatch;
 	
-	//This is one random cheat detail window; it's used to destroy them all when destroying the core.
+	//This is one random cheat detail window; it's used to destroy them all when changing the core or destroying this object.
 	//The rest are available as a linked list. The list is not sorted; the order in which things are
 	// destroyed isn't relevant, and that's all it's used for.
 	struct minircheatdetail * details;
