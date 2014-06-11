@@ -178,6 +178,18 @@ static void label_set_text(struct widget_label * this_, const char * text)
 	this->parent->_reflow(this->parent);
 }
 
+static void label_set_ellipsize(struct widget_label * this_, bool ellipsize)
+{
+	//struct widget_label_win32 * this=(struct widget_label_win32*)this_;
+//puts("FIXME: label_set_ellipsize");
+}
+
+static void label_set_alignment(struct widget_label * this_, int alignment)
+{
+	//struct widget_label_win32 * this=(struct widget_label_win32*)this_;
+//puts("FIXME: label_set_alignment");
+}
+
 struct widget_label * widget_create_label(const char * text)
 {
 	struct widget_label_win32 * this=malloc(sizeof(struct widget_label_win32));
@@ -190,6 +202,8 @@ struct widget_label * widget_create_label(const char * text)
 	
 	this->i.set_enabled=label_set_enabled;
 	this->i.set_text=label_set_text;
+	this->i.set_ellipsize=label_set_ellipsize;
+	this->i.set_alignment=label_set_alignment;
 	
 	this->hwnd=(HWND)strdup(text);
 	measure_text(text, &this->i.base._width, &this->i.base._height);

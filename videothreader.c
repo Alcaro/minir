@@ -201,11 +201,11 @@ static void draw(struct video * this_, unsigned int width, unsigned int height, 
 	this->buf_next_full=true;
 	this->idle=false;
 	this->lock->unlock(this->lock);
-	this->wake_child->signal(this->wake_child);
 	
 	//wait for vsync
 	if (this->sync)
 	{
+		this->wake_child->signal(this->wake_child);
 		while (true)
 		{
 			this->lock->lock(this->lock);
@@ -213,6 +213,14 @@ static void draw(struct video * this_, unsigned int width, unsigned int height, 
 			this->lock->unlock(this->lock);
 			if (idle) break;
 			else this->wake_parent->wait(this->wake_parent);
+		}
+	}
+	else
+	{
+		//if it's already drawing something, drop the next one
+		if (this->wake_child->count(this->wake_child)<=0)
+		{
+			this->wake_child->signal(this->wake_child);
 		}
 	}
 }
