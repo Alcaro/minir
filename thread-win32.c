@@ -17,7 +17,6 @@ static DWORD WINAPI ThreadProc(LPVOID lpParameter)
 	free(thdat);
 	return 0;
 }
-
 void thread_create(void(*startpos)(void* userdata), void* userdata)
 {
 	struct threaddata_win32 * thdat=malloc(sizeof(struct threaddata_win32));
@@ -33,6 +32,13 @@ void thread_create(void(*startpos)(void* userdata), void* userdata)
 	InterlockedIncrement(&ignored);
 	
 	CloseHandle(CreateThread(NULL, 0, ThreadProc, thdat, 0, NULL));
+}
+
+unsigned int thread_ideal_count()
+{
+	SYSTEM_INFO sysinf;
+	GetSystemInfo(&sysinf);
+	return sysinf.dwNumberOfProcessors;
 }
 
 
@@ -85,18 +91,46 @@ struct event_win32 {
 	struct event i;
 	
 	HANDLE h;
+	LONG count;
 };
 
 static void event_signal(struct event * this_)
 {
 	struct event_win32 * this=(struct event_win32*)this_;
-	SetEvent(this->h);
+	InterlockedIncrement(&this->count);
+	ReleaseSemaphore(this->h, 1, NULL);
 }
 
 static void event_wait(struct event * this_)
 {
 	struct event_win32 * this=(struct event_win32*)this_;
+	InterlockedDecrement(&this->count);
 	WaitForSingleObject(this->h, INFINITE);
+}
+
+static void event_multisignal(struct event * this_, unsigned int count)
+{
+	struct event_win32 * this=(struct event_win32*)this_;
+	if (!count) return;
+	InterlockedExchangeAdd(&this->count, count);
+	ReleaseSemaphore(this->h, count, NULL);
+}
+
+static void event_multiwait(struct event * this_, unsigned int count)
+{
+	struct event_win32 * this=(struct event_win32*)this_;
+	InterlockedExchangeAdd(&this->count, -(LONG)count);
+	while (count)
+	{
+		WaitForSingleObject(this->h, INFINITE);
+		count--;
+	}
+}
+
+static int event_count(struct event * this_)
+{
+	struct event_win32 * this=(struct event_win32*)this_;
+	return InterlockedCompareExchange(&this->count, 0, 0);
 }
 
 static void event_free_(struct event * this_)
@@ -111,10 +145,19 @@ struct event * event_create()
 	struct event_win32 * this=malloc(sizeof(struct event_win32));
 	this->i.signal=event_signal;
 	this->i.wait=event_wait;
+	this->i.multisignal=event_multisignal;
+	this->i.multiwait=event_multiwait;
+	this->i.count=event_count;
 	this->i.free=event_free_;
 	
-	this->h=CreateEvent(NULL, FALSE, FALSE, NULL);
+	this->h=CreateSemaphore(NULL, 0, 127, NULL);
+	this->count=0;
 	
 	return (struct event*)this;
 }
+
+
+unsigned int lock_incr(unsigned int * val) { return InterlockedIncrement((LONG*)val)-1; }
+unsigned int lock_decr(unsigned int * val) { return InterlockedDecrement((LONG*)val)+1; }
+unsigned int lock_read(unsigned int * val) { return InterlockedCompareExchange((LONG*)val, 0, 0); }
 #endif

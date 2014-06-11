@@ -235,7 +235,7 @@ static void attach_interfaces(struct libretro * this_, struct video * v, struct 
 	this->in=i;
 }
 
-//TODO: this is temporary
+//TODO: remove this once rarch megapack updates and its s9x exports the mmaps, alternatively once I get unlazy enough to compile s9x myself
 static void add_snes_mmap(struct libretro_impl * this)
 {
 #ifdef _WIN32

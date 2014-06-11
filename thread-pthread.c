@@ -30,6 +30,12 @@ void thread_create(void(*startpos)(void* userdata), void* userdata)
 	pthread_detach(thread);
 }
 
+unsigned int thread_ideal_count()
+{
+	//for more OSes: https://qt.gitorious.org/qt/qt/source/HEAD:src/corelib/thread/qthread_unix.cpp#L411, idealThreadCount()
+	return sysconf(_SC_NPROCESSORS_ONLN);
+}
+
 
 struct mutex_pthread {
 	struct mutex i;
@@ -80,6 +86,7 @@ struct event_pthread {
 	struct event i;
 	
 	sem_t ev;
+FIXME: handle the changed semantics
 };
 
 static void event_signal(struct event * this_)

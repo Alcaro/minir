@@ -26,8 +26,8 @@ struct minircheats_impl {
 	struct minircheats_model * model;
 	
 	struct window * wndsrch;
-	struct widget_button * wndsrch_dosearch;
 	struct widget_listbox * wndsrch_listbox;
+	struct widget_label * wndsrch_nummatch;
 	struct widget_radio * wndsrch_comptype;
 	struct widget_radio * wndsrch_compto_select;
 	struct widget_radio * wndsrch_compto_select_prev;
@@ -52,6 +52,8 @@ struct minircheats_impl {
 	
 	unsigned int datsize :3;
 	enum cheat_dattype dattype :2;
+	
+	bool hassearched :1;
 	
 	char celltmp[32];
 };
@@ -268,10 +270,20 @@ static void search_update(struct minircheats_impl * this)
 	if (this->wndsrch_listbox)
 	{
 		size_t num_rows=this->model->search_get_num_rows(this->model);
-		if (num_rows > UINT_MAX) num_rows=UINT_MAX;
+		
+		size_t num_rows_listbox=num_rows;
+		if (num_rows_listbox > UINT_MAX) num_rows_listbox=UINT_MAX;
 		this->wndsrch_listbox->set_contents_virtual(this->wndsrch_listbox,
-		                                            num_rows,
+		                                            num_rows_listbox,
 		                                            search_get_cell, NULL, this);
+		
+		if (this->hassearched)
+		{
+			char label[64];
+			sprintf(label, "%zu match%s", num_rows, num_rows==1 ? "" : "es");
+			this->wndsrch_nummatch->set_text(this->wndsrch_nummatch, label);
+		}
+		else this->wndsrch_nummatch->set_text(this->wndsrch_nummatch, "");
 	}
 }
 
@@ -298,10 +310,15 @@ static void search_set_compto_select(struct widget_radio * subject, unsigned int
 	this->wndsrch_compto_label->set_enabled(this->wndsrch_compto_label, (state!=cht_prev));
 }
 
+static void search_split(unsigned int id, void* userdata)
+{
+	struct minircheats_impl * this=(struct minircheats_impl*)userdata;
+	this->model->thread_do_work(this->model, id);
+}
+
 static void search_dosearch(struct widget_button * subject, void* userdata)
 {
 	struct minircheats_impl * this=(struct minircheats_impl*)userdata;
-	
 	uint32_t compto_val;
 	
 	enum cheat_compto comptowhat=(this->wndsrch_compto_select->get_state(this->wndsrch_compto_select));
@@ -322,7 +339,16 @@ static void search_dosearch(struct widget_button * subject, void* userdata)
 			}
 		}
 	}
+uint64_t t1=window_get_time();
+for(int i=0;i<1024;i++)
+{
 	this->model->search_do_search(this->model, this->wndsrch_comptype->get_state(this->wndsrch_comptype), comptoprev, compto_val);
+	thread_split(this->model->thread_get_count(this->model), search_split, this);
+	this->model->thread_finish_work(this->model);
+}
+uint64_t t2=window_get_time();
+printf("searchtime=%i\n",(int)(t2-t1));
+	this->hassearched=true;
 	search_update(this);
 }
 
@@ -330,6 +356,7 @@ static void search_reset(struct widget_button * subject, void* userdata)
 {
 	struct minircheats_impl * this=(struct minircheats_impl*)userdata;
 	this->model->search_reset(this->model);
+	this->hassearched=false;
 	search_update(this);
 }
 
@@ -392,8 +419,9 @@ static void show_search(struct minircheats * this_)
 	
 	if (!this->wndsrch)
 	{
-		struct widget_button * reset;
+		struct widget_button * dosearch;
 		struct widget_button * addcheat;
+		struct widget_button * reset;
 		
 		struct widget_radio * compto_select[3];
 		
@@ -402,9 +430,10 @@ static void show_search(struct minircheats * this_)
 				widget_create_layout_horz(
 					this->wndsrch_listbox=widget_create_listbox("Address", "Curr. Value", "Prev. Value", NULL),
 					widget_create_layout_vert(
-						this->wndsrch_dosearch=widget_create_button("Search"),
+						dosearch=widget_create_button("Search"),
 						addcheat=widget_create_button("Add Cheat..."),
 						reset=widget_create_button("Reset"),
+						this->wndsrch_nummatch=widget_create_label(""),
 						widget_create_padding_vert(),
 						widget_create_button("Watch"),
 						widget_create_button("Clear Watches"),
@@ -449,14 +478,14 @@ static void show_search(struct minircheats * this_)
 				NULL)
 			);
 		
+		this->wndsrch->set_is_dialog(this->wndsrch);
+		this->wndsrch->set_parent(this->wndsrch, this->parent);
+		this->wndsrch->set_title(this->wndsrch, "Cheat Search");
+		
 		compto_select[0]->group(compto_select[0], 3, compto_select);
 		this->wndsrch_compto_select=compto_select[0];
 		this->wndsrch_compto_select_prev=compto_select[cht_prev];
 		search_update_compto_prev(this);
-		
-		this->wndsrch->set_is_dialog(this->wndsrch);
-		this->wndsrch->set_parent(this->wndsrch, this->parent);
-		this->wndsrch->set_title(this->wndsrch, "Cheat Search");
 		
 		const unsigned int tmp[]={15, 15, 15};
 		//const unsigned int tmp[]={1,2,2};
@@ -464,7 +493,7 @@ static void show_search(struct minircheats * this_)
 		
 		this->wndsrch_listbox->set_onactivate(this->wndsrch_listbox, search_add_cheat_listbox, this);
 		
-		this->wndsrch_dosearch->set_onclick(this->wndsrch_dosearch, search_dosearch, this);
+		dosearch->set_onclick(dosearch, search_dosearch, this);
 		reset->set_onclick(reset, search_reset, this);
 		
 		this->wndsrch_compto_select->set_onclick(this->wndsrch_compto_select, search_set_compto_select, this);
@@ -477,6 +506,9 @@ static void show_search(struct minircheats * this_)
 		search_set_dattype(NULL, 0, this);
 		
 		addcheat->set_onclick(addcheat, search_add_cheat_button, this);
+		
+		this->wndsrch_nummatch->set_alignment(this->wndsrch_nummatch, 0);
+		this->wndsrch_nummatch->set_ellipsize(this->wndsrch_nummatch, true);
 	}
 	
 	search_update(this);
@@ -619,6 +651,7 @@ struct minircheats * minircheats_create()
 	
 	this->enabled=true;
 	this->model=minircheats_create_model();
+	this->model->thread_enable(this->model, thread_ideal_count());
 	
 	return (struct minircheats*)this;
 }

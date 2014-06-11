@@ -54,8 +54,9 @@ window_firstrun//this
 // other interfaces may be called.
 //If an interface defines a function to set some state, and a callback for when this state changes,
 // calling that function will not trigger the state callback.
-//No interface may be used from multiple threads, unless otherwise specified; They must be used only
-// by the one creating them. However, it is safe for any thread to create an interface.
+//No interface may be used from multiple threads, unless otherwise specified; they must be used only
+// by the one creating them. However, it is safe for any thread to create an interface, including
+// having different threads create copies of the same interface.
 //Don't depend on any pointer being unique; for example, the None interfaces are static. However,
 // even if they are (potentially) non-unique, following the instructed method to free them is safe;
 // either they're owned by the one one giving them to you, or their free() handlers are empty, or
@@ -336,7 +337,11 @@ const char * dylib_ext();
 //Any data associated with this thread is freed once the thread procedure returns, with the possible exception of the userdata.
 //It is safe to malloc() something in one thread and free() it in another.
 //It is not safe to call window_run_*() from within another thread than the one entering main().
+//A thread is rather heavy; for short-running jobs, use thread_create_short or thread_split.
 void thread_create(void(*startpos)(void* userdata), void* userdata);
+
+//Returns the number of threads to create to utilize the system resources optimally.
+unsigned int thread_ideal_count();
 
 //This is a simple tool that ensures only one thread is doing a certain action at a given moment.
 //It may be used from multiple threads simultaneously.
@@ -356,6 +361,7 @@ struct mutex {
 };
 struct mutex * mutex_create();
 
+#if 0
 //This one lets one thread wake another.
 //The conceptual difference between this and a mutex is that while a mutex is intended to protect a
 // shared resource from being accessed simultaneously, an event is intended to wait until another
@@ -375,6 +381,46 @@ struct event {
 	void (*free)(struct event * this);
 };
 struct event * event_create();
+#endif
+
+//This one lets one thread wake another.
+//The conceptual difference between this and a mutex is that while a mutex is intended to protect a
+// shared resource from being accessed simultaneously, an event is intended to wait until another
+// thread is done with something. A mutex is unlocked on the same thread as it's locked; an event is
+// unlocked on a different thread.
+//An example would be a producer-consumer scenario; if one thread is producing 200 items per second,
+// and another thread processes them at 100 items per second, then there will soon be a lot of
+// waiting items. An event allows the consumer to ask the producer to get to work, so it'll spend
+// half of its time sleeping, instead of filling the system memory.
+//If the consumer is the faster one, the excess signals will be piled up. If you prefer dropping them,
+// you can check count() and only signal() if the count is <= 0.
+//If two threads wait() on the same event, a random one will return for each call to signal().
+//count() is guaranteed to remain within [-128, 127]. If anything would put it outside that, it's undefined behaviour.
+//Signalling or waiting multiple times may make count() return intermediate values, if applicable.
+struct event {
+	void (*signal)(struct event * this);
+	void (*wait)(struct event * this);
+	//The multi functions are equivalent to calling their associated function 'count' times.
+	void (*multisignal)(struct event * this, unsigned int count);
+	void (*multiwait)(struct event * this, unsigned int count);
+	//This is how many signals are waiting to be wait()ed for. Can be below zero if something is currently waiting for this event.
+	//Alternate explaination: Increased for each entry to signal() and decreased for each entry to wait().
+	int (*count)(struct event * this);
+	
+	void (*free)(struct event * this);
+};
+struct event * event_create();
+
+//Increments or decrements a variable, while guaranteeing atomicity relative to other threads. lock_read() just reads the value.
+unsigned int lock_incr(unsigned int * val);
+unsigned int lock_decr(unsigned int * val);
+unsigned int lock_read(unsigned int * val);
+
+//This one creates 'count' threads, calls startpos() in each of them with 'id' from 0 to 'count'-1, and
+// returns once each thread has returned.
+//Unlike thread_create, thread_split is expected to be called often, for short-running tasks. The threads may be reused.
+//It is safe to use the values 0 and 1. However, you should avoid going above thread_ideal_count().
+void thread_split(unsigned int count, void(*work)(unsigned int id, void* userdata), void* userdata);
 
 
 
@@ -386,8 +432,8 @@ extern const unsigned char icon_minir_64x64_png[1300];
 
 //A compressing, lossy stack. Optimized for large, mostly similar, blocks of data; optimized for
 // writing, less so for reading.
-//"Lossy" means that it will discard old data if its capacity is exhausted, not that it will give
-// out any memory block it wasn't given.
+//"Lossy" means that it will discard old data if its capacity is exhausted. It will not give out any
+// memory block it wasn't given.
 struct rewindstack {
 	//This is equivalent to deleting and recreating the structure, with the exception that
 	// it won't reallocate the big block if the capacity is unchanged. It is safe to set the capacity
@@ -432,7 +478,7 @@ struct libretro_core_option {
 	const char * name_internal;
 	const char * name_display;
 	
-	//This one is hackishly calculated by checking whether it's checked during retro_run.
+	//This one is hackishly calculated by checking whether it's checked during retro_load_game.
 	bool reset_only;
 	
 	unsigned int numvalues;
@@ -642,7 +688,7 @@ void config_write(const char * path);
 
 
 //All functions on this object yield undefined behaviour if datsize is not within 1..4.
-//This object forces you to do a bit of stuff by yourself.
+//For easier transferability to other projects, this object forces you to do a fair bit of stuff by yourself.
 enum cheat_compfunc { cht_lt, cht_gt, cht_lte, cht_gte, cht_eq, cht_neq };
 enum cheat_chngtype { cht_const, cht_inconly, cht_deconly, cht_once };
 struct retro_memory_descriptor;
@@ -660,7 +706,7 @@ struct minircheats_model {
 	void (*set_memory)(struct minircheats_model * this, const struct retro_memory_descriptor * memory, unsigned int nummemory);
 	
 	//The relevant size is how much memory it would take to create the 'prev' arrays.
-	//it doesn't change depending on whether they exist, and doesn't account for malloc overhead.
+	//It doesn't change depending on whether they exist, and doesn't account for malloc overhead.
 	//Defaults to disabled, and switches to that on every set_memory.
 	size_t (*prev_get_size)(struct minircheats_model * this);
 	void (*prev_set_enabled)(struct minircheats_model * this, bool enable);
@@ -670,7 +716,7 @@ struct minircheats_model {
 	void (*search_set_datsize)(struct minircheats_model * this, unsigned int datsize);//Default 1.
 	void (*search_set_signed)(struct minircheats_model * this, bool issigned);//Default unsigned.
 	void (*search_do_search)(struct minircheats_model * this,
-	                         enum cheat_compfunc compfunc, bool comptoprev, unsigned int compto);
+	                         enum cheat_compfunc compfunc, bool comptoprev, uint32_t compto);
 	
 	size_t (*search_get_num_rows)(struct minircheats_model * this);
 	//Returns all information about a currently visible row. The data size is set by the functions above.
@@ -678,6 +724,22 @@ struct minircheats_model {
 	//If 'prev' is disabled, 'prevval' will remain unchanged if queried.
 	void (*search_get_vis_row)(struct minircheats_model * this, unsigned int row,
 	                           char * addr, uint32_t * val, uint32_t * prevval);
+	
+	//Threading works like this:
+	//First, call thread_enable and tell how many threads are available on this CPU.
+	//Then, after each search_do_search, call thread_do_work for each threadid from 0 to numthreads-1,
+	// from one thread each. The work may not necessarily be evenly split, especially not if the total
+	// workload is small. Some threads may return without doing anything at all.
+	//Once all thread_do_work have returned, call thread_finish_work.
+	//Only thread_do_work may be called from any thread other than the creating thread, and no other
+	// function may be called while any thread is inside thread_do_work.
+	//Nothing except thread_do_work and thread_get_count may be called between search_do_search and thread_finish_work.
+	//If the structure sees that it has only use for a finite number of threads, thread_get_count may
+	// return a smaller value than given to thread_enable.
+	void (*thread_enable)(struct minircheats_model * this, unsigned int numthreads);
+	unsigned int (*thread_get_count)(struct minircheats_model * this);
+	void (*thread_do_work)(struct minircheats_model * this, unsigned int threadid);
+	void (*thread_finish_work)(struct minircheats_model * this);
 	
 	//Cheat code structure:
 	//disable address value signspec direction SP desc
@@ -730,6 +792,7 @@ struct minircheats_model {
 };
 struct minircheats_model * minircheats_create_model();
 
+//This is a very high-level object; not counting the core, it takes more input directly from the user than from its interface.
 struct minircheats {
 	void (*set_parent)(struct minircheats * this, struct window * parent);
 	//It is allowed to set the core to NULL, and all operations are safe if the core is NULL.

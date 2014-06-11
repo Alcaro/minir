@@ -80,6 +80,11 @@
 //in this file, 'address' means address in any emulated address space (also known as guest address),
 // and 'offset' means offset to any memory block (physical address)
 
+//For compatibility with RetroArch, this file has the following restrictions, in addition to the global rules:
+//- Do not call any function from minir.h; force the user of the object to do that. The only allowed
+// parts of minir.h are STATIC_ASSERT, struct minircheats_model and friends, and UNION_BEGIN and friends.
+//- Do not dynamically change the interface; use an if statement. If that becomes a too big pain, stick a function pointer in minircheats_model_impl.
+
 STATIC_ASSERT(sizeof(size_t)==4 || sizeof(size_t)==8, fix_this_function);
 static size_t add_bits_down(size_t n)
 {
@@ -318,6 +323,7 @@ struct cheat_impl {
 };
 
 
+enum { threadfunc_nothing, threadfunc_search };
 struct minircheats_model_impl {
 	struct minircheats_model i;
 	
@@ -331,6 +337,7 @@ struct minircheats_model_impl {
 	bool search_signed;
 	bool prev_enabled;
 	bool addrspace_case_sensitive;
+	
 	//char padding[1];
 	
 	size_t search_lastrow;
@@ -344,6 +351,13 @@ struct minircheats_model_impl {
 	struct cheat_impl * cheats;
 	unsigned int numcheats;
 	unsigned int search_lastblock;//moved elsewhere due to alignment
+	
+	unsigned char numthreads;//1 for no threading.
+	unsigned char threadfunc;
+	
+	unsigned char threadsearch_compfunc;
+	bool threadsearch_comptoprev;
+	uint32_t threadsearch_compto;
 	
 	char * lastcheat;
 };
@@ -778,77 +792,141 @@ static void search_set_signed(struct minircheats_model * this_, bool issigned)
 	this->search_signed=issigned;
 }
 
-static void search_do_search(struct minircheats_model * this_, enum cheat_compfunc compfunc, bool comptoprev, unsigned int compto)
+static void thread_do_search(struct minircheats_model_impl * this, unsigned int threadid);
+static void thread_finish_search(struct minircheats_model_impl * this);
+static void search_do_search(struct minircheats_model * this_, enum cheat_compfunc compfunc, bool comptoprev, uint32_t compto)
 {
 	struct minircheats_model_impl * this=(struct minircheats_model_impl*)this_;
 	search_ensure_mem_exists(this);
+	
+	this->threadsearch_compfunc=compfunc;
+	this->threadsearch_comptoprev=comptoprev;
+	this->threadsearch_compto=compto;
 	
 	uint32_t signadd=0;
 	if (this->search_signed)
 	{
 		signadd=signs[this->search_datsize-1];
 	}
-	compto-=signadd;
+	this->threadsearch_compto-=signadd;
 	
+	if (this->numthreads==1)
+	{
+		thread_do_search(this, 0);
+		thread_finish_search(this);
+	}
+	else this->threadfunc=threadfunc_search;
+}
+
+static void thread_do_search(struct minircheats_model_impl * this, unsigned int threadid)
+{
+	enum cheat_compfunc compfunc = this->threadsearch_compfunc;
+	bool comptoprev = this->threadsearch_comptoprev;
+	uint32_t compto = this->threadsearch_compto;
+	
+	//enum cheat_compfunc { cht_lt, cht_gt, cht_lte, cht_gte, cht_eq, cht_neq };
+	unsigned char compfunc_perm[]={cht_lt, cht_lte, cht_lte, cht_lt, cht_eq, cht_eq};
+	bool compfunc_exp=(compfunc&1);
+	unsigned char compfunc_fun=compfunc_perm[compfunc];
+	
+	unsigned int datsize=this->search_datsize;//caching these here gives a ~15% speed boost
+	
+	uint32_t signadd=0;
+	if (this->search_signed)
+	{
+		signadd=signs[this->search_datsize-1];
+	}
+	
+	unsigned int workid=0;
 	for (unsigned int i=0;i<this->nummem;i++)
 	{
 		struct memblock * mem=&this->mem[i];
 		if (mem->show_tot==0) continue;
-		unsigned int pos=0;
-		while (pos<mem->len)
+		
+		bool bigendian=mem->bigendian;
+		
+		size_t pagepos=0;
+		while (pagepos<mem->len)
 		{
-			if (!(pos&SIZE_PAGE_HIGH) && mem->show_treehigh[pos/SIZE_PAGE_HIGH]==0)
+			workid=(workid+1)%this->numthreads;
+			if (threadid==workid && mem->show_treehigh[pagepos/SIZE_PAGE_HIGH]!=0)
 			{
-				pos+=SIZE_PAGE_HIGH;
-				continue;
-			}
-			if (!(pos&SIZE_PAGE_LOW) && mem->show_treelow[pos/SIZE_PAGE_LOW]==0)
-			{
-				pos+=SIZE_PAGE_LOW;
-				continue;
-			}
-			if (mem->show[pos/32]==0)
-			{
-				pos+=32;
-				continue;
-			}
-			
-			unsigned int show=mem->show[pos/32];
-			unsigned int deleted=0;
-			for (unsigned int bit=0;bit<32;bit++)
-			{
-				if (show & (1<<bit))
+				size_t worklen=SIZE_PAGE_HIGH;
+				if (worklen+SIZE_PAGE_HIGH > mem->len) worklen=mem->len-pagepos;
+				
+				size_t pos=0;
+				while (pos<worklen)
 				{
-					uint32_t val=readmem(mem->ptr+pos+bit, this->search_datsize, mem->bigendian);//not readmemext - we're handling the sign ourselves
-					
-					uint32_t other;
-					if (comptoprev) other=readmem(mem->prev+pos+bit, this->search_datsize, mem->bigendian);
-					else other=compto;
-					
-					val+=signadd;//unsigned overflow is defined to wrap
-					other+=signadd;//it'll blow up if the child system doesn't use two's complement, but I don't think there are any of those.
-					
-					bool delete=false;
-					if (compfunc==cht_lt)  delete=!(val<other);
-					if (compfunc==cht_gt)  delete=!(val>other);
-					if (compfunc==cht_lte) delete=!(val<=other);
-					if (compfunc==cht_gte) delete=!(val>=other);
-					if (compfunc==cht_eq)  delete=!(val==other);
-					if (compfunc==cht_neq) delete=!(val!=other);
-					if (delete)
+					while (!(pos&SIZE_PAGE_LOW) && mem->show_treelow[(pagepos+pos)/SIZE_PAGE_LOW]==0)
 					{
-						show&=~(1<<bit);
-						deleted++;
+						pos+=SIZE_PAGE_LOW;
+						continue;
 					}
+					uint32_t show=mem->show[(pagepos+pos)/32];
+					if (show==0)
+					{
+						pos+=32;
+						continue;
+					}
+					
+					unsigned int deleted=0;
+					const unsigned char * ptr=mem->ptr+pagepos+pos;
+					const unsigned char * ptrprev=mem->prev+pagepos+pos;
+					
+					for (unsigned int bit=0;bit<32;bit++)
+					{
+						if (show & (1<<bit))
+						{
+							uint32_t val;
+							if (datsize==1) val=ptr[bit];//this is inlined due to the massive speed boost that gives
+							else val=readmem(ptr+bit, datsize, bigendian);//not readmemext - we're handling the sign ourselves
+							
+							uint32_t other;
+							if (comptoprev)
+							{
+								if (datsize==1) other=ptrprev[bit];
+								other=readmem(ptrprev+bit, datsize, bigendian);
+							}
+							else other=compto;
+							
+							val+=signadd;//unsigned overflow is defined to wrap
+							other+=signadd;//it'll blow up if the child system doesn't use two's complement, but I don't think there are any of those.
+							
+							//TODO: find which of these two is faster
+							//bool res=((compfunc_fun<=cht_lte && val<other) || (compfunc_fun>=cht_lte && val==other));
+							bool res=false;//yes, this is ugly; it's faster this way
+							if (compfunc_fun<=cht_lte) res|=(val<other);
+							if (compfunc_fun>=cht_lte) res|=(val==other);
+							if (res == compfunc_exp)
+							{
+								show&=~(1<<bit);
+								deleted++;
+							}
+						}
+					}
+					mem->show_treehigh[(pos+pagepos)/SIZE_PAGE_HIGH]-=deleted;
+					mem->show_treelow[(pos+pagepos)/SIZE_PAGE_LOW]-=deleted;
+					mem->show[(pos+pagepos)/32]=show;
+					pos+=32;
 				}
+				if (mem->prev) memcpy(mem->prev+pagepos, mem->ptr+pagepos, worklen);
 			}
-			mem->show_tot-=deleted;
-			mem->show_treehigh[pos/SIZE_PAGE_HIGH]-=deleted;
-			mem->show_treelow[pos/SIZE_PAGE_LOW]-=deleted;
-			mem->show[pos/32]=show;
-			pos+=32;
+			pagepos+=SIZE_PAGE_HIGH;
 		}
-		if (mem->prev) memcpy(mem->prev, mem->ptr, mem->len);
+	}
+}
+
+static void thread_finish_search(struct minircheats_model_impl * this)
+{
+	for (unsigned int i=0;i<this->nummem;i++)
+	{
+		struct memblock * mem=&this->mem[i];
+		if (mem->show_tot==0) continue;
+		mem->show_tot=0;
+		for (unsigned int i=0;i<=(mem->len-1)/SIZE_PAGE_HIGH;i++)
+		{
+			mem->show_tot+=mem->show_treehigh[i];
+		}
 	}
 }
 
@@ -877,6 +955,42 @@ static void search_get_vis_row(struct minircheats_model * this_, unsigned int ro
 	}
 	if (val)     *val  =  readmemext(mem->ptr +mempos, this->search_datsize, mem->bigendian, this->search_signed);
 	if (prevval) *prevval=readmemext(mem->prev+mempos, this->search_datsize, mem->bigendian, this->search_signed);
+}
+
+
+
+
+
+static void thread_enable(struct minircheats_model * this_, unsigned int numthreads)
+{
+	struct minircheats_model_impl * this=(struct minircheats_model_impl*)this_;
+	this->numthreads=numthreads;
+}
+
+static unsigned int thread_get_count(struct minircheats_model * this_)
+{
+	struct minircheats_model_impl * this=(struct minircheats_model_impl*)this_;
+	return this->numthreads;
+}
+
+static void thread_do_work(struct minircheats_model * this_, unsigned int threadid)
+{
+	struct minircheats_model_impl * this=(struct minircheats_model_impl*)this_;
+	switch (this->threadfunc)
+	{
+		case threadfunc_nothing: break;
+		case threadfunc_search: thread_do_search(this, threadid); break;
+	}
+}
+
+static void thread_finish_work(struct minircheats_model * this_)
+{
+	struct minircheats_model_impl * this=(struct minircheats_model_impl*)this_;
+	switch (this->threadfunc)
+	{
+		case threadfunc_nothing: break;
+		case threadfunc_search: thread_finish_search(this); break;
+	}
 }
 
 
@@ -1070,6 +1184,7 @@ const struct minircheats_model_impl minircheats_model_base = {{
 	set_memory,
 	search_prev_get_size, search_prev_set_enabled, search_prev_get_enabled,
 	search_reset, search_set_datsize, search_set_signed, search_do_search, search_get_num_rows, search_get_vis_row,
+	thread_enable, thread_get_count, thread_do_work, thread_finish_work,
 	cheat_read, cheat_find_for_addr, cheat_get_count,
 	cheat_set, cheat_get,
 	cheat_remove, cheat_apply,
@@ -1080,5 +1195,6 @@ struct minircheats_model * minircheats_create_model()
 {
 	struct minircheats_model_impl * this=malloc(sizeof(struct minircheats_model_impl));
 	memcpy(this, &minircheats_model_base, sizeof(struct minircheats_model_impl));
+	this->numthreads=1;
 	return (struct minircheats_model*)this;
 }
