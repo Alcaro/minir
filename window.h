@@ -192,12 +192,13 @@ struct widget_padding * widget_create_padding_vert();
 
 struct widget_label {
 	struct widget_base base;
-	//Disabling a label does nothing, but may change how it looks. Use it if it's attached to another widget, and this widget is disabled.
+	//Disabling a label does nothing, but may change how it looks.
+	//Useful it if it's attached to another widget, and this widget is disabled.
 	void (*set_enabled)(struct widget_label * this, bool enable);
 	
 	void (*set_text)(struct widget_label * this, const char * text);
 	void (*set_ellipsize)(struct widget_label * this, bool ellipsize);//Defaults to false.
-	//Alignment -1 means touch the left side, 0 means centered, 0 means touch the right side. Defaults to -1.
+	//Alignment 0 means touch the left side, 1 means centered, 2 means touch the right side. Defaults to left.
 	void (*set_alignment)(struct widget_label * this, int align);
 };
 struct widget_label * widget_create_label(const char * text);

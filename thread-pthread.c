@@ -147,4 +147,20 @@ struct event * event_create()
 	
 	return (struct event*)this;
 }
+
+//this is gcc, not pthread, but it works.
+unsigned int lock_incr(unsigned int * val)
+{
+	return __sync_fetch_and_add(val, 1);
+}
+
+unsigned int lock_decr(unsigned int * val)
+{
+	return __sync_fetch_and_sub(val, 1);
+}
+
+unsigned int lock_read(unsigned int * val)
+{
+	return __sync_val_compare_and_swap(val, 0, 0);
+}
 #endif

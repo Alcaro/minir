@@ -8,6 +8,21 @@
 #include <gdk/gdkx.h>
 #endif
 
+//Number of ugly hacks: 5
+//The status bar is a GtkGrid with GtkLabel, not a GtkStatusbar, because I couldn't get GtkStatusbar
+// to cooperate. While the status bar is a GtkBox, I couldn't find how to get rid of its child.
+//The status bar manages layout manually (by resizing the GtkLabels), because a GtkGrid with a large
+// number of slots seem to assign pixels 3,3,2,2 if told to split 10 pixels to 4 equally sized
+// slots, as opposed to 2,3,2,3 or 3,2,3,2.
+//Label widgets that ellipsize, as well as status bar labels, are declared with max width 1, and
+// then ellipsizes. Apparently they use more space than maximum if they can. This doesn't seem to be
+// documented, and is therefore not guaranteed to continue working. The same hack is used on labels.
+//gtk_main_iteration_do(false) is called twice, so GTK thinks we're idle and sends out the mouse
+// move events. Most of the time is spent waiting for A/V drivers, and our mouse move processor is
+// cheap. (Likely fixable in GTK+ 3.12, but I'm on 3.8.)
+//Refreshing a listbox is done by telling it to redraw, not by telling it that contents have changed.
+// It's either that or send tens of thousands of contents-changed events, and I'd rather not.
+
 void
 window_firstrun
 ()

@@ -412,6 +412,7 @@ struct event {
 struct event * event_create();
 
 //Increments or decrements a variable, while guaranteeing atomicity relative to other threads. lock_read() just reads the value.
+//Returns the value before changing it.
 unsigned int lock_incr(unsigned int * val);
 unsigned int lock_decr(unsigned int * val);
 unsigned int lock_read(unsigned int * val);
@@ -478,7 +479,7 @@ struct libretro_core_option {
 	const char * name_internal;
 	const char * name_display;
 	
-	//This one is hackishly calculated by checking whether it's checked during retro_load_game.
+	//This one is hackishly calculated by checking whether it's checked if during retro_run.
 	bool reset_only;
 	
 	unsigned int numvalues;
