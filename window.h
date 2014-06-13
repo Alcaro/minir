@@ -196,6 +196,9 @@ struct widget_label {
 	void (*set_enabled)(struct widget_label * this, bool enable);
 	
 	void (*set_text)(struct widget_label * this, const char * text);
+	void (*set_ellipsize)(struct widget_label * this, bool ellipsize);//Defaults to false.
+	//Alignment -1 means touch the left side, 0 means centered, 0 means touch the right side. Defaults to -1.
+	void (*set_alignment)(struct widget_label * this, int align);
 };
 struct widget_label * widget_create_label(const char * text);
 
