@@ -84,20 +84,20 @@ static void label_set_ellipsize(struct widget_label * this_, bool ellipsize)
 	struct widget_label_gtk3 * this=(struct widget_label_gtk3*)this_;
 	if (ellipsize)
 	{
-		gtk_label_set_ellipsize(GTK_LABEL(label), PANGO_ELLIPSIZE_END);
-		gtk_label_set_max_width_chars(GTK_LABEL(label), 1);//why does this work
+		gtk_label_set_ellipsize(GTK_LABEL(this->i.base._widget), PANGO_ELLIPSIZE_END);
+		gtk_label_set_max_width_chars(GTK_LABEL(this->i.base._widget), 1);//why does this work
 	}
 	else
 	{
-		gtk_label_set_ellipsize(GTK_LABEL(label), PANGO_ELLIPSIZE_NONE);
-		gtk_label_set_max_width_chars(GTK_LABEL(label), -1);
+		gtk_label_set_ellipsize(GTK_LABEL(this->i.base._widget), PANGO_ELLIPSIZE_NONE);
+		gtk_label_set_max_width_chars(GTK_LABEL(this->i.base._widget), -1);
 	}
 }
 
 static void label_set_alignment(struct widget_label * this_, int alignment)
 {
 	struct widget_label_gtk3 * this=(struct widget_label_gtk3*)this_;
-	gtk_misc_set_alignment(GTK_MISC(label), ((float)alignment)/2, 0.5);
+	gtk_misc_set_alignment(GTK_MISC(this->i.base._widget), ((float)alignment)/2, 0.5);
 }
 
 struct widget_label * widget_create_label(const char * text)
