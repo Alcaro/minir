@@ -87,7 +87,6 @@ struct event_pthread {
 	struct event i;
 	
 	sem_t ev;
-FIXME: handle the changed semantics
 };
 
 static void event_signal(struct event * this_)
@@ -119,7 +118,7 @@ static void event_multiwait(struct event * this_, unsigned int count)
 	}
 }
 
-static void event_count(struct event * this_)
+static int event_count(struct event * this_)
 {
 	struct event_pthread * this=(struct event_pthread*)this_;
 	int active;
