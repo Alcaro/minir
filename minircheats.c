@@ -256,6 +256,7 @@ static void details_create(struct minircheats_impl * parent, struct window * par
 	this->wndw->focus(this->wndw);
 	
 	this->next=this->parent->details;
+	this->prev=NULL;
 	if (this->next) this->next->prev=this;
 	this->parent->details=this;
 }
