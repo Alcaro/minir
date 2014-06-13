@@ -5,6 +5,7 @@
 #include <errno.h>
 #include <stdlib.h>
 #include <string.h>
+#include <unistd.h>
 
 //list of synchronization points: http://pubs.opengroup.org/onlinepubs/009695399/basedefs/xbd_chap04.html#tag_04_10
 
@@ -92,12 +93,7 @@ FIXME: handle the changed semantics
 static void event_signal(struct event * this_)
 {
 	struct event_pthread * this=(struct event_pthread*)this_;
-	int active;
-	sem_getvalue(&this->ev, &active);
-	if (active==0)
-	{
-		sem_post(&this->ev);
-	}
+	sem_post(&this->ev);
 }
 
 static void event_wait(struct event * this_)
@@ -105,6 +101,30 @@ static void event_wait(struct event * this_)
 	struct event_pthread * this=(struct event_pthread*)this_;
 	while (sem_wait(&this->ev)==EINTR) {} //the more plentiful one of user and implementation shall be
 	                                      // simpler (minimizes the bug risk), so why does EINTR exist
+}
+
+static void event_multisignal(struct event * this_, unsigned int count)
+{
+	struct event_pthread * this=(struct event_pthread*)this_;
+	while (count--) sem_post(&this->ev);
+}
+
+static void event_multiwait(struct event * this_, unsigned int count)
+{
+	struct event_pthread * this=(struct event_pthread*)this_;
+	while (count--)
+	{
+		while (sem_wait(&this->ev)==EINTR) {} //the more plentiful one of user and implementation shall be
+		                                      // simpler (minimizes the bug risk), so why does EINTR exist
+	}
+}
+
+static void event_count(struct event * this_)
+{
+	struct event_pthread * this=(struct event_pthread*)this_;
+	int active;
+	sem_getvalue(&this->ev, &active);
+	return active;
 }
 
 static void event_free_(struct event * this_)
@@ -119,6 +139,9 @@ struct event * event_create()
 	struct event_pthread * this=malloc(sizeof(struct event_pthread));
 	this->i.signal=event_signal;
 	this->i.wait=event_wait;
+	this->i.multisignal=event_multisignal;
+	this->i.multiwait=event_multiwait;
+	this->i.count=event_count;
 	this->i.free=event_free_;
 	
 	sem_init(&this->ev, 0, 0);
