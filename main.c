@@ -700,11 +700,12 @@ void initialize(int argc, char * argv[])
 	strcat(selfpathend, ".cfg");
 	config_read(selfpath);
 	
-	if (!handle_cli_args((const char * const *)argv+1, false))
+	if (argc==1)
 	{
 		const char * defautoload=config_get_autoload();
 		if (defautoload) load_rom(defautoload);
 	}
+	else handle_cli_args((const char * const *)argv+1, false);
 	
 	reset_config();
 	
