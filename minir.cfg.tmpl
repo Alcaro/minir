@@ -113,7 +113,7 @@ input input_speedup=KB1::KP_Plus
 
 #minir's rewind system is Braid-like; hold a button and time flows backwards, -1x normal speed (where "normal" is
 # defined as whatever input_slowdown and input_speedup say, multiplied by rewind_speedup).
-bool rewind_enable=false
+bool rewind_enable=true
 #The granularity is how many frames to wait between saving the states. 1 is the smoothest, but also the most CPU intensive.
 #The framerate penalty should be around 10-15%[TODO: does this number still apply? it looks old], depending on the savestate size and how much CPU the core needs.
 #Alternatively, if you prefer ZSNES style rewinds, you can set the granularity to something really high, and minir will go
