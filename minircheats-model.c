@@ -820,6 +820,9 @@ static void search_do_search(struct minircheats_model * this_, enum cheat_compfu
 	else this->threadfunc=threadfunc_search;
 }
 
+#ifdef __SSE2__
+#include <emmintrin.h>
+#else
 //this constant will, when multiplied by a value of the form 0000000a 0000000b 0000000c 0000000d (native endian), transform
 //it into abcd???? ???????? ????????? ???????? (big endian), which can then be shifted down
 //works for uniting up to 8 bits
@@ -835,9 +838,6 @@ static size_t calc_bit_shuffle_constant()
 	//v.a[4]=0x10; v.a[5]=0x20; v.a[6]=0x40; v.a[7]=0x80;
 	return v.b;
 }
-
-#if __SSE2__
-#include <emmintrin.h>
 #endif
 
 static void thread_do_search(struct minircheats_model_impl * this, unsigned int threadid)
@@ -859,9 +859,9 @@ static void thread_do_search(struct minircheats_model_impl * this, unsigned int 
 		signadd=signs[this->search_datsize-1];
 	}
 	
-#if __SSE2__qqq
-	uint8_t compto_byterep[16];
-	memset(compto_byterep, compto, 16);
+#if __SSE2__
+	//SSE comparisons are signed; we'll have to flip the sign if we prefer unsigned.
+	__m128i signflip=_mm_set1_epi8(this->search_signed ? 0x00 : 0x80);
 #else
 	size_t bitmerge=calc_bit_shuffle_constant();
 	size_t compto_byterep=compto*(~0UL/255);
@@ -903,32 +903,57 @@ static void thread_do_search(struct minircheats_model_impl * this, unsigned int 
 					const unsigned char * ptr=mem->ptr+pagepos+pos;
 					const unsigned char * ptrprev=mem->prev+pagepos+pos;
 					
-					//this optimization gives roughly 6x speedup on x64
+					//this SIMD optimization gives roughly 6x speedup on x64
+					//the SSE path is ~2x on top of that
 					if (datsize==1 && pagepos+pos+32 <= mem->len)
 					{
-#if __SSE2__qqq
+#if __SSE2__
 						uint32_t remove;
-						__m128i* a=ptr;
+						__m128i* ptrS1=(__m128i*)ptr;
+						__m128i* ptrS2=ptrS1+1;
+						
+						__m128i a1=_mm_load_si128(ptrS1);
+						__m128i a2=_mm_load_si128(ptrS2);
+						__m128i b1;
+						__m128i b2;
+						
+						if (comptoprev)
+						{
+							b1=_mm_load_si128((__m128i*)ptrprev + 0);
+							b2=_mm_load_si128((__m128i*)ptrprev + 1);
+						}
+						else
+						{
+							b1=_mm_set1_epi8(compto);
+							b2=b1;
+						}
+						
+						a1=_mm_xor_si128(a1, signflip);
+						a2=_mm_xor_si128(a2, signflip);
+						b1=_mm_xor_si128(b1, signflip);
+						b2=_mm_xor_si128(b2, signflip);
+						
+						__m128i r1;
+						__m128i r2;
 						if (compfunc_fun==cht_eq)
 						{
-							__m128i a1=_mm_load_si128(__m128i *p);
+							r1=_mm_cmpeq_epi8(a1, b1);
+							r2=_mm_cmpeq_epi8(a2, b2);
+							remove = ~(_mm_movemask_epi8(r1) | _mm_movemask_epi8(r2)<<16);
 						}
 						if (compfunc_fun==cht_lt)
 						{
-							remove=~(neq&lte);
+							r1=_mm_cmplt_epi8(a1, b1);
+							r2=_mm_cmplt_epi8(a2, b2);
+							remove = ~(_mm_movemask_epi8(r1) | _mm_movemask_epi8(r2)<<16);
 						}
 						if (compfunc_fun==cht_lte)
 						{
-							remove=~lte;
+							r1=_mm_cmpgt_epi8(a1, b1);
+							r2=_mm_cmpgt_epi8(a2, b2);
+							remove = _mm_movemask_epi8(r1) | _mm_movemask_epi8(r2)<<16;
 						}
 						remove^=-compfunc_exp;
-						deleted=popcount32(show&remove);
-						show&=~remove;
-						uint32_t remove;
-						__m128i a=_mm_load_si128 (__m128i *p);
-						_mm_cmpeq_epi8
-						_mm_movemask_epi8 (__m128i a);
-						
 						deleted=popcount32(show&remove);
 						show&=~remove;
 #else
