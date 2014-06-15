@@ -85,7 +85,7 @@
 // parts of minir.h are STATIC_ASSERT, struct minircheats_model and friends, and UNION_BEGIN and friends.
 //- Do not dynamically change the interface; use a switch. If that becomes a too big pain, stick a
 // function pointer in minircheats_model_impl.
-//- No C++ incompatibilities except using 'this' as variable name.
+//- No C++ incompatibilities, except using 'this' as variable name.
 
 static size_t add_bits_down(size_t n)
 {
@@ -103,19 +103,6 @@ static size_t highest_bit(size_t n)
 {
 	n=add_bits_down(n);
 	return n^(n>>1);
-}
-
-//gcc optimizes this one to return 1
-static bool is_little_endian()
-{
-	union {
-		uint32_t a;
-		uint8_t b[4];
-	} v;
-	v.a=0x01020304;
-	if (v.b[0]==1 && v.b[1]==2 || v.b[2]==3 || v.b[3]==4) return false;
-	if (v.b[0]==4 && v.b[1]==3 || v.b[2]==2 || v.b[3]==1) return true;
-	abort();//if this fires, your computer is insane
 }
 
 static uint8_t popcount32(uint32_t i)
@@ -833,6 +820,26 @@ static void search_do_search(struct minircheats_model * this_, enum cheat_compfu
 	else this->threadfunc=threadfunc_search;
 }
 
+//this constant will, when multiplied by a value of the form 0000000a 0000000b 0000000c 0000000d (native endian), transform
+//it into abcd???? ???????? ????????? ???????? (big endian), which can then be shifted down
+//works for uniting up to 8 bits
+static size_t calc_bit_shuffle_constant()
+{
+	union {
+		uint8_t a[8];
+		size_t b;
+	} v;
+	v.a[0]=0x80; v.a[1]=0x40; v.a[2]=0x20; v.a[3]=0x10;
+	v.a[4]=0x08; v.a[5]=0x04; v.a[6]=0x02; v.a[7]=0x01;
+	//v.a[0]=0x01; v.a[1]=0x02; v.a[2]=0x04; v.a[3]=0x08;
+	//v.a[4]=0x10; v.a[5]=0x20; v.a[6]=0x40; v.a[7]=0x80;
+	return v.b;
+}
+
+#if __SSE2__
+#include <emmintrin.h>
+#endif
+
 static void thread_do_search(struct minircheats_model_impl * this, unsigned int threadid)
 {
 	enum cheat_compfunc compfunc = this->threadsearch_compfunc;
@@ -844,13 +851,16 @@ static void thread_do_search(struct minircheats_model_impl * this, unsigned int 
 	bool compfunc_exp=(compfunc&1);
 	unsigned char compfunc_fun=compfunc_perm[compfunc];
 	
-	unsigned int datsize=this->search_datsize;//caching these here gives a ~15% speed boost
+	unsigned int datsize=this->search_datsize;//caching this here gives a ~15% speed boost
 	
 	uint32_t signadd=0;
 	if (this->search_signed)
 	{
 		signadd=signs[this->search_datsize-1];
 	}
+	
+	size_t bitmerge=calc_bit_shuffle_constant();
+	size_t compto_byterep=compto*(~0UL/255);
 	
 	unsigned int workid=0;
 	for (unsigned int i=0;i<this->nummem;i++)
@@ -888,32 +898,69 @@ static void thread_do_search(struct minircheats_model_impl * this, unsigned int 
 					const unsigned char * ptrprev=mem->prev+pagepos+pos;
 					
 					//this optimization gives roughly 6x speedup on x64
-					if (datsize==1 && pagepos+pos+32 <= mem->len && compfunc_fun==cht_eq)
+					if (datsize==1 && pagepos+pos+32 <= mem->len)
 					{
 						//assume the memory block is aligned
 						const size_t* ptrS=(size_t*)ptr;
 						const size_t* ptrprevS=(size_t*)ptrprev;
-						uint32_t same=0;
+						uint32_t neq=0;
+						uint32_t lte=0;
+//#if __SSE2__
+						//for (unsigned int bits=0;bits<32;bits+=16)
+						//{
+							//
+						//}
+//#else
+//bool q=(mem->len==131072&&pagepos==0&&pos==0);
 						for (unsigned int bits=0;bits<32;bits+=sizeof(size_t))
 						{
 							//warning - ugly math ahead
-							size_t val=*(ptrS++) ^ (comptoprev ? *(ptrprevS++) : compto*(~0UL/255*1));
-							//val now contains nonzero for different bytes, and zero for same bytes
-							val|=(val>>4)&(~0UL/255*0x0F);
-							val|=(val>>2)&(~0UL/255*0x03);
-							val=(val>>1|val)&(~0UL/255*0x01);
-							//val now contains 01 for different bytes, and 00 for same bytes
+//repeated 16bit pattern
+#define rep16(x) (~0UL/65535*(x))
+#define rep8(x) rep16((x)*0x0101)
 							
 							STATIC_ASSERT(sizeof(size_t)<=8, fix_this_function);
-							//these constants will unite the scattered bits into the top byte, possibly backwards
-							//0x0102040810204080 for LE, 0x8040201008040201 for BE
-							//it dumps trash in the other bytes
-							size_t samehere = val * (is_little_endian() ? (~0UL/127*128/2) : (~0UL/511 * 256 + 1));
-							same |= samehere >> ((sizeof(size_t)-1)*8) << bits;
+							
+							size_t val1=*(ptrS++);
+							size_t val2=(comptoprev ? *(ptrprevS++) : compto_byterep);
+							
+							val1+=signadd;
+							val2+=signadd;
+							
+							
+							size_t tmp=(val1^val2);
+							//tmp now contains nonzero for different bytes, and zero for same bytes
+							tmp|=(tmp>>4) & rep8(0x0F);
+							tmp|=(tmp>>2) & rep8(0x03);
+							tmp=(tmp>>1|tmp)&rep8(0x01);
+							//tmp now contains 01 for different bytes, and 00 for same bytes
+							neq |= (tmp*bitmerge) >> (sizeof(size_t)*(8-1)) << bits;
+							
+							
+//if(q)printf("%.16lX\n%.16lX\n",val1,val2);
+							size_t tmp1=(val1 &  rep16(0x00FF));
+							size_t tmp2=(val2 | ~rep16(0x00FF));
+							size_t lte_bits = (tmp2-tmp1)>>8 & rep16(0x0001);
+//if(q)printf("%.16lX %.16lX %.16lX %.16lX\n",tmp1,tmp2,tmp2-tmp1,lte_bits);
+							
+							tmp1=(val1>>8 &  rep16(0x00FF));
+							tmp2=(val2>>8 | ~rep16(0x00FF));
+							lte_bits |= (tmp2-tmp1) & rep16(0x0100);
+//if(q)printf("%.16lX %.16lX %.16lX %.16lX\n",tmp1,tmp2,tmp2-tmp1,lte_bits);
+							
+							lte |= (lte_bits*bitmerge) >> (sizeof(size_t)*(8-1)) << bits;
+//if(q)printf("%.8X\n",lte);
 						}
-						uint32_t keep=~same^-compfunc_exp;
-						deleted=popcount32(show&~keep);
-						show&=keep;
+//#endif
+						
+//if(q)printf("<= %.8X  != %.8X\n",lte,neq);
+						uint32_t remove;
+						if (compfunc_fun==cht_eq) remove=neq;//we'll add tilde to both the others, in exchange for not having tilde on this one
+						if (compfunc_fun==cht_lt) remove=~(neq&lte);
+						if (compfunc_fun==cht_lte) remove=~lte;
+						remove^=-compfunc_exp;
+						deleted=popcount32(show&remove);
+						show&=~remove;
 					}
 					else
 					{
