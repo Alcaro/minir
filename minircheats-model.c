@@ -860,7 +860,7 @@ static void thread_do_search(struct minircheats_model_impl * this, unsigned int 
 	}
 	
 #if __SSE2__
-	//SSE comparisons are signed; we'll have to flip the sign if we prefer unsigned.
+	//SSE comparisons are signed; we'll have to flip the sign if we prefer unsigned. (Or if we want signed, XOR with zero.)
 	__m128i signflip=_mm_set1_epi8(this->search_signed ? 0x00 : 0x80);
 #else
 	size_t bitmerge=calc_bit_shuffle_constant();
@@ -962,7 +962,6 @@ static void thread_do_search(struct minircheats_model_impl * this, unsigned int 
 						const size_t* ptrprevS=(size_t*)ptrprev;
 						uint32_t neq=0;
 						uint32_t lte=0;
-//bool q=(mem->len==131072&&pagepos==0&&pos==0);
 						for (unsigned int bits=0;bits<32;bits+=sizeof(size_t))
 						{
 							//warning - ugly math ahead
@@ -988,24 +987,21 @@ static void thread_do_search(struct minircheats_model_impl * this, unsigned int 
 							neq |= (tmp*bitmerge) >> (sizeof(size_t)*(8-1)) << bits;
 							
 							
-//if(q)printf("%.16lX\n%.16lX\n",val1,val2);
+							//compare half of the values at the time; we need a ninth bit for each compared byte,
+							// and the only real way to do that is to do half at the time.
 							size_t tmp1=(val1 &  rep16(0x00FF));
 							size_t tmp2=(val2 | ~rep16(0x00FF));
 							size_t lte_bits = (tmp2-tmp1)>>8 & rep16(0x0001);
-//if(q)printf("%.16lX %.16lX %.16lX %.16lX\n",tmp1,tmp2,tmp2-tmp1,lte_bits);
 							
 							tmp1=(val1>>8 &  rep16(0x00FF));
 							tmp2=(val2>>8 | ~rep16(0x00FF));
 							lte_bits |= (tmp2-tmp1) & rep16(0x0100);
-//if(q)printf("%.16lX %.16lX %.16lX %.16lX\n",tmp1,tmp2,tmp2-tmp1,lte_bits);
 							
 							lte |= (lte_bits*bitmerge) >> (sizeof(size_t)*(8-1)) << bits;
-//if(q)printf("%.8X\n",lte);
 						}
 						
-//if(q)printf("<= %.8X  != %.8X\n",lte,neq);
 						uint32_t remove;
-						if (compfunc_fun==cht_eq) remove=neq;//we'll add tilde to both the others, in exchange for not having tilde on this one
+						if (compfunc_fun==cht_eq) remove=neq;//we'll add tilde to both the others, in exchange for not having tilde on equal
 						if (compfunc_fun==cht_lt) remove=~(neq&lte);
 						if (compfunc_fun==cht_lte) remove=~lte;
 						remove^=-compfunc_exp;
@@ -1020,15 +1016,10 @@ static void thread_do_search(struct minircheats_model_impl * this, unsigned int 
 							if (show & (1<<bit))
 							{
 								uint32_t val;
-								if (datsize==1) val=ptr[bit];//this is inlined due to the massive speed boost that gives
-								else val=readmem(ptr+bit, datsize, bigendian);//not readmemext - we're handling the sign ourselves
+								val=readmem(ptr+bit, datsize, bigendian);//not readmemext - we're handling the sign ourselves
 								
 								uint32_t other;
-								if (comptoprev)
-								{
-									if (datsize==1) other=ptrprev[bit];
-									other=readmem(ptrprev+bit, datsize, bigendian);
-								}
+								if (comptoprev) other=readmem(ptrprev+bit, datsize, bigendian);
 								else other=compto;
 								
 								val+=signadd;//unsigned overflow is defined to wrap
