@@ -18,8 +18,8 @@
 #define STRUCT_END
 #endif
 
-//#define STATIC_ASSERT(cond, name) (sizeof(struct { int:-!!(cond); }))
-#define STATIC_ASSERT(cond, name) extern char name[(cond)?1:-1]
+#define STATIC_ASSERT(cond, name) (void)(sizeof(struct { int:-!(cond); }))
+//#define STATIC_ASSERT(cond, name) extern char name[(cond)?1:-1]
 #define STATIC_ASSERT_CAN_EVALUATE(cond, name) STATIC_ASSERT(sizeof(cond), name)
 
 void* malloc_check(size_t size);

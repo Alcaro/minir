@@ -1,6 +1,6 @@
 #include "minir.h"
-//#undef malloc
-//#undef realloc
+#undef malloc
+#undef realloc
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
@@ -39,7 +39,7 @@
 // while the highest set bit in 'disconnect' is directly below the lowest clear bit in 'disconnect_mask', move it over
 // in any future reference to 'disconnect', use 'disconnect_mask' too
 // math:
-//  disconnect_mask = add_bits_down(len)
+//  disconnect_mask = add_bits_down(len-1)
 //  disconnect &= disconnect_mask
 //  while ((~disconnect_mask)>>1 & disconnect)
 //  {
@@ -68,8 +68,8 @@
 // fill in disconnect with zeroes
 // add start
 // check all previous mappings, to see if this is the first one to claim this address; if so:
-//  find how long this mapping is linear, that is how far we can go while still ensuring that moving one guest byte still moves one physical byte
-//   (use the most strict of 'length', 'disconnect', 'select', and other mappings)
+//  find how long this mapping is linear, that is how far we can go while still ensuring that moving one guest byte
+//   still moves one physical byte (use the most strict of 'length', 'disconnect', 'select', and other mappings)
 //  put start and size of linear area, as well as where it points, in the cache
 //  return this address, ignoring the above linearity calculations
 // else:
@@ -83,11 +83,13 @@
 //For compatibility with RetroArch, this file has the following restrictions, in addition to the global rules:
 //- Do not call any function from minir.h; force the user of the object to do that. The only allowed
 // parts of minir.h are STATIC_ASSERT, struct minircheats_model and friends, and UNION_BEGIN and friends.
-//- Do not dynamically change the interface; use an if statement. If that becomes a too big pain, stick a function pointer in minircheats_model_impl.
+//- Do not dynamically change the interface; use a switch. If that becomes a too big pain, stick a
+// function pointer in minircheats_model_impl.
+//- No C++ incompatibilities except using 'this' as variable name.
 
-STATIC_ASSERT(sizeof(size_t)==4 || sizeof(size_t)==8, fix_this_function);
 static size_t add_bits_down(size_t n)
 {
+	STATIC_ASSERT(sizeof(size_t)==4 || sizeof(size_t)==8, fix_this_function);
 	n|=(n>> 1);
 	n|=(n>> 2);
 	n|=(n>> 4);
@@ -159,9 +161,9 @@ static uint8_t popcount64(uint64_t v)
 #endif
 }
 
-STATIC_ASSERT(sizeof(size_t)==4 || sizeof(size_t)==8, fix_this_function);
 static uint8_t popcountS(size_t i)
 {
+	STATIC_ASSERT(sizeof(size_t)==4 || sizeof(size_t)==8, fix_this_function);
 	if (sizeof(size_t)==4) return popcount32(i);
 	if (sizeof(size_t)==8) return popcount64(i);
 	return 0;
@@ -848,7 +850,6 @@ static void thread_do_search(struct minircheats_model_impl * this, unsigned int 
 		size_t pagepos=0;
 		while (pagepos<mem->len)
 		{
-			workid=(workid+1)%this->numthreads;
 			if (threadid==workid && mem->show_treehigh[pagepos/SIZE_PAGE_HIGH]!=0)
 			{
 				size_t worklen=SIZE_PAGE_HIGH;
@@ -873,34 +874,63 @@ static void thread_do_search(struct minircheats_model_impl * this, unsigned int 
 					const unsigned char * ptr=mem->ptr+pagepos+pos;
 					const unsigned char * ptrprev=mem->prev+pagepos+pos;
 					
-					for (unsigned int bit=0;bit<32;bit++)
+					//this optimization gives roughly 6x speedup on x64
+					if (datsize==1 && pagepos+pos+32 <= mem->len && compfunc_fun==cht_eq)
 					{
-						if (show & (1<<bit))
+						//assume the memory block is aligned
+						const size_t* ptrS=(size_t*)ptr;
+						const size_t* ptrprevS=(size_t*)ptrprev;
+						uint32_t same=0;
+						for (unsigned int bits=0;bits<32;bits+=sizeof(size_t))
 						{
-							uint32_t val;
-							if (datsize==1) val=ptr[bit];//this is inlined due to the massive speed boost that gives
-							else val=readmem(ptr+bit, datsize, bigendian);//not readmemext - we're handling the sign ourselves
-							
-							uint32_t other;
-							if (comptoprev)
+							//warning - ugly math ahead
+							size_t val=*(ptrS++) ^ (comptoprev ? *(ptrprevS++) : compto*(~0UL/255*1));
+							//val now contains nonzero for different bytes, and zero for same bytes
+							val|=(val>>4)&(~0UL/255*0x0F);
+							val|=(val>>2)&(~0UL/255*0x03);
+							val=(val>>1|val)&(~0UL/255*0x01);
+							//val now contains 01 for different bytes, and 00 for same bytes
+							//big endian:
+							//size_t samehere=((val>>7) * (~0UL/511 * 256 + 1) >> ((sizeof(size_t)-1)*8));//0x8040201008040201
+							//little endian:
+							size_t samehere=((val>>7) * (~0UL/127*128/2) >> ((sizeof(size_t)-1)*8));//0x0102040810204080
+							same|=samehere<<bits;
+						}
+						uint32_t keep=~same^-compfunc_exp;
+						deleted=popcount32(show&~keep);
+						show&=keep;
+					}
+					else
+					{
+						for (unsigned int bit=0;bit<32;bit++)
+						{
+							if (show & (1<<bit))
 							{
-								if (datsize==1) other=ptrprev[bit];
-								other=readmem(ptrprev+bit, datsize, bigendian);
-							}
-							else other=compto;
-							
-							val+=signadd;//unsigned overflow is defined to wrap
-							other+=signadd;//it'll blow up if the child system doesn't use two's complement, but I don't think there are any of those.
-							
-							//TODO: find which of these two is faster
-							//bool res=((compfunc_fun<=cht_lte && val<other) || (compfunc_fun>=cht_lte && val==other));
-							bool res=false;//yes, this is ugly; it's faster this way
-							if (compfunc_fun<=cht_lte) res|=(val<other);
-							if (compfunc_fun>=cht_lte) res|=(val==other);
-							if (res == compfunc_exp)
-							{
-								show&=~(1<<bit);
-								deleted++;
+								uint32_t val;
+								if (datsize==1) val=ptr[bit];//this is inlined due to the massive speed boost that gives
+								else val=readmem(ptr+bit, datsize, bigendian);//not readmemext - we're handling the sign ourselves
+								
+								uint32_t other;
+								if (comptoprev)
+								{
+									if (datsize==1) other=ptrprev[bit];
+									other=readmem(ptrprev+bit, datsize, bigendian);
+								}
+								else other=compto;
+								
+								val+=signadd;//unsigned overflow is defined to wrap
+								other+=signadd;//it'll blow up if the child system doesn't use two's complement, but I don't think there are any of those.
+								
+								//TODO: find which of these two is faster
+								//bool res=((compfunc_fun<=cht_lte && val<other) || (compfunc_fun>=cht_lte && val==other));
+								bool res=false;//yes, this is ugly; it's faster this way
+								if (compfunc_fun<=cht_lte) res|=(val<other);
+								if (compfunc_fun>=cht_lte) res|=(val==other);
+								if (res == compfunc_exp)
+								{
+									show&=~(1<<bit);
+									deleted++;
+								}
 							}
 						}
 					}
@@ -911,6 +941,7 @@ static void thread_do_search(struct minircheats_model_impl * this, unsigned int 
 				}
 				if (mem->prev) memcpy(mem->prev+pagepos, mem->ptr+pagepos, worklen);
 			}
+			workid=(workid+1)%this->numthreads;
 			pagepos+=SIZE_PAGE_HIGH;
 		}
 	}
