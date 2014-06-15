@@ -101,34 +101,21 @@ static size_t add_bits_down(size_t n)
 
 static size_t highest_bit(size_t n)
 {
-	n=(add_bits_down(n)>>1)+1;
-	return n&-n;
+	n=add_bits_down(n);
+	return n^(n>>1);
 }
 
-static size_t reduce(size_t addr, size_t mask)
+//gcc optimizes this one to return 1
+static bool is_little_endian()
 {
-	while (mask)
-	{
-		size_t tmp=((mask-1)&(~mask));
-		addr=(addr&tmp)|((addr>>1)&~tmp);
-		mask=(mask&(mask-1))>>1;
-	}
-	return addr;
-}
-
-//Inverts reduce().
-//reduce(inflate(x, y), y) == x (assuming no overflow)
-//inflate(reduce(x, y), y) == x & ~y
-static size_t inflate(size_t addr, size_t mask)
-{
-	while (mask)
-	{
-		size_t tmp=((mask-1)&(~mask));
-		//to put in an 1 bit instead, OR in tmp+1
-		addr=((addr&~tmp)<<1)|(addr&tmp);
-		mask=(mask&(mask-1));
-	}
-	return addr;
+	union {
+		uint32_t a;
+		uint8_t b[4];
+	} v;
+	v.a=0x01020304;
+	if (v.b[0]==1 && v.b[1]==2 || v.b[2]==3 || v.b[3]==4) return false;
+	if (v.b[0]==4 && v.b[1]==3 || v.b[2]==2 || v.b[3]==1) return true;
+	abort();//if this fires, your computer is insane
 }
 
 static uint8_t popcount32(uint32_t i)
@@ -170,6 +157,32 @@ static uint8_t popcountS(size_t i)
 }
 
 #define div_rndup(a,b) (((a)+(b)-1)/(b))
+
+static size_t reduce(size_t addr, size_t mask)
+{
+	while (mask)
+	{
+		size_t tmp=((mask-1)&(~mask));
+		addr=(addr&tmp)|((addr>>1)&~tmp);
+		mask=(mask&(mask-1))>>1;
+	}
+	return addr;
+}
+
+//Inverts reduce().
+//reduce(inflate(x, y), y) == x (assuming no overflow)
+//inflate(reduce(x, y), y) == x & ~y
+static size_t inflate(size_t addr, size_t mask)
+{
+	while (mask)
+	{
+		size_t tmp=((mask-1)&(~mask));
+		//to put in an 1 bit instead, OR in tmp+1
+		addr=((addr&~tmp)<<1)|(addr&tmp);
+		mask=(mask&(mask-1));
+	}
+	return addr;
+}
 
 static uint32_t readmem(const unsigned char * ptr, unsigned int nbytes, bool bigendian)
 {
@@ -890,11 +903,13 @@ static void thread_do_search(struct minircheats_model_impl * this, unsigned int 
 							val|=(val>>2)&(~0UL/255*0x03);
 							val=(val>>1|val)&(~0UL/255*0x01);
 							//val now contains 01 for different bytes, and 00 for same bytes
-							//big endian:
-							//size_t samehere=((val>>7) * (~0UL/511 * 256 + 1) >> ((sizeof(size_t)-1)*8));//0x8040201008040201
-							//little endian:
-							size_t samehere=((val>>7) * (~0UL/127*128/2) >> ((sizeof(size_t)-1)*8));//0x0102040810204080
-							same|=samehere<<bits;
+							
+							STATIC_ASSERT(sizeof(size_t)<=8, fix_this_function);
+							//these constants will unite the scattered bits into the top byte, possibly backwards
+							//0x0102040810204080 for LE, 0x8040201008040201 for BE
+							//it dumps trash in the other bytes
+							size_t samehere = val * (is_little_endian() ? (~0UL/127*128/2) : (~0UL/511 * 256 + 1));
+							same |= samehere >> ((sizeof(size_t)-1)*8) << bits;
 						}
 						uint32_t keep=~same^-compfunc_exp;
 						deleted=popcount32(show&~keep);
