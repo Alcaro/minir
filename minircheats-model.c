@@ -859,8 +859,14 @@ static void thread_do_search(struct minircheats_model_impl * this, unsigned int 
 		signadd=signs[this->search_datsize-1];
 	}
 	
+#if __SSE2__qqq
+	uint8_t compto_byterep[16];
+	memset(compto_byterep, compto, 16);
+#else
 	size_t bitmerge=calc_bit_shuffle_constant();
 	size_t compto_byterep=compto*(~0UL/255);
+	size_t signadd_byterep=signadd*(~0UL/255);
+#endif
 	
 	unsigned int workid=0;
 	for (unsigned int i=0;i<this->nummem;i++)
@@ -900,17 +906,37 @@ static void thread_do_search(struct minircheats_model_impl * this, unsigned int 
 					//this optimization gives roughly 6x speedup on x64
 					if (datsize==1 && pagepos+pos+32 <= mem->len)
 					{
+#if __SSE2__qqq
+						uint32_t remove;
+						__m128i* a=ptr;
+						if (compfunc_fun==cht_eq)
+						{
+							__m128i a1=_mm_load_si128(__m128i *p);
+						}
+						if (compfunc_fun==cht_lt)
+						{
+							remove=~(neq&lte);
+						}
+						if (compfunc_fun==cht_lte)
+						{
+							remove=~lte;
+						}
+						remove^=-compfunc_exp;
+						deleted=popcount32(show&remove);
+						show&=~remove;
+						uint32_t remove;
+						__m128i a=_mm_load_si128 (__m128i *p);
+						_mm_cmpeq_epi8
+						_mm_movemask_epi8 (__m128i a);
+						
+						deleted=popcount32(show&remove);
+						show&=~remove;
+#else
 						//assume the memory block is aligned
 						const size_t* ptrS=(size_t*)ptr;
 						const size_t* ptrprevS=(size_t*)ptrprev;
 						uint32_t neq=0;
 						uint32_t lte=0;
-//#if __SSE2__
-						//for (unsigned int bits=0;bits<32;bits+=16)
-						//{
-							//
-						//}
-//#else
 //bool q=(mem->len==131072&&pagepos==0&&pos==0);
 						for (unsigned int bits=0;bits<32;bits+=sizeof(size_t))
 						{
@@ -924,8 +950,8 @@ static void thread_do_search(struct minircheats_model_impl * this, unsigned int 
 							size_t val1=*(ptrS++);
 							size_t val2=(comptoprev ? *(ptrprevS++) : compto_byterep);
 							
-							val1+=signadd;
-							val2+=signadd;
+							val1+=signadd_byterep;
+							val2+=signadd_byterep;
 							
 							
 							size_t tmp=(val1^val2);
@@ -951,7 +977,6 @@ static void thread_do_search(struct minircheats_model_impl * this, unsigned int 
 							lte |= (lte_bits*bitmerge) >> (sizeof(size_t)*(8-1)) << bits;
 //if(q)printf("%.8X\n",lte);
 						}
-//#endif
 						
 //if(q)printf("<= %.8X  != %.8X\n",lte,neq);
 						uint32_t remove;
@@ -961,6 +986,7 @@ static void thread_do_search(struct minircheats_model_impl * this, unsigned int 
 						remove^=-compfunc_exp;
 						deleted=popcount32(show&remove);
 						show&=~remove;
+#endif
 					}
 					else
 					{

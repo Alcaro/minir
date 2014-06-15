@@ -341,7 +341,7 @@ static void search_dosearch(struct widget_button * subject, void* userdata)
 		}
 	}
 uint64_t t1=window_get_time();
-for(int i=0;i<1024;i++)
+for(int i=0;i<4096;i++)
 {
 	this->model->search_do_search(this->model, this->wndsrch_comptype->get_state(this->wndsrch_comptype), comptoprev, compto_val);
 	thread_split(this->model->thread_get_count(this->model), search_split, this);
