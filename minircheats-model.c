@@ -1009,7 +1009,7 @@ static void thread_do_search(struct minircheats_model_impl * this, unsigned int 
 						show&=~remove;
 #endif
 					}
-					else
+					else//TODO: speed this up once I've figured out which data sizes I want.
 					{
 						for (unsigned int bit=0;bit<32;bit++)
 						{

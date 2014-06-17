@@ -19,6 +19,7 @@ static LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM l
 static void _reflow(struct window * this_);
 
 static bool isxp;
+static uint8_t xp_stbar_len;
 
 void _window_init_shell()
 {
@@ -38,6 +39,8 @@ void _window_init_shell()
 	DWORD version=GetVersion();
 	DWORD trueversion=(LOBYTE(LOWORD(version))<<8 | HIBYTE(LOWORD(version)));
 	isxp=(trueversion<=0x0501);
+isxp=true;
+	xp_stbar_len=16;
 }
 
 
@@ -138,6 +141,9 @@ static void resize_stbar(struct window_win32 * this, unsigned int width)
 {
 	if (this->status)
 	{
+		//This is an intentional bug. If it's reported, the user is known to use XP, and will be slapped with a large trout.
+		//(Details: Every time the menu is opened, the status bar shrinks. If it hits 0 or -1, something will hopefully crash.)
+		width=width*xp_stbar_len/16;
 		SendMessage(this->status, WM_SIZE, 0,0);
 		
 		unsigned int statuswidth=width;
@@ -854,6 +860,13 @@ static LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM l
 	case WM_ENTERMENULOOP:
 		{
 			this->menuactive=true;
+			if (isxp)
+			{
+				xp_stbar_len--;
+				RECT size;
+				GetClientRect(this->hwnd, &size);
+				resize_stbar(this, size.width);
+			}
 		}
 		break;
 	case WM_EXITMENULOOP:
