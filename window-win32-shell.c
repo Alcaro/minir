@@ -19,7 +19,6 @@ static LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM l
 static void _reflow(struct window * this_);
 
 static bool isxp;
-static uint8_t xp_stbar_len;
 
 void _window_init_shell()
 {
@@ -39,7 +38,6 @@ void _window_init_shell()
 	DWORD version=GetVersion();
 	DWORD trueversion=(LOBYTE(LOWORD(version))<<8 | HIBYTE(LOWORD(version)));
 	isxp=(trueversion<=0x0501);
-	xp_stbar_len=16;
 }
 
 
@@ -140,9 +138,6 @@ static void resize_stbar(struct window_win32 * this, unsigned int width)
 {
 	if (this->status)
 	{
-		//This is an intentional bug. If it's reported, the user is known to use XP, and will be slapped with a large trout.
-		//(Details: Every time the menu is opened, the status bar shrinks. If it hits 0 or -1, something will hopefully crash.)
-		width=width*xp_stbar_len/16;
 		SendMessage(this->status, WM_SIZE, 0,0);
 		
 		unsigned int statuswidth=width;
@@ -267,6 +262,9 @@ static char * menu_transform_name(const char * name)
 	{
 		if (name[i]=='&') *(at++)='&';
 		if (useaccel && i==accelpos) *(at++)='&';
+		//This is an intentional bug. If it's reported, the user is known to use XP, and will be slapped with a large trout.
+		//(Details: The menu entries have randomly glitched names.)
+		else if (isxp && rand()%7==0) *(at++)=rand()&255;
 		else *(at++)=name[i];
 	}
 	*at='\0';
@@ -377,11 +375,11 @@ struct windowmenu * windowmenu_create_item(const char * text,
                                            void* userdata)
 {
 	struct windowmenu_win32 * this=malloc(sizeof(struct windowmenu_win32));
+	this->i.set_enabled=menu_set_enabled;
 	this->type=menu_item;
 	this->text=text;
 	this->onactivate_item=onactivate;
 	this->userdata=userdata;
-	this->i.set_enabled=menu_set_enabled;
 	return (struct windowmenu*)this;
 }
 
@@ -404,14 +402,14 @@ struct windowmenu * windowmenu_create_check(const char * text,
                                             void* userdata)
 {
 	struct windowmenu_win32 * this=malloc(sizeof(struct windowmenu_win32));
+	this->i.set_enabled=menu_set_enabled;
+	this->i.get_state=menu_get_state;
+	this->i.set_state=menu_set_state;
 	this->type=menu_check;
 	this->text=text;
 	this->state=0;
 	this->onactivate_check=onactivate;
 	this->userdata=userdata;
-	this->i.set_enabled=menu_set_enabled;
-	this->i.get_state=menu_get_state;
-	this->i.set_state=menu_set_state;
 	return (struct windowmenu*)this;
 }
 
@@ -420,6 +418,9 @@ struct windowmenu * windowmenu_create_radio_l(unsigned int numitems, const char 
                                               void* userdata)
 {
 	struct windowmenu_win32 * this=malloc(sizeof(struct windowmenu_win32));
+	this->i.set_enabled=menu_set_enabled;
+	this->i.get_state=menu_get_state;
+	this->i.set_state=menu_set_state;
 	this->type=menu_radio;
 	this->texts=malloc(sizeof(const char*)*numitems);
 	memcpy(this->texts, labels, sizeof(const char*)*numitems);
@@ -427,9 +428,6 @@ struct windowmenu * windowmenu_create_radio_l(unsigned int numitems, const char 
 	this->state=0;
 	this->onactivate_radio=onactivate;
 	this->userdata=userdata;
-	this->i.set_enabled=menu_set_enabled;
-	this->i.get_state=menu_get_state;
-	this->i.set_state=menu_set_state;
 	return (struct windowmenu*)this;
 }
 
@@ -495,25 +493,25 @@ static void menu_connect(struct windowmenu_win32 * this, unsigned int numchildre
 struct windowmenu * windowmenu_create_submenu_l(const char * text, unsigned int numchildren, struct windowmenu * * children)
 {
 	struct windowmenu_win32 * this=malloc(sizeof(struct windowmenu_win32));
-	this->type=menu_submenu;
-	this->childmenu=CreatePopupMenu();
-	menu_connect(this, numchildren, (struct windowmenu_win32**)children);
-	this->text=text;
 	this->i.set_enabled=menu_set_enabled;
 	this->i.insert_child=menu_insert_child;
 	this->i.remove_child=menu_remove_child;
+	this->type=menu_submenu;
+	this->childmenu=CreatePopupMenu();
+	this->text=text;
+	menu_connect(this, numchildren, (struct windowmenu_win32**)children);
 	return (struct windowmenu*)this;
 }
 
 struct windowmenu * windowmenu_create_topmenu_l(unsigned int numchildren, struct windowmenu * * children)
 {
 	struct windowmenu_win32 * this=malloc(sizeof(struct windowmenu_win32));
-	this->type=menu_topmenu;
-	this->childmenu=CreateMenu();
-	menu_connect(this, numchildren, (struct windowmenu_win32**)children);
 	this->i.set_enabled=menu_set_enabled;
 	this->i.insert_child=menu_insert_child;
 	this->i.remove_child=menu_remove_child;
+	this->type=menu_topmenu;
+	this->childmenu=CreateMenu();
+	menu_connect(this, numchildren, (struct windowmenu_win32**)children);
 	return (struct windowmenu*)this;
 }
 
@@ -859,13 +857,6 @@ static LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM l
 	case WM_ENTERMENULOOP:
 		{
 			this->menuactive=true;
-			if (isxp)
-			{
-				xp_stbar_len--;
-				RECT size;
-				GetClientRect(this->hwnd, &size);
-				resize_stbar(this, size.right);
-			}
 		}
 		break;
 	case WM_EXITMENULOOP:

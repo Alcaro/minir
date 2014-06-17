@@ -130,7 +130,7 @@ struct windowmenu * windowmenu_create_item(const char * text,
 struct windowmenu * windowmenu_create_check(const char * text,
                                             void (*onactivate)(struct windowmenu * subject, bool checked, void* userdata),
                                             void* userdata);
-//A radio item counts as one item internally, but looks like multiple.
+//A radio item counts as one item to the rest of minir, but looks like multiple.
 struct windowmenu * windowmenu_create_radio(void (*onactivate)(struct windowmenu * subject, unsigned int state, void* userdata),
                                             void* userdata, const char * firsttext, ...);
 struct windowmenu * windowmenu_create_radio_l(unsigned int numitems, const char * const * texts,
