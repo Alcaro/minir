@@ -864,7 +864,7 @@ static LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM l
 				xp_stbar_len--;
 				RECT size;
 				GetClientRect(this->hwnd, &size);
-				resize_stbar(this, size.width);
+				resize_stbar(this, size.right);
 			}
 		}
 		break;

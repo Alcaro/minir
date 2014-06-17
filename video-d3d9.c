@@ -15,7 +15,7 @@
 #define D3DPRESENT_DONOTWAIT 0x00000001L
 #endif
 
-STATIC_ASSERT_CAN_EVALUATE(((IDirect3D9Ex*)NULL)->lpVtbl->RegisterSoftwareDevice, fix_your_d3d9_header);
+STATIC_ASSERT_GSCOPE_CAN_EVALUATE(((IDirect3D9Ex*)NULL)->lpVtbl->RegisterSoftwareDevice, fix_your_d3d9_header);
 //IF THIS ONE FIRES:
 //The DirectX SDK, at least versions November 2008 and August 2009 (others untested),
 // lacks an entry in the vtable for IDirect3D9Ex (it's present in IDirect3D9).
