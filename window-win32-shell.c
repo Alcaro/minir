@@ -39,7 +39,6 @@ void _window_init_shell()
 	DWORD version=GetVersion();
 	DWORD trueversion=(LOBYTE(LOWORD(version))<<8 | HIBYTE(LOWORD(version)));
 	isxp=(trueversion<=0x0501);
-isxp=true;
 	xp_stbar_len=16;
 }
 
