@@ -939,23 +939,23 @@ static void thread_do_search(struct minircheats_model_impl * this, unsigned int 
 						{
 							r1=_mm_cmpeq_epi8(a1, b1);
 							r2=_mm_cmpeq_epi8(a2, b2);
-							remove = ~(_mm_movemask_epi8(r1) | _mm_movemask_epi8(r2)<<16);
+							remove = _mm_movemask_epi8(r1) | _mm_movemask_epi8(r2)<<16;
 						}
 						if (compfunc_fun==cht_lt)
 						{
 							r1=_mm_cmplt_epi8(a1, b1);
 							r2=_mm_cmplt_epi8(a2, b2);
-							remove = ~(_mm_movemask_epi8(r1) | _mm_movemask_epi8(r2)<<16);
+							remove = _mm_movemask_epi8(r1) | _mm_movemask_epi8(r2)<<16;
 						}
 						if (compfunc_fun==cht_lte)
 						{
 							r1=_mm_cmpgt_epi8(a1, b1);
 							r2=_mm_cmpgt_epi8(a2, b2);
-							remove = _mm_movemask_epi8(r1) | _mm_movemask_epi8(r2)<<16;
+							remove = ~(_mm_movemask_epi8(r1) | _mm_movemask_epi8(r2)<<16);
 						}
 						remove^=-compfunc_exp;
-						deleted=popcount32(show&remove);
-						show&=~remove;
+						deleted=popcount32(show&~remove);
+						show&=remove;
 #else
 						//assume the memory block is aligned
 						const size_t* ptrS=(size_t*)ptr;
