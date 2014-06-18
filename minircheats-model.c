@@ -107,7 +107,9 @@ static size_t highest_bit(size_t n)
 
 static uint8_t popcount32(uint32_t i)
 {
-//I don't know what __builtin_popcount does, but using the bithack instead makes the entire program (SSE2 path) ~10% faster.
+//In LLVM, __builtin_popcount seems to be identical to my popcount64.
+//In GCC, it's a loop over a lookup table!
+//In both cases is doing the bithack directly faster.
 //#ifdef __GNUC__
 //	return __builtin_popcount(i);
 //#else
@@ -672,67 +674,6 @@ static bool prev_get_enabled(struct minircheats_model * this_)
 
 
 
-static void search_get_pos(struct minircheats_model_impl * this, size_t visrow, unsigned int * memblk, size_t * mempos)
-{
-	//TODO: can searching for lastrow+1 be made faster?
-	if (visrow==this->search_lastrow)
-	{
-		*memblk=this->search_lastblock;
-		*mempos=this->search_lastmempos;
-		return;
-	}
-	this->search_lastrow=visrow;
-	
-	struct memblock * mem=this->mem;
-	while (visrow >= mem->show_tot)
-	{
-		visrow-=mem->show_tot;
-		mem++;
-	}
-	
-	*memblk = (mem - this->mem);
-	
-	size_t bigpage=0;
-	while (visrow >= mem->show_treehigh[bigpage])
-	{
-		visrow-=mem->show_treehigh[bigpage];
-		bigpage++;
-	}
-	
-	size_t smallpage = bigpage*(SIZE_PAGE_HIGH/SIZE_PAGE_LOW);
-	while (visrow >= mem->show_treelow[smallpage])
-	{
-		visrow-=mem->show_treelow[smallpage];
-		smallpage++;
-	}
-	
-	size_t * bits = mem->show + smallpage*(SIZE_PAGE_LOW/SIZET_BITS);
-	while (true)
-	{
-		unsigned int bitshere=popcountS(*bits);
-		if (visrow >= bitshere)
-		{
-			bits++;
-			visrow-=bitshere;
-		}
-		else break;
-	}
-	
-	size_t lastbits=*bits;
-	unsigned int lastbitcount=0;
-	while (visrow || !(lastbits&1))
-	{
-		if (lastbits&1) visrow--;
-		lastbits>>=1;
-		lastbitcount++;
-	}
-	
-	*mempos = (bits - mem->show)*SIZET_BITS + lastbitcount;
-	
-	this->search_lastblock=*memblk;
-	this->search_lastmempos=*mempos;
-}
-
 static void search_show_all(struct memblock * mem, unsigned int datsize)
 {
 	if (!mem->show) return;
@@ -937,7 +878,7 @@ static void thread_do_search(struct minircheats_model_impl * this, unsigned int 
 								b1=_mm_xor_si128(b1, signflip);
 								a2=_mm_xor_si128(a2, signflip);
 								b2=_mm_xor_si128(b2, signflip);
-								a3=_mm_xor_si128(a3, signflip);
+								a3=_mm_xor_si128(a3, signflip);//no conditionals on those; let the optimizer eat them
 								b3=_mm_xor_si128(b3, signflip);
 								a4=_mm_xor_si128(a4, signflip);
 								b4=_mm_xor_si128(b4, signflip);
@@ -970,16 +911,19 @@ static void thread_do_search(struct minircheats_model_impl * this, unsigned int 
 								a3=_mm_xor_si128(a3, signflip);
 								a4=_mm_xor_si128(a4, signflip);
 								
-								if (compfunc_fun<=cht_lte) keep |= (size_t)_mm_movemask_epi8(_mm_cmplt_epi8(a1, b)) << 0;
-								if (compfunc_fun>=cht_lte) keep |= (size_t)_mm_movemask_epi8(_mm_cmpeq_epi8(a1, b)) << 0;
-								if (compfunc_fun<=cht_lte) keep |= (size_t)_mm_movemask_epi8(_mm_cmplt_epi8(a2, b)) << 16;
-								if (compfunc_fun>=cht_lte) keep |= (size_t)_mm_movemask_epi8(_mm_cmpeq_epi8(a2, b)) << 16;
-								if (SIZET_BITS==64)
+								if (compfunc_fun<=cht_lte)
 								{
-									if (compfunc_fun<=cht_lte) keep |= (size_t)_mm_movemask_epi8(_mm_cmplt_epi8(a3, b)) << 32;
-									if (compfunc_fun>=cht_lte) keep |= (size_t)_mm_movemask_epi8(_mm_cmpeq_epi8(a3, b)) << 32;
-									if (compfunc_fun<=cht_lte) keep |= (size_t)_mm_movemask_epi8(_mm_cmplt_epi8(a4, b)) << 48;
-									if (compfunc_fun>=cht_lte) keep |= (size_t)_mm_movemask_epi8(_mm_cmpeq_epi8(a4, b)) << 48;
+									keep |= (size_t)_mm_movemask_epi8(_mm_cmplt_epi8(a1, b)) << 0;
+									keep |= (size_t)_mm_movemask_epi8(_mm_cmplt_epi8(a2, b)) << 16;
+									if (SIZET_BITS==64) keep |= (size_t)_mm_movemask_epi8(_mm_cmplt_epi8(a3, b)) << 32;
+									if (SIZET_BITS==64) keep |= (size_t)_mm_movemask_epi8(_mm_cmplt_epi8(a4, b)) << 48;
+								}
+								if (compfunc_fun>=cht_lte)
+								{
+									keep |= (size_t)_mm_movemask_epi8(_mm_cmpeq_epi8(a1, b)) << 0;
+									keep |= (size_t)_mm_movemask_epi8(_mm_cmpeq_epi8(a2, b)) << 16;
+									if (SIZET_BITS==64) keep |= (size_t)_mm_movemask_epi8(_mm_cmpeq_epi8(a3, b)) << 32;
+									if (SIZET_BITS==64) keep |= (size_t)_mm_movemask_epi8(_mm_cmpeq_epi8(a4, b)) << 48;
 								}
 							}
 							
@@ -1106,6 +1050,67 @@ static size_t search_get_num_rows(struct minircheats_model * this_)
 	size_t numrows=0;
 	for (unsigned int i=0;i<this->nummem;i++) numrows+=this->mem[i].show_tot;
 	return numrows;
+}
+
+static void search_get_pos(struct minircheats_model_impl * this, size_t visrow, unsigned int * memblk, size_t * mempos)
+{
+	//TODO: can searching for lastrow+1 be made faster?
+	if (visrow==this->search_lastrow)
+	{
+		*memblk=this->search_lastblock;
+		*mempos=this->search_lastmempos;
+		return;
+	}
+	this->search_lastrow=visrow;
+	
+	struct memblock * mem=this->mem;
+	while (visrow >= mem->show_tot)
+	{
+		visrow-=mem->show_tot;
+		mem++;
+	}
+	
+	*memblk = (mem - this->mem);
+	
+	size_t bigpage=0;
+	while (visrow >= mem->show_treehigh[bigpage])
+	{
+		visrow-=mem->show_treehigh[bigpage];
+		bigpage++;
+	}
+	
+	size_t smallpage = bigpage*(SIZE_PAGE_HIGH/SIZE_PAGE_LOW);
+	while (visrow >= mem->show_treelow[smallpage])
+	{
+		visrow-=mem->show_treelow[smallpage];
+		smallpage++;
+	}
+	
+	size_t * bits = mem->show + smallpage*(SIZE_PAGE_LOW/SIZET_BITS);
+	while (true)
+	{
+		unsigned int bitshere=popcountS(*bits);
+		if (visrow >= bitshere)
+		{
+			bits++;
+			visrow-=bitshere;
+		}
+		else break;
+	}
+	
+	size_t lastbits=*bits;
+	unsigned int lastbitcount=0;
+	while (visrow || !(lastbits&1))
+	{
+		if (lastbits&1) visrow--;
+		lastbits>>=1;
+		lastbitcount++;
+	}
+	
+	*mempos = (bits - mem->show)*SIZET_BITS + lastbitcount;
+	
+	this->search_lastblock=*memblk;
+	this->search_lastmempos=*mempos;
 }
 
 static void search_get_vis_row(struct minircheats_model * this_, unsigned int row, char * addr, uint32_t * val, uint32_t * prevval)
