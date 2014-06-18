@@ -983,7 +983,7 @@ static void thread_do_search(struct minircheats_model_impl * this, unsigned int 
 							tmp|=tmp>>4;
 							tmp|=tmp>>2;
 							tmp|=tmp>>1;
-							//tmp now contains 01 for different bytes, and 00 for same bytes
+							//tmp now contains lowest bit set for different bytes, and clear for same bytes (other bits are garbage)
 							neq |= (tmp*bitmerge) >> (sizeof(size_t)*(8-1)) << bits;
 							
 							
