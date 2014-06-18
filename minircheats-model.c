@@ -820,7 +820,13 @@ static void search_do_search(struct minircheats_model * this_, enum cheat_compfu
 
 #ifdef __SSE2__
 #include <emmintrin.h>
+#define FAST_ALIGN 1
 #else
+#if defined(__x86_64__) || defined(__i386__) || defined(__i486__) || defined(__i686__)
+#define FAST_ALIGN 1
+#else
+#define FAST_ALIGN sizeof(size_t)
+#endif
 //this constant will, when multiplied by a value of the form 0000000a 0000000b 0000000c 0000000d (native endian), transform
 //it into abcd???? ???????? ????????? ???????? (big endian), which can then be shifted down
 //works for uniting up to 8 bits
@@ -887,7 +893,7 @@ static void thread_do_search(struct minircheats_model_impl * this, unsigned int 
 				size_t pos=0;
 				while (pos<worklen)
 				{
-					while (!(pos&SIZE_PAGE_LOW) && mem->show_treelow[(pagepos+pos)/SIZE_PAGE_LOW]==0)
+					if (!(pos&SIZE_PAGE_LOW) && mem->show_treelow[(pagepos+pos)/SIZE_PAGE_LOW]==0)
 					{
 						pos+=SIZE_PAGE_LOW;
 						continue;
@@ -905,7 +911,7 @@ static void thread_do_search(struct minircheats_model_impl * this, unsigned int 
 					
 					//this SIMD optimization gives roughly 6x speedup on x64
 					//the SSE path is ~2x on top of that
-					if (datsize==1 && pagepos+pos+SIZET_BITS <= mem->len)
+					if (datsize==1 && pagepos+pos+SIZET_BITS <= mem->len && (((uintptr_t)ptr)&(FAST_ALIGN-1)) == 0)
 					{
 #if __SSE2__
 						size_t keep=0;
@@ -913,7 +919,7 @@ static void thread_do_search(struct minircheats_model_impl * this, unsigned int 
 						__m128i* ptrprevS=(__m128i*)ptrprev;
 						for (int i=0;i<SIZET_BITS/16;i++)
 						{
-							__m128i a=_mm_load_si128(ptrS);
+							__m128i a=_mm_loadu_si128(ptrS);
 							
 							__m128i b;
 							if (comptoprev) b=_mm_load_si128((__m128i*)ptrprevS);
@@ -922,10 +928,8 @@ static void thread_do_search(struct minircheats_model_impl * this, unsigned int 
 							a=_mm_xor_si128(a, signflip);
 							b=_mm_xor_si128(b, signflip);
 							
-							__m128i r;
-							if (compfunc_fun==cht_eq)  keep |= _mm_movemask_epi8(_mm_cmpeq_epi8(a, b)) << ((size_t)i*16);
-							if (compfunc_fun==cht_lt)  keep |= _mm_movemask_epi8(_mm_cmplt_epi8(a, b)) << ((size_t)i*16);
-							if (compfunc_fun==cht_lte) keep |= _mm_movemask_epi8(_mm_cmpgt_epi8(a, b)) << ((size_t)i*16);
+							if (compfunc_fun<=cht_lte)  keep |= _mm_movemask_epi8(_mm_cmpeq_epi8(a, b)) << ((size_t)i*16);
+							if (compfunc_fun>=cht_lte)  keep |= _mm_movemask_epi8(_mm_cmplt_epi8(a, b)) << ((size_t)i*16);
 							
 							ptrS++;
 							ptrprevS++;
@@ -935,7 +939,6 @@ static void thread_do_search(struct minircheats_model_impl * this, unsigned int 
 						deleted=popcountS(show&~keep);
 						show&=keep;
 #else
-						//assume the memory block is suitably aligned
 						const size_t* ptrS=(size_t*)ptr;
 						const size_t* ptrprevS=(size_t*)ptrprev;
 						size_t neq=0;
