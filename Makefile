@@ -15,8 +15,8 @@ obj/resource.o: ico/*
 
 -include Makefile.custom
 
-TESTSRC = memory.c thread-*.c window-*.c
-TESTSEPSRC = test-*.c
+TESTSRC = memory.c thread-*.c minircheats-model.c
+TESTSEPSRC = test-*.c window-*.c
 
 OBJS = $(patsubst %.c,obj/%.o,$(wildcard *.c)) $(EXTRAOBJ)
 TESTOBJS = $(patsubst %.c,obj/%.o,$(wildcard $(TESTSRC))) $(patsubst %.c,obj/%-test.o,$(wildcard $(TESTSEPSRC))) $(EXTRAOBJ)

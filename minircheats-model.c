@@ -108,31 +108,31 @@ static size_t highest_bit(size_t n)
 static uint8_t popcount32(uint32_t i)
 {
 //__builtin_popcount is implemented with a function call, but I'll just assume it's faster than this bithack. The compiler knows best.
-#ifdef __GNUC__
-	return __builtin_popcount(i);
-#else
+//update: no, it doesn't - I'm getting 10% faster results with bithack than builtin.
+//#ifdef __GNUC__
+//	return __builtin_popcount(i);
+//#else
 	//from http://graphics.stanford.edu/~seander/bithacks.html#CountBitsSetParallel, public domain
 	i = i - ((i >> 1) & 0x55555555);                    // reuse input as temporary
 	i = (i & 0x33333333) + ((i >> 2) & 0x33333333);     // temp
 	return ((i + (i >> 4) & 0xF0F0F0F) * 0x1010101) >> 24; // count
-#endif
+//#endif
 }
 
 static uint8_t popcount64(uint64_t v)
 {
-#ifdef __GNUC__
-	return __builtin_popcountll(v);
-#else
+//#ifdef __GNUC__
+//	return __builtin_popcountll(v);
+//#else
 #define T uint64_t
 	//http://graphics.stanford.edu/~seander/bithacks.html#CountBitsSetParallel again
-	T c;
 	v = v - ((v >> 1) & (T)~(T)0/3);                           // temp
 	v = (v & (T)~(T)0/15*3) + ((v >> 2) & (T)~(T)0/15*3);      // temp
 	v = (v + (v >> 4)) & (T)~(T)0/255*15;                      // temp
-	c = (T)(v * ((T)~(T)0/255)) >> (sizeof(T) - 1) * CHAR_BIT; // count
-	return c;
+	v = (T)(v * ((T)~(T)0/255)) >> (sizeof(T) - 1) * CHAR_BIT; // count
+	return v;
 #undef T
-#endif
+//#endif
 }
 
 static uint8_t popcountS(size_t i)
@@ -957,7 +957,7 @@ static void thread_do_search(struct minircheats_model_impl * this, unsigned int 
 						deleted=popcount32(show&~remove);
 						show&=remove;
 #else
-						//assume the memory block is aligned
+						//assume the memory block is suitably aligned
 						const size_t* ptrS=(size_t*)ptr;
 						const size_t* ptrprevS=(size_t*)ptrprev;
 						uint32_t neq=0;
@@ -1026,8 +1026,6 @@ static void thread_do_search(struct minircheats_model_impl * this, unsigned int 
 								val+=signadd;//unsigned overflow is defined to wrap
 								other+=signadd;//it'll blow up if the child system doesn't use two's complement, but I don't think there are any of those.
 								
-								//TODO: find which of these two is faster
-								//bool res=((compfunc_fun<=cht_lte && val<other) || (compfunc_fun>=cht_lte && val==other));
 								bool res=false;//yes, this is ugly; it's faster this way
 								if (compfunc_fun<=cht_lte) res|=(val<other);
 								if (compfunc_fun>=cht_lte) res|=(val==other);
