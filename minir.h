@@ -1,5 +1,7 @@
 //#define _XOPEN_SOURCE 500 //strdup and realpath demands this
+#ifndef _GNU_SOURCE
 #define _GNU_SOURCE //strdup, realpath, asprintf
+#endif
 #define _strdup strdup //and windows is being windows as usual
 #include <stdbool.h>
 #include <stdint.h>
@@ -18,8 +20,20 @@
 #define STRUCT_END
 #endif
 
+#ifdef __cplusplus
+
+template<bool cond> class static_assertion { private: enum { val=0 }; };
+template<> class static_assertion<true> { public: enum { val=1 }; };
+#define STATIC_ASSERT(cond, name) (void)(static_assertion<(cond)>::val)
+#define STATIC_ASSERT_GSCOPE(cond, name) extern static_assertion<static_assertion<(cond)>::val> name
+
+#else
+
 #define STATIC_ASSERT(cond, name) (void)(sizeof(struct { int:-!(cond); }))
 #define STATIC_ASSERT_GSCOPE(cond, name) extern char name[(cond)?1:-1]
+
+#endif
+
 #define STATIC_ASSERT_CAN_EVALUATE(cond, name) STATIC_ASSERT(sizeof(cond), name)
 #define STATIC_ASSERT_GSCOPE_CAN_EVALUATE(cond, name) STATIC_ASSERT_GSCOPE(sizeof(cond), name)
 

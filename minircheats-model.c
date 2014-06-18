@@ -107,8 +107,7 @@ static size_t highest_bit(size_t n)
 
 static uint8_t popcount32(uint32_t i)
 {
-//__builtin_popcount is implemented with a function call, but I'll just assume it's faster than this bithack. The compiler knows best.
-//update: no, it doesn't - I'm getting 10% faster results with bithack than builtin.
+//I don't know what __builtin_popcount does, but using the bithack instead makes the entire program (SSE2 path) ~10% faster.
 //#ifdef __GNUC__
 //	return __builtin_popcount(i);
 //#else
@@ -124,14 +123,14 @@ static uint8_t popcount64(uint64_t v)
 //#ifdef __GNUC__
 //	return __builtin_popcountll(v);
 //#else
-#define T uint64_t
 	//http://graphics.stanford.edu/~seander/bithacks.html#CountBitsSetParallel again
+#define T uint64_t
 	v = v - ((v >> 1) & (T)~(T)0/3);                           // temp
 	v = (v & (T)~(T)0/15*3) + ((v >> 2) & (T)~(T)0/15*3);      // temp
 	v = (v + (v >> 4)) & (T)~(T)0/255*15;                      // temp
 	v = (T)(v * ((T)~(T)0/255)) >> (sizeof(T) - 1) * CHAR_BIT; // count
-	return v;
 #undef T
+	return v;
 //#endif
 }
 
@@ -254,8 +253,8 @@ struct mapping {
 };
 
 struct memblock {
-	unsigned char * ptr;
-	unsigned char * prev;
+	uint8_t * ptr;
+	uint8_t * prev;
 	
 	//don't make a define for the size of this one; we'd need a typedef too, as well as rewriting popcount
 	uint32_t * show;//the top row in each of those has value 1; bottom is 0x80000000
@@ -401,7 +400,7 @@ memory[i].addrspace);
 		if (addrspace == this->numaddrspace)
 		{
 			this->numaddrspace++;
-			this->addrspaces=realloc(this->addrspaces, sizeof(struct addressspace)*this->numaddrspace);
+			this->addrspaces=(struct addressspace*)realloc(this->addrspaces, sizeof(struct addressspace)*this->numaddrspace);
 			addr=&this->addrspaces[addrspace];
 			strcpy(addr->name, desc->addrspace ? desc->addrspace : "");
 			for (int i=0;addr->name[i];i++)
@@ -423,10 +422,10 @@ memory[i].addrspace);
 		if (memid == this->nummem)
 		{
 			this->nummem++;
-			this->mem=realloc(this->mem, sizeof(struct memblock)*this->nummem);
+			this->mem=(struct memblock*)realloc(this->mem, sizeof(struct memblock)*this->nummem);
 			mem=&this->mem[memid];
 			memset(mem, 0, sizeof(struct memblock));
-			mem->ptr=desc->ptr;
+			mem->ptr=(uint8_t*)desc->ptr;
 			mem->prev=NULL;
 			mem->len=0;
 			mem->showinsearch=!(desc->flags & RETRO_MEMDESC_CONST);
@@ -438,7 +437,7 @@ memory[i].addrspace);
 		if (desc->len > mem->len) mem->len=desc->len;
 		
 		addr->nummap++;
-		addr->map=realloc(addr->map, sizeof(struct mapping)*addr->nummap);
+		addr->map=(struct mapping*)realloc(addr->map, sizeof(struct mapping)*addr->nummap);
 		struct mapping * map=&addr->map[addr->nummap-1];
 		map->memid=memid;
 		map->start=desc->start;
@@ -553,8 +552,9 @@ static size_t addr_phys_to_guest(struct minircheats_model_impl * this, void* ptr
 	{
 		//there is no end condition if this byte shows up nowhere - such a situation is forbidden
 		struct memblock * mem=&this->mem[map->memid];
+		size_t thisaddr;
 		if (mem->ptr!=ptr || map->offset>offset || offset-map->offset > map->len) goto wrongmapping;
-		size_t thisaddr=inflate(offset, map->disconnect)+map->start;
+		thisaddr=inflate(offset, map->disconnect)+map->start;
 		if (false)
 		{
 		add_a_bit: ;
@@ -661,7 +661,7 @@ static void search_prev_set_enabled(struct minircheats_model * this_, bool enabl
 	this->prev_enabled=enable;
 	for (unsigned int i=0;i<this->nummem;i++)
 	{
-		if (this->mem[i].showinsearch) this->mem[i].prev=malloc(this->mem[i].len);
+		if (this->mem[i].showinsearch) this->mem[i].prev=(uint8_t*)malloc(this->mem[i].len);
 	}
 	search_prev_set_to_cur(this);
 }
@@ -761,9 +761,9 @@ static void search_ensure_mem_exists(struct minircheats_model_impl * this)
 		struct memblock * mem=&this->mem[i];
 		if (mem->showinsearch && !mem->show)
 		{
-			mem->show=malloc(div_rndup(mem->len, 32)*sizeof(uint32_t));
-			mem->show_treelow=malloc(div_rndup(mem->len, SIZE_PAGE_LOW)*sizeof(uint16_t));
-			mem->show_treehigh=malloc(div_rndup(mem->len, SIZE_PAGE_HIGH)*sizeof(uint32_t));
+			mem->show=(uint32_t*)malloc(div_rndup(mem->len, 32)*sizeof(uint32_t));
+			mem->show_treelow=(uint16_t*)malloc(div_rndup(mem->len, SIZE_PAGE_LOW)*sizeof(uint16_t));
+			mem->show_treehigh=(uint32_t*)malloc(div_rndup(mem->len, SIZE_PAGE_HIGH)*sizeof(uint32_t));
 			
 			search_show_all(mem, this->search_datsize);
 		}
@@ -842,7 +842,7 @@ static size_t calc_bit_shuffle_constant()
 
 static void thread_do_search(struct minircheats_model_impl * this, unsigned int threadid)
 {
-	enum cheat_compfunc compfunc = this->threadsearch_compfunc;
+	uint8_t compfunc = this->threadsearch_compfunc;
 	bool comptoprev = this->threadsearch_comptoprev;
 	uint32_t compto = this->threadsearch_compto;
 	
@@ -1175,7 +1175,7 @@ static bool cheat_set(struct minircheats_model * this_, int pos, const struct ch
 	if (pos==this->numcheats)
 	{
 		this->numcheats++;
-		this->cheats=realloc(this->cheats, sizeof(struct cheat_impl)*this->numcheats);
+		this->cheats=(struct cheat_impl*)realloc(this->cheats, sizeof(struct cheat_impl)*this->numcheats);
 		this->cheats[pos].desc=NULL;
 		this->cheats[pos].enabled=false;
 	}
@@ -1248,7 +1248,7 @@ static const char * code_create(struct minircheats_model * this_, struct cheat *
 	struct minircheats_model_impl * this=(struct minircheats_model_impl*)this_;
 	free(this->lastcheat);
 	//disable address signspec value direction SP desc
-	this->lastcheat=malloc(1+strlen(thecheat->addr)+8+1+1+1+strlen(thecheat->desc)+1);
+	this->lastcheat=(char*)malloc(1+strlen(thecheat->addr)+8+1+1+1+strlen(thecheat->desc)+1);
 	//TODO: verify that addr points to anything
 	const char * const chngtypenames[]={"", "+", "-", "."};
 	sprintf(this->lastcheat, "%s%s%.*X%s%s%s%s", thecheat->enabled?"":"-", thecheat->addr,
@@ -1327,7 +1327,7 @@ const struct minircheats_model_impl minircheats_model_base = {{
 }};
 struct minircheats_model * minircheats_create_model()
 {
-	struct minircheats_model_impl * this=malloc(sizeof(struct minircheats_model_impl));
+	struct minircheats_model_impl * this=(struct minircheats_model_impl*)malloc(sizeof(struct minircheats_model_impl));
 	memcpy(this, &minircheats_model_base, sizeof(struct minircheats_model_impl));
 	this->numthreads=1;
 	return (struct minircheats_model*)this;
