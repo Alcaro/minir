@@ -41,6 +41,7 @@ static void threadproc(void* userdata)
 
 void thread_split(unsigned int count, void(*work)(unsigned int id, void* userdata), void* userdata)
 {
+	if (!count) return;
 	if (count==1)
 	{
 		work(0, userdata);
