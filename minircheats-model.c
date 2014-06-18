@@ -875,12 +875,12 @@ static void thread_do_search(struct minircheats_model_impl * this, unsigned int 
 								__m128i b4=_mm_load_si128(ptrprevS++);
 								
 								a1=_mm_xor_si128(a1, signflip);
-								b1=_mm_xor_si128(b1, signflip);
 								a2=_mm_xor_si128(a2, signflip);
-								b2=_mm_xor_si128(b2, signflip);
 								a3=_mm_xor_si128(a3, signflip);//no conditionals on those; let the optimizer eat them
-								b3=_mm_xor_si128(b3, signflip);
 								a4=_mm_xor_si128(a4, signflip);
+								b1=_mm_xor_si128(b1, signflip);
+								b2=_mm_xor_si128(b2, signflip);
+								b3=_mm_xor_si128(b3, signflip);
 								b4=_mm_xor_si128(b4, signflip);
 								
 								if (compfunc_fun<=cht_lte)
