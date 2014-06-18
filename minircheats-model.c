@@ -637,7 +637,7 @@ static void search_prev_set_to_cur(struct minircheats_model_impl * this)
 	}
 }
 
-static size_t search_prev_get_size(struct minircheats_model * this_)
+static size_t prev_get_size(struct minircheats_model * this_)
 {
 	struct minircheats_model_impl * this=(struct minircheats_model_impl*)this_;
 	size_t size=0;
@@ -648,7 +648,7 @@ static size_t search_prev_get_size(struct minircheats_model * this_)
 	return size;
 }
 
-static void search_prev_set_enabled(struct minircheats_model * this_, bool enable)
+static void prev_set_enabled(struct minircheats_model * this_, bool enable)
 {
 	struct minircheats_model_impl * this=(struct minircheats_model_impl*)this_;
 	for (unsigned int i=0;i<this->nummem;i++)
@@ -664,7 +664,7 @@ static void search_prev_set_enabled(struct minircheats_model * this_, bool enabl
 	search_prev_set_to_cur(this);
 }
 
-static bool search_prev_get_enabled(struct minircheats_model * this_)
+static bool prev_get_enabled(struct minircheats_model * this_)
 {
 	struct minircheats_model_impl * this=(struct minircheats_model_impl*)this_;
 	return this->prev_enabled;
@@ -905,35 +905,50 @@ static void thread_do_search(struct minircheats_model_impl * this, unsigned int 
 						continue;
 					}
 					
-					unsigned int deleted=0;
 					const unsigned char * ptr=mem->ptr+pagepos+pos;
 					const unsigned char * ptrprev=mem->prev+pagepos+pos;
 					
-					//this SIMD optimization gives roughly 6x speedup on x64
-					//the SSE path is ~2x on top of that
+//printf("%i %zx/%zx %i\n",datsize,pagepos+pos+SIZET_BITS,mem->len,(((uintptr_t)ptr)&(FAST_ALIGN-1)));exit(0);
 					if (datsize==1 && pagepos+pos+SIZET_BITS <= mem->len && (((uintptr_t)ptr)&(FAST_ALIGN-1)) == 0)
 					{
+						unsigned int deleted=0;
 #if __SSE2__
 						size_t eq=0;
 						size_t lt=0;
 						__m128i* ptrS=(__m128i*)ptr;
-						__m128i* ptrprevS=(__m128i*)ptrprev;
-						for (int i=0;i<SIZET_BITS/16;i++)
+						if (comptoprev)
 						{
-							__m128i a=_mm_loadu_si128(ptrS);
-							
-							__m128i b;
-							if (comptoprev) b=_mm_load_si128((__m128i*)ptrprevS);
-							else b=_mm_set1_epi8(compto);
-							
-							a=_mm_xor_si128(a, signflip);
-							b=_mm_xor_si128(b, signflip);
-							
-							eq |= _mm_movemask_epi8(_mm_cmpeq_epi8(a, b)) << ((size_t)i*16);
-							lt |= _mm_movemask_epi8(_mm_cmplt_epi8(a, b)) << ((size_t)i*16);
-							
-							ptrS++;
-							ptrprevS++;
+							__m128i* ptrprevS=(__m128i*)ptrprev;
+							for (int i=0;i<SIZET_BITS/16;i++)
+							{
+								__m128i a=_mm_loadu_si128(ptrS);
+								__m128i b=_mm_load_si128(ptrprevS);
+								
+								a=_mm_xor_si128(a, signflip);
+								b=_mm_xor_si128(b, signflip);
+								
+								eq |= _mm_movemask_epi8(_mm_cmpeq_epi8(a, b)) << ((size_t)i*16);
+								lt |= _mm_movemask_epi8(_mm_cmplt_epi8(a, b)) << ((size_t)i*16);
+								
+								ptrS++;
+								ptrprevS++;
+							}
+						}
+						else
+						{
+							for (int i=0;i<SIZET_BITS/16;i++)
+							{
+								__m128i a=_mm_loadu_si128(ptrS);
+								__m128i b=_mm_set1_epi8(compto);
+								
+								a=_mm_xor_si128(a, signflip);
+								b=_mm_xor_si128(b, signflip);
+								
+								eq |= _mm_movemask_epi8(_mm_cmpeq_epi8(a, b)) << ((size_t)i*16);
+								lt |= _mm_movemask_epi8(_mm_cmplt_epi8(a, b)) << ((size_t)i*16);
+								
+								ptrS++;
+							}
 						}
 						
 						size_t keep;
@@ -995,9 +1010,14 @@ static void thread_do_search(struct minircheats_model_impl * this, unsigned int 
 						deleted=popcountS(show&remove);
 						show&=~remove;
 #endif
+						mem->show_treehigh[(pos+pagepos)/SIZE_PAGE_HIGH]-=deleted;
+						mem->show_treelow[(pos+pagepos)/SIZE_PAGE_LOW]-=deleted;
+						mem->show[(pos+pagepos)/SIZET_BITS]=show;
+						pos+=SIZET_BITS;
 					}
 					else//TODO: speed this up once I've figured out which data sizes I want.
 					{
+						unsigned int deleted=0;
 						for (size_t bit=0;bit<SIZET_BITS;bit++)
 						{
 							if (show & (1<<bit))
@@ -1022,11 +1042,11 @@ static void thread_do_search(struct minircheats_model_impl * this, unsigned int 
 								}
 							}
 						}
+						mem->show_treehigh[(pos+pagepos)/SIZE_PAGE_HIGH]-=deleted;
+						mem->show_treelow[(pos+pagepos)/SIZE_PAGE_LOW]-=deleted;
+						mem->show[(pos+pagepos)/SIZET_BITS]=show;
+						pos+=SIZET_BITS;
 					}
-					mem->show_treehigh[(pos+pagepos)/SIZE_PAGE_HIGH]-=deleted;
-					mem->show_treelow[(pos+pagepos)/SIZE_PAGE_LOW]-=deleted;
-					mem->show[(pos+pagepos)/SIZET_BITS]=show;
-					pos+=SIZET_BITS;
 				}
 				if (mem->prev) memcpy(mem->prev+pagepos, mem->ptr+pagepos, worklen);
 			}
@@ -1302,7 +1322,7 @@ static void free_(struct minircheats_model * this_)
 
 const struct minircheats_model_impl minircheats_model_base = {{
 	set_memory,
-	search_prev_get_size, search_prev_set_enabled, search_prev_get_enabled,
+	prev_get_size, prev_set_enabled, prev_get_enabled,
 	search_reset, search_set_datsize, search_set_signed, search_do_search, search_get_num_rows, search_get_vis_row,
 	thread_enable, thread_get_count, thread_do_work, thread_finish_work,
 	cheat_read, cheat_find_for_addr, cheat_get_count,
