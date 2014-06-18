@@ -980,9 +980,9 @@ static void thread_do_search(struct minircheats_model_impl * this, unsigned int 
 							
 							size_t tmp=(val1^val2);
 							//tmp now contains nonzero for different bytes, and zero for same bytes
-							tmp|=(tmp>>4) & rep8(0x0F);
-							tmp|=(tmp>>2) & rep8(0x03);
-							tmp=(tmp>>1|tmp)&rep8(0x01);
+							tmp|=tmp>>4;
+							tmp|=tmp>>2;
+							tmp|=tmp>>1;
 							//tmp now contains 01 for different bytes, and 00 for same bytes
 							neq |= (tmp*bitmerge) >> (sizeof(size_t)*(8-1)) << bits;
 							
