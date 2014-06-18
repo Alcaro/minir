@@ -909,137 +909,140 @@ static void thread_do_search(struct minircheats_model_impl * this, unsigned int 
 					const unsigned char * ptrprev=mem->prev+pagepos+pos;
 					
 //printf("%i %zx/%zx %i\n",datsize,pagepos+pos+SIZET_BITS,mem->len,(((uintptr_t)ptr)&(FAST_ALIGN-1)));exit(0);
-					if (datsize==1 && pagepos+pos+SIZET_BITS <= mem->len && (((uintptr_t)ptr)&(FAST_ALIGN-1)) == 0)
+					if (datsize==1 && pagepos+pos+SIZE_PAGE_LOW <= mem->len && (((uintptr_t)ptr)&(FAST_ALIGN-1)) == 0)
 					{
 						unsigned int deleted=0;
+						for (int i=0;i<SIZE_PAGE_LOW/SIZET_BITS;i++)
+						{
 #if __SSE2__
-						size_t eq=0;
-						size_t lt=0;
-						__m128i* ptrS=(__m128i*)ptr;
-						size_t keep;
-						if (comptoprev)
-						{
-							__m128i* ptrprevS=(__m128i*)ptrprev;
-							STATIC_ASSERT(SIZET_BITS==32 || SIZET_BITS==64, fix_this_function);
-							
-							__m128i a1=_mm_loadu_si128(ptrS++);
-							__m128i b1=_mm_load_si128(ptrprevS++);
-							__m128i a2=_mm_loadu_si128(ptrS++);
-							__m128i b2=_mm_load_si128(ptrprevS++);
-							__m128i a3=_mm_loadu_si128(ptrS++);
-							__m128i b3=_mm_load_si128(ptrprevS++);
-							__m128i a4=_mm_loadu_si128(ptrS++);
-							__m128i b4=_mm_load_si128(ptrprevS++);
-							
-							a1=_mm_xor_si128(a1, signflip);
-							b1=_mm_xor_si128(b1, signflip);
-							a2=_mm_xor_si128(a2, signflip);
-							b2=_mm_xor_si128(b2, signflip);
-							a3=_mm_xor_si128(a3, signflip);
-							b3=_mm_xor_si128(b3, signflip);
-							a4=_mm_xor_si128(a4, signflip);
-							b4=_mm_xor_si128(b4, signflip);
-							
-							if (compfunc_fun<=cht_lte) keep |= (size_t)_mm_movemask_epi8(_mm_cmplt_epi8(a1, b1)) << 0;
-							if (compfunc_fun>=cht_lte) keep |= (size_t)_mm_movemask_epi8(_mm_cmpeq_epi8(a1, b1)) << 0;
-							if (compfunc_fun<=cht_lte) keep |= (size_t)_mm_movemask_epi8(_mm_cmplt_epi8(a2, b2)) << 16;
-							if (compfunc_fun>=cht_lte) keep |= (size_t)_mm_movemask_epi8(_mm_cmpeq_epi8(a2, b2)) << 16;
-							if (SIZET_BITS==64)
+							size_t eq=0;
+							size_t lt=0;
+							__m128i* ptrS=(__m128i*)ptr;
+							size_t keep;
+							if (comptoprev)
 							{
-								if (compfunc_fun<=cht_lte) keep |= (size_t)_mm_movemask_epi8(_mm_cmplt_epi8(a3, b4)) << 32;
-								if (compfunc_fun>=cht_lte) keep |= (size_t)_mm_movemask_epi8(_mm_cmpeq_epi8(a3, b4)) << 32;
-								if (compfunc_fun<=cht_lte) keep |= (size_t)_mm_movemask_epi8(_mm_cmplt_epi8(a4, b3)) << 48;
-								if (compfunc_fun>=cht_lte) keep |= (size_t)_mm_movemask_epi8(_mm_cmpeq_epi8(a4, b3)) << 48;
+								__m128i* ptrprevS=(__m128i*)ptrprev;
+								STATIC_ASSERT(SIZET_BITS==32 || SIZET_BITS==64, fix_this_function);
+								
+								__m128i a1=_mm_loadu_si128(ptrS++);
+								__m128i a2=_mm_loadu_si128(ptrS++);
+								__m128i a3=_mm_loadu_si128(ptrS++);
+								__m128i a4=_mm_loadu_si128(ptrS++);
+								__m128i b1=_mm_load_si128(ptrprevS++);
+								__m128i b2=_mm_load_si128(ptrprevS++);
+								__m128i b3=_mm_load_si128(ptrprevS++);
+								__m128i b4=_mm_load_si128(ptrprevS++);
+								
+								a1=_mm_xor_si128(a1, signflip);
+								b1=_mm_xor_si128(b1, signflip);
+								a2=_mm_xor_si128(a2, signflip);
+								b2=_mm_xor_si128(b2, signflip);
+								a3=_mm_xor_si128(a3, signflip);
+								b3=_mm_xor_si128(b3, signflip);
+								a4=_mm_xor_si128(a4, signflip);
+								b4=_mm_xor_si128(b4, signflip);
+								
+								if (compfunc_fun<=cht_lte) keep |= (size_t)_mm_movemask_epi8(_mm_cmplt_epi8(a1, b1)) << 0;
+								if (compfunc_fun>=cht_lte) keep |= (size_t)_mm_movemask_epi8(_mm_cmpeq_epi8(a1, b1)) << 0;
+								if (compfunc_fun<=cht_lte) keep |= (size_t)_mm_movemask_epi8(_mm_cmplt_epi8(a2, b2)) << 16;
+								if (compfunc_fun>=cht_lte) keep |= (size_t)_mm_movemask_epi8(_mm_cmpeq_epi8(a2, b2)) << 16;
+								if (SIZET_BITS==64)
+								{
+									if (compfunc_fun<=cht_lte) keep |= (size_t)_mm_movemask_epi8(_mm_cmplt_epi8(a3, b4)) << 32;
+									if (compfunc_fun>=cht_lte) keep |= (size_t)_mm_movemask_epi8(_mm_cmpeq_epi8(a3, b4)) << 32;
+									if (compfunc_fun<=cht_lte) keep |= (size_t)_mm_movemask_epi8(_mm_cmplt_epi8(a4, b3)) << 48;
+									if (compfunc_fun>=cht_lte) keep |= (size_t)_mm_movemask_epi8(_mm_cmpeq_epi8(a4, b3)) << 48;
+								}
 							}
-						}
-						else
-						{
-							STATIC_ASSERT(SIZET_BITS==32 || SIZET_BITS==64, fix_this_function);
-							__m128i b=_mm_set1_epi8(compto);
-							b=_mm_xor_si128(b, signflip);
-							
-							__m128i a1=_mm_loadu_si128(ptrS++);
-							__m128i a2=_mm_loadu_si128(ptrS++);
-							__m128i a3=_mm_loadu_si128(ptrS++);
-							__m128i a4=_mm_loadu_si128(ptrS++);
-							
-							a1=_mm_xor_si128(a1, signflip);
-							a2=_mm_xor_si128(a2, signflip);
-							a3=_mm_xor_si128(a3, signflip);
-							a4=_mm_xor_si128(a4, signflip);
-							
-							if (compfunc_fun<=cht_lte) keep |= (size_t)_mm_movemask_epi8(_mm_cmplt_epi8(a1, b)) << 0;
-							if (compfunc_fun>=cht_lte) keep |= (size_t)_mm_movemask_epi8(_mm_cmpeq_epi8(a1, b)) << 0;
-							if (compfunc_fun<=cht_lte) keep |= (size_t)_mm_movemask_epi8(_mm_cmplt_epi8(a2, b)) << 16;
-							if (compfunc_fun>=cht_lte) keep |= (size_t)_mm_movemask_epi8(_mm_cmpeq_epi8(a2, b)) << 16;
-							if (SIZET_BITS==64)
+							else
 							{
-								if (compfunc_fun<=cht_lte) keep |= (size_t)_mm_movemask_epi8(_mm_cmplt_epi8(a3, b)) << 32;
-								if (compfunc_fun>=cht_lte) keep |= (size_t)_mm_movemask_epi8(_mm_cmpeq_epi8(a3, b)) << 32;
-								if (compfunc_fun<=cht_lte) keep |= (size_t)_mm_movemask_epi8(_mm_cmplt_epi8(a4, b)) << 48;
-								if (compfunc_fun>=cht_lte) keep |= (size_t)_mm_movemask_epi8(_mm_cmpeq_epi8(a4, b)) << 48;
+								STATIC_ASSERT(SIZET_BITS==32 || SIZET_BITS==64, fix_this_function);
+								__m128i b=_mm_set1_epi8(compto);
+								b=_mm_xor_si128(b, signflip);
+								
+								__m128i a1=_mm_loadu_si128(ptrS++);
+								__m128i a2=_mm_loadu_si128(ptrS++);
+								__m128i a3=_mm_loadu_si128(ptrS++);
+								__m128i a4=_mm_loadu_si128(ptrS++);
+								
+								a1=_mm_xor_si128(a1, signflip);
+								a2=_mm_xor_si128(a2, signflip);
+								a3=_mm_xor_si128(a3, signflip);
+								a4=_mm_xor_si128(a4, signflip);
+								
+								if (compfunc_fun<=cht_lte) keep |= (size_t)_mm_movemask_epi8(_mm_cmplt_epi8(a1, b)) << 0;
+								if (compfunc_fun>=cht_lte) keep |= (size_t)_mm_movemask_epi8(_mm_cmpeq_epi8(a1, b)) << 0;
+								if (compfunc_fun<=cht_lte) keep |= (size_t)_mm_movemask_epi8(_mm_cmplt_epi8(a2, b)) << 16;
+								if (compfunc_fun>=cht_lte) keep |= (size_t)_mm_movemask_epi8(_mm_cmpeq_epi8(a2, b)) << 16;
+								if (SIZET_BITS==64)
+								{
+									if (compfunc_fun<=cht_lte) keep |= (size_t)_mm_movemask_epi8(_mm_cmplt_epi8(a3, b)) << 32;
+									if (compfunc_fun>=cht_lte) keep |= (size_t)_mm_movemask_epi8(_mm_cmpeq_epi8(a3, b)) << 32;
+									if (compfunc_fun<=cht_lte) keep |= (size_t)_mm_movemask_epi8(_mm_cmplt_epi8(a4, b)) << 48;
+									if (compfunc_fun>=cht_lte) keep |= (size_t)_mm_movemask_epi8(_mm_cmpeq_epi8(a4, b)) << 48;
+								}
 							}
-						}
-						
-						keep^=-compfunc_exp;
-						deleted=popcountS(show&~keep);
-						show&=keep;
+							
+							keep^=-compfunc_exp;
+							deleted+=popcountS(show&~keep);
+							show&=keep;
 #else
-						const size_t* ptrS=(size_t*)ptr;
-						const size_t* ptrprevS=(size_t*)ptrprev;
-						size_t neq=0;
-						size_t lte=0;
-						for (unsigned int bits=0;bits<SIZET_BITS;bits+=sizeof(size_t))
-						{
-							//warning - ugly math ahead
+							const size_t* ptrS=(size_t*)ptr;
+							const size_t* ptrprevS=(size_t*)ptrprev;
+							size_t neq=0;
+							size_t lte=0;
+							for (unsigned int bits=0;bits<SIZET_BITS;bits+=sizeof(size_t))
+							{
+								//warning - ugly math ahead
 //repeated 16bit pattern
 #define rep16(x) (~(size_t)0/65535*(x))
 #define rep8(x) rep16((x)*0x0101)
+								
+								STATIC_ASSERT(sizeof(size_t)<=8, fix_this_function);
+								
+								size_t val1=*(ptrS++);
+								size_t val2=(comptoprev ? *(ptrprevS++) : compto_byterep);
+								
+								val1+=signadd_byterep;
+								val2+=signadd_byterep;
+								
+								
+								size_t tmp=(val1^val2);
+								//tmp now contains nonzero for different bytes, and zero for same bytes
+								tmp|=tmp>>4;
+								tmp|=tmp>>2;
+								tmp|=tmp>>1;
+								tmp&=rep8(0x01);
+								//tmp now contains 01 for different bytes, and 00 for same bytes
+								neq |= (tmp*bitmerge) >> (sizeof(size_t)*(8-1)) << bits;
+								
+								
+								//compare half of the values at the time; we need a ninth bit for each compared byte,
+								// and the only real way to do that is to do half at the time.
+								size_t tmp1=(val1 &  rep16(0x00FF));
+								size_t tmp2=(val2 | ~rep16(0x00FF));
+								size_t lte_bits = (tmp2-tmp1)>>8 & rep16(0x0001);
+								
+								tmp1=(val1>>8 &  rep16(0x00FF));
+								tmp2=(val2>>8 | ~rep16(0x00FF));
+								lte_bits |= (tmp2-tmp1) & rep16(0x0100);
+								
+								lte |= (lte_bits*bitmerge) >> (sizeof(size_t)*(8-1)) << bits;
+							}
 							
-							STATIC_ASSERT(sizeof(size_t)<=8, fix_this_function);
-							
-							size_t val1=*(ptrS++);
-							size_t val2=(comptoprev ? *(ptrprevS++) : compto_byterep);
-							
-							val1+=signadd_byterep;
-							val2+=signadd_byterep;
-							
-							
-							size_t tmp=(val1^val2);
-							//tmp now contains nonzero for different bytes, and zero for same bytes
-							tmp|=tmp>>4;
-							tmp|=tmp>>2;
-							tmp|=tmp>>1;
-							tmp&=rep8(0x01);
-							//tmp now contains 01 for different bytes, and 00 for same bytes
-							neq |= (tmp*bitmerge) >> (sizeof(size_t)*(8-1)) << bits;
-							
-							
-							//compare half of the values at the time; we need a ninth bit for each compared byte,
-							// and the only real way to do that is to do half at the time.
-							size_t tmp1=(val1 &  rep16(0x00FF));
-							size_t tmp2=(val2 | ~rep16(0x00FF));
-							size_t lte_bits = (tmp2-tmp1)>>8 & rep16(0x0001);
-							
-							tmp1=(val1>>8 &  rep16(0x00FF));
-							tmp2=(val2>>8 | ~rep16(0x00FF));
-							lte_bits |= (tmp2-tmp1) & rep16(0x0100);
-							
-							lte |= (lte_bits*bitmerge) >> (sizeof(size_t)*(8-1)) << bits;
-						}
-						
-						size_t remove;
-						if (compfunc_fun==cht_eq) remove=neq;//we'll add tilde to both the others, in exchange for not having tilde on equal
-						if (compfunc_fun==cht_lt) remove=~(neq&lte);
-						if (compfunc_fun==cht_lte) remove=~lte;
-						remove^=-compfunc_exp;
-						deleted=popcountS(show&remove);
-						show&=~remove;
+							size_t remove;
+							if (compfunc_fun==cht_eq) remove=neq;//we'll add tilde to both the others, in exchange for not having tilde on equal
+							if (compfunc_fun==cht_lt) remove=~(neq&lte);
+							if (compfunc_fun==cht_lte) remove=~lte;
+							remove^=-compfunc_exp;
+							deleted+=popcountS(show&remove);
+							show&=~remove;
 #endif
-						mem->show_treehigh[(pos+pagepos)/SIZE_PAGE_HIGH]-=deleted;
-						mem->show_treelow[(pos+pagepos)/SIZE_PAGE_LOW]-=deleted;
-						mem->show[(pos+pagepos)/SIZET_BITS]=show;
-						pos+=SIZET_BITS;
+							mem->show[(pos+pagepos)/SIZET_BITS]=show;
+							pos+=SIZET_BITS;
+						}
+						mem->show_treehigh[pagepos/SIZE_PAGE_HIGH]-=deleted;
+						mem->show_treelow[pagepos/SIZE_PAGE_LOW]-=deleted;
 					}
 					else//TODO: speed this up once I've figured out which data sizes I want.
 					{
