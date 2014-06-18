@@ -85,7 +85,7 @@
 // parts of minir.h are STATIC_ASSERT, struct minircheats_model and friends, and UNION_BEGIN and friends.
 //- Do not dynamically change the interface; use a switch. If that becomes a too big pain, stick a
 // function pointer in minircheats_model_impl.
-//- No C++ incompatibilities, except using 'this' as variable name.
+//- No C++ incompatibilities, except using 'this' as variable name. malloc return values must be casted.
 
 static size_t add_bits_down(size_t n)
 {
@@ -114,7 +114,7 @@ static uint8_t popcount32(uint32_t i)
 	//from http://graphics.stanford.edu/~seander/bithacks.html#CountBitsSetParallel, public domain
 	i = i - ((i >> 1) & 0x55555555);                    // reuse input as temporary
 	i = (i & 0x33333333) + ((i >> 2) & 0x33333333);     // temp
-	return ((i + (i >> 4) & 0xF0F0F0F) * 0x1010101) >> 24; // count
+	return ((i + ((i >> 4) & 0xF0F0F0F)) * 0x1010101) >> 24; // count
 //#endif
 }
 
@@ -139,7 +139,7 @@ static uint8_t popcountS(size_t i)
 	STATIC_ASSERT(sizeof(size_t)==4 || sizeof(size_t)==8, fix_this_function);
 	if (sizeof(size_t)==4) return popcount32(i);
 	if (sizeof(size_t)==8) return popcount64(i);
-	return 0;
+	return 0;//unreachable
 }
 
 #define div_rndup(a,b) (((a)+(b)-1)/(b))
@@ -256,15 +256,15 @@ struct memblock {
 	uint8_t * ptr;
 	uint8_t * prev;
 	
-	//don't make a define for the size of this one; we'd need a typedef too, as well as rewriting popcount
-	uint32_t * show;//the top row in each of those has value 1; bottom is 0x80000000
+#define SIZET_BITS (sizeof(size_t)*8)
+	size_t * show;//the top row in each of those has value 1; bottom is 0x80000000
 #define SIZE_PAGE_LOW 0x2000//2^13, 8192
 	uint16_t * show_treelow;//one entry per SIZE_PAGE_LOW bits of mem, counts number of set bits within these bytes
 #define SIZE_PAGE_HIGH 0x400000//2^22, 1048576
 	uint32_t * show_treehigh;//same format as above
 	size_t show_tot;//this applies to the entire memory block
 	//both page sizes must be powers of 2
-	//LOW must be in the range [32 .. 32768]
+	//LOW must be in the range [SIZET_BITS .. 32768]
 	//HIGH must be larger than LOW, and equal to or lower than 2^31
 	
 	size_t len;
@@ -338,8 +338,6 @@ struct minircheats_model_impl {
 	bool search_signed;
 	bool prev_enabled;
 	bool addrspace_case_sensitive;
-	
-	//char padding[1];
 	
 	size_t search_lastrow;
 	size_t search_lastmempos;
@@ -694,24 +692,24 @@ static void search_get_pos(struct minircheats_model_impl * this, size_t visrow, 
 	
 	*memblk = (mem - this->mem);
 	
-	uint32_t bigpage=0;
+	size_t bigpage=0;
 	while (visrow >= mem->show_treehigh[bigpage])
 	{
 		visrow-=mem->show_treehigh[bigpage];
 		bigpage++;
 	}
 	
-	uint32_t smallpage = bigpage*(SIZE_PAGE_HIGH/SIZE_PAGE_LOW);
+	size_t smallpage = bigpage*(SIZE_PAGE_HIGH/SIZE_PAGE_LOW);
 	while (visrow >= mem->show_treelow[smallpage])
 	{
 		visrow-=mem->show_treelow[smallpage];
 		smallpage++;
 	}
 	
-	uint32_t * bits = mem->show + smallpage*(SIZE_PAGE_LOW/32);
+	size_t * bits = mem->show + smallpage*(SIZE_PAGE_LOW/SIZET_BITS);
 	while (true)
 	{
-		unsigned int bitshere=popcount32(*bits);
+		unsigned int bitshere=popcountS(*bits);
 		if (visrow >= bitshere)
 		{
 			bits++;
@@ -720,7 +718,7 @@ static void search_get_pos(struct minircheats_model_impl * this, size_t visrow, 
 		else break;
 	}
 	
-	uint32_t lastbits=*bits;
+	size_t lastbits=*bits;
 	unsigned int lastbitcount=0;
 	while (visrow || !(lastbits&1))
 	{
@@ -729,7 +727,7 @@ static void search_get_pos(struct minircheats_model_impl * this, size_t visrow, 
 		lastbitcount++;
 	}
 	
-	*mempos = (bits - mem->show)*32 + lastbitcount;
+	*mempos = (bits - mem->show)*SIZET_BITS + lastbitcount;
 	
 	this->search_lastblock=*memblk;
 	this->search_lastmempos=*mempos;
@@ -739,9 +737,9 @@ static void search_show_all(struct memblock * mem, unsigned int datsize)
 {
 	if (!mem->show) return;
 	
-	unsigned int len=div_rndup(mem->len, 32);
-	memset(mem->show, 0xFF, len*sizeof(uint32_t));
-	if (mem->len&31) mem->show[len-1]=0xFFFFFFFF>>(32-(mem->len&31));
+	unsigned int len=div_rndup(mem->len, SIZET_BITS);
+	memset(mem->show, 0xFF, len*sizeof(size_t));
+	mem->show[len-1]>>=(mem->len&(SIZET_BITS-1));
 	
 	len=div_rndup(mem->len, SIZE_PAGE_LOW);
 	for (unsigned int j=0;j<len;j++) mem->show_treelow[j]=SIZE_PAGE_LOW;
@@ -761,7 +759,7 @@ static void search_ensure_mem_exists(struct minircheats_model_impl * this)
 		struct memblock * mem=&this->mem[i];
 		if (mem->showinsearch && !mem->show)
 		{
-			mem->show=(uint32_t*)malloc(div_rndup(mem->len, 32)*sizeof(uint32_t));
+			mem->show=(size_t*)malloc(div_rndup(mem->len, SIZET_BITS)*sizeof(size_t));
 			mem->show_treelow=(uint16_t*)malloc(div_rndup(mem->len, SIZE_PAGE_LOW)*sizeof(uint16_t));
 			mem->show_treehigh=(uint32_t*)malloc(div_rndup(mem->len, SIZE_PAGE_HIGH)*sizeof(uint32_t));
 			
@@ -826,6 +824,8 @@ static void search_do_search(struct minircheats_model * this_, enum cheat_compfu
 //this constant will, when multiplied by a value of the form 0000000a 0000000b 0000000c 0000000d (native endian), transform
 //it into abcd???? ???????? ????????? ???????? (big endian), which can then be shifted down
 //works for uniting up to 8 bits
+//works on crazy-endian systems too
+//does, however, assume a rather powerful optimizer
 static size_t calc_bit_shuffle_constant()
 {
 	union {
@@ -864,8 +864,8 @@ static void thread_do_search(struct minircheats_model_impl * this, unsigned int 
 	__m128i signflip=_mm_set1_epi8(this->search_signed ? 0x00 : 0x80);
 #else
 	size_t bitmerge=calc_bit_shuffle_constant();
-	size_t compto_byterep=compto*(~0UL/255);
-	size_t signadd_byterep=signadd*(~0UL/255);
+	size_t compto_byterep=compto*(~(size_t)0/255);
+	size_t signadd_byterep=signadd*(~(size_t)0/255);
 #endif
 	
 	unsigned int workid=0;
@@ -892,10 +892,10 @@ static void thread_do_search(struct minircheats_model_impl * this, unsigned int 
 						pos+=SIZE_PAGE_LOW;
 						continue;
 					}
-					uint32_t show=mem->show[(pagepos+pos)/32];
+					size_t show=mem->show[(pagepos+pos)/SIZET_BITS];
 					if (show==0)
 					{
-						pos+=32;
+						pos+=SIZET_BITS;
 						continue;
 					}
 					
@@ -905,68 +905,46 @@ static void thread_do_search(struct minircheats_model_impl * this, unsigned int 
 					
 					//this SIMD optimization gives roughly 6x speedup on x64
 					//the SSE path is ~2x on top of that
-					if (datsize==1 && pagepos+pos+32 <= mem->len)
+					if (datsize==1 && pagepos+pos+SIZET_BITS <= mem->len)
 					{
 #if __SSE2__
-						uint32_t remove;
-						__m128i* ptrS1=(__m128i*)ptr;
-						__m128i* ptrS2=ptrS1+1;
-						
-						__m128i a1=_mm_load_si128(ptrS1);
-						__m128i a2=_mm_load_si128(ptrS2);
-						__m128i b1;
-						__m128i b2;
-						
-						if (comptoprev)
+						size_t keep=0;
+						__m128i* ptrS=(__m128i*)ptr;
+						__m128i* ptrprevS=(__m128i*)ptrprev;
+						for (int i=0;i<SIZET_BITS/16;i++)
 						{
-							b1=_mm_load_si128((__m128i*)ptrprev + 0);
-							b2=_mm_load_si128((__m128i*)ptrprev + 1);
+							__m128i a=_mm_load_si128(ptrS);
+							
+							__m128i b;
+							if (comptoprev) b=_mm_load_si128((__m128i*)ptrprevS);
+							else b=_mm_set1_epi8(compto);
+							
+							a=_mm_xor_si128(a, signflip);
+							b=_mm_xor_si128(b, signflip);
+							
+							__m128i r;
+							if (compfunc_fun==cht_eq)  keep |= _mm_movemask_epi8(_mm_cmpeq_epi8(a, b)) << ((size_t)i*16);
+							if (compfunc_fun==cht_lt)  keep |= _mm_movemask_epi8(_mm_cmplt_epi8(a, b)) << ((size_t)i*16);
+							if (compfunc_fun==cht_lte) keep |= _mm_movemask_epi8(_mm_cmpgt_epi8(a, b)) << ((size_t)i*16);
+							
+							ptrS++;
+							ptrprevS++;
 						}
-						else
-						{
-							b1=_mm_set1_epi8(compto);
-							b2=b1;
-						}
-						
-						a1=_mm_xor_si128(a1, signflip);
-						a2=_mm_xor_si128(a2, signflip);
-						b1=_mm_xor_si128(b1, signflip);
-						b2=_mm_xor_si128(b2, signflip);
-						
-						__m128i r1;
-						__m128i r2;
-						if (compfunc_fun==cht_eq)
-						{
-							r1=_mm_cmpeq_epi8(a1, b1);
-							r2=_mm_cmpeq_epi8(a2, b2);
-							remove = _mm_movemask_epi8(r1) | _mm_movemask_epi8(r2)<<16;
-						}
-						if (compfunc_fun==cht_lt)
-						{
-							r1=_mm_cmplt_epi8(a1, b1);
-							r2=_mm_cmplt_epi8(a2, b2);
-							remove = _mm_movemask_epi8(r1) | _mm_movemask_epi8(r2)<<16;
-						}
-						if (compfunc_fun==cht_lte)
-						{
-							r1=_mm_cmpgt_epi8(a1, b1);
-							r2=_mm_cmpgt_epi8(a2, b2);
-							remove = ~(_mm_movemask_epi8(r1) | _mm_movemask_epi8(r2)<<16);
-						}
-						remove^=-compfunc_exp;
-						deleted=popcount32(show&~remove);
-						show&=remove;
+						if (compfunc_fun==cht_lte) keep=~keep;
+						keep^=-compfunc_exp;
+						deleted=popcountS(show&~keep);
+						show&=keep;
 #else
 						//assume the memory block is suitably aligned
 						const size_t* ptrS=(size_t*)ptr;
 						const size_t* ptrprevS=(size_t*)ptrprev;
-						uint32_t neq=0;
-						uint32_t lte=0;
-						for (unsigned int bits=0;bits<32;bits+=sizeof(size_t))
+						size_t neq=0;
+						size_t lte=0;
+						for (unsigned int bits=0;bits<SIZET_BITS;bits+=sizeof(size_t))
 						{
 							//warning - ugly math ahead
 //repeated 16bit pattern
-#define rep16(x) (~0UL/65535*(x))
+#define rep16(x) (~(size_t)0/65535*(x))
 #define rep8(x) rep16((x)*0x0101)
 							
 							STATIC_ASSERT(sizeof(size_t)<=8, fix_this_function);
@@ -1001,18 +979,18 @@ static void thread_do_search(struct minircheats_model_impl * this, unsigned int 
 							lte |= (lte_bits*bitmerge) >> (sizeof(size_t)*(8-1)) << bits;
 						}
 						
-						uint32_t remove;
+						size_t remove;
 						if (compfunc_fun==cht_eq) remove=neq;//we'll add tilde to both the others, in exchange for not having tilde on equal
 						if (compfunc_fun==cht_lt) remove=~(neq&lte);
 						if (compfunc_fun==cht_lte) remove=~lte;
 						remove^=-compfunc_exp;
-						deleted=popcount32(show&remove);
+						deleted=popcountS(show&remove);
 						show&=~remove;
 #endif
 					}
 					else//TODO: speed this up once I've figured out which data sizes I want.
 					{
-						for (unsigned int bit=0;bit<32;bit++)
+						for (size_t bit=0;bit<SIZET_BITS;bit++)
 						{
 							if (show & (1<<bit))
 							{
@@ -1039,8 +1017,8 @@ static void thread_do_search(struct minircheats_model_impl * this, unsigned int 
 					}
 					mem->show_treehigh[(pos+pagepos)/SIZE_PAGE_HIGH]-=deleted;
 					mem->show_treelow[(pos+pagepos)/SIZE_PAGE_LOW]-=deleted;
-					mem->show[(pos+pagepos)/32]=show;
-					pos+=32;
+					mem->show[(pos+pagepos)/SIZET_BITS]=show;
+					pos+=SIZET_BITS;
 				}
 				if (mem->prev) memcpy(mem->prev+pagepos, mem->ptr+pagepos, worklen);
 			}
