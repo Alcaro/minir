@@ -883,16 +883,19 @@ static void thread_do_search(struct minircheats_model_impl * this, unsigned int 
 								a4=_mm_xor_si128(a4, signflip);
 								b4=_mm_xor_si128(b4, signflip);
 								
-								if (compfunc_fun<=cht_lte) keep |= (size_t)_mm_movemask_epi8(_mm_cmplt_epi8(a1, b1)) << 0;
-								if (compfunc_fun>=cht_lte) keep |= (size_t)_mm_movemask_epi8(_mm_cmpeq_epi8(a1, b1)) << 0;
-								if (compfunc_fun<=cht_lte) keep |= (size_t)_mm_movemask_epi8(_mm_cmplt_epi8(a2, b2)) << 16;
-								if (compfunc_fun>=cht_lte) keep |= (size_t)_mm_movemask_epi8(_mm_cmpeq_epi8(a2, b2)) << 16;
-								if (SIZET_BITS==64)
+								if (compfunc_fun<=cht_lte)
 								{
-									if (compfunc_fun<=cht_lte) keep |= (size_t)_mm_movemask_epi8(_mm_cmplt_epi8(a3, b4)) << 32;
-									if (compfunc_fun>=cht_lte) keep |= (size_t)_mm_movemask_epi8(_mm_cmpeq_epi8(a3, b4)) << 32;
-									if (compfunc_fun<=cht_lte) keep |= (size_t)_mm_movemask_epi8(_mm_cmplt_epi8(a4, b3)) << 48;
-									if (compfunc_fun>=cht_lte) keep |= (size_t)_mm_movemask_epi8(_mm_cmpeq_epi8(a4, b3)) << 48;
+									keep |= (size_t)_mm_movemask_epi8(_mm_cmplt_epi8(a1, b1)) << 0;
+									keep |= (size_t)_mm_movemask_epi8(_mm_cmplt_epi8(a2, b2)) << 16;
+									if (SIZET_BITS==64) keep |= (size_t)_mm_movemask_epi8(_mm_cmplt_epi8(a3, b4)) << 32;
+									if (SIZET_BITS==64) keep |= (size_t)_mm_movemask_epi8(_mm_cmplt_epi8(a3, b4)) << 48;
+								}
+								if (compfunc_fun>=cht_lte)
+								{
+									keep |= (size_t)_mm_movemask_epi8(_mm_cmpeq_epi8(a1, b1)) << 0;
+									keep |= (size_t)_mm_movemask_epi8(_mm_cmpeq_epi8(a2, b2)) << 16;
+									if (SIZET_BITS==64) keep |= (size_t)_mm_movemask_epi8(_mm_cmpeq_epi8(a4, b4)) << 32;
+									if (SIZET_BITS==64) keep |= (size_t)_mm_movemask_epi8(_mm_cmpeq_epi8(a4, b4)) << 48;
 								}
 							}
 							else
