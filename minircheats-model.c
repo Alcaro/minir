@@ -920,19 +920,36 @@ static void thread_do_search(struct minircheats_model_impl * this, unsigned int 
 						if (comptoprev)
 						{
 							__m128i* ptrprevS=(__m128i*)ptrprev;
-							for (int i=0;i<SIZET_BITS/16;i++)
+							STATIC_ASSERT(SIZET_BITS==32 || SIZET_BITS==64, fix_this_function);
+							
+							__m128i a1=_mm_loadu_si128(ptrS++);
+							__m128i b1=_mm_load_si128(ptrprevS++);
+							__m128i a2=_mm_loadu_si128(ptrS++);
+							__m128i b2=_mm_load_si128(ptrprevS++);
+							__m128i a3=_mm_loadu_si128(ptrS++);
+							__m128i b3=_mm_load_si128(ptrprevS++);
+							__m128i a4=_mm_loadu_si128(ptrS++);
+							__m128i b4=_mm_load_si128(ptrprevS++);
+							
+							a1=_mm_xor_si128(a1, signflip);
+							b1=_mm_xor_si128(b1, signflip);
+							a2=_mm_xor_si128(a2, signflip);
+							b2=_mm_xor_si128(b2, signflip);
+							a3=_mm_xor_si128(a3, signflip);
+							b3=_mm_xor_si128(b3, signflip);
+							a4=_mm_xor_si128(a4, signflip);
+							b4=_mm_xor_si128(b4, signflip);
+							
+							if (compfunc_fun<=cht_lte) keep |= (size_t)_mm_movemask_epi8(_mm_cmplt_epi8(a1, b1)) << 0;
+							if (compfunc_fun>=cht_lte) keep |= (size_t)_mm_movemask_epi8(_mm_cmpeq_epi8(a1, b1)) << 0;
+							if (compfunc_fun<=cht_lte) keep |= (size_t)_mm_movemask_epi8(_mm_cmplt_epi8(a2, b2)) << 16;
+							if (compfunc_fun>=cht_lte) keep |= (size_t)_mm_movemask_epi8(_mm_cmpeq_epi8(a2, b2)) << 16;
+							if (SIZET_BITS==64)
 							{
-								__m128i a=_mm_loadu_si128(ptrS);
-								__m128i b=_mm_load_si128(ptrprevS);
-								
-								a=_mm_xor_si128(a, signflip);
-								b=_mm_xor_si128(b, signflip);
-								
-								if (compfunc_fun<=cht_lte) keep |= _mm_movemask_epi8(_mm_cmplt_epi8(a, b)) << ((size_t)i*16);
-								if (compfunc_fun>=cht_lte) keep |= _mm_movemask_epi8(_mm_cmpeq_epi8(a, b)) << ((size_t)i*16);
-								
-								ptrS++;
-								ptrprevS++;
+								if (compfunc_fun<=cht_lte) keep |= (size_t)_mm_movemask_epi8(_mm_cmplt_epi8(a3, b4)) << 32;
+								if (compfunc_fun>=cht_lte) keep |= (size_t)_mm_movemask_epi8(_mm_cmpeq_epi8(a3, b4)) << 32;
+								if (compfunc_fun<=cht_lte) keep |= (size_t)_mm_movemask_epi8(_mm_cmplt_epi8(a4, b3)) << 48;
+								if (compfunc_fun>=cht_lte) keep |= (size_t)_mm_movemask_epi8(_mm_cmpeq_epi8(a4, b3)) << 48;
 							}
 						}
 						else
