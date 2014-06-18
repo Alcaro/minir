@@ -914,7 +914,8 @@ static void thread_do_search(struct minircheats_model_impl * this, unsigned int 
 					if (datsize==1 && pagepos+pos+SIZET_BITS <= mem->len && (((uintptr_t)ptr)&(FAST_ALIGN-1)) == 0)
 					{
 #if __SSE2__
-						size_t keep=0;
+						size_t eq=0;
+						size_t lt=0;
 						__m128i* ptrS=(__m128i*)ptr;
 						__m128i* ptrprevS=(__m128i*)ptrprev;
 						for (int i=0;i<SIZET_BITS/16;i++)
@@ -928,13 +929,17 @@ static void thread_do_search(struct minircheats_model_impl * this, unsigned int 
 							a=_mm_xor_si128(a, signflip);
 							b=_mm_xor_si128(b, signflip);
 							
-							if (compfunc_fun<=cht_lte)  keep |= _mm_movemask_epi8(_mm_cmpeq_epi8(a, b)) << ((size_t)i*16);
-							if (compfunc_fun>=cht_lte)  keep |= _mm_movemask_epi8(_mm_cmplt_epi8(a, b)) << ((size_t)i*16);
+							eq |= _mm_movemask_epi8(_mm_cmpeq_epi8(a, b)) << ((size_t)i*16);
+							lt |= _mm_movemask_epi8(_mm_cmplt_epi8(a, b)) << ((size_t)i*16);
 							
 							ptrS++;
 							ptrprevS++;
 						}
-						if (compfunc_fun==cht_lte) keep=~keep;
+						
+						size_t keep;
+						if (compfunc_fun==cht_eq) keep=eq;
+						if (compfunc_fun==cht_lt) keep=lt;
+						if (compfunc_fun==cht_lte) keep=(eq|lt);
 						keep^=-compfunc_exp;
 						deleted=popcountS(show&~keep);
 						show&=keep;
