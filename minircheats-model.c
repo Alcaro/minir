@@ -867,7 +867,7 @@ static void thread_do_search(struct minircheats_model_impl * this, unsigned int 
 								
 								__m128i a1=_mm_loadu_si128(ptrS++);
 								__m128i a2=_mm_loadu_si128(ptrS++);
-								__m128i a3=_mm_loadu_si128(ptrS++);
+								__m128i a3=_mm_loadu_si128(ptrS++);//no conditionals on the SIZET_BITS==64-only ones; let the optimizer eat them
 								__m128i a4=_mm_loadu_si128(ptrS++);
 								__m128i b1=_mm_load_si128(ptrprevS++);
 								__m128i b2=_mm_load_si128(ptrprevS++);
@@ -876,7 +876,7 @@ static void thread_do_search(struct minircheats_model_impl * this, unsigned int 
 								
 								a1=_mm_xor_si128(a1, signflip);
 								a2=_mm_xor_si128(a2, signflip);
-								a3=_mm_xor_si128(a3, signflip);//no conditionals on those; let the optimizer eat them
+								a3=_mm_xor_si128(a3, signflip);
 								a4=_mm_xor_si128(a4, signflip);
 								b1=_mm_xor_si128(b1, signflip);
 								b2=_mm_xor_si128(b2, signflip);
