@@ -19,7 +19,7 @@ static GType M_VIRTUAL_TYPE=0;
 
 struct VirtualList
 {
-	GObject parent;//leave this one on top
+	GObject g_parent;//leave this one on top
 	
 	size_t rows;
 	unsigned int columns;
@@ -27,7 +27,7 @@ struct VirtualList
 	
 	struct widget_listbox * subject;
 	const char * (*get_cell)(struct widget_listbox * subject, size_t row, int column, void * userdata);
-	void * userdata;
+	void * get_userdata;
 };
 
 struct VirtualListClass
@@ -119,7 +119,7 @@ static void virtual_list_get_value(GtkTreeModel* tree_model, GtkTreeIter* iter, 
 	if (column == virtual_list->columns)
 	{
 		g_value_init(value, G_TYPE_BOOLEAN);
-		g_value_set_boolean(value, virtual_list->get_cell(virtual_list->subject, row, -1, virtual_list->userdata) ? true : false);
+		g_value_set_boolean(value, virtual_list->get_cell(virtual_list->subject, row, -1, virtual_list->get_userdata) ? true : false);
 		return;
 	}
 	
@@ -129,7 +129,7 @@ static void virtual_list_get_value(GtkTreeModel* tree_model, GtkTreeIter* iter, 
 	if (row>=virtual_list->rows) g_return_if_reached();
 	
 	g_value_init(value, G_TYPE_STRING);
-	const char * ret=virtual_list->get_cell(virtual_list->subject, row, column, virtual_list->userdata);
+	const char * ret=virtual_list->get_cell(virtual_list->subject, row, column, virtual_list->get_userdata);
 	g_value_set_string(value, ret);
 }
 
@@ -239,12 +239,9 @@ struct widget_listbox_gtk3 {
 	struct widget_listbox i;
 	
 	GtkTreeView* tree;
-	size_t rows;
-	unsigned int columns;
 	
 	struct VirtualList* vlist;
 	
-	bool checkboxes;
 	void (*ontoggle)(struct widget_listbox * subject, size_t row, void * userdata);
 	void* toggle_userdata;
 	
@@ -283,7 +280,7 @@ static void listbox_set_contents(struct widget_listbox * this_,
 	
 	//we ignore the search function, there is no valid way for gtk+ to use it
 	this->vlist->get_cell=get_cell;
-	this->vlist->userdata=userdata;
+	this->vlist->get_userdata=userdata;
 }
 
 static void listbox_set_num_rows(struct widget_listbox * this_, size_t rows)
@@ -294,21 +291,11 @@ static void listbox_set_num_rows(struct widget_listbox * this_, size_t rows)
 	
 	double scrollpos=gtk_adjustment_get_value(gtk_scrollable_get_vadjustment(GTK_SCROLLABLE(this->tree)));
 	
-	if (this->vlist) g_object_unref(this->vlist);
-	
-	virtual_list_register_type();
-	
-	//do not keep the same vlist, the treemodel won't notice that it changed
-	//(we could temporarily set it to null, but I don't think there's any point.)
-	this->vlist=g_object_new(M_VIRTUAL_TYPE, NULL);
-	this->vlist->subject=this_;
-	this->vlist->columns=this->columns;
-	this->vlist->rows=rows;
-	
-	this->rows=rows;
-	
 	//this is piss slow for some reason I can't figure out
+	gtk_tree_view_set_model(this->tree, GTK_TREE_MODEL(NULL));
 	gtk_tree_view_set_model(this->tree, GTK_TREE_MODEL(this->vlist));
+	
+	this->vlist->rows=rows;
 	
 	GtkAdjustment* adj=gtk_scrollable_get_vadjustment(GTK_SCROLLABLE(this->tree));
 	gtk_adjustment_set_value(adj, scrollpos);
@@ -362,7 +349,7 @@ static void listbox_set_size(struct widget_listbox * this_, unsigned int height,
 	if (widths)
 	{
 		PangoLayout* layout=pango_layout_new(gtk_widget_get_pango_context(GTK_WIDGET(this->tree)));
-		for (unsigned int i=0;i<this->columns;i++)
+		for (unsigned int i=0;i<this->vlist->columns;i++)
 		{
 			const char xs[]="xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx";
 			pango_layout_set_text(layout, xs, widths[i]);
@@ -385,15 +372,15 @@ static void listbox_checkbox_toggle(GtkCellRendererToggle* cell_renderer, gchar*
 }
 
 static void listbox_add_checkboxes(struct widget_listbox * this_,
-                    void (*ontoggle)(struct widget_listbox * subject, size_t id, void * userdata), void * userdata)
+                                   void (*ontoggle)(struct widget_listbox * subject, size_t id, void * userdata),
+                                   void * userdata)
 {
 	struct widget_listbox_gtk3 * this=(struct widget_listbox_gtk3*)this_;
 	
-	this->checkboxes=true;
-	if (this->vlist) this->vlist->checkboxes=true;
+	this->vlist->checkboxes=true;
 	
 	GtkCellRenderer* render=gtk_cell_renderer_toggle_new();
-	gtk_tree_view_insert_column_with_attributes(this->tree, 0, "", render, "active", this->columns, NULL);
+	gtk_tree_view_insert_column_with_attributes(this->tree, 0, "", render, "active", this->vlist->columns, NULL);
 	
 	this->ontoggle=ontoggle;
 	this->toggle_userdata=userdata;
@@ -426,15 +413,17 @@ struct widget_listbox * widget_create_listbox_l(unsigned int numcolumns, const c
 	this->i.set_size=listbox_set_size;
 	this->i.add_checkboxes=listbox_add_checkboxes;
 	
-	this->rows=0;
-	this->checkboxes=false;
-	
-	this->vlist=NULL;
+	virtual_list_register_type();
+	this->vlist=g_object_new(M_VIRTUAL_TYPE, NULL);
+	this->vlist->subject=(struct widget_listbox*)this;
+	this->vlist->columns=numcolumns;
 	
 	g_signal_connect(this->tree, "row-activated", G_CALLBACK(listbox_onactivate), this);
 	this->onactivate=NULL;
 	
-	this->columns=numcolumns;
+	this->vlist->columns=numcolumns;
+	this->vlist->rows=0;
+	this->vlist->checkboxes=false;
 	
 	GtkCellRenderer* render=gtk_cell_renderer_text_new();
 	for (unsigned int i=0;i<numcolumns;i++)
