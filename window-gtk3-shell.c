@@ -555,6 +555,11 @@ static bool menu_active(struct window * this_)
 static void free_(struct window * this_)
 {
 	struct window_gtk3 * this=(struct window_gtk3*)this_;
+	if (this->delayfree)
+	{
+		this->delayfree=2;
+		return;
+	}
 	this->contents->_free(this->contents);
 	
 	if (this->menu) menu_delete(this->menu);

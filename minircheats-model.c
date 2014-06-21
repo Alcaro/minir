@@ -1,3 +1,4 @@
+#include<valgrind/memcheck.h>
 #include "minir.h"
 #undef malloc
 #undef realloc
@@ -901,6 +902,9 @@ static void thread_do_search(struct minircheats_model_impl * this, unsigned int 
 				size_t pos=0;
 				while (pos<worklen)
 				{
+VALGRIND_CHECK_VALUE_IS_DEFINED(pos);
+VALGRIND_CHECK_VALUE_IS_DEFINED(pagepos);
+VALGRIND_CHECK_VALUE_IS_DEFINED(mem->show_treelow[(pagepos+pos)/SIZE_PAGE_LOW]);
 					if (!(pos&SIZE_PAGE_LOW) && mem->show_treelow[(pagepos+pos)/SIZE_PAGE_LOW]==0)
 					{
 						pos+=SIZE_PAGE_LOW;
@@ -1063,7 +1067,7 @@ static void thread_do_search(struct minircheats_model_impl * this, unsigned int 
 						// that the strongest (publically available) computers are all x86_64,
 						// and that the perf loss is far larger than the gains,
 						// it is not worth moving.
-						if ((comptoprev || compto==0) && pagepos+pos+SIZET_BITS+4-1 <= mem->len && false)
+						if ((comptoprev || compto==0) && pagepos+pos+SIZET_BITS+4-1 <= mem->len)
 						{
 							const uint8_t zeroes[SIZET_BITS+4-1]={0};
 							const uint8_t * other=(comptoprev ? ptrprev : zeroes);
@@ -1135,6 +1139,7 @@ static void thread_do_search(struct minircheats_model_impl * this, unsigned int 
 						if (compfunc_fun<=cht_lte) keep|=lt;
 						if (compfunc_fun>=cht_lte) keep|=eq;
 						keep^=-compfunc_exp;
+VALGRIND_CHECK_VALUE_IS_DEFINED(keep);
 						unsigned int deleted=popcountS(show&~keep);
 						mem->show_treehigh[(pos+pagepos)/SIZE_PAGE_HIGH]-=deleted;
 						mem->show_treelow[(pos+pagepos)/SIZE_PAGE_LOW]-=deleted;

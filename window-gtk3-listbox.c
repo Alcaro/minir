@@ -293,9 +293,8 @@ static void listbox_set_num_rows(struct widget_listbox * this_, size_t rows)
 	
 	//this is piss slow for some reason I can't figure out
 	gtk_tree_view_set_model(this->tree, GTK_TREE_MODEL(NULL));
-	gtk_tree_view_set_model(this->tree, GTK_TREE_MODEL(this->vlist));
-	
 	this->vlist->rows=rows;
+	gtk_tree_view_set_model(this->tree, GTK_TREE_MODEL(this->vlist));
 	
 	GtkAdjustment* adj=gtk_scrollable_get_vadjustment(GTK_SCROLLABLE(this->tree));
 	gtk_adjustment_set_value(adj, scrollpos);
