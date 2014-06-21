@@ -1,4 +1,3 @@
-#include<valgrind/memcheck.h>
 #include "minir.h"
 #undef malloc
 #undef realloc
