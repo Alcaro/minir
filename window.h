@@ -434,10 +434,11 @@ void window_run_wait();//Returns only after doing something. Use while idling. I
                        // however, repeatedly calling it will leave the CPU mostly idle.
 
 //Shows a message box. You can do that by creating a label and some buttons, but it gives inferior results.
+//Returns true for OK and Yes, and false for Cancel/No/close window.
+//The title may or may not be ignored.
 enum mbox_sev { mb_info, mb_warn, mb_err };
 enum mbox_btns { mb_ok, mb_okcancel, mb_yesno };
-unsigned int window_message_box(struct window * parent, const char * text, const char * title,
-                                enum mbox_sev severity, enum mbox_btns buttons);
+bool window_message_box(const char * text, const char * title, enum mbox_sev severity, enum mbox_btns buttons);
 
 //Usable for both ROMs and dylibs. If dylib is true, the returned filenames are for the system's
 // dynamic linker; this will disable gvfs-like systems the dynamic linker can't understand, and may

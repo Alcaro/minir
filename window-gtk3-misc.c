@@ -23,18 +23,6 @@
 //Refreshing a listbox is done by telling it to redraw, not by telling it that contents have changed.
 // It's either that or send tens of thousands of contents-changed events, and I'd rather not.
 
-void
-window_firstrun
-()
-{
-GtkWidget*dialog=gtk_message_dialog_new(NULL, 0, GTK_MESSAGE_WARNING, GTK_BUTTONS_OK,
-	"This piece of software is far from finished. There is no configuration panel, and some components are bad at emitting error messages.\r\n"
-	"All valid settings will show up in minir.cfg, which will appear beside the executable once it's closed.\r\n"
-);
-gtk_dialog_run(GTK_DIALOG(dialog));
-gtk_widget_destroy(dialog);
-}
-
 //static GdkFilterReturn scanfilter(GdkXEvent* xevent, GdkEvent* event, gpointer data)
 //{
 //	XEvent* ev=(XEvent*)xevent;
@@ -73,6 +61,20 @@ static void * mem_from_g_alloc(void * mem, size_t size)
 	memcpy(ret, mem, size);
 	g_free(ret);
 	return ret;
+}
+
+//enum mbox_sev { mb_info, mb_warn, mb_err };
+//enum mbox_btns { mb_ok, mb_okcancel, mb_yesno };
+bool window_message_box(const char * text, const char * title, enum mbox_sev severity, enum mbox_btns buttons)
+{
+	//"Please note that GTK_BUTTONS_OK, GTK_BUTTONS_YES_NO and GTK_BUTTONS_OK_CANCEL are discouraged by the GNOME HIG."
+	//I do not listen to advise without a rationale. Tell me which section it violates, and I'll consider it.
+	GtkMessageType sev[3]={ GTK_MESSAGE_OTHER, GTK_MESSAGE_WARNING, GTK_MESSAGE_ERROR };
+	GtkButtonsType btns[3]={ GTK_BUTTONS_OK, GTK_BUTTONS_OK_CANCEL, GTK_BUTTONS_YES_NO };
+	GtkWidget* dialog=gtk_message_dialog_new(NULL, GTK_DIALOG_MODAL, sev[severity], btns[buttons], "%s", text);
+	gint ret=gtk_dialog_run(GTK_DIALOG(dialog));
+	gtk_widget_destroy(dialog);
+	return (ret==GTK_RESPONSE_ACCEPT || ret==GTK_RESPONSE_OK || ret==GTK_RESPONSE_YES);
 }
 
 const char * const * window_file_picker(struct window * parent,
