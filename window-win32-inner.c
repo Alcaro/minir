@@ -944,7 +944,7 @@ static void listbox_set_onactivate(struct widget_listbox * this_,
 }
 
 static void listbox_add_checkboxes(struct widget_listbox * this_,
-                                   void (*ontoggle)(struct widget_listbox * subject, unsigned int row, void* userdata),
+                                   void (*ontoggle)(struct widget_listbox * subject, size_t row, void* userdata),
                                    void* userdata)
 {
 	struct widget_listbox_win32 * this=(struct widget_listbox_win32*)this_;
