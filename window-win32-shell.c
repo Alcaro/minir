@@ -687,10 +687,10 @@ static void free_(struct window * this_)
 	free(this);
 }
 
-static void* _get_handle(struct window * this_)
+static uintptr_t _get_handle(struct window * this_)
 {
 	struct window_win32 * this=(struct window_win32*)this_;
-	return this->hwnd;
+	return (uintptr_t)this->hwnd;
 }
 
 static void _reflow(struct window * this_)
@@ -759,7 +759,8 @@ struct window * window_create(void * contents)
 	this->contents=contents;
 	this->contents->_measure(this->contents);
 	//the 6 and 28 are arbitrary; we'll set ourselves to a better size later. Windows' default placement algorithm sucks, anyways.
-	this->hwnd=CreateWindow("minir", isxp?"Bug reports from XP users will be ignored. Get a new computer.":"", WS_NONRESIZ, CW_USEDEFAULT, CW_USEDEFAULT,
+	const char * xpmsg="Do not submit bug reports. Windows XP is unsupported by Microsoft, and unsupported by me.";
+	this->hwnd=CreateWindow("minir", isxp?xpmsg:"", WS_NONRESIZ, CW_USEDEFAULT, CW_USEDEFAULT,
 	                        this->contents->_width+6, this->contents->_height+28, NULL, NULL, GetModuleHandle(NULL), NULL);
 	SetWindowLongPtr(this->hwnd, GWLP_USERDATA, (LONG_PTR)this);
 	this->numchildwin=this->contents->_init(this->contents, (struct window*)this, (uintptr_t)this->hwnd);

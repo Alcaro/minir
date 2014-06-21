@@ -93,7 +93,7 @@ struct window {
 	
 	
 	//Returns a native handle to the window. It is implementation defined what this native handle is, or if it's implemented at all.
-	void* (*_get_handle)(struct window * this);
+	uintptr_t (*_get_handle)(struct window * this);
 	//Repositions the window contents. May not necessarily be implemented, if reflow requests are detected in other ways.
 	void (*_reflow)(struct window * this);
 };
@@ -155,13 +155,13 @@ struct widget_base {
 #ifdef NEED_MANUAL_LAYOUT
 	//measure() returns no value, but sets the width and height. The sizes are undefined if the last
 	// function call on the widget was not measure(); widgets may choose to update their sizes in
-	// response to anything that resizes their size requests.
+	// response to anything that resizes them, and leave measure() blank.
 	//If multiple widgets want the space equally much, they get equal fractions, in addition to their base demand.
 	//If a widget gets extra space and doesn't want it, it shouldadd some padding in any direction.
 	//The widget should, if needed by the window manager, forward all plausible events to its parent window,
 	// unless the widget wants the events. (For example, a button will want mouse events, but not file drop events.)
 	//The window handles passed around are implementation defined.
-	//The return value is the number of windows involved, from the window manager's point of view.
+	//The return value from _init() is the number of windows involved, from the window manager's point of view.
 	unsigned int (*_init)(struct widget_base * this, struct window * parent, uintptr_t parenthandle);
 	void (*_measure)(struct widget_base * this);
 	unsigned int _width;
@@ -339,54 +339,29 @@ struct widget_listbox {
 	struct widget_base base;
 	void (*set_enabled)(struct widget_listbox * this, bool enable);
 	
-	//It is undefined behaviour to not set the contents before showing the window.
-	//If the length changes, call this again.
-	void (*set_contents)(struct widget_listbox * this, unsigned int rows, const char * * contents);
-	//Calling this makes the listbox 'virtual'. A virtual listbox calls the callback every time an item is to be displayed.
-	//It is not guaranteed when, and in which order, the items are requested. The function must, at
-	// all times, be ready to be asked for any value, including while inside a function call on this
-	// widget, including set_contents_virtual().
-	//It is, however, allowed to make a cache based on the assumption that the request order is
-	// row 1 column 1, row 1 column 2, row 2 column 1, etc.
-	//It is allowed to implement one of set_contents[_virtual] in terms of the other (though
-	// implementing set_contents_virtual as set_contents wastes a lot of memory and is therefore
-	// unwise).
-	//Because this one may be called very often, it is very strongly recommended to not do anything
-	// except access memory during this callback; for example, do not query radio button states.
-	//Additionally, you should estimate the maximal runtime.
-	//The return value can be freed the next time the anything is requested from the same column
-	// (whether the same row or another one), or once whatever the callback is called from returns,
-	// whichever comes first.
-	//It is allowed to call set_contents[_virtual] multiple times, including calling both of them
-	// multiple times each.
-	//
-	//The search callback allows quicker searching for items in the list than generating all items. It
-	// will search through all rows for something where the first column starts with the given string
-	// (case insensitive), making use of what it knows about the nature of its data. For example, if
-	// only every tenth row starts with another letter than the previous row, it won't need to examine
-	// the remaining nine; or if the data is sorted, it can use a binary search.
-	//If there is no match after the given row, it will restart at row zero. If there is no match before that either, it will return -1.
-	//It's optional to implement; if NULL is given, the implementation will provide one based on get_cell. The implementation is
-	// not obliged to use this callback, either.
-	//The same userdata will be given to both callbacks.
-	void (*set_contents_virtual)(struct widget_listbox * this, unsigned int rows,
-	                             const char * (*get_cell)(struct widget_listbox * subject, unsigned int row, unsigned int column,
-	                                                      void * userdata),
-	                             int (*search)(struct widget_listbox * subject, unsigned int start, const char * str, void * userdata),
-	                             void * userdata);
-	//This changes only one row. It can be used even if the listbox is virtual, though in this case, the row contents must be NULL.
-	void (*set_row)(struct widget_listbox * this, unsigned int row, const char * * contents);
-	//Tells the widget that the contents have changed and that it should redraw all rows.
-	//If the widget is not virtual, it does nothing except waste time.
-	void (*refresh)(struct widget_listbox * this);
+	//Row -1 is the checkboxes, if they exist; NULL for unchecked, non-NULL (though not necessarily a valid pointer) for checked.
+	//The search callback should return the row ID closest to 'start' in the given direction where the first column starts with 'str'.
+	//If 'start' itself starts with 'prefix', it should be returned. If there is none in that direction, loop around, or return (size_t)-1.
+	//It's optional, but recommended for better performance.
+	//(GTK+ is stupid and doesn't let me use it. GTK+ also takes time greater than O(1) to process a row, so it's capped to 65536.)
+	void (*set_contents)(struct widget_listbox * this,
+	                     const char * (*get_cell)(struct widget_listbox * subject, size_t row, int column,
+	                                              void * userdata),
+	                     size_t (*search)(struct widget_listbox * subject, const char * prefix, size_t start, bool up, void * userdata),
+	                     void * userdata);
+	
+	void (*set_num_rows)(struct widget_listbox * this, size_t rows);
+	
+	//Refreshing row (size_t)-1 refreshes all of them.
+	void (*refresh)(struct widget_listbox * this, size_t row);
 	
 	//The active row can change without activating the new item.
-	//The exact conditions under which a listbox entry is activated is platform dependent, but
-	// double click and Enter are likely. It is guaranteed to be possible.
-	//Returns -1 if no row is active.
-	int (*get_active_row)(struct widget_listbox * this);
+	//The exact conditions under which a listbox entry is activated is platform dependent, but double
+	// click and Enter are likely. It is guaranteed to be possible.
+	//Returns (size_t)-1 if no row is active.
+	size_t (*get_active_row)(struct widget_listbox * this);
 	void (*set_onactivate)(struct widget_listbox * this,
-	                       void (*onactivate)(struct widget_listbox * subject, unsigned int row, void * userdata),
+	                       void (*onactivate)(struct widget_listbox * subject, size_t row, void * userdata),
 	                       void* userdata);
 	
 	//This is the size on the screen. The height is how many items show up; the widths are how many
@@ -394,17 +369,13 @@ struct widget_listbox {
 	//It is allowed to use 0 (height) or NULL (widths) to mean "keep current or use the default".
 	void (*set_size)(struct widget_listbox * this, unsigned int height, const unsigned int * widths);
 	
-	//You may only add checkboxes once.
-	//Calling set_contents[_virtual] keeps the checkboxes, but resets them all. You can use set_all_checkboxes to put the values back.
-	//You may not use the other three checkbox functions without adding checkboxes first.
 	//It is implementation defined how the checkboxes are represented. They can be prepended to the
-	// first column, on a column of their own, or something weirder. The position relative to the other columns is not guaranteed.
+	// first column, on a column of their own, or something weirder. The position relative to the
+	// other columns is not guaranteed.
+	//The toggle callback does not contain the current nor former state; the structure does not keep track of that.
 	void (*add_checkboxes)(struct widget_listbox * this,
-	                       void (*ontoggle)(struct widget_listbox * subject, unsigned int row, bool state, void * userdata),
+	                       void (*ontoggle)(struct widget_listbox * subject, size_t row, void * userdata),
 	                       void * userdata);
-	bool (*get_checkbox_state)(struct widget_listbox * this, unsigned int row);
-	void (*set_checkbox_state)(struct widget_listbox * this, unsigned int row, bool state);
-	void (*set_all_checkboxes)(struct widget_listbox * this, bool * states);
 };
 struct widget_listbox * widget_create_listbox_l(unsigned int numcolumns, const char * * columns);
 struct widget_listbox * widget_create_listbox(const char * firstcol, ...);
@@ -421,7 +392,7 @@ struct widget_frame * widget_create_frame(const char * text, void* contents);
 
 
 //A horizontal layout puts its child widgets beside each other; a vertical layout puts its children on top of each other.
-//It is safe to put layouts inside each other, though the types should alternate.
+//It is safe to put layouts inside each other, though the types should alternate, or you're wasting memory.
 //It is not necessary for the root widget to be a layout.
 struct widget_layout {
 	struct widget_base base;
@@ -434,10 +405,16 @@ struct widget_layout * widget_create_layout(bool vertical, bool uniform, void * 
 //numchildren can be 0. In this case, the array is assumed terminated with a NULL.
 struct widget_layout * widget_create_layout_l(bool vertical, bool uniform, unsigned int numchildren, void * * children);
 
+struct widget_grid {
+	struct widget_base base;
+	//can't disable this widget - disable its contents instead
+};
 //The widgets are stored row by row. There is no NULL terminator, because the size is known from the arguments already.
 struct widget_grid * widget_create_grid(unsigned int width, unsigned int height,
                                         void * firstchild, ...);
-//This one allows some widgets to take up multiple boxes of the grid.
+//This one allows some widgets to take up multiple boxes of the grid. They're still stored row by
+// row, except that there is no entry for slots that are already used. It is undefined behaviour if
+// a widget does not fit where it belongs, or if it overlaps another widget.
 struct widget_grid * widget_create_grid_v(unsigned int width, unsigned int height,
                                           unsigned int firstwidth, unsigned int firstheight, void * firstchild, ...);
 //The widths/heights arrays can be NULL, which makes them filled by 1.
@@ -449,11 +426,18 @@ struct widget_grid * widget_create_grid_l(unsigned int cols, unsigned int * widt
 
 //Tells the window manager to handle recent events and fire whatever callbacks are relevant.
 //Neither of them are allowed while inside any callback of any kind.
+//Some other functions may do the same.
 void window_run_iter();//Returns as soon as possible. Use while playing.
 void window_run_wait();//Returns only after doing something. Use while idling. It will return if any
                        // state (other than the time) has changed or if any callback has fired.
                        // It may also return due to uninteresting events, as often as it wants;
                        // however, repeatedly calling it will leave the CPU mostly idle.
+
+//Shows a message box. You can do that by creating a label and some buttons, but it gives inferior results.
+enum mbox_sev { mb_info, mb_warn, mb_err };
+enum mbox_btns { mb_ok, mb_okcancel, mb_yesno };
+unsigned int window_message_box(struct window * parent, const char * text, const char * title,
+                                enum mbox_sev severity, enum mbox_btns buttons);
 
 //Usable for both ROMs and dylibs. If dylib is true, the returned filenames are for the system's
 // dynamic linker; this will disable gvfs-like systems the dynamic linker can't understand, and may
@@ -536,18 +520,8 @@ uintptr_t _window_get_widget_color(unsigned int type, void* handle, void* draw, 
 // equivalent to _window_native_get_absolute_path. Empty and/or duplicate functions are useless.
 char * _window_native_get_absolute_path(const char * path);
 
-//Devirtualizing a listbox means implementing widget_listbox->set_contents in terms of set_contents_virtual.
-//To use, make set_contents call _widget_listbox_devirt_create and store the pointer.
-//Free this pointer on set_contents_virtual and free. Initialize it to NULL.
-struct _widget_listbox_devirt;
-struct _widget_listbox_devirt * _widget_listbox_devirt_create(struct widget_listbox * outer,
-                                                              unsigned int rows, unsigned int columns,
-                                                              const char * * contents);
-void _widget_listbox_devirt_set_row(struct _widget_listbox_devirt * this, unsigned int row, const char * * contents);
-void _widget_listbox_devirt_free(struct _widget_listbox_devirt * this);
-//This one can be used if the one calling widget_listbox->set_contents_virtual doesn't provide a search function.
-int _widget_listbox_search(struct widget_listbox * subject, unsigned int rows,
-                           const char * (*get_cell)(struct widget_listbox * subject,
-                                                    unsigned int row, unsigned int column,
-                                                    void * userdata),
-                           unsigned int start, const char * str, void * userdata);
+//This one can be used if the one calling widget_listbox->set_contents doesn't provide a search function.
+size_t _widget_listbox_search(struct widget_listbox * subject, size_t rows,
+                              const char * (*get_cell)(struct widget_listbox * subject, size_t row, int column,
+                                                       void * userdata),
+                              const char * prefix, size_t start, bool up, void * userdata);

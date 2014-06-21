@@ -16,7 +16,7 @@
 // slots, as opposed to 2,3,2,3 or 3,2,3,2.
 //Label widgets that ellipsize, as well as status bar labels, are declared with max width 1, and
 // then ellipsizes. Apparently they use more space than maximum if they can. This doesn't seem to be
-// documented, and is therefore not guaranteed to continue working. The same hack is used on labels.
+// documented, and is therefore not guaranteed to continue working.
 //gtk_main_iteration_do(false) is called twice, so GTK thinks we're idle and sends out the mouse
 // move events. Most of the time is spent waiting for A/V drivers, and our mouse move processor is
 // cheap. (Likely fixable in GTK+ 3.12, but I'm on 3.8.)

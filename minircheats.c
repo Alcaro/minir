@@ -78,6 +78,7 @@ static bool decodeval(enum cheat_dattype dattype, const char * str, uint32_t * v
 
 static void search_update(struct minircheats_impl * this);
 static void search_update_compto_prev(struct minircheats_impl * this);
+static void list_update(struct minircheats_impl * this);
 
 static void set_parent(struct minircheats * this_, struct window * parent)
 {
@@ -122,6 +123,7 @@ static void set_core(struct minircheats * this_, struct libretro * core, size_t 
 	this->model->prev_set_enabled(this->model, this->prev_enabled);
 	search_update_compto_prev(this);
 	search_update(this);
+	list_update(this);
 }
 
 
@@ -142,7 +144,7 @@ struct minircheatdetail {
 	
 	char orgaddr[32];
 	
-	//See minircheats_impl for details on those.
+	//A linked list, so they can be closed.
 	struct minircheatdetail * prev;
 	struct minircheatdetail * next;
 };
@@ -180,6 +182,7 @@ static void details_ok(struct widget_button * subject, void* userdata)
 		this->parent->model->cheat_remove(this->parent->model, cheatid_new);
 	}
 	this->parent->model->cheat_set(this->parent->model, cheatid_org, &newcheat);
+	list_update(this->parent);
 	details_free(this);
 }
 
@@ -264,7 +267,7 @@ static void details_create(struct minircheats_impl * parent, struct window * par
 
 
 
-static const char * search_get_cell(struct widget_listbox * subject, unsigned int row, unsigned int column, void* userdata);
+static const char * search_get_cell(struct widget_listbox * subject, size_t row, int column, void* userdata);
 
 static void search_update(struct minircheats_impl * this)
 {
@@ -272,11 +275,7 @@ static void search_update(struct minircheats_impl * this)
 	{
 		size_t num_rows=this->model->search_get_num_rows(this->model);
 		
-		size_t num_rows_listbox=num_rows;
-		if (num_rows_listbox > UINT_MAX) num_rows_listbox=UINT_MAX;
-		this->wndsrch_listbox->set_contents_virtual(this->wndsrch_listbox,
-		                                            num_rows_listbox,
-		                                            search_get_cell, NULL, this);
+		this->wndsrch_listbox->set_num_rows(this->wndsrch_listbox, num_rows);
 		
 		if (this->hassearched)
 		{
@@ -340,15 +339,11 @@ static void search_dosearch(struct widget_button * subject, void* userdata)
 			}
 		}
 	}
-//uint64_t t1=window_get_time();
-//for(int i=0;i<4096;i++)
-//{
+	
 	this->model->search_do_search(this->model, this->wndsrch_comptype->get_state(this->wndsrch_comptype), comptoprev, compto_val);
 	thread_split(this->model->thread_get_count(this->model), search_split, this);
 	this->model->thread_finish_work(this->model);
-//}
-//uint64_t t2=window_get_time();
-//printf("searchtime=%i\n",(int)(t2-t1));
+	
 	this->hassearched=true;
 	search_update(this);
 }
@@ -374,7 +369,7 @@ static void search_add_cheat(struct minircheats_impl * this, int row)
 			.issigned=(this->dattype==cht_sign),
 			.enabled=true
 		};
-		this->model->search_get_vis_row(this->model, row, thecheat.addr, &thecheat.val, NULL);
+		this->model->search_get_row(this->model, row, thecheat.addr, &thecheat.val, NULL);
 		
 		details_create(this, this->wndsrch, &thecheat, (this->dattype==cht_hex));
 	}
@@ -488,10 +483,10 @@ static void show_search(struct minircheats * this_)
 		this->wndsrch_compto_select_prev=compto_select[cht_prev];
 		search_update_compto_prev(this);
 		
+		this->wndsrch_listbox->set_contents(this->wndsrch_listbox, search_get_cell, NULL, this);
 		const unsigned int tmp[]={15, 15, 15};
 		//const unsigned int tmp[]={1,2,2};
 		this->wndsrch_listbox->set_size(this->wndsrch_listbox, 16, tmp);
-		
 		this->wndsrch_listbox->set_onactivate(this->wndsrch_listbox, search_add_cheat_listbox, this);
 		
 		dosearch->set_onclick(dosearch, search_dosearch, this);
@@ -518,21 +513,21 @@ static void show_search(struct minircheats * this_)
 	this->wndsrch->focus(this->wndsrch);
 }
 
-static const char * search_get_cell(struct widget_listbox * subject, unsigned int row, unsigned int column, void* userdata)
+static const char * search_get_cell(struct widget_listbox * subject, size_t row, int column, void* userdata)
 {
 	struct minircheats_impl * this=(struct minircheats_impl*)userdata;
 	
 	if (column==0)
 	{
-		this->model->search_get_vis_row(this->model, row, this->celltmp, NULL, NULL);
+		this->model->search_get_row(this->model, row, this->celltmp, NULL, NULL);
 	}
 	else
 	{
 		uint32_t val;
-		if (column==1) this->model->search_get_vis_row(this->model, row, NULL, &val, NULL);
+		if (column==1) this->model->search_get_row(this->model, row, NULL, &val, NULL);
 		if (column==2)
 		{
-			if (this->prev_enabled) this->model->search_get_vis_row(this->model, row, NULL, NULL, &val);
+			if (this->prev_enabled) this->model->search_get_row(this->model, row, NULL, NULL, &val);
 			else return "---";
 		}
 		encodeval(this->dattype, this->datsize, val, this->celltmp);
@@ -544,7 +539,33 @@ static const char * search_get_cell(struct widget_listbox * subject, unsigned in
 
 
 
-void list_add_cheat(struct widget_button * subject, void * userdata)
+static const char * list_get_cell(struct widget_listbox * subject, size_t row, int column, void* userdata);
+
+static void list_update(struct minircheats_impl * this)
+{
+	if (this->wndlist_listbox)
+	{
+		this->wndlist_listbox->set_num_rows(this->wndlist_listbox, this->model->cheat_get_count(this->model));
+	}
+}
+
+static const char * list_get_cell(struct widget_listbox * subject, size_t row, int column, void* userdata)
+{
+	struct minircheats_impl * this=(struct minircheats_impl*)userdata;
+	struct cheat thecheat;
+	thecheat.addr=this->celltmp;
+	this->model->cheat_get(this->model, row, &thecheat);
+	const char changechar[]="\0+-=";
+	switch (column)
+	{
+		case 0: break;
+		case 1: sprintf(this->celltmp, "%.*X%s%c", thecheat.datsize*2, thecheat.val, thecheat.issigned?"S":"", changechar[thecheat.changetype]); break;
+		case 2: return thecheat.desc;
+	}
+	return this->celltmp;
+}
+
+static void list_add_cheat(struct widget_button * subject, void * userdata)
 {
 	
 }
@@ -558,12 +579,14 @@ static void show_list(struct minircheats * this_)
 		this->wndlist=window_create(
 			widget_create_layout_vert(
 				widget_create_layout_horz(
-					widget_create_listbox("Address", "Value", "Description", NULL),
+					this->wndlist_listbox=widget_create_listbox("Address", "Value", "Description", NULL),
 					widget_create_layout_vert(
 						add=widget_create_button("Add"),
 						widget_create_button("Delete"),
 						widget_create_button("Update"),
 						widget_create_button("Clear"),
+						widget_create_button("Sort"),
+						widget_create_padding_vert(),
 						NULL),
 					NULL),
 					//widget_create_layout_grid(2, 3,//TODO: use this
@@ -587,10 +610,16 @@ static void show_list(struct minircheats * this_)
 		this->wndlist->set_is_dialog(this->wndlist);
 		this->wndlist->set_parent(this->wndlist, this->parent);
 		this->wndlist->set_title(this->wndlist, "Cheat Entry and Editor");
+		
+		this->wndlist_listbox->set_contents(this->wndlist_listbox, list_get_cell, NULL, this);
+		const unsigned int tmp[]={15, 15, 15};
+		this->wndlist_listbox->set_size(this->wndlist_listbox, 8, tmp);
 	}
 	
 	this->wndlist->set_visible(this->wndlist, true);
 	this->wndlist->focus(this->wndlist);
+	
+	list_update(this);
 }
 
 
@@ -615,7 +644,7 @@ static void update(struct minircheats * this_, bool ramwatch)
 {
 	struct minircheats_impl * this=(struct minircheats_impl*)this_;
 	//Note that various windows should be updated even if cheats are disabled. If the user wants them gone, he can close them.
-	if (ramwatch && this->wndsrch_listbox) this->wndsrch_listbox->refresh(this->wndsrch_listbox);
+	if (ramwatch && this->wndsrch_listbox) this->wndsrch_listbox->refresh(this->wndsrch_listbox, (size_t)-1);
 	if (!this->enabled) return;
 	this->model->cheat_apply(this->model);
 }
@@ -652,7 +681,8 @@ struct minircheats * minircheats_create()
 	
 	this->enabled=true;
 	this->model=minircheats_create_model();
-	this->model->thread_enable(this->model, thread_ideal_count());
+//TODO: enable threads
+//	this->model->thread_enable(this->model, thread_ideal_count());
 	
 	return (struct minircheats*)this;
 }

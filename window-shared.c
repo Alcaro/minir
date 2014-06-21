@@ -236,68 +236,38 @@ struct widget_layout * widget_create_layout_l(bool vertical, bool uniform, unsig
 #endif
 
 
-struct _widget_listbox_devirt
+size_t _widget_listbox_search(struct widget_listbox * subject, size_t rows,
+                              const char * (*get_cell)(struct widget_listbox * subject, size_t row, int column, void * userdata),
+                              const char * prefix, size_t start, bool up, void * userdata)
 {
-	struct widget_listbox * outer;
-	unsigned int rows;
-	unsigned int columns;
-	char * * contents;
-};
-
-static const char * listbox_devirt_get_cell(struct widget_listbox * subject, unsigned int row, unsigned int column, void * userdata)
-{
-	struct _widget_listbox_devirt * this=(struct _widget_listbox_devirt*)userdata;
-	return this->contents[row*this->columns + column];
-}
-
-struct _widget_listbox_devirt * _widget_listbox_devirt_create(struct widget_listbox * outer, unsigned int rows, unsigned int columns, const char * * contents)
-{
-	struct _widget_listbox_devirt * this=malloc(sizeof(struct _widget_listbox_devirt));
-	this->outer=outer;
-	this->rows=rows;
-	this->columns=columns;
-	this->contents=malloc(sizeof(char*)*rows*columns);
-	for (unsigned int i=0;i<rows*columns;i++)
+	size_t len=strlen(prefix);
+	if (!up)
 	{
-		this->contents[i]=strdup(contents[i]);
+		for (size_t i=start;i<rows;i++)
+		{
+			const char * thisstr=get_cell(subject, i, 0, userdata);
+			if (!strncasecmp(thisstr, prefix, len)) return i;
+		}
+		for (size_t i=0;i<start;i++)
+		{
+			const char * thisstr=get_cell(subject, i, 0, userdata);
+			if (!strncasecmp(thisstr, prefix, len)) return i;
+		}
 	}
-	outer->set_contents_virtual(outer, rows, listbox_devirt_get_cell, NULL, this);
-	return this;
-}
-
-void _widget_listbox_devirt_set_row(struct _widget_listbox_devirt * this, unsigned int row, const char * * contents)
-{
-	for (unsigned int i=0;i<this->columns;i++)
+	else
 	{
-		free(this->contents[row*this->columns + i]);
-		this->contents[row*this->columns + i]=strdup(contents[i]);
+		for (size_t i=start;i>=0;i--)
+		{
+			const char * thisstr=get_cell(subject, i, 0, userdata);
+			if (!strncasecmp(thisstr, prefix, len)) return i;
+		}
+		for (size_t i=rows-1;i>start;i--)
+		{
+			const char * thisstr=get_cell(subject, i, 0, userdata);
+			if (!strncasecmp(thisstr, prefix, len)) return i;
+		}
 	}
-}
-
-void _widget_listbox_devirt_free(struct _widget_listbox_devirt * this)
-{
-	if (!this) return;
-	for (unsigned int i=0;i<this->rows*this->columns;i++) free(this->contents[i]);
-	free(this->contents);
-	free(this);
-}
-
-int _widget_listbox_search(struct widget_listbox * subject, unsigned int rows,
-                           const char * (*get_cell)(struct widget_listbox * subject, unsigned int row, unsigned int column, void * userdata),
-                           unsigned int start, const char * str, void * userdata)
-{
-	size_t len=strlen(str);
-	for (unsigned int i=start;i<rows;i++)
-	{
-		const char * thisstr=get_cell(subject, i, 0, userdata);
-		if (!strncasecmp(thisstr, str, len)) return i;
-	}
-	for (unsigned int i=0;i<start;i++)
-	{
-		const char * thisstr=get_cell(subject, i, 0, userdata);
-		if (!strncasecmp(thisstr, str, len)) return i;
-	}
-	return -1;
+	return (size_t)-1;
 }
 
 
@@ -374,27 +344,6 @@ struct windowmenu * windowmenu_create_submenu(const char * text, struct windowme
 	return windowmenu_create_submenu_l(text, numitems, items);
 }
 
-struct widget_layout * widget_create_layout(bool vertical, bool uniform, void * firstchild, ...)
-{
-	unsigned int numchildren=1;
-	
-	va_list args;
-	va_start(args, firstchild);
-	while (va_arg(args, void*)) numchildren++;
-	va_end(args);
-	
-	void* children[numchildren];
-	children[0]=firstchild;
-	va_start(args, firstchild);
-	for (unsigned int i=1;i<numchildren;i++)
-	{
-		children[i]=va_arg(args, void*);
-	}
-	va_end(args);
-	
-	return widget_create_layout_l(vertical, uniform, numchildren, children);
-}
-
 struct widget_layout * widget_create_radio_group(struct widget_radio * * leader, bool vertical, const char * firsttext, ...)
 {
 	unsigned int numitems=1;
@@ -438,4 +387,25 @@ struct widget_listbox * widget_create_listbox(const char * firstcol, ...)
 	va_end(args);
 	
 	return widget_create_listbox_l(numcols, columns);
+}
+
+struct widget_layout * widget_create_layout(bool vertical, bool uniform, void * firstchild, ...)
+{
+	unsigned int numchildren=1;
+	
+	va_list args;
+	va_start(args, firstchild);
+	while (va_arg(args, void*)) numchildren++;
+	va_end(args);
+	
+	void* children[numchildren];
+	children[0]=firstchild;
+	va_start(args, firstchild);
+	for (unsigned int i=1;i<numchildren;i++)
+	{
+		children[i]=va_arg(args, void*);
+	}
+	va_end(args);
+	
+	return widget_create_layout_l(vertical, uniform, numchildren, children);
 }

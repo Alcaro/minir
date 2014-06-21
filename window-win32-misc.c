@@ -13,25 +13,17 @@
 
 //XP incompatibility status:
 //Level 1 - a feature is usable, but behaves weirdly
-//Level 2 - attempting to use a feature throws an error box, or reports failure in a way the program can handle
+//Level 2 - attempting to use a feature throws an error box, or reports failure in a way the program can and does handle
 //Level 3 - attempting to use a feature reports success internally, but nothing happens
 //Level 4 - attempting to use a feature crashes the program
 //Level 5 - program won't start
 //Maximum allowed incompatibility level: 3 [4 at January 1, 2015] [will be increased later, and eventually this list removed]
 //List:
 //Level 1: LVCFMT_FIXED_WIDTH on the listbox requires Vista+
+//Level 1: printf may dislike z (size_t) size specifiers
+//Level 4 (possible): printf with size z, followed by %s, may dereference random integers
 
 //static LARGE_INTEGER timer_freq;
-
-void
-window_firstrun
-()
-{
-MessageBox(NULL,
-	"This piece of software is far from finished. There is no configuration panel, and some components are bad at emitting error messages.\r\n"
-	"All valid settings will show up in minir.cfg, which will appear beside the executable once it's closed.\r\n"
-,"Warning",MB_ICONWARNING);
-}
 
 void window_init(int * argc, char * * argv[])
 {
@@ -44,6 +36,17 @@ void window_init(int * argc, char * * argv[])
 	_window_init_inner();
 	
 	//QueryPerformanceFrequency(&timer_freq);
+}
+
+unsigned int window_message_box(struct window * parent, const char * text, const char * title,
+                                enum mbox_sev severity, enum mbox_btns buttons)
+{
+	DWORD sev[3]={ 0, MB_ICONWARNING, MB_ICONERROR };
+	DWORD btns[3]={ 0, MB_OKCANCEL, MB_YESNO };
+	return MessageBox(parent ? (HWND)parent->_get_handle(parent) : NULL, text, title, sev[severity]|btns[buttons]);
+#ifndef DEBUG
+	fixme
+#endif
 }
 
 const char * const * window_file_picker(struct window * parent,
@@ -89,7 +92,7 @@ const char * const * window_file_picker(struct window * parent,
 	OPENFILENAME ofn;
 	ZeroMemory(&ofn, sizeof(ofn));
 	ofn.lStructSize=sizeof(ofn);
-	ofn.hwndOwner=(parent?parent->_get_handle(parent):NULL);
+	ofn.hwndOwner=(parent?(HWND)parent->_get_handle(parent):NULL);
 	ofn.lpstrFilter=(extensions[0] ? filter : "All files (*.*)\0*.*\0");
 	char * filenames=malloc(65536);
 	*filenames='\0';

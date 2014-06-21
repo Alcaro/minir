@@ -738,8 +738,12 @@ struct minircheats_model {
 	//Returns all information about a currently visible row. The data size is set by the functions above.
 	//The address will be written to, and must be at least 32 bytes long (31 plus NUL).
 	//If 'prev' is disabled, 'prevval' will remain unchanged if queried.
-	void (*search_get_vis_row)(struct minircheats_model * this, unsigned int row,
-	                           char * addr, uint32_t * val, uint32_t * prevval);
+	void (*search_get_row)(struct minircheats_model * this, size_t row,
+	                       char * addr, uint32_t * val, uint32_t * prevval);
+	
+	//Returns the ID of the visible row starting with the given prefix closest to 'start', in the given direction.
+	//Returns (size_t)-1 if there is no such row.
+	size_t (*search_find_row)(struct minircheats_model * this, const char * prefix, size_t start, bool up);
 	
 	//Threading works like this:
 	//First, call thread_enable and tell how many threads are available on this CPU.
@@ -748,10 +752,16 @@ struct minircheats_model {
 	// workload is small. Some threads may return without doing anything at all.
 	//Once all thread_do_work have returned, call thread_finish_work.
 	//Only thread_do_work may be called from any thread other than the creating thread, and no other
-	// function may be called while any thread is inside thread_do_work.
+	// function may be called while any thread is inside thread_do_work. It is safe to call
+	// thread_do_work from other threads than the creator, including for threadid!=0.
 	//Nothing except thread_do_work and thread_get_count may be called between search_do_search and thread_finish_work.
 	//If the structure sees that it has only use for a finite number of threads, thread_get_count may
-	// return a smaller value than given to thread_enable.
+	// return a smaller value than given to thread_enable. However, it is safe to call thread_do_work
+	// with excess threads; they will return without doing anything.
+	//Note that while performance theoretically should be linear with the number of CPU cores, it is
+	// not in practice. It is linear for some workloads, but for the expected workloads, it's
+	// sublinear (though it does speed up a little). Reasons aren't known for sure, but could be due
+	// to caching or memory bandwidth limitations.
 	void (*thread_enable)(struct minircheats_model * this, unsigned int numthreads);
 	unsigned int (*thread_get_count)(struct minircheats_model * this);
 	void (*thread_do_work)(struct minircheats_model * this, unsigned int threadid);
@@ -790,17 +800,18 @@ struct minircheats_model {
 	//It is not guaranteed that cheat_get returns the same values as given to cheat_set; for example, mirroring may be undone.
 	//However, it is guaranteed that setting a cheat to itself will do nothing.
 	bool (*cheat_set)(struct minircheats_model * this, int pos, const struct cheat * newcheat);
-	//bool (*cheat_set_as_code)(struct minircheats_model * this, int pos, const char * code);
 	void (*cheat_get)(struct minircheats_model * this, unsigned int pos, struct cheat * thecheat);
-	//const char * (*cheat_get_as_code)(struct minircheats_model * this, unsigned int pos);
 	void (*cheat_remove)(struct minircheats_model * this, unsigned int pos);
+	
+	//This one sorts the cheats in the same order as the addresses show up in the cheat search.
+	void (*cheat_sort)(struct minircheats_model * this);
 	
 	//This one disables all cheat codes.
 	//void (*cheat_set_enabled)(struct minircheats_model * this, bool enabled);
 	//This one makes all cheat codes take effect. Call it each frame.
 	void (*cheat_apply)(struct minircheats_model * this);
 	
-	//The returned code is invalidated on the next call to cheat_convert_to_code.
+	//The returned code is invalidated on the next call to code_create.
 	const char * (*code_create)(struct minircheats_model * this, struct cheat * thecheat);
 	bool (*code_parse)(struct minircheats_model * this, const char * code, struct cheat * thecheat);
 	

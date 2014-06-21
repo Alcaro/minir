@@ -87,6 +87,14 @@
 // function pointer in minircheats_model_impl.
 //- No C++ incompatibilities, except using 'this' as variable name. malloc return values must be casted.
 
+//The following assumptions are made:
+//- The child system uses 8bit bytes.
+//- The child system uses two's complement.
+//- The child system uses little endian, or big endian.
+//- It is safe to read up to 3 bytes after any memory area. (The results are discarded.)
+//- The host system uses 8bit bytes.
+//(The host system is allowed to use any endianness.)
+
 static size_t add_bits_down(size_t n)
 {
 	STATIC_ASSERT(sizeof(size_t)==4 || sizeof(size_t)==8, fix_this_function);
@@ -107,16 +115,16 @@ static size_t highest_bit(size_t n)
 
 static uint8_t popcount32(uint32_t i)
 {
-//In LLVM, __builtin_popcount seems to be identical to my popcount64.
+//In LLVM, __builtin_popcount seems to be similar to my popcount64, but without the multiplication.
 //In GCC, it's a loop over a lookup table!
-//In both cases is doing the bithack directly faster.
+//In both cases is it faster to just do the bithack, and we can ignore the popcounter.
 //#ifdef __GNUC__
 //	return __builtin_popcount(i);
 //#else
 	//from http://graphics.stanford.edu/~seander/bithacks.html#CountBitsSetParallel, public domain
 	i = i - ((i >> 1) & 0x55555555);                    // reuse input as temporary
 	i = (i & 0x33333333) + ((i >> 2) & 0x33333333);     // temp
-	return ((i + ((i >> 4) & 0xF0F0F0F)) * 0x1010101) >> 24; // count
+	return (((i + (i >> 4)) & 0xF0F0F0F) * 0x1010101) >> 24; // count
 //#endif
 }
 
@@ -259,9 +267,9 @@ struct memblock {
 	uint8_t * prev;
 	
 #define SIZET_BITS (sizeof(size_t)*8)
-	size_t * show;//the top row in each of those has value 1; bottom is 0x80000000
+	size_t * show;//the top row (lowest address) in each of those has value 1; bottom is 0x80000000 (add eight 0s for 64bit)
 #define SIZE_PAGE_LOW 0x2000//2^13, 8192
-	uint16_t * show_treelow;//one entry per SIZE_PAGE_LOW bits of mem, counts number of set bits within these bytes
+	uint16_t * show_treelow;//one entry per SIZE_PAGE_LOW bytes of mem, counts number of set bits within these bytes
 #define SIZE_PAGE_HIGH 0x400000//2^22, 1048576
 	uint32_t * show_treehigh;//same format as above
 	size_t show_tot;//this applies to the entire memory block
@@ -341,13 +349,13 @@ struct minircheats_model_impl {
 	bool prev_enabled;
 	bool addrspace_case_sensitive;
 	
-	size_t search_lastrow;
-	size_t search_lastmempos;
-	
-	void* addrcache_ptr;
+	unsigned int addrcache_memid;
 	size_t addrcache_start;
 	size_t addrcache_end;
 	size_t addrcache_offset;
+	
+	size_t search_lastrow;
+	size_t search_lastmempos;
 	
 	struct cheat_impl * cheats;
 	unsigned int numcheats;
@@ -362,6 +370,42 @@ struct minircheats_model_impl {
 	
 	char * lastcheat;
 };
+
+
+
+#if 0
+static
+void
+search_scan_sanity
+(struct minircheats_model_impl * this,
+const char * why)
+{
+for (unsigned int i=0;i<this->nummem;i++)
+{
+struct memblock * mem=&this->mem[i];
+//size_t tot=mem->show_tot;
+size_t treehigh=0;
+size_t treelow=0;
+for (size_t i=0;i<mem->len;i+=SIZET_BITS)
+{
+if(i%SIZE_PAGE_HIGH==0){
+//tot-=mem->show_treehigh[i/SIZE_PAGE_HIGH];
+if(treehigh!=0){printf("%s: treelow!=treehigh\n",why);char*e=0;*e=0;}
+treehigh=mem->show_treehigh[i/SIZE_PAGE_HIGH];}
+
+if(i%SIZE_PAGE_LOW==0){
+treehigh-=mem->show_treelow[i/SIZE_PAGE_LOW];
+if(treelow!=0){printf("%s: show!=treelow\n",why);char*e=0;*e=0;}
+treelow=mem->show_treelow[i/SIZE_PAGE_LOW];}
+
+treelow-=popcountS(mem->show[i/SIZET_BITS]);
+}
+if(treelow!=0){printf("%s: show!=treelow\n",why);char*e=0;*e=0;}
+if(treehigh!=0){printf("%s: treelow!=treehigh\n",why);char*e=0;*e=0;}
+//if(tot!=0){printf("%s: treehigh!=tot\n",why);char*e=0;*e=0;}
+}
+}
+#endif
 
 
 
@@ -540,20 +584,22 @@ static bool addr_guest_to_phys(struct minircheats_model_impl * this, unsigned in
 	return false;
 }
 
-static size_t addr_phys_to_guest(struct minircheats_model_impl * this, void* ptr, size_t offset, unsigned int addrspace)
+static size_t addr_phys_to_guest(struct minircheats_model_impl * this, unsigned int memid, size_t offset)
 //this one can't fail
+//address space is neither input nor output; you can find it at this->mem[memid].addrspace
 {
-	if (ptr==this->addrcache_ptr && offset>=this->addrcache_start && offset<this->addrcache_end)
+	if (memid==this->addrcache_memid && offset>=this->addrcache_start && offset<this->addrcache_end)
 	{
 		return offset-this->addrcache_start+this->addrcache_offset;
 	}
-	struct mapping * map=this->addrspaces[addrspace].map;
+	struct mapping * addrmaps=this->addrspaces[this->mem[memid].addrspace].map;
+	struct mapping * map=addrmaps;
 	while (true)
 	{
 		//there is no end condition if this byte shows up nowhere - such a situation is forbidden
 		struct memblock * mem=&this->mem[map->memid];
 		size_t thisaddr;
-		if (mem->ptr!=ptr || map->offset>offset || offset-map->offset > map->len) goto wrongmapping;
+		if (map->memid!=memid || map->offset>offset || offset-map->offset > map->len) goto wrongmapping;
 		thisaddr=inflate(offset, map->disconnect)+map->start;
 		if (false)
 		{
@@ -570,7 +616,7 @@ static size_t addr_phys_to_guest(struct minircheats_model_impl * this, void* ptr
 		}
 		if (map->has_overlaps)
 		{
-			struct mapping * prevmap=this->addrspaces[addrspace].map;
+			struct mapping * prevmap=addrmaps;
 			while (prevmap < map)
 			{
 				if (((prevmap->start ^ thisaddr) & prevmap->select) == 0)
@@ -751,6 +797,28 @@ static void search_do_search(struct minircheats_model * this_, enum cheat_compfu
 	}
 	this->threadsearch_compto-=signadd;
 	
+	//we must run this unthreaded - it could touch two adjacent high trees
+	//it's fast, anyways.
+	for (unsigned int i=0;i<this->nummem;i++)
+	{
+		struct memblock * mem=&this->mem[i];
+		signed int removebits=((SIZET_BITS - mem->len%SIZET_BITS)%SIZET_BITS + this->search_datsize-1);
+		unsigned int possub=1;
+		while (removebits > 0)
+		{
+			size_t keep;
+			if (removebits >= SIZET_BITS) keep=0;
+			else keep=(~(size_t)0 >> removebits);
+			
+			unsigned int deleted=popcountS(~keep & mem->show[(mem->len-possub)/SIZET_BITS]);
+			mem->show_treehigh[(mem->len-possub)/SIZE_PAGE_HIGH]-=deleted;
+			mem->show_treelow[(mem->len-possub)/SIZE_PAGE_LOW]-=deleted;
+			mem->show[(mem->len-possub)/SIZET_BITS]&=keep;
+			
+			removebits -= SIZET_BITS;
+		}
+	}
+	
 	if (this->numthreads==1)
 	{
 		thread_do_search(this, 0);
@@ -797,8 +865,7 @@ static void thread_do_search(struct minircheats_model_impl * this, unsigned int 
 	unsigned char compfunc_perm[]={cht_lt, cht_lte, cht_lte, cht_lt, cht_eq, cht_eq};
 	bool compfunc_exp=(compfunc&1);
 	unsigned char compfunc_fun=compfunc_perm[compfunc];
-	
-	unsigned int datsize=this->search_datsize;//caching this here gives a ~15% speed boost
+	unsigned int datsize=this->search_datsize;//caching this here gives a ~15% speed boost, and cleans some stuff up
 	
 	uint32_t signadd=0;
 	if (this->search_signed)
@@ -829,7 +896,7 @@ static void thread_do_search(struct minircheats_model_impl * this, unsigned int 
 			if (threadid==workid && mem->show_treehigh[pagepos/SIZE_PAGE_HIGH]!=0)
 			{
 				size_t worklen=SIZE_PAGE_HIGH;
-				if (worklen+SIZE_PAGE_HIGH > mem->len) worklen=mem->len-pagepos;
+				if (pagepos+SIZE_PAGE_HIGH >= mem->len) worklen=mem->len-pagepos;
 				
 				size_t pos=0;
 				while (pos<worklen)
@@ -849,184 +916,237 @@ static void thread_do_search(struct minircheats_model_impl * this, unsigned int 
 					const unsigned char * ptr=mem->ptr+pagepos+pos;
 					const unsigned char * ptrprev=mem->prev+pagepos+pos;
 					
-//printf("%i %zx/%zx %i\n",datsize,pagepos+pos+SIZET_BITS,mem->len,(((uintptr_t)ptr)&(FAST_ALIGN-1)));exit(0);
 					if (datsize==1 && pagepos+pos+SIZE_PAGE_LOW <= mem->len && (((uintptr_t)ptr)&(FAST_ALIGN-1)) == 0)
 					{
 						unsigned int deleted=0;
-						for (int i=0;i<SIZE_PAGE_LOW/SIZET_BITS;i++)
-						{
 #if __SSE2__
-							size_t eq=0;
-							size_t lt=0;
-							__m128i* ptrS=(__m128i*)ptr;
-							size_t keep;
-							if (comptoprev)
+						size_t eq=0;
+						size_t lt=0;
+						__m128i* ptrS=(__m128i*)ptr;
+						size_t keep;
+						if (comptoprev)
+						{
+							__m128i* ptrprevS=(__m128i*)ptrprev;
+							STATIC_ASSERT(SIZET_BITS==32 || SIZET_BITS==64, fix_this_function);
+							
+							__m128i a1=_mm_loadu_si128(ptrS++);
+							__m128i a2=_mm_loadu_si128(ptrS++);
+							__m128i a3=_mm_loadu_si128(ptrS++);//no conditionals on the 64bit-only ones over here; let the optimizer eat them
+							__m128i a4=_mm_loadu_si128(ptrS++);
+							__m128i b1=_mm_load_si128(ptrprevS++);
+							__m128i b2=_mm_load_si128(ptrprevS++);
+							__m128i b3=_mm_load_si128(ptrprevS++);
+							__m128i b4=_mm_load_si128(ptrprevS++);
+							
+							a1=_mm_xor_si128(a1, signflip);
+							a2=_mm_xor_si128(a2, signflip);
+							a3=_mm_xor_si128(a3, signflip);
+							a4=_mm_xor_si128(a4, signflip);
+							b1=_mm_xor_si128(b1, signflip);
+							b2=_mm_xor_si128(b2, signflip);
+							b3=_mm_xor_si128(b3, signflip);
+							b4=_mm_xor_si128(b4, signflip);
+							
+							if (compfunc_fun<=cht_lte)
 							{
-								__m128i* ptrprevS=(__m128i*)ptrprev;
-								STATIC_ASSERT(SIZET_BITS==32 || SIZET_BITS==64, fix_this_function);
-								
-								__m128i a1=_mm_loadu_si128(ptrS++);
-								__m128i a2=_mm_loadu_si128(ptrS++);
-								__m128i a3=_mm_loadu_si128(ptrS++);//no conditionals on the SIZET_BITS==64-only ones; let the optimizer eat them
-								__m128i a4=_mm_loadu_si128(ptrS++);
-								__m128i b1=_mm_load_si128(ptrprevS++);
-								__m128i b2=_mm_load_si128(ptrprevS++);
-								__m128i b3=_mm_load_si128(ptrprevS++);
-								__m128i b4=_mm_load_si128(ptrprevS++);
-								
-								a1=_mm_xor_si128(a1, signflip);
-								a2=_mm_xor_si128(a2, signflip);
-								a3=_mm_xor_si128(a3, signflip);
-								a4=_mm_xor_si128(a4, signflip);
-								b1=_mm_xor_si128(b1, signflip);
-								b2=_mm_xor_si128(b2, signflip);
-								b3=_mm_xor_si128(b3, signflip);
-								b4=_mm_xor_si128(b4, signflip);
-								
-								if (compfunc_fun<=cht_lte)
+								keep |= (size_t)_mm_movemask_epi8(_mm_cmplt_epi8(a1, b1));
+								keep |= (size_t)_mm_movemask_epi8(_mm_cmplt_epi8(a2, b2)) << 16;
+								if (SIZET_BITS==64) keep |= (size_t)_mm_movemask_epi8(_mm_cmplt_epi8(a3, b4)) << 16 << 16;
+								if (SIZET_BITS==64) keep |= (size_t)_mm_movemask_epi8(_mm_cmplt_epi8(a3, b4)) << 16 << 16 << 16;
+							}
+							if (compfunc_fun>=cht_lte)
+							{
+								keep |= (size_t)_mm_movemask_epi8(_mm_cmpeq_epi8(a1, b1));
+								keep |= (size_t)_mm_movemask_epi8(_mm_cmpeq_epi8(a2, b2)) << 16;
+								if (SIZET_BITS==64) keep |= (size_t)_mm_movemask_epi8(_mm_cmpeq_epi8(a4, b4)) << 16 << 16;
+								if (SIZET_BITS==64) keep |= (size_t)_mm_movemask_epi8(_mm_cmpeq_epi8(a4, b4)) << 16 << 16 << 16;
+							}
+						}
+						else
+						{
+							STATIC_ASSERT(SIZET_BITS==32 || SIZET_BITS==64, fix_this_function);
+							__m128i b=_mm_set1_epi8(compto);
+							b=_mm_xor_si128(b, signflip);
+							
+							__m128i a1=_mm_loadu_si128(ptrS++);
+							__m128i a2=_mm_loadu_si128(ptrS++);
+							__m128i a3=_mm_loadu_si128(ptrS++);
+							__m128i a4=_mm_loadu_si128(ptrS++);
+							
+							a1=_mm_xor_si128(a1, signflip);
+							a2=_mm_xor_si128(a2, signflip);
+							a3=_mm_xor_si128(a3, signflip);
+							a4=_mm_xor_si128(a4, signflip);
+							
+							if (compfunc_fun<=cht_lte)
+							{
+								keep |= (size_t)_mm_movemask_epi8(_mm_cmplt_epi8(a1, b));
+								keep |= (size_t)_mm_movemask_epi8(_mm_cmplt_epi8(a2, b)) << 16;
+								if (SIZET_BITS==64) keep |= (size_t)_mm_movemask_epi8(_mm_cmplt_epi8(a3, b)) << 16 << 16;
+								if (SIZET_BITS==64) keep |= (size_t)_mm_movemask_epi8(_mm_cmplt_epi8(a4, b)) << 16 << 16 << 16;
+							}
+							if (compfunc_fun>=cht_lte)
+							{
+								keep |= (size_t)_mm_movemask_epi8(_mm_cmpeq_epi8(a1, b));
+								keep |= (size_t)_mm_movemask_epi8(_mm_cmpeq_epi8(a2, b)) << 16;
+								if (SIZET_BITS==64) keep |= (size_t)_mm_movemask_epi8(_mm_cmpeq_epi8(a3, b)) << 16 << 16;
+								if (SIZET_BITS==64) keep |= (size_t)_mm_movemask_epi8(_mm_cmpeq_epi8(a4, b)) << 16 << 16 << 16;
+							}
+						}
+						
+						keep^=-compfunc_exp;
+						deleted+=popcountS(show&~keep);
+						show&=keep;
+#else
+						const size_t* ptrS=(size_t*)ptr;
+						const size_t* ptrprevS=(size_t*)ptrprev;
+						size_t neq=0;
+						size_t lte=0;
+						
+						for (unsigned int bits=0;bits<SIZET_BITS;bits+=sizeof(size_t))
+						{
+							//warning - ugly math ahead
+//repeated 16bit pattern
+#define rep16(x) (~(size_t)0/65535*(x))
+#define rep8(x) rep16((x)*0x0101)
+							
+							STATIC_ASSERT(sizeof(size_t)<=8, fix_this_function);
+							
+							size_t val1=*(ptrS++);
+							size_t val2=(comptoprev ? *(ptrprevS++) : compto_byterep);
+							
+							val1+=signadd_byterep;
+							val2+=signadd_byterep;
+							
+							
+							size_t tmp=(val1^val2);
+							//tmp now contains nonzero for different bytes, and zero for same bytes
+							tmp|=tmp>>4;
+							tmp|=tmp>>2;
+							tmp|=tmp>>1;
+							tmp&=rep8(0x01);
+							//tmp now contains 01 for different bytes, and 00 for same bytes
+							neq |= (tmp*bitmerge) >> (sizeof(size_t)*(8-1)) << bits;
+							
+							
+							//compare half of the values at the time; we need a ninth bit for each compared byte,
+							// and the only real way to do that is to do half at the time.
+							size_t tmp1=(val1 &  rep16(0x00FF));
+							size_t tmp2=(val2 | ~rep16(0x00FF));
+							size_t lte_bits = (tmp2-tmp1)>>8 & rep16(0x0001);
+							
+							tmp1=(val1>>8 &  rep16(0x00FF));
+							tmp2=(val2>>8 | ~rep16(0x00FF));
+							lte_bits |= (tmp2-tmp1) & rep16(0x0100);
+							
+							lte |= (lte_bits*bitmerge) >> (sizeof(size_t)*(8-1)) << bits;
+						}
+						
+						size_t remove;
+						if (compfunc_fun==cht_eq) remove=neq;//we'll add tilde to both the others, in exchange for not having tilde on equal
+						if (compfunc_fun==cht_lt) remove=~(neq&lte);
+						if (compfunc_fun==cht_lte) remove=~lte;
+						remove^=-compfunc_exp;
+						deleted+=popcountS(show&remove);
+						show&=~remove;
+#endif
+						mem->show[(pos+pagepos)/SIZET_BITS]=show;
+						mem->show_treehigh[pagepos/SIZE_PAGE_HIGH]-=deleted;
+						mem->show_treelow[(pos+pagepos)/SIZE_PAGE_LOW]-=deleted;
+						pos+=SIZET_BITS;
+					}
+					else
+					{
+						//We could use datsize instead of 4, but it makes no real difference for sanely sized memory, and less variables is faster.
+						//compto is a garbage value if comptoprev is true, but in that case, (true || rand()==0) is still true.
+						
+						//Moving this outside this else clause is slightly faster than the math shenanigans, but far slower than the SSE path.
+						//Given that the consoles with the largest memory are likely to be emulated only on the strongest computers,
+						// that the strongest (publically available) computers are all x86_64,
+						// and that the perf loss is far larger than the gains,
+						// it is not worth moving.
+						if ((comptoprev || compto==0) && pagepos+pos+SIZET_BITS+4-1 <= mem->len && false)
+						{
+							const uint8_t zeroes[SIZET_BITS+4-1]={0};
+							const uint8_t * other=(comptoprev ? ptrprev : zeroes);
+							if (!memcmp(ptr, other, SIZET_BITS+datsize-1))
+							{
+								//memory is unchanged -> result is same for all entries
+								//we ignore the sign - equality is sign-agnostic
+								if ((compfunc_fun==cht_lt) == (compfunc_exp==false))
 								{
-									keep |= (size_t)_mm_movemask_epi8(_mm_cmplt_epi8(a1, b1)) << 0;
-									keep |= (size_t)_mm_movemask_epi8(_mm_cmplt_epi8(a2, b2)) << 16;
-									if (SIZET_BITS==64) keep |= (size_t)_mm_movemask_epi8(_mm_cmplt_epi8(a3, b4)) << 32;
-									if (SIZET_BITS==64) keep |= (size_t)_mm_movemask_epi8(_mm_cmplt_epi8(a3, b4)) << 48;
+									//delete all
+									unsigned int deleted=popcountS(mem->show[(pos+pagepos)/SIZET_BITS]);
+									mem->show_treehigh[(pos+pagepos)/SIZE_PAGE_HIGH]-=deleted;
+									mem->show_treelow[(pos+pagepos)/SIZE_PAGE_LOW]-=deleted;
+									mem->show[(pos+pagepos)/SIZET_BITS]=0;
 								}
-								if (compfunc_fun>=cht_lte)
+								pos+=SIZET_BITS;
+								continue;
+							}
+							//if not equal, read them out one at the time and compare
+							//if they're not equal, we may have wasted a little time, but there is a lot of constant-once-set data, so it's a net win
+							//(we could enable this only on first search, but the other searches are far faster anyways. Not worth the effort.)
+							//(We also pulled the data into the cache. We'll need it anyways.)
+						}
+						size_t lt=0;
+						size_t eq=0;
+						
+						uint32_t val=readmem(ptr, datsize, bigendian);//not readmemext - we're handling the sign ourselves
+						ptr+=datsize;
+						
+						uint32_t other;
+						if (comptoprev)
+						{
+							other=readmem(ptrprev, datsize, bigendian);
+							ptrprev+=datsize;
+						}
+						else other=compto;
+						
+						uint32_t mask=1<<(datsize*8-1);//some slightly weird math to avoid shifting by data size
+						mask|=mask-1;
+						
+						unsigned int stop=(mem->len - (pagepos+pos+datsize-1));
+						if (stop > SIZET_BITS) stop=SIZET_BITS;
+						for (size_t bit=0;bit<stop;bit++)
+						{
+							//shuffle in the new byte
+							if (bigendian)
+							{
+								val=(val<<8)&mask;
+								val|=*ptr++;
+								if (comptoprev)
 								{
-									keep |= (size_t)_mm_movemask_epi8(_mm_cmpeq_epi8(a1, b1)) << 0;
-									keep |= (size_t)_mm_movemask_epi8(_mm_cmpeq_epi8(a2, b2)) << 16;
-									if (SIZET_BITS==64) keep |= (size_t)_mm_movemask_epi8(_mm_cmpeq_epi8(a4, b4)) << 32;
-									if (SIZET_BITS==64) keep |= (size_t)_mm_movemask_epi8(_mm_cmpeq_epi8(a4, b4)) << 48;
+									other=(val<<8)&mask;
+									other|=*ptrprev++;
 								}
 							}
 							else
 							{
-								STATIC_ASSERT(SIZET_BITS==32 || SIZET_BITS==64, fix_this_function);
-								__m128i b=_mm_set1_epi8(compto);
-								b=_mm_xor_si128(b, signflip);
-								
-								__m128i a1=_mm_loadu_si128(ptrS++);
-								__m128i a2=_mm_loadu_si128(ptrS++);
-								__m128i a3=_mm_loadu_si128(ptrS++);
-								__m128i a4=_mm_loadu_si128(ptrS++);
-								
-								a1=_mm_xor_si128(a1, signflip);
-								a2=_mm_xor_si128(a2, signflip);
-								a3=_mm_xor_si128(a3, signflip);
-								a4=_mm_xor_si128(a4, signflip);
-								
-								if (compfunc_fun<=cht_lte)
-								{
-									keep |= (size_t)_mm_movemask_epi8(_mm_cmplt_epi8(a1, b)) << 0;
-									keep |= (size_t)_mm_movemask_epi8(_mm_cmplt_epi8(a2, b)) << 16;
-									if (SIZET_BITS==64) keep |= (size_t)_mm_movemask_epi8(_mm_cmplt_epi8(a3, b)) << 32;
-									if (SIZET_BITS==64) keep |= (size_t)_mm_movemask_epi8(_mm_cmplt_epi8(a4, b)) << 48;
-								}
-								if (compfunc_fun>=cht_lte)
-								{
-									keep |= (size_t)_mm_movemask_epi8(_mm_cmpeq_epi8(a1, b)) << 0;
-									keep |= (size_t)_mm_movemask_epi8(_mm_cmpeq_epi8(a2, b)) << 16;
-									if (SIZET_BITS==64) keep |= (size_t)_mm_movemask_epi8(_mm_cmpeq_epi8(a3, b)) << 32;
-									if (SIZET_BITS==64) keep |= (size_t)_mm_movemask_epi8(_mm_cmpeq_epi8(a4, b)) << 48;
-								}
+								val=(val>>8)|(*ptr++<<(datsize*8));
+								if (comptoprev) other=(other>>8)|(*ptrprev++<<(datsize*8));
 							}
 							
-							keep^=-compfunc_exp;
-							deleted+=popcountS(show&~keep);
-							show&=keep;
-#else
-							const size_t* ptrS=(size_t*)ptr;
-							const size_t* ptrprevS=(size_t*)ptrprev;
-							size_t neq=0;
-							size_t lte=0;
-							for (unsigned int bits=0;bits<SIZET_BITS;bits+=sizeof(size_t))
-							{
-								//warning - ugly math ahead
-//repeated 16bit pattern
-#define rep16(x) (~(size_t)0/65535*(x))
-#define rep8(x) rep16((x)*0x0101)
-								
-								STATIC_ASSERT(sizeof(size_t)<=8, fix_this_function);
-								
-								size_t val1=*(ptrS++);
-								size_t val2=(comptoprev ? *(ptrprevS++) : compto_byterep);
-								
-								val1+=signadd_byterep;
-								val2+=signadd_byterep;
-								
-								
-								size_t tmp=(val1^val2);
-								//tmp now contains nonzero for different bytes, and zero for same bytes
-								tmp|=tmp>>4;
-								tmp|=tmp>>2;
-								tmp|=tmp>>1;
-								tmp&=rep8(0x01);
-								//tmp now contains 01 for different bytes, and 00 for same bytes
-								neq |= (tmp*bitmerge) >> (sizeof(size_t)*(8-1)) << bits;
-								
-								
-								//compare half of the values at the time; we need a ninth bit for each compared byte,
-								// and the only real way to do that is to do half at the time.
-								size_t tmp1=(val1 &  rep16(0x00FF));
-								size_t tmp2=(val2 | ~rep16(0x00FF));
-								size_t lte_bits = (tmp2-tmp1)>>8 & rep16(0x0001);
-								
-								tmp1=(val1>>8 &  rep16(0x00FF));
-								tmp2=(val2>>8 | ~rep16(0x00FF));
-								lte_bits |= (tmp2-tmp1) & rep16(0x0100);
-								
-								lte |= (lte_bits*bitmerge) >> (sizeof(size_t)*(8-1)) << bits;
-							}
+							uint32_t valtmp=val+signadd;//unsigned overflow is defined to wrap. It'll blow up if the child system
+							uint32_t othtmp=other+signadd;//doesn't use two's complement, but I don't think there are any of those.
 							
-							size_t remove;
-							if (compfunc_fun==cht_eq) remove=neq;//we'll add tilde to both the others, in exchange for not having tilde on equal
-							if (compfunc_fun==cht_lt) remove=~(neq&lte);
-							if (compfunc_fun==cht_lte) remove=~lte;
-							remove^=-compfunc_exp;
-							deleted+=popcountS(show&remove);
-							show&=~remove;
-#endif
-							mem->show[(pos+pagepos)/SIZET_BITS]=show;
-							pos+=SIZET_BITS;
+							if (valtmp< othtmp) lt|=(1<<bit);
+							if (valtmp==othtmp) eq|=(1<<bit);
 						}
-						mem->show_treehigh[pagepos/SIZE_PAGE_HIGH]-=deleted;
-						mem->show_treelow[pagepos/SIZE_PAGE_LOW]-=deleted;
-					}
-					else//TODO: speed this up once I've figured out which data sizes I want.
-					{
-						unsigned int deleted=0;
-						for (size_t bit=0;bit<SIZET_BITS;bit++)
-						{
-							if (show & (1<<bit))
-							{
-								uint32_t val;
-								val=readmem(ptr+bit, datsize, bigendian);//not readmemext - we're handling the sign ourselves
-								
-								uint32_t other;
-								if (comptoprev) other=readmem(ptrprev+bit, datsize, bigendian);
-								else other=compto;
-								
-								val+=signadd;//unsigned overflow is defined to wrap
-								other+=signadd;//it'll blow up if the child system doesn't use two's complement, but I don't think there are any of those.
-								
-								bool res=false;//yes, this is ugly; it's faster this way
-								if (compfunc_fun<=cht_lte) res|=(val<other);
-								if (compfunc_fun>=cht_lte) res|=(val==other);
-								if (res == compfunc_exp)
-								{
-									show&=~(1<<bit);
-									deleted++;
-								}
-							}
-						}
+						size_t keep=0;
+						if (compfunc_fun<=cht_lte) keep|=lt;
+						if (compfunc_fun>=cht_lte) keep|=eq;
+						keep^=-compfunc_exp;
+						unsigned int deleted=popcountS(show&~keep);
 						mem->show_treehigh[(pos+pagepos)/SIZE_PAGE_HIGH]-=deleted;
 						mem->show_treelow[(pos+pagepos)/SIZE_PAGE_LOW]-=deleted;
-						mem->show[(pos+pagepos)/SIZET_BITS]=show;
+						mem->show[(pos+pagepos)/SIZET_BITS]=show&keep;
 						pos+=SIZET_BITS;
 					}
 				}
 				if (mem->prev) memcpy(mem->prev+pagepos, mem->ptr+pagepos, worklen);
 			}
-			workid=(workid+1)%this->numthreads;
+			workid=(workid+1)%this->numthreads;//just rotate which threads get a piece of work - rather primitive, but works.
 			pagepos+=SIZE_PAGE_HIGH;
 		}
 	}
@@ -1093,12 +1213,10 @@ static void search_get_pos(struct minircheats_model_impl * this, size_t visrow, 
 	while (true)
 	{
 		unsigned int bitshere=popcountS(*bits);
-		if (visrow >= bitshere)
-		{
-			bits++;
-			visrow-=bitshere;
-		}
-		else break;
+		if (visrow<bitshere) break;
+		
+		visrow-=bitshere;
+		bits++;
 	}
 	
 	size_t lastbits=*bits;
@@ -1116,7 +1234,7 @@ static void search_get_pos(struct minircheats_model_impl * this, size_t visrow, 
 	this->search_lastmempos=*mempos;
 }
 
-static void search_get_vis_row(struct minircheats_model * this_, unsigned int row, char * addr, uint32_t * val, uint32_t * prevval)
+static void search_get_row(struct minircheats_model * this_, unsigned int row, char * addr, uint32_t * val, uint32_t * prevval)
 {
 	struct minircheats_model_impl * this=(struct minircheats_model_impl*)this_;
 	
@@ -1127,8 +1245,8 @@ static void search_get_vis_row(struct minircheats_model * this_, unsigned int ro
 	
 	if (addr)
 	{
-		size_t p_addr=addr_phys_to_guest(this, mem->ptr, mempos, mem->addrspace);
-		sprintf(addr, "%s%.*lX", this->addrspaces[mem->addrspace].name, this->addrspaces[mem->addrspace].addrlen, p_addr);
+		size_t p_addr=addr_phys_to_guest(this, memblk, mempos);
+		sprintf(addr, "%s%.*zX", this->addrspaces[mem->addrspace].name, this->addrspaces[mem->addrspace].addrlen, p_addr);
 	}
 	if (val)     *val  =  readmemext(mem->ptr +mempos, this->search_datsize, mem->bigendian, this->search_signed);
 	if (prevval) *prevval=readmemext(mem->prev+mempos, this->search_datsize, mem->bigendian, this->search_signed);
@@ -1168,6 +1286,7 @@ static void thread_finish_work(struct minircheats_model * this_)
 		case threadfunc_nothing: break;
 		case threadfunc_search: thread_finish_search(this); break;
 	}
+	this->threadfunc=threadfunc_nothing;
 }
 
 
@@ -1245,9 +1364,22 @@ static bool cheat_set(struct minircheats_model * this_, int pos, const struct ch
 	return true;
 }
 
-//TODO
-static void cheat_get(struct minircheats_model * this_, unsigned int pos, struct cheat * newcheat)
+static void cheat_get(struct minircheats_model * this_, unsigned int pos, struct cheat * thecheat)
 {
+	struct minircheats_model_impl * this=(struct minircheats_model_impl*)this_;
+	struct cheat_impl * icheat=&this->cheats[pos];
+	
+	sprintf(thecheat->addr, "%s%.*X",
+	        this->addrspaces[this->mem[icheat->memid].addrspace].name,
+	        this->addrspaces[this->mem[icheat->memid].addrspace].addrlen,
+	        addr_phys_to_guest(this, icheat->memid, icheat->offset));
+	
+	thecheat->val=icheat->value;
+	thecheat->changetype=icheat->changetype;
+	thecheat->datsize=icheat->datsize;
+	thecheat->enabled=icheat->enabled;
+	thecheat->issigned=icheat->issigned;
+	thecheat->desc=icheat->desc;
 }
 
 static void cheat_remove(struct minircheats_model * this_, unsigned int pos)
@@ -1267,15 +1399,14 @@ static void cheat_apply(struct minircheats_model * this_)
 	{
 		struct cheat_impl * cht=&this->cheats[i];
 		if (!cht->enabled) continue;
-		uint32_t signadd=(cht->issigned ? 0x80000000 : 0);
+		uint32_t signadd=(cht->issigned ? signs[cht->datsize-1] : 0);
 		if (cht->changetype!=cht_const)
 		{
 			uint32_t curval=readmem(this->mem[cht->memid].ptr+cht->offset, cht->datsize, this->mem[cht->memid].bigendian);
-//printf("chg %X %X->%X\n",cht->offset,curval,cht->value);
-			if (cht->changetype==cht_inconly && curval+signadd > cht->value+signadd) continue;
-			if (cht->changetype==cht_deconly && curval+signadd < cht->value+signadd) continue;
-//if (cht->changetype!=cht_const)
-			cht->value=curval;
+			if(0);
+			else if (cht->changetype==cht_inconly && curval+signadd > cht->value+signadd) {}
+			else if (cht->changetype==cht_deconly && curval+signadd < cht->value+signadd) {}
+			else cht->value=curval;
 		}
 		writemem(this->mem[cht->memid].ptr+cht->offset, cht->datsize, this->mem[cht->memid].bigendian, cht->value);
 	}
@@ -1290,7 +1421,7 @@ static const char * code_create(struct minircheats_model * this_, struct cheat *
 {
 	struct minircheats_model_impl * this=(struct minircheats_model_impl*)this_;
 	free(this->lastcheat);
-	//disable address signspec value direction SP desc
+	//disable address signspec value direction SP desc NUL
 	this->lastcheat=(char*)malloc(1+strlen(thecheat->addr)+8+1+1+1+strlen(thecheat->desc)+1);
 	//TODO: verify that addr points to anything
 	const char * const chngtypenames[]={"", "+", "-", "."};
@@ -1360,11 +1491,12 @@ static void free_(struct minircheats_model * this_)
 const struct minircheats_model_impl minircheats_model_base = {{
 	set_memory,
 	prev_get_size, prev_set_enabled, prev_get_enabled,
-	search_reset, search_set_datsize, search_set_signed, search_do_search, search_get_num_rows, search_get_vis_row,
+	search_reset, search_set_datsize, search_set_signed, search_do_search,
+	search_get_num_rows, search_get_row, NULL,//search_find_row
 	thread_enable, thread_get_count, thread_do_work, thread_finish_work,
 	cheat_read, cheat_find_for_addr, cheat_get_count,
-	cheat_set, cheat_get,
-	cheat_remove, cheat_apply,
+	cheat_set, cheat_get, cheat_remove, NULL/*cheat_sort*/,
+	cheat_apply,
 	code_create, code_parse,
 	free_
 }};

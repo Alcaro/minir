@@ -1522,13 +1522,16 @@ int main(int argc, char * argv[])
 	initialize(argc, argv);
 if
 (config.firstrun)
-window_firstrun
-();
+window_message_box
+(wndw,
+"This piece of software is far from finished. There is no configuration panel, and some components are bad at emitting error messages.\r\n"
+"All valid settings will show up in minir.cfg, which will appear beside the executable once it's closed.\r\n",
+"minir", mb_warn, mb_ok);
 config.firstrun
 =false;
 #ifdef DEBUG
-cheats->show_search(cheats);
-//cheats->show_list(cheats);
+//cheats->show_search(cheats);
+cheats->show_list(cheats);
 #endif
 	mainloop();
 	deinit();
