@@ -564,10 +564,10 @@ static void free_(struct window * this_)
 	free(this);
 }
 
-static void* _get_handle(struct window * this_)
+static size_t _get_handle(struct window * this_)
 {
 	struct window_gtk3 * this=(struct window_gtk3*)this_;
-	return this->wndw;
+	return (size_t)this->wndw;
 }
 
 static gboolean onclose_gtk(GtkWidget* widget, GdkEvent* event, gpointer user_data)

@@ -920,8 +920,6 @@ static void thread_do_search(struct minircheats_model_impl * this, unsigned int 
 					{
 						unsigned int deleted=0;
 #if __SSE2__
-						size_t eq=0;
-						size_t lt=0;
 						__m128i* ptrS=(__m128i*)ptr;
 						size_t keep;
 						if (comptoprev)
@@ -1234,7 +1232,7 @@ static void search_get_pos(struct minircheats_model_impl * this, size_t visrow, 
 	this->search_lastmempos=*mempos;
 }
 
-static void search_get_row(struct minircheats_model * this_, unsigned int row, char * addr, uint32_t * val, uint32_t * prevval)
+static void search_get_row(struct minircheats_model * this_, size_t row, char * addr, uint32_t * val, uint32_t * prevval)
 {
 	struct minircheats_model_impl * this=(struct minircheats_model_impl*)this_;
 	
@@ -1369,7 +1367,7 @@ static void cheat_get(struct minircheats_model * this_, unsigned int pos, struct
 	struct minircheats_model_impl * this=(struct minircheats_model_impl*)this_;
 	struct cheat_impl * icheat=&this->cheats[pos];
 	
-	sprintf(thecheat->addr, "%s%.*X",
+	sprintf(thecheat->addr, "%s%.*zX",
 	        this->addrspaces[this->mem[icheat->memid].addrspace].name,
 	        this->addrspaces[this->mem[icheat->memid].addrspace].addrlen,
 	        addr_phys_to_guest(this, icheat->memid, icheat->offset));

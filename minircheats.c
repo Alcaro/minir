@@ -385,7 +385,7 @@ static void search_add_cheat(struct minircheats_impl * this, int row)
 	}
 }
 
-static void search_add_cheat_listbox(struct widget_listbox * subject, unsigned int row, void* userdata)
+static void search_add_cheat_listbox(struct widget_listbox * subject, size_t row, void* userdata)
 {
 	struct minircheats_impl * this=(struct minircheats_impl*)userdata;
 	search_add_cheat(this, row);

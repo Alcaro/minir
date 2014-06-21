@@ -98,7 +98,7 @@ const char * const * window_file_picker(struct window * parent,
 	GtkFileChooser* dialog=GTK_FILE_CHOOSER(
 	                         gtk_file_chooser_dialog_new(
 	                           title,
-	                           (parent?parent->_get_handle(parent):NULL),
+	                           (parent?(void*)parent->_get_handle(parent):NULL),
 	                           GTK_FILE_CHOOSER_ACTION_OPEN,
 	                           "_Cancel",
 	                           GTK_RESPONSE_CANCEL,
