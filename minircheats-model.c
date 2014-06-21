@@ -902,9 +902,6 @@ static void thread_do_search(struct minircheats_model_impl * this, unsigned int 
 				size_t pos=0;
 				while (pos<worklen)
 				{
-VALGRIND_CHECK_VALUE_IS_DEFINED(pos);
-VALGRIND_CHECK_VALUE_IS_DEFINED(pagepos);
-VALGRIND_CHECK_VALUE_IS_DEFINED(mem->show_treelow[(pagepos+pos)/SIZE_PAGE_LOW]);
 					if (!(pos&SIZE_PAGE_LOW) && mem->show_treelow[(pagepos+pos)/SIZE_PAGE_LOW]==0)
 					{
 						pos+=SIZE_PAGE_LOW;
@@ -922,10 +919,9 @@ VALGRIND_CHECK_VALUE_IS_DEFINED(mem->show_treelow[(pagepos+pos)/SIZE_PAGE_LOW]);
 					
 					if (datsize==1 && pagepos+pos+SIZE_PAGE_LOW <= mem->len && (((uintptr_t)ptr)&(FAST_ALIGN-1)) == 0)
 					{
-						unsigned int deleted=0;
 #if __SSE2__
 						__m128i* ptrS=(__m128i*)ptr;
-						size_t keep;
+						size_t keep=0;
 						if (comptoprev)
 						{
 							__m128i* ptrprevS=(__m128i*)ptrprev;
@@ -997,7 +993,7 @@ VALGRIND_CHECK_VALUE_IS_DEFINED(mem->show_treelow[(pagepos+pos)/SIZE_PAGE_LOW]);
 						}
 						
 						keep^=-compfunc_exp;
-						deleted+=popcountS(show&~keep);
+						unsigned int deleted=popcountS(show&~keep);
 						show&=keep;
 #else
 						const size_t* ptrS=(size_t*)ptr;
@@ -1049,7 +1045,7 @@ VALGRIND_CHECK_VALUE_IS_DEFINED(mem->show_treelow[(pagepos+pos)/SIZE_PAGE_LOW]);
 						if (compfunc_fun==cht_lt) remove=~(neq&lte);
 						if (compfunc_fun==cht_lte) remove=~lte;
 						remove^=-compfunc_exp;
-						deleted+=popcountS(show&remove);
+						unsigned int deleted=popcountS(show&remove);
 						show&=~remove;
 #endif
 						mem->show[(pos+pagepos)/SIZET_BITS]=show;
@@ -1108,7 +1104,8 @@ VALGRIND_CHECK_VALUE_IS_DEFINED(mem->show_treelow[(pagepos+pos)/SIZE_PAGE_LOW]);
 						uint32_t mask=1<<(datsize*8-1);//some slightly weird math to avoid shifting by data size
 						mask|=mask-1;
 						
-						unsigned int stop=(mem->len - (pagepos+pos+datsize-1));
+						size_t stop=(mem->len - (pagepos+pos+datsize-1));
+printf("stop=%zu-(%zu+%zu+%zu-1)=%zu");
 						if (stop > SIZET_BITS) stop=SIZET_BITS;
 						for (size_t bit=0;bit<stop;bit++)
 						{
@@ -1139,7 +1136,6 @@ VALGRIND_CHECK_VALUE_IS_DEFINED(mem->show_treelow[(pagepos+pos)/SIZE_PAGE_LOW]);
 						if (compfunc_fun<=cht_lte) keep|=lt;
 						if (compfunc_fun>=cht_lte) keep|=eq;
 						keep^=-compfunc_exp;
-VALGRIND_CHECK_VALUE_IS_DEFINED(keep);
 						unsigned int deleted=popcountS(show&~keep);
 						mem->show_treehigh[(pos+pagepos)/SIZE_PAGE_HIGH]-=deleted;
 						mem->show_treelow[(pos+pagepos)/SIZE_PAGE_LOW]-=deleted;
