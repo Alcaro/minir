@@ -38,12 +38,11 @@ void window_init(int * argc, char * * argv[])
 	//QueryPerformanceFrequency(&timer_freq);
 }
 
-bool window_message_box(struct window * parent, const char * text, const char * title,
-                                enum mbox_sev severity, enum mbox_btns buttons)
+bool window_message_box(const char * text, const char * title, enum mbox_sev severity, enum mbox_btns buttons)
 {
 	UINT sev[3]={ 0, MB_ICONWARNING, MB_ICONERROR };
 	UINT btns[3]={ 0, MB_OKCANCEL, MB_YESNO };
-	int ret=MessageBox(parent ? (HWND)parent->_get_handle(parent) : NULL, text, title, sev[severity]|btns[buttons]);
+	int ret=MessageBox(NULL, text, title, sev[severity]|btns[buttons]|MB_TASKMODAL);
 	return (ret==IDOK || ret==IDYES);
 }
 
