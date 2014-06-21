@@ -14,7 +14,7 @@
 extern void unalign_lock();
 extern void unalign_unlock();
 #if __x86_64__
-asm(
+__asm__(
 	"unalign_lock:\n"
 	"pushf\n"
 	"movl $(1<<18),%eax\n"
@@ -30,7 +30,7 @@ asm(
 	"ret\n"
 	);
 #elif __i386__
-asm(
+__asm__(
 	"_unalign_lock:\n"
 	"pushf\n"
 	"movl $(1<<18),%eax\n"
