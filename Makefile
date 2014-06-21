@@ -45,7 +45,7 @@ obj/%-test.o: %.c | obj obj/config.c
 
 obj/config.c: obj/configgen$(EXESUFFIX) minir.cfg.tmpl
 	obj/configgen$(EXESUFFIX)
-obj/configgen$(EXESUFFIX): configgen.c miniz.c
+obj/configgen$(EXESUFFIX): configgen.c miniz.c | obj
 	$(CC) $(TRUE_CFLAGS) $(TRUE_LFLAGS) -DCONFIGGEN configgen.c miniz.c -o obj/configgen$(EXESUFFIX)
 
 minir$(EXESUFFIX): $(OBJS)

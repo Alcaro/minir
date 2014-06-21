@@ -83,7 +83,9 @@
 #define AUDIO_DIRECTSOUND
 
 //#define NO_ANON_UNION_STRUCT
-//#define HAVE_ASPRINTF
+#if (__GNUC__*10000 + __GNUC_MINOR__*100 + __GNUC_PATCHLEVEL__)>=40900
+#define HAVE_ASPRINTF
+#endif
 //#define NO_UNALIGNED_MEM
 #endif
 
