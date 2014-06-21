@@ -1104,11 +1104,16 @@ static void thread_do_search(struct minircheats_model_impl * this, unsigned int 
 						uint32_t mask=1<<(datsize*8-1);//some slightly weird math to avoid shifting by data size
 						mask|=mask-1;
 						
-						size_t stop=(mem->len - (pagepos+pos+datsize-1));
-printf("stop=%zu-(%zu+%zu+%zu-1)=%zu");
-						if (stop > SIZET_BITS) stop=SIZET_BITS;
+						size_t stop=(mem->len - (pagepos+pos+datsize-1) - 1);
+						if (stop > SIZET_BITS-1) stop=SIZET_BITS-1;
 						for (size_t bit=0;bit<stop;bit++)
 						{
+							uint32_t valtmp=val+signadd;//unsigned overflow is defined to wrap. It'll blow up if the child system
+							uint32_t othtmp=other+signadd;//doesn't use two's complement, but I don't think there are any of those.
+							
+							if (valtmp< othtmp) lt|=(1<<bit);
+							if (valtmp==othtmp) eq|=(1<<bit);
+							
 							//shuffle in the new byte
 							if (bigendian)
 							{
@@ -1125,13 +1130,14 @@ printf("stop=%zu-(%zu+%zu+%zu-1)=%zu");
 								val=(val>>8)|(*ptr++<<(datsize*8));
 								if (comptoprev) other=(other>>8)|(*ptrprev++<<(datsize*8));
 							}
-							
-							uint32_t valtmp=val+signadd;//unsigned overflow is defined to wrap. It'll blow up if the child system
-							uint32_t othtmp=other+signadd;//doesn't use two's complement, but I don't think there are any of those.
-							
-							if (valtmp< othtmp) lt|=(1<<bit);
-							if (valtmp==othtmp) eq|=(1<<bit);
 						}
+						
+						uint32_t valtmp=val+signadd;//unsigned overflow is defined to wrap. It'll blow up if the child system
+						uint32_t othtmp=other+signadd;//doesn't use two's complement, but I don't think there are any of those.
+						
+						if (valtmp< othtmp) lt|=(1<<stop);
+						if (valtmp==othtmp) eq|=(1<<stop);
+						
 						size_t keep=0;
 						if (compfunc_fun<=cht_lte) keep|=lt;
 						if (compfunc_fun>=cht_lte) keep|=eq;
