@@ -38,15 +38,13 @@ void window_init(int * argc, char * * argv[])
 	//QueryPerformanceFrequency(&timer_freq);
 }
 
-unsigned int window_message_box(struct window * parent, const char * text, const char * title,
+bool window_message_box(struct window * parent, const char * text, const char * title,
                                 enum mbox_sev severity, enum mbox_btns buttons)
 {
-	DWORD sev[3]={ 0, MB_ICONWARNING, MB_ICONERROR };
-	DWORD btns[3]={ 0, MB_OKCANCEL, MB_YESNO };
-	return MessageBox(parent ? (HWND)parent->_get_handle(parent) : NULL, text, title, sev[severity]|btns[buttons]);
-#ifndef DEBUG
-	fixme
-#endif
+	UINT sev[3]={ 0, MB_ICONWARNING, MB_ICONERROR };
+	UINT btns[3]={ 0, MB_OKCANCEL, MB_YESNO };
+	int ret=MessageBox(parent ? (HWND)parent->_get_handle(parent) : NULL, text, title, sev[severity]|btns[buttons]);
+	return (ret==IDOK || ret==IDYES);
 }
 
 const char * const * window_file_picker(struct window * parent,
