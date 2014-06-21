@@ -21,14 +21,13 @@ struct VirtualList
 {
 	GObject parent;//leave this one on top
 	
-	unsigned int rows;
+	size_t rows;
 	unsigned int columns;
+	bool checkboxes;
 	
 	struct widget_listbox * subject;
-	const char * (*get_cell)(struct widget_listbox * subject, unsigned int row, unsigned int column, void * userdata);
+	const char * (*get_cell)(struct widget_listbox * subject, size_t row, int column, void * userdata);
 	void * userdata;
-	
-	bool* checkboxes;
 };
 
 struct VirtualListClass
@@ -120,7 +119,7 @@ static void virtual_list_get_value(GtkTreeModel* tree_model, GtkTreeIter* iter, 
 	if (column == virtual_list->columns)
 	{
 		g_value_init(value, G_TYPE_BOOLEAN);
-		g_value_set_boolean(value, virtual_list->checkboxes[row]);
+		g_value_set_boolean(value, virtual_list->get_cell(virtual_list->subject, row, -1, virtual_list->userdata) ? true : false);
 		return;
 	}
 	
@@ -240,23 +239,20 @@ struct widget_listbox_gtk3 {
 	struct widget_listbox i;
 	
 	GtkTreeView* tree;
-	unsigned int rows;
+	size_t rows;
 	unsigned int columns;
 	
 	struct VirtualList* vlist;
-	struct _widget_listbox_devirt * devirt;
 	
-	bool* checkboxes;
-	void (*ontoggle)(struct widget_listbox * subject, unsigned int row, bool state, void * userdata);
+	bool checkboxes;
+	void (*ontoggle)(struct widget_listbox * subject, size_t row, void * userdata);
 	void* toggle_userdata;
 	
-	void (*onactivate)(struct widget_listbox * subject, unsigned int row, void * userdata);
+	void (*onactivate)(struct widget_listbox * subject, size_t row, void * userdata);
 	void* activate_userdata;
 };
 
-static void listbox_set_checkbox_state(struct widget_listbox * this_, unsigned int row, bool state);
-
-static void listbox_refresh_row(struct widget_listbox_gtk3 * this, unsigned int row)
+static void listbox_refresh_row(struct widget_listbox_gtk3 * this, size_t row)
 {
 	GtkTreeIter iter;
 	gtk_tree_model_iter_nth_child(GTK_TREE_MODEL(this->vlist), &iter, NULL, row);
@@ -268,8 +264,6 @@ static void listbox_refresh_row(struct widget_listbox_gtk3 * this, unsigned int 
 static void listbox__free(struct widget_base * this_)
 {
 	struct widget_listbox_gtk3 * this=(struct widget_listbox_gtk3*)this_;
-	_widget_listbox_devirt_free(this->devirt);
-	free(this->checkboxes);
 	free(this);
 }
 
@@ -279,23 +273,24 @@ static void listbox_set_enabled(struct widget_listbox * this_, bool enable)
 	gtk_widget_set_sensitive(GTK_WIDGET(this->tree), enable);
 }
 
-static void listbox_set_contents(struct widget_listbox * this_, unsigned int rows, const char * * contents)
+static void listbox_set_contents(struct widget_listbox * this_,
+                                 const char * (*get_cell)(struct widget_listbox * subject, size_t row, int column, void * userdata),
+                                 size_t (*search)(struct widget_listbox * subject,
+                                                  const char * prefix, size_t start, bool up, void * userdata),
+                                 void * userdata)
 {
 	struct widget_listbox_gtk3 * this=(struct widget_listbox_gtk3*)this_;
-	this->devirt=_widget_listbox_devirt_create(this_, rows, this->columns, contents);
+	
+	//we ignore the search function, there is no valid way for gtk+ to use it
+	this->vlist->get_cell=get_cell;
+	this->vlist->userdata=userdata;
 }
 
-static void listbox_set_contents_virtual(struct widget_listbox * this_, unsigned int rows,
-                    const char * (*get_cell)(struct widget_listbox * subject, unsigned int row, unsigned int column, void * userdata),
-                    int (*search)(struct widget_listbox * subject, unsigned int start, const char * str, void * userdata),
-                    void * userdata)
+static void listbox_set_num_rows(struct widget_listbox * this_, size_t rows)
 {
 	struct widget_listbox_gtk3 * this=(struct widget_listbox_gtk3*)this_;
 	
 	if (rows > MAX_ROWS) rows=MAX_ROWS+1;
-	
-	_widget_listbox_devirt_free(this->devirt);
-	this->devirt=NULL;
 	
 	double scrollpos=gtk_adjustment_get_value(gtk_scrollable_get_vadjustment(GTK_SCROLLABLE(this->tree)));
 	
@@ -309,9 +304,6 @@ static void listbox_set_contents_virtual(struct widget_listbox * this_, unsigned
 	this->vlist->subject=this_;
 	this->vlist->columns=this->columns;
 	this->vlist->rows=rows;
-	//we ignore the search function, there is no valid way for gtk+ to use it
-	this->vlist->get_cell=get_cell;
-	this->vlist->userdata=userdata;
 	
 	this->rows=rows;
 	
@@ -321,36 +313,23 @@ static void listbox_set_contents_virtual(struct widget_listbox * this_, unsigned
 	GtkAdjustment* adj=gtk_scrollable_get_vadjustment(GTK_SCROLLABLE(this->tree));
 	gtk_adjustment_set_value(adj, scrollpos);
 	gtk_adjustment_value_changed(adj);//shouldn't it do this by itself?
-	
-	if (this->checkboxes && rows!=this->rows)
-	{
-		free(this->checkboxes);
-		this->checkboxes=calloc(rows, sizeof(bool));
-		this->vlist->checkboxes=this->checkboxes;
-	}
 }
 
-static void listbox_set_row(struct widget_listbox * this_, unsigned int row, const char * * contents)
+static void listbox_refresh(struct widget_listbox * this_, size_t row)
 {
 	struct widget_listbox_gtk3 * this=(struct widget_listbox_gtk3*)this_;
-	if (this->devirt) _widget_listbox_devirt_set_row(this->devirt, row, contents);
-	listbox_refresh_row(this, row);
+	if (row==(size_t)-1) gtk_widget_queue_draw(GTK_WIDGET(this->tree));
+	else listbox_refresh_row(this, row);
 }
 
-static void listbox_refresh(struct widget_listbox * this_)
-{
-	struct widget_listbox_gtk3 * this=(struct widget_listbox_gtk3*)this_;
-	gtk_widget_queue_draw(GTK_WIDGET(this->tree));
-}
-
-static int listbox_get_active_row(struct widget_listbox * this_)
+static size_t listbox_get_active_row(struct widget_listbox * this_)
 {
 	struct widget_listbox_gtk3 * this=(struct widget_listbox_gtk3*)this_;
 	GList* list=gtk_tree_selection_get_selected_rows(gtk_tree_view_get_selection(this->tree), NULL);
-	int ret;
+	size_t ret;
 	if (list) ret=gtk_tree_path_get_indices(list->data)[0];
-	else ret=-1;
-	if (ret==MAX_ROWS) ret=-1;
+	else ret=(size_t)-1;
+	if (ret==MAX_ROWS) ret=(size_t)-1;
 	g_list_free_full(list, (GDestroyNotify)gtk_tree_path_free);
 	return ret;
 }
@@ -369,7 +348,7 @@ static void listbox_onactivate(GtkTreeView* tree_view, GtkTreePath* path, GtkTre
 }
 
 static void listbox_set_onactivate(struct widget_listbox * this_,
-                                   void (*onactivate)(struct widget_listbox * subject, unsigned int row, void * userdata),
+                                   void (*onactivate)(struct widget_listbox * subject, size_t row, void * userdata),
                                    void* userdata)
 {
 	struct widget_listbox_gtk3 * this=(struct widget_listbox_gtk3*)this_;
@@ -394,23 +373,24 @@ static void listbox_set_size(struct widget_listbox * this_, unsigned int height,
 		}
 		g_object_unref(layout);
 	}
+	//TODO: figure out height
 }
 
 static void listbox_checkbox_toggle(GtkCellRendererToggle* cell_renderer, gchar* path, gpointer user_data)
 {
 	struct widget_listbox_gtk3 * this=(struct widget_listbox_gtk3*)user_data;
-	unsigned int id=atoi(path);
-	listbox_set_checkbox_state((struct widget_listbox*)this, id, this->checkboxes[id]^1);
-	if (this->ontoggle) this->ontoggle((struct widget_listbox*)this, id, this->checkboxes[id], this->toggle_userdata);
+	unsigned int row=atoi(path);
+	if (this->ontoggle) this->ontoggle((struct widget_listbox*)this, row, this->toggle_userdata);
+	listbox_refresh_row(this, row);
 }
 
 static void listbox_add_checkboxes(struct widget_listbox * this_,
-                    void (*ontoggle)(struct widget_listbox * subject, unsigned int id, bool state, void * userdata), void * userdata)
+                    void (*ontoggle)(struct widget_listbox * subject, size_t id, void * userdata), void * userdata)
 {
 	struct widget_listbox_gtk3 * this=(struct widget_listbox_gtk3*)this_;
 	
-	this->checkboxes=calloc(this->rows, sizeof(bool));
-	if (this->vlist) this->vlist->checkboxes=this->checkboxes;
+	this->checkboxes=true;
+	if (this->vlist) this->vlist->checkboxes=true;
 	
 	GtkCellRenderer* render=gtk_cell_renderer_toggle_new();
 	gtk_tree_view_insert_column_with_attributes(this->tree, 0, "", render, "active", this->columns, NULL);
@@ -423,26 +403,6 @@ static void listbox_add_checkboxes(struct widget_listbox * this_,
 	gtk_widget_show_all(this->i.base._widget);
 	gtk_widget_get_preferred_size(GTK_WIDGET(this->tree), &size, NULL);
 	gtk_widget_set_size_request(this->i.base._widget, size.width, -1);
-}
-
-static bool listbox_get_checkbox_state(struct widget_listbox * this_, unsigned int id)
-{
-	struct widget_listbox_gtk3 * this=(struct widget_listbox_gtk3*)this_;
-	return this->checkboxes[id];
-}
-
-static void listbox_set_checkbox_state(struct widget_listbox * this_, unsigned int row, bool state)
-{
-	struct widget_listbox_gtk3 * this=(struct widget_listbox_gtk3*)this_;
-	this->checkboxes[row]=state;
-	listbox_refresh_row(this, row);
-}
-
-static void listbox_set_all_checkboxes(struct widget_listbox * this_, bool * states)
-{
-	struct widget_listbox_gtk3 * this=(struct widget_listbox_gtk3*)this_;
-	memcpy(this->checkboxes, states, sizeof(bool)*this->rows);
-	listbox_refresh(this_);
 }
 
 struct widget_listbox * widget_create_listbox_l(unsigned int numcolumns, const char * * columns)
@@ -459,22 +419,17 @@ struct widget_listbox * widget_create_listbox_l(unsigned int numcolumns, const c
 	
 	this->i.set_enabled=listbox_set_enabled;
 	this->i.set_contents=listbox_set_contents;
-	this->i.set_contents_virtual=listbox_set_contents_virtual;
-	this->i.set_row=listbox_set_row;
+	this->i.set_num_rows=listbox_set_num_rows;
 	this->i.refresh=listbox_refresh;
 	this->i.get_active_row=listbox_get_active_row;
 	this->i.set_onactivate=listbox_set_onactivate;
 	this->i.set_size=listbox_set_size;
 	this->i.add_checkboxes=listbox_add_checkboxes;
-	this->i.get_checkbox_state=listbox_get_checkbox_state;
-	this->i.set_checkbox_state=listbox_set_checkbox_state;
-	this->i.set_all_checkboxes=listbox_set_all_checkboxes;
 	
 	this->rows=0;
-	this->checkboxes=NULL;
+	this->checkboxes=false;
 	
 	this->vlist=NULL;
-	this->devirt=NULL;
 	
 	g_signal_connect(this->tree, "row-activated", G_CALLBACK(listbox_onactivate), this);
 	this->onactivate=NULL;
