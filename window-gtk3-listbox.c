@@ -239,6 +239,7 @@ struct widget_listbox_gtk3 {
 	struct widget_listbox i;
 	
 	GtkTreeView* tree;
+	gint borderheight;
 	gint cellheight;
 	
 	struct VirtualList* vlist;
@@ -290,16 +291,21 @@ static void listbox_set_num_rows(struct widget_listbox * this_, size_t rows)
 	
 	if (rows > MAX_ROWS) rows=MAX_ROWS+1;
 	
-	double scrollpos=gtk_adjustment_get_value(gtk_scrollable_get_vadjustment(GTK_SCROLLABLE(this->tree)));
+	GtkAdjustment* adj=gtk_scrollable_get_vadjustment(GTK_SCROLLABLE(this->tree));
+	double scrollfrac=gtk_adjustment_get_value(adj) / this->vlist->rows;
 	
 	//this is piss slow for some reason I can't figure out
 	gtk_tree_view_set_model(this->tree, GTK_TREE_MODEL(NULL));
 	this->vlist->rows=rows;
 	gtk_tree_view_set_model(this->tree, GTK_TREE_MODEL(this->vlist));
 	
-	GtkAdjustment* adj=gtk_scrollable_get_vadjustment(GTK_SCROLLABLE(this->tree));
-	gtk_adjustment_set_value(adj, scrollpos);
-	gtk_adjustment_value_changed(adj);//shouldn't it do this by itself?
+	if (scrollfrac==scrollfrac)
+	{
+		gtk_adjustment_set_upper(adj, scrollfrac * this->vlist->rows + gtk_adjustment_get_page_size(adj));
+		gtk_adjustment_changed(adj);
+		gtk_adjustment_set_value(adj, scrollfrac * this->vlist->rows);
+		gtk_adjustment_value_changed(adj);//shouldn't it do this by itself?
+	}
 }
 
 static void listbox_refresh(struct widget_listbox * this_, size_t row)
@@ -426,14 +432,13 @@ struct widget_listbox * widget_create_listbox_l(unsigned int numcolumns, const c
 	virtual_list_register_type();
 	this->vlist=g_object_new(M_VIRTUAL_TYPE, NULL);
 	this->vlist->subject=(struct widget_listbox*)this;
-	this->vlist->columns=numcolumns;
-	
-	g_signal_connect(this->tree, "row-activated", G_CALLBACK(listbox_onactivate), this);
-	this->onactivate=NULL;
 	
 	this->vlist->columns=numcolumns;
 	this->vlist->rows=0;
 	this->vlist->checkboxes=false;
+	
+	g_signal_connect(this->tree, "row-activated", G_CALLBACK(listbox_onactivate), this);
+	this->onactivate=NULL;
 	
 	GtkCellRenderer* render=gtk_cell_renderer_text_new();
 	g_object_get(render, "height", &this->cellheight, NULL);
@@ -445,9 +450,14 @@ struct widget_listbox * widget_create_listbox_l(unsigned int numcolumns, const c
 		gtk_tree_view_column_set_sizing(col, GTK_TREE_VIEW_COLUMN_FIXED);
 	}
 	
-	gtk_widget_set_hexpand(this->i.base._widget, true);
-	gtk_widget_set_vexpand(this->i.base._widget, true);
+	//gtk_widget_set_hexpand(this->i.base._widget, true);
+	//gtk_widget_set_vexpand(this->i.base._widget, true);
 	gtk_tree_view_set_fixed_height_mode(this->tree, true);
+	
+	gtk_widget_show_all(GTK_WIDGET(this->tree));
+	GtkRequisition size;
+	gtk_widget_get_preferred_size(GTK_WIDGET(this->tree), NULL, &size);
+	this->borderheight=size.height;
 	
 	return (struct widget_listbox*)this;
 }
