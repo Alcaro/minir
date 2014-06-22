@@ -8,7 +8,7 @@
 #include <gdk/gdkx.h>
 #endif
 
-//Number of ugly hacks: 5
+//Number of ugly hacks: 8
 //The status bar is a GtkGrid with GtkLabel, not a GtkStatusbar, because I couldn't get GtkStatusbar
 // to cooperate. While the status bar is a GtkBox, I couldn't find how to get rid of its child.
 //The status bar manages layout manually (by resizing the GtkLabels), because a GtkGrid with a large
@@ -22,6 +22,12 @@
 // cheap. (Likely fixable in GTK+ 3.12, but I'm on 3.8.)
 //Refreshing a listbox is done by telling it to redraw, not by telling it that contents have changed.
 // It's either that or send tens of thousands of contents-changed events, and I'd rather not.
+//gtk_widget_override_background_color does nothing to GtkTextEntry, due to a background-image
+// gradient. I had to throw a bit of their fancy CSS at it.
+//The size of GtkTreeView is complete nonsense. I had to do multiple kinds of ugliness to get it to
+// give out its real row height.
+//GtkTreeView has non-constant performance for creating a pile of rows, and gets terrible around
+// 100000. I had to cap it to 65536.
 
 //static GdkFilterReturn scanfilter(GdkXEvent* xevent, GdkEvent* event, gpointer data)
 //{
