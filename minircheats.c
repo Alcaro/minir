@@ -239,14 +239,15 @@ static void details_create(struct minircheats_impl * parent, struct window * par
 	this->wndw->set_is_dialog(this->wndw);
 	this->wndw->set_parent(this->wndw, parentwndw);
 	this->wndw->set_title(this->wndw, "Cheat Details");
-	this->wndw->onclose(this->wndw, details_onclose, this);
+	this->wndw->set_onclose(this->wndw, details_onclose, this);
 	
-	this->addr->set_text(this->addr, addr, 31);
+	this->addr->set_text(this->addr, addr);
+	this->addr->set_length(this->addr, 31);
 	
 	char valstr[16];
 	encodeval(this->dattype, this->datsize, thecheat->val, valstr);
-	curvalbox->set_text(curvalbox, valstr, 0);
-	this->newval->set_text(this->newval, valstr, 0);//default to keep at current value
+	curvalbox->set_text(curvalbox, valstr);
+	this->newval->set_text(this->newval, valstr);//default to keep at current value
 	curvalbox->set_enabled(curvalbox, false);
 	
 	ok->set_onclick(ok, details_ok, this);

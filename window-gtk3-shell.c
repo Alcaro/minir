@@ -110,6 +110,12 @@ static void set_parent(struct window * this_, struct window * parent_)
 	gtk_window_set_transient_for(this->wndw, parent->wndw);
 }
 
+static void set_modal(struct window * this_)
+{
+	struct window_gtk3 * this=(struct window_gtk3*)this_;
+	gtk_window_set_modal(this->wndw, true);
+}
+
 static void set_resizable(struct window * this_, bool resizable,
                           void (*onresize)(struct window * subject, unsigned int newwidth, unsigned int newheight, void* userdata),
                           void* userdata)
@@ -126,7 +132,7 @@ static void set_title(struct window * this_, const char * title)
 	gtk_window_set_title(this->wndw, title);
 }
 
-static void onclose_set(struct window * this_, bool (*function)(struct window * subject, void* userdata), void* userdata)
+static void set_onclose(struct window * this_, bool (*function)(struct window * subject, void* userdata), void* userdata)
 {
 	struct window_gtk3 * this=(struct window_gtk3*)this_;
 	this->onclose=function;
@@ -597,7 +603,7 @@ static gboolean onclose_gtk(GtkWidget* widget, GdkEvent* event, gpointer user_da
 }
 
 const struct window_gtk3 window_gtk3_base = {{
-	set_is_dialog, set_parent, resize, set_resizable, set_title, onclose_set, set_menu,
+	set_is_dialog, set_parent, set_modal, resize, set_resizable, set_title, set_onclose, set_menu,
 	statusbar_create, statusbar_set, replace_contents,
 	set_visible, is_visible, focus, is_active, menu_active, free_, _get_handle, NULL
 }};

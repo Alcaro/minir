@@ -210,7 +210,7 @@ static void set_title(struct window * this_, const char * title)
 	if (!isxp) SetWindowText(this->hwnd, title);
 }
 
-static void onclose(struct window * this_, bool (*function)(struct window * subject, void* userdata), void* userdata)
+static void set_onclose(struct window * this_, bool (*function)(struct window * subject, void* userdata), void* userdata)
 {
 	struct window_win32 * this=(struct window_win32*)this_;
 	this->onclose=function;
@@ -746,7 +746,7 @@ static void _reflow(struct window * this_)
 }
 
 const struct window_win32 window_win32_base = {{
-	set_is_dialog, set_parent, resize, set_resizable, set_title, onclose,
+	set_is_dialog, set_parent, resize, set_resizable, set_title, set_onclose,
 	set_menu, statusbar_create, statusbar_set,
 	replace_contents, set_visible, is_visible, focus, is_active, menu_active, free_, _get_handle, _reflow
 }};

@@ -239,6 +239,7 @@ struct widget_listbox_gtk3 {
 	struct widget_listbox i;
 	
 	GtkTreeView* tree;
+	gint cellheight;
 	
 	struct VirtualList* vlist;
 	
@@ -359,6 +360,12 @@ static void listbox_set_size(struct widget_listbox * this_, unsigned int height,
 		}
 		g_object_unref(layout);
 	}
+	if (height)
+	{
+		//this->cellheight
+		
+	}
+	//gtktreeview height
 	//TODO: figure out height
 }
 
@@ -380,6 +387,10 @@ static void listbox_add_checkboxes(struct widget_listbox * this_,
 	
 	GtkCellRenderer* render=gtk_cell_renderer_toggle_new();
 	gtk_tree_view_insert_column_with_attributes(this->tree, 0, "", render, "active", this->vlist->columns, NULL);
+	
+	gint checkheight;
+	g_object_get(render, "height", &checkheight, NULL);
+	if (checkheight>this->cellheight) this->cellheight=checkheight;
 	
 	this->ontoggle=ontoggle;
 	this->toggle_userdata=userdata;
@@ -425,6 +436,7 @@ struct widget_listbox * widget_create_listbox_l(unsigned int numcolumns, const c
 	this->vlist->checkboxes=false;
 	
 	GtkCellRenderer* render=gtk_cell_renderer_text_new();
+	g_object_get(render, "height", &this->cellheight, NULL);
 	for (unsigned int i=0;i<numcolumns;i++)
 	{
 		gtk_tree_view_insert_column_with_attributes(this->tree, -1, columns[i], render, "text", i, NULL);

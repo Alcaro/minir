@@ -719,7 +719,7 @@ void initialize(int argc, char * argv[])
 	draw=widget_create_viewport(videowidth*config.video_scale, videoheight*config.video_scale);
 	wndw=window_create(draw);
 	wndw->set_title(wndw, "minir");//in case the previous one didn't work
-	wndw->onclose(wndw, closethis, NULL);
+	wndw->set_onclose(wndw, closethis, NULL);
 	set_window_title();
 	
 	draw->set_support_drop(draw, drop_handler, NULL);

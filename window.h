@@ -35,6 +35,9 @@ struct window {
 	//Must be called before the first call to show(). Can't be undone, and can't be called multiple times.
 	void (*set_parent)(struct window * this, struct window * parent);
 	
+	//Blocks interacting with other windows in the program while this one is visible.
+	void (*set_modal)(struct window * this);
+	
 	//newwidth and newheight are the content size, excluding menues/toolbars/etc.
 	//If there is any widget whose size is unknown inside, then the sizes may only be used in resize(), and for relative measurements.
 	//It is allowed to call resize() on unresizable windows, but changing the size of
@@ -50,7 +53,7 @@ struct window {
 	//The callback tells whether the close request should be honored; true for close, false for keep.
 	//The window is only hidden, not deleted; you can use show() again later.
 	//It is safe to free this structure from within this callback; if you do this, return true for close.
-	void (*onclose)(struct window * this, bool (*function)(struct window * subject, void* userdata), void* userdata);
+	void (*set_onclose)(struct window * this, bool (*function)(struct window * subject, void* userdata), void* userdata);
 	
 	//Appends a menu bar to the top of the window. If the window has a menu already, it's replaced. NULL removes the menu.
 	//There's no real reason to replace it, though. Just change it.
@@ -268,8 +271,9 @@ struct widget_textbox {
 	//The return value is guaranteed valid until the next call to any function
 	// on this object, or the next window_run[_iter], whichever comes first.
 	const char * (*get_text)(struct widget_textbox * this);
+	void (*set_text)(struct widget_textbox * this, const char * text);
 	//If the length is 0, it's unlimited.
-	void (*set_text)(struct widget_textbox * this, const char * text, unsigned int maxlen);
+	void (*set_length)(struct widget_textbox * this, unsigned int maxlen);
 	
 	//Highlights the widget as containing invalid data. Can paint the background red, focus it, and various other stuff.
 	//The invalidity highlight is removed as soon as the contents are changed, but may be restored on the onchange event.
