@@ -1012,8 +1012,8 @@ static void thread_do_search(struct minircheats_model_impl * this, unsigned int 
 							size_t val1=*(ptrS++);
 							size_t val2=(comptoprev ? *(ptrprevS++) : compto_byterep);
 							
-							val1+=signadd_byterep;
-							val2+=signadd_byterep;
+							val1^=signadd_byterep;
+							val2^=signadd_byterep;
 							
 							
 							size_t tmp=(val1^val2);
