@@ -504,12 +504,17 @@ static const char * textbox_get_text(struct widget_textbox * this_)
 	return this->text;
 }
 
-static void textbox_set_text(struct widget_textbox * this_, const char * text, unsigned int maxlen)
+static void textbox_set_text(struct widget_textbox * this_, const char * text)
 {
 	struct widget_textbox_win32 * this=(struct widget_textbox_win32*)this_;
 	free(this->text);
 	this->text=strdup(text);
 	SetWindowText(this->hwnd, this->text);
+}
+
+static void textbox_set_length(struct widget_textbox * this_, unsigned int maxlen)
+{
+	struct widget_textbox_win32 * this=(struct widget_textbox_win32*)this_;
 	Edit_LimitText(this->hwnd, maxlen);//conveniently, we both chose 0 to mean unlimited
 }
 
@@ -553,6 +558,7 @@ struct widget_textbox * widget_create_textbox()
 	this->i.focus=textbox_focus;
 	this->i.get_text=textbox_get_text;
 	this->i.set_text=textbox_set_text;
+	this->i.set_length=textbox_set_length;
 	this->i.set_invalid=textbox_set_invalid;
 	this->i.set_onchange=textbox_set_onchange;
 	this->i.set_onactivate=textbox_set_onactivate;
