@@ -615,7 +615,6 @@ static void show_list(struct minircheats * this_)
 		this->wndlist_listbox->set_contents(this->wndlist_listbox, list_get_cell, NULL, this);
 		const unsigned int tmp[]={15, 15, 15};
 		this->wndlist_listbox->set_size(this->wndlist_listbox, 8, tmp);
-this->wndlist->set_modal(this->wndlist, true);
 	}
 	
 	this->wndlist->set_visible(this->wndlist, true);
