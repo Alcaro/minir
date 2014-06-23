@@ -88,6 +88,12 @@ static DWORD menudatabuflen=1;//this is DWORD only to allow exactly 0x10000
 struct window_win32 {
 	struct window i;
 	
+	//used 
+	struct window_win32 * prev;
+	struct window_win32 * next;
+	bool modal;
+	//char padding[7];
+	
 	HWND hwnd;
 	struct widget_base * contents;
 	unsigned int numchildwin;
@@ -114,6 +120,8 @@ struct window_win32 {
 };
 
 static HWND activedialog=NULL;
+
+static struct window_win32 * firstwindow;
 
 static void getBorderSizes(struct window_win32 * this, unsigned int * width, unsigned int * height)
 {
@@ -173,6 +181,13 @@ static void set_parent(struct window * this_, struct window * parent_)
 	struct window_win32 * this=(struct window_win32*)this_;
 	struct window_win32 * parent=(struct window_win32*)parent_;
 	SetWindowLongPtr(this->hwnd, GWLP_HWNDPARENT, (LONG_PTR)parent->hwnd);
+}
+
+static void set_modal(struct window * this_)
+{
+	//FIXME
+	//struct window_win32 * this=(struct window_win32*)this_;
+	//SetWindowLongPtr(this->hwnd, GWLP_HWNDPARENT, (LONG_PTR)parent->hwnd);
 }
 
 static void resize(struct window * this_, unsigned int width, unsigned int height)
@@ -746,7 +761,7 @@ static void _reflow(struct window * this_)
 }
 
 const struct window_win32 window_win32_base = {{
-	set_is_dialog, set_parent, resize, set_resizable, set_title, set_onclose,
+	set_is_dialog, set_parent, set_modal, resize, set_resizable, set_title, set_onclose,
 	set_menu, statusbar_create, statusbar_set,
 	replace_contents, set_visible, is_visible, focus, is_active, menu_active, free_, _get_handle, _reflow
 }};

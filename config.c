@@ -601,8 +601,8 @@ unsigned char config_bytecode[CONFIG_BYTECODE_LEN];
 static void read_bytecode(const char * name, const char * value, struct minirconfig * thisconf, bool global)
 {
 	const unsigned char * thisone=config_bytecode;
-	const unsigned char * arrayshuffle;
-	const char * arraynames;
+	const unsigned char * arrayshuffle=arrayshuffle;//these ones are initialized by ARRAY and ARRAY_SHUFFLED
+	const char * arraynames=arraynames;             //ARRAY_SAME is impossible unless one of those have happened
 	while (*thisone!=CFGB_END)
 	{
 		const unsigned char * at=thisone;
@@ -968,9 +968,9 @@ static void appendlf()
 static void print_config_file(struct minirconfig * this, bool isroot)
 {
 	const unsigned char * thisone=config_bytecode;
-	const unsigned char * arrayshuffle;
-	const char * arraynames;
-	int arraynamelen;
+	const unsigned char * arrayshuffle=arrayshuffle;//these ones are initialized by ARRAY and ARRAY_SHUFFLED
+	const char * arraynames=arraynames;             //ARRAY_SAME is impossible unless one of those have happened
+	int arraynamelen=arraynamelen;
 	char buf[32];
 	while (*thisone!=CFGB_END)
 	{
