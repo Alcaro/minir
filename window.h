@@ -36,7 +36,8 @@ struct window {
 	void (*set_parent)(struct window * this, struct window * parent);
 	
 	//Blocks interacting with other windows in the program while this one is visible.
-	void (*set_modal)(struct window * this);
+	//It is undefined behaviour to have two modal windows visible simultaneously.
+	void (*set_modal)(struct window * this, bool modal);
 	
 	//newwidth and newheight are the content size, excluding menues/toolbars/etc.
 	//If there is any widget whose size is unknown inside, then the sizes may only be used in resize(), and for relative measurements.

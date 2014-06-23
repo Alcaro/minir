@@ -110,10 +110,10 @@ static void set_parent(struct window * this_, struct window * parent_)
 	gtk_window_set_transient_for(this->wndw, parent->wndw);
 }
 
-static void set_modal(struct window * this_)
+static void set_modal(struct window * this_, bool modal)
 {
 	struct window_gtk3 * this=(struct window_gtk3*)this_;
-	gtk_window_set_modal(this->wndw, true);
+	gtk_window_set_modal(this->wndw, modal);
 }
 
 static void set_resizable(struct window * this_, bool resizable,

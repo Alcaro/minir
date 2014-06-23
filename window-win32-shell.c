@@ -88,7 +88,7 @@ static DWORD menudatabuflen=1;//this is DWORD only to allow exactly 0x10000
 struct window_win32 {
 	struct window i;
 	
-	//used 
+	//used by modality
 	struct window_win32 * prev;
 	struct window_win32 * next;
 	bool modal;
@@ -121,7 +121,8 @@ struct window_win32 {
 
 static HWND activedialog=NULL;
 
-static struct window_win32 * firstwindow;
+static struct window_win32 * firstwindow=NULL;
+static struct window_win32 * modalwindow=NULL;
 
 static void getBorderSizes(struct window_win32 * this, unsigned int * width, unsigned int * height)
 {
@@ -183,11 +184,43 @@ static void set_parent(struct window * this_, struct window * parent_)
 	SetWindowLongPtr(this->hwnd, GWLP_HWNDPARENT, (LONG_PTR)parent->hwnd);
 }
 
-static void set_modal(struct window * this_)
+static void update_modal(struct window_win32 * this)
 {
-	//FIXME
-	//struct window_win32 * this=(struct window_win32*)this_;
-	//SetWindowLongPtr(this->hwnd, GWLP_HWNDPARENT, (LONG_PTR)parent->hwnd);
+	if (this->modal && IsWindowVisible(this->hwnd))
+	{
+		//disable all windows
+		if (!modalwindow)//except if they're already disabled because that's a waste of time.
+		{
+			struct window_win32 * wndw=firstwindow;
+			while (wndw)
+			{
+				if (wndw!=this) EnableWindow(wndw->hwnd, false);
+				wndw=wndw->next;
+			}
+			modalwindow=this;
+		}
+	}
+	else
+	{
+		//we're gone now - if we're the one holding the windows locked, enable them
+		if (this == modalwindow)
+		{
+			struct window_win32 * wndw=firstwindow;
+			while (wndw)
+			{
+				EnableWindow(wndw->hwnd, true);
+				wndw=wndw->next;
+			}
+			modalwindow=NULL;
+		}
+	}
+}
+
+static void set_modal(struct window * this_, bool modal)
+{
+	struct window_win32 * this=(struct window_win32*)this_;
+	this->modal=modal;
+	update_modal(this);
 }
 
 static void resize(struct window * this_, unsigned int width, unsigned int height)
@@ -662,6 +695,7 @@ static void set_visible(struct window * this_, bool visible)
 	{
 		ShowWindow(this->hwnd, SW_HIDE);
 	}
+	update_modal(this);
 }
 
 static bool is_visible(struct window * this_)
@@ -691,11 +725,23 @@ static bool menu_active(struct window * this_)
 static void free_(struct window * this_)
 {
 	struct window_win32 * this=(struct window_win32*)this_;
+	
 	if (this->delayfree)
 	{
 		this->delayfree=2;
 		return;
 	}
+	
+	if (this->prev) this->prev->next=this->next;
+	else firstwindow=this->next;
+	if (this->next) this->next->prev=this->prev;
+	
+	if (this->modal)
+	{
+		set_visible(this_, false);
+		update_modal(this);
+	}
+	
 	this->contents->_free(this->contents);
 	if (this->menu) menu_delete(this->menu);
 	DestroyWindow(this->hwnd);
@@ -770,6 +816,11 @@ struct window * window_create(void * contents)
 {
 	struct window_win32 * this=malloc(sizeof(struct window_win32));
 	memcpy(this, &window_win32_base, sizeof(struct window_win32));
+	
+	this->next=firstwindow;
+	this->prev=NULL;
+	if (this->next) this->next->prev=this;
+	firstwindow=this;
 	
 	this->contents=contents;
 	this->contents->_measure(this->contents);
