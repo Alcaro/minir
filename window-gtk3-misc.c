@@ -24,10 +24,11 @@
 // It's either that or send tens of thousands of contents-changed events, and I'd rather not.
 //gtk_widget_override_background_color does nothing to GtkTextEntry, due to a background-image
 // gradient. I had to throw a bit of their fancy CSS at it.
-//The size of GtkTreeView is complete nonsense. I had to do multiple kinds of ugliness to get it to
-// give out its real row height.
 //GtkTreeView has non-constant performance for creating a pile of rows, and gets terrible around
 // 100000. I had to cap it to 65536.
+//The size of GtkTreeView is complete nonsense. I haven't found how to get it to give out its real
+// row height, nor could I figure out what the nonsense I get from the tell-me-your-height functions
+// is, but I am sure that whatever tricks I will need to pull fits here.
 
 //static GdkFilterReturn scanfilter(GdkXEvent* xevent, GdkEvent* event, gpointer data)
 //{
