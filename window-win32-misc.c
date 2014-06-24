@@ -17,11 +17,11 @@
 //Level 3 - attempting to use a feature reports success internally, but nothing happens
 //Level 4 - attempting to use a feature crashes the program
 //Level 5 - program won't start
-//Maximum allowed incompatibility level: 3 [4 at January 1, 2015] [will be increased later, and eventually this list removed]
+//Maximum allowed incompatibility level: 2 [will be increased later, and eventually this list removed]
 //List:
 //Level 1: LVCFMT_FIXED_WIDTH on the listbox requires Vista+
-//Level 1: printf may dislike z (size_t) size specifiers
-//Level 4 (possible): printf with size z, followed by %s, may dereference random integers
+//Danger list (likely to hit):
+//Level 4: printf dislikes z (size_t) size specifiers; they must be behind #ifdef DEBUG, or turned into "I" via #define
 
 //static LARGE_INTEGER timer_freq;
 

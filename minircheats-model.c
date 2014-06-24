@@ -95,6 +95,14 @@
 //- The host system uses 8bit bytes.
 //(The host system is allowed to use any endianness.)
 
+//http://msdn.microsoft.com/en-us/library/vstudio/tcxf1dw6.aspx says %zX is not supported.
+//let's define it to whatever they do support.
+#ifdef _WIN32
+#define z "I"
+#else
+#define z "z"
+#endif
+
 static size_t add_bits_down(size_t n)
 {
 	STATIC_ASSERT(sizeof(size_t)==4 || sizeof(size_t)==8, fix_this_function);
@@ -414,6 +422,7 @@ static void free_cheats(struct minircheats_model_impl * this);
 
 static void set_memory(struct minircheats_model * this_, const struct retro_memory_descriptor * memory, unsigned int nummemory)
 {
+#ifdef DEBUG
 for (unsigned int i=0;i<nummemory;i++)
 {
 printf("desc: fl=%X pt=%p of=%zx st=%zx se=%zx di=%zx le=%zx sp=%s\n",
@@ -426,6 +435,7 @@ memory[i].disconnect,
 memory[i].len,
 memory[i].addrspace);
 }
+#endif
 	struct minircheats_model_impl * this=(struct minircheats_model_impl*)this_;
 	free_mem(this);
 	free_cheats(this);
@@ -1252,7 +1262,7 @@ static void search_get_row(struct minircheats_model * this_, size_t row, char * 
 	if (addr)
 	{
 		size_t p_addr=addr_phys_to_guest(this, memblk, mempos);
-		sprintf(addr, "%s%.*zX", this->addrspaces[mem->addrspace].name, this->addrspaces[mem->addrspace].addrlen, p_addr);
+		sprintf(addr, "%s%.*"z"X", this->addrspaces[mem->addrspace].name, this->addrspaces[mem->addrspace].addrlen, p_addr);
 	}
 	if (val)     *val  =  readmemext(mem->ptr +mempos, this->search_datsize, mem->bigendian, this->search_signed);
 	if (prevval) *prevval=readmemext(mem->prev+mempos, this->search_datsize, mem->bigendian, this->search_signed);
@@ -1375,7 +1385,7 @@ static void cheat_get(struct minircheats_model * this_, unsigned int pos, struct
 	struct minircheats_model_impl * this=(struct minircheats_model_impl*)this_;
 	struct cheat_impl * icheat=&this->cheats[pos];
 	
-	sprintf(thecheat->addr, "%s%.*zX",
+	sprintf(thecheat->addr, "%s%.*"z"X",
 	        this->addrspaces[this->mem[icheat->memid].addrspace].name,
 	        this->addrspaces[this->mem[icheat->memid].addrspace].addrlen,
 	        addr_phys_to_guest(this, icheat->memid, icheat->offset));

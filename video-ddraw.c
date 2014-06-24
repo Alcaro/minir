@@ -2,6 +2,9 @@
 #ifdef VIDEO_DDRAW
 #include <windows.h>
 
+//http://msdn.microsoft.com/en-us/library/windows/desktop/gg426116%28v=vs.85%29.aspx
+//we can not use Ex, because it is not present on a clean installation of XP.
+
 struct video_ddraw {
 	struct video i;
 	

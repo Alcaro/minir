@@ -6,12 +6,18 @@
 #include <limits.h>
 #include "libretro.h"
 
+//http://msdn.microsoft.com/en-us/library/vstudio/tcxf1dw6.aspx says %zX is not supported.
+//let's define it to whatever they do support.
+#ifdef _WIN32
+#define z "I"
+#else
+#define z "z"
+#endif
+
 //window titles:
 //Cheat Search
 //Cheat Entry and Editor
 //Cheat Details
-
-//TODO: Destroy all cheat detail windows if the core is replaced
 
 enum cheat_compto { cht_prev, cht_cur, cht_curptr };
 enum cheat_dattype { cht_unsign, cht_sign, cht_hex };
@@ -281,7 +287,7 @@ static void search_update(struct minircheats_impl * this)
 		if (this->hassearched)
 		{
 			char label[64];
-			sprintf(label, "%zu match%s", num_rows, num_rows==1 ? "" : "es");
+			sprintf(label, "%"z"u match%s", num_rows, num_rows==1 ? "" : "es");
 			this->wndsrch_nummatch->set_text(this->wndsrch_nummatch, label);
 		}
 		else this->wndsrch_nummatch->set_text(this->wndsrch_nummatch, "");
