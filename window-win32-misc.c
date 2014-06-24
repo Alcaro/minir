@@ -98,7 +98,13 @@ const char * const * window_file_picker(struct window * parent,
 	ofn.lpstrTitle=title;
 	ofn.Flags=OFN_HIDEREADONLY|OFN_FILEMUSTEXIST|OFN_PATHMUSTEXIST|OFN_EXPLORER|(multiple?OFN_ALLOWMULTISELECT:0);
 	ofn.lpstrDefExt=NULL;
+	
+	DWORD cwd_len=GetCurrentDirectoryW(0, NULL);
+	WCHAR cwd[cwd_len+1];
+	GetCurrentDirectoryW(cwd_len+1, cwd);
 	BOOL ok=GetOpenFileName(&ofn);
+	SetCurrentDirectoryW(cwd);
+	
 	free(filter);
 	if (!ok)
 	{
