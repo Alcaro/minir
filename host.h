@@ -33,6 +33,7 @@
 //#define INPUT_DIRECTINPUT
 
 //#define VIDEO_D3D9
+//#define VIDEO_DDRAW
 #define VIDEO_OPENGL
 //#define VIDEO_GDI
 #define VIDEO_XSHM
@@ -75,6 +76,7 @@
 #define INPUT_DIRECTINPUT
 
 #define VIDEO_D3D9
+#define VIDEO_DDRAW
 #define VIDEO_OPENGL
 #define VIDEO_GDI
 //#define VIDEO_XSHM

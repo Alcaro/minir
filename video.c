@@ -9,6 +9,9 @@ const char * const * video_supported_backends()
 #ifdef VIDEO_D3D9
 		"Direct3D",
 #endif
+#ifdef VIDEO_DDRAW
+		"DirectDraw",
+#endif
 #ifdef VIDEO_OPENGL
 		"OpenGL",
 #endif
@@ -53,6 +56,9 @@ struct video * video_create(const char * backend, uintptr_t windowhandle, unsign
 {
 #ifdef VIDEO_D3D9
 	if (!strcasecmp(backend, "Direct3D")) return video_create_d3d9(windowhandle, screen_width, screen_height, depth, fps);
+#endif
+#ifdef VIDEO_DDRAW
+	if (!strcasecmp(backend, "DirectDraw")) return video_create_ddraw(windowhandle, screen_width, screen_height, depth, fps);
 #endif
 #ifdef VIDEO_OPENGL
 	if (!strcasecmp(backend, "OpenGL")) return video_create_opengl(windowhandle, screen_width, screen_height, depth, fps);

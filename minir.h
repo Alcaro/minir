@@ -149,13 +149,16 @@ const char * const * video_supported_backends();
 struct video * video_create(const char * backend, uintptr_t windowhandle, unsigned int screen_width, unsigned int screen_height,
                             unsigned int depth, double fps);
 
-//It's better to use inputkb_create() and let it take care of creating the right input handlers. Otherwise, you're surrendering platform independence.
-#ifdef VIDEO_OPENGL
-struct video * video_create_opengl(uintptr_t windowhandle, unsigned int screen_width, unsigned int screen_height,
-                                   unsigned int depth, double fps);
-#endif
 #ifdef VIDEO_D3D9
 struct video * video_create_d3d9(uintptr_t windowhandle, unsigned int screen_width, unsigned int screen_height,
+                                   unsigned int depth, double fps);
+#endif
+#ifdef VIDEO_DDRAW
+struct video * video_create_ddraw(uintptr_t windowhandle, unsigned int screen_width, unsigned int screen_height,
+                                  unsigned int depth, double fps);
+#endif
+#ifdef VIDEO_OPENGL
+struct video * video_create_opengl(uintptr_t windowhandle, unsigned int screen_width, unsigned int screen_height,
                                    unsigned int depth, double fps);
 #endif
 #ifdef VIDEO_GDI
@@ -234,6 +237,7 @@ struct inputkb {
 const char * const * inputkb_supported_backends();
 struct inputkb * inputkb_create(const char * backend, uintptr_t windowhandle);
 
+//It's better to use inputkb_create() and let it take care of creating the right input handlers. Otherwise, you're surrendering platform independence.
 //Linux drivers:
 #ifdef INPUT_X11
 struct inputkb * _inputkb_create_x11(uintptr_t windowhandle);
