@@ -1023,6 +1023,7 @@ static void thread_do_search(struct minircheats_model_impl * this, unsigned int 
 							tmp|=tmp>>1;
 							tmp&=rep8(0x01);
 							//tmp now contains 01 for different bytes, and 00 for same bytes
+							//neq = (neq>>sizeof(size_t)) | (((tmp*bitmerge) & ~((~(size_t)0)>>8)) << (8-sizeof(size_t)));
 							neq |= (tmp*bitmerge) >> (sizeof(size_t)*(8-1)) << bits;
 							
 							
@@ -1036,7 +1037,8 @@ static void thread_do_search(struct minircheats_model_impl * this, unsigned int 
 							tmp2=(val2>>8 | ~rep16(0x00FF));
 							lte_bits |= (tmp2-tmp1) & rep16(0x0100);
 							
-							lte |= (lte_bits*bitmerge) >> (sizeof(size_t)*(8-1)) << bits;
+							lte = (lte>>sizeof(size_t)) | (((lte_bits*bitmerge) & ~((~(size_t)0)>>8)) << (8-sizeof(size_t)));
+							//lte |= (lte_bits*bitmerge) >> (sizeof(size_t)*(8-1)) << bits;
 						}
 						
 						size_t remove=remove;//no gcc, it can't be unused; compfun_fun can only have those three values.
