@@ -440,6 +440,7 @@ struct widget_textbox_win32 {
 	char * text;
 	
 	bool invalid;
+	//char padding[7];
 	
 	void (*onchange)(struct widget_textbox * subject, const char * text, void* userdata);
 	void* ch_userdata;
@@ -460,13 +461,7 @@ static unsigned int textbox__init(struct widget_base * this_, struct window * pa
 	return 1;
 }
 
-static void textbox__measure(struct widget_base * this_)
-{
-	struct widget_textbox_win32 * this=(struct widget_textbox_win32*)this_;
-	measure_text("xxxxx", &this->i.base._width, &this->i.base._height);
-	this->i.base._width+=6;
-	this->i.base._height+=6;
-}
+static void textbox__measure(struct widget_base * this_) {}
 
 static void textbox__place(struct widget_base * this_, void* resizeinf,
                            unsigned int x, unsigned int y, unsigned int width, unsigned int height)
@@ -518,6 +513,12 @@ static void textbox_set_length(struct widget_textbox * this_, unsigned int maxle
 	Edit_LimitText(this->hwnd, maxlen);//conveniently, we both chose 0 to mean unlimited
 }
 
+static void textbox_set_width(struct widget_textbox * this_, unsigned int xs)
+{
+	struct widget_textbox_win32 * this=(struct widget_textbox_win32*)this_;
+	this->i.base._width=xs*xwidth/12;
+}
+
 static void textbox_set_invalid(struct widget_textbox * this_, bool invalid)
 {
 	struct widget_textbox_win32 * this=(struct widget_textbox_win32*)this_;
@@ -559,6 +560,7 @@ struct widget_textbox * widget_create_textbox()
 	this->i.get_text=textbox_get_text;
 	this->i.set_text=textbox_set_text;
 	this->i.set_length=textbox_set_length;
+	this->i.set_width=textbox_set_width;
 	this->i.set_invalid=textbox_set_invalid;
 	this->i.set_onchange=textbox_set_onchange;
 	this->i.set_onactivate=textbox_set_onactivate;
@@ -566,6 +568,11 @@ struct widget_textbox * widget_create_textbox()
 	this->text=NULL;
 	this->onchange=NULL;
 	this->invalid=false;
+	
+	measure_text("xxxxxxxxxxxx", NULL, &this->i.base._height);
+	this->i.base._width=5*xwidth/12;
+	this->i.base._width+=6;
+	this->i.base._height+=6;
 	
 	return (struct widget_textbox*)this;
 }

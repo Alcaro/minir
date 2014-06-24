@@ -275,6 +275,8 @@ struct widget_textbox {
 	void (*set_text)(struct widget_textbox * this, const char * text);
 	//If the length is 0, it's unlimited.
 	void (*set_length)(struct widget_textbox * this, unsigned int maxlen);
+	//How many instances of the letter 'x' should fit in the textbox without scrolling. Defaults to 5.
+	void (*set_width)(struct widget_textbox * this, unsigned int xs);
 	
 	//Highlights the widget as containing invalid data. Can paint the background red, focus it, and various other stuff.
 	//The invalidity highlight is removed as soon as the contents are changed, but may be restored on the onchange event.

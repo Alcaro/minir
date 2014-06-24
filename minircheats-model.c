@@ -1041,7 +1041,7 @@ static void thread_do_search(struct minircheats_model_impl * this, unsigned int 
 							//lte |= (lte_bits*bitmerge) >> (sizeof(size_t)*(8-1)) << bits;
 						}
 						
-						size_t remove=remove;//no gcc, it can't be unused; compfun_fun can only have those three values.
+						size_t remove=remove;//no, gcc, it can't be uninitialized; compfun_fun can only have those three values.
 						if (compfunc_fun==cht_eq) remove=neq;//we'll add tilde to both the others, in exchange for not having tilde on equal
 						if (compfunc_fun==cht_lt) remove=~(neq&lte);
 						if (compfunc_fun==cht_lte) remove=~lte;
