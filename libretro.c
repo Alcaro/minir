@@ -270,6 +270,10 @@ static bool load_rom(struct libretro * this_, const char * filename)
 	
 	initialize(this);
 	
+	free(this->memdesc);
+	this->memdesc=NULL;
+	this->nummemdesc=0;
+	
 	if (!filename && this->i.supports_no_game((struct libretro*)this))
 	{
 		return this->raw.load_game(NULL);
@@ -294,6 +298,10 @@ static bool load_rom_mem(struct libretro * this_, const char * data, size_t data
 	g_this=this;
 	
 	initialize(this);
+	
+	free(this->memdesc);
+	this->memdesc=NULL;
+	this->nummemdesc=0;
 	
 	struct retro_game_info game;
 	game.path=NULL;

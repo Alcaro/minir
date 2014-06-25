@@ -1366,7 +1366,7 @@ struct windowmenu * update_coreopt_menu(struct windowmenu * parent, bool * enabl
 		unsigned int numvalues=opts[i].numvalues;
 		
 		bool yesfirst;
-		if (numvalues==numvalues && is_yesno(opts[i].values[0], opts[i].values[1], &yesfirst))
+		if (numvalues==2 && is_yesno(opts[i].values[0], opts[i].values[1], &yesfirst))
 		{
 			struct windowmenu * item;
 			item=windowmenu_create_check(opts[i].name_display, yesfirst ? set_core_opt_bool_invert : set_core_opt_bool, (void*)(uintptr_t)i);
