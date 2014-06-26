@@ -93,7 +93,8 @@
 //- The child system uses little endian, or big endian.
 //- It is safe to read up to 3 bytes after any memory area. (The results are discarded.)
 //- The host system uses 8bit bytes.
-//(The host system is allowed to use any endianness.)
+//- Two threads may access two adjacent uint32s in any way without causing incorrect results. Bad performance is okay.
+//The host system is allowed to use any endianness, including weird ones.
 
 //http://msdn.microsoft.com/en-us/library/vstudio/tcxf1dw6.aspx says %zX is not supported.
 //let's define it to whatever they do support.
@@ -807,8 +808,8 @@ static void search_do_search(struct minircheats_model * this_, enum cheat_compfu
 	}
 	this->threadsearch_compto-=signadd;
 	
-	//we must run this unthreaded - it could touch two adjacent high trees
-	//it's fast, anyways.
+	//we must run this unthreaded - it could write two adjacent high trees
+	//it's fast, anyways. Up to 66 iterations per memory block.
 	for (unsigned int i=0;i<this->nummem;i++)
 	{
 		struct memblock * mem=&this->mem[i];
@@ -907,6 +908,8 @@ static void thread_do_search(struct minircheats_model_impl * this, unsigned int 
 			{
 				size_t worklen=SIZE_PAGE_HIGH;
 				if (pagepos+SIZE_PAGE_HIGH >= mem->len) worklen=mem->len-pagepos;
+				
+				uint32_t show_treehigh=mem->show_treehigh[pagepos/SIZE_PAGE_HIGH];
 				
 				size_t pos=0;
 				while (pos<worklen)
@@ -1060,7 +1063,7 @@ static void thread_do_search(struct minircheats_model_impl * this, unsigned int 
 						show&=~remove;
 #endif
 						mem->show[(pos+pagepos)/SIZET_BITS]=show;
-						mem->show_treehigh[pagepos/SIZE_PAGE_HIGH]-=deleted;
+						show_treehigh-=deleted;
 						mem->show_treelow[(pos+pagepos)/SIZE_PAGE_LOW]-=deleted;
 						pos+=SIZET_BITS;
 					}
@@ -1086,7 +1089,7 @@ static void thread_do_search(struct minircheats_model_impl * this, unsigned int 
 								{
 									//delete all
 									unsigned int deleted=popcountS(mem->show[(pos+pagepos)/SIZET_BITS]);
-									mem->show_treehigh[(pos+pagepos)/SIZE_PAGE_HIGH]-=deleted;
+									show_treehigh-=deleted;
 									mem->show_treelow[(pos+pagepos)/SIZE_PAGE_LOW]-=deleted;
 									mem->show[(pos+pagepos)/SIZET_BITS]=0;
 								}
@@ -1154,12 +1157,13 @@ static void thread_do_search(struct minircheats_model_impl * this, unsigned int 
 						if (compfunc_fun>=cht_lte) keep|=eq;
 						keep^=-compfunc_exp;
 						unsigned int deleted=popcountS(show&~keep);
-						mem->show_treehigh[(pos+pagepos)/SIZE_PAGE_HIGH]-=deleted;
+						show_treehigh-=deleted;
 						mem->show_treelow[(pos+pagepos)/SIZE_PAGE_LOW]-=deleted;
 						mem->show[(pos+pagepos)/SIZET_BITS]=show&keep;
 						pos+=SIZET_BITS;
 					}
 				}
+				mem->show_treehigh[pagepos/SIZE_PAGE_HIGH]=show_treehigh;
 				if (mem->prev) memcpy(mem->prev+pagepos, mem->ptr+pagepos, worklen);
 			}
 			workid=(workid+1)%this->numthreads;//just rotate which threads get a piece of work - rather primitive, but works.
