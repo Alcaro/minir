@@ -85,7 +85,7 @@
 // parts of minir.h are STATIC_ASSERT, struct minircheats_model and friends, and UNION_BEGIN and friends.
 //- Do not dynamically change the interface; use a switch. If that becomes a too big pain, stick a
 // function pointer in minircheats_model_impl.
-//- No C++ incompatibilities, except using 'this' as variable name. malloc return values must be casted.
+//- No C++ incompatibilities, except using 'this' as variable name. malloc return values must be casted. This includes C++11.
 
 //The following assumptions are made:
 //- The child system uses 8bit bytes.
@@ -147,6 +147,9 @@ static uint8_t popcount64(uint64_t v)
 	v = v - ((v >> 1) & (T)~(T)0/3);                           // temp
 	v = (v & (T)~(T)0/15*3) + ((v >> 2) & (T)~(T)0/15*3);      // temp
 	v = (v + (v >> 4)) & (T)~(T)0/255*15;                      // temp
+	//v = (v + (v >> 8)) & (T)~(T)0/255*255;                     // temp
+	//v = (v + (v >> 16)) & (T)~(T)0/255*65535;                  // temp
+	//v = (v + (v >> 32)) & (T)~(T)0/255*0xFFFFFFFF;             // temp
 	v = (T)(v * ((T)~(T)0/255)) >> (sizeof(T) - 1) * CHAR_BIT; // count
 #undef T
 	return v;
@@ -1266,7 +1269,7 @@ static void search_get_row(struct minircheats_model * this_, size_t row, char * 
 	if (addr)
 	{
 		size_t p_addr=addr_phys_to_guest(this, memblk, mempos);
-		sprintf(addr, "%s%.*"z"X", this->addrspaces[mem->addrspace].name, this->addrspaces[mem->addrspace].addrlen, p_addr);
+		sprintf(addr, "%s%.*" z "X", this->addrspaces[mem->addrspace].name, this->addrspaces[mem->addrspace].addrlen, p_addr);
 	}
 	if (val)     *val  =  readmemext(mem->ptr +mempos, this->search_datsize, mem->bigendian, this->search_signed);
 	if (prevval) *prevval=readmemext(mem->prev+mempos, this->search_datsize, mem->bigendian, this->search_signed);
@@ -1389,7 +1392,7 @@ static void cheat_get(struct minircheats_model * this_, unsigned int pos, struct
 	struct minircheats_model_impl * this=(struct minircheats_model_impl*)this_;
 	struct cheat_impl * icheat=&this->cheats[pos];
 	
-	sprintf(thecheat->addr, "%s%.*"z"X",
+	sprintf(thecheat->addr, "%s%.*" z "X",
 	        this->addrspaces[this->mem[icheat->memid].addrspace].name,
 	        this->addrspaces[this->mem[icheat->memid].addrspace].addrlen,
 	        addr_phys_to_guest(this, icheat->memid, icheat->offset));

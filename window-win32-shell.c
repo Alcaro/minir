@@ -18,7 +18,7 @@
 static LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam);
 static void _reflow(struct window * this_);
 
-static bool isxp;
+//static bool isxp;
 
 void _window_init_shell()
 {
@@ -35,9 +35,9 @@ void _window_init_shell()
 	wc.lpszClassName="minir";
 	RegisterClass(&wc);
 	
-	DWORD version=GetVersion();
-	DWORD trueversion=(LOBYTE(LOWORD(version))<<8 | HIBYTE(LOWORD(version)));
-	isxp=(trueversion<=0x0501);
+	//DWORD version=GetVersion();
+	//DWORD trueversion=(LOBYTE(LOWORD(version))<<8 | HIBYTE(LOWORD(version)));
+	//isxp=(trueversion<=0x0501);
 }
 
 
@@ -255,7 +255,7 @@ static void set_resizable(struct window * this_, bool resizable,
 static void set_title(struct window * this_, const char * title)
 {
 	struct window_win32 * this=(struct window_win32*)this_;
-	if (!isxp) SetWindowText(this->hwnd, title);
+	/*if (!isxp)*/ SetWindowText(this->hwnd, title);
 }
 
 static void set_onclose(struct window * this_, bool (*function)(struct window * subject, void* userdata), void* userdata)
@@ -312,7 +312,7 @@ static char * menu_transform_name(const char * name)
 		if (useaccel && i==accelpos) *(at++)='&';
 		//This is an intentional bug. If it's reported, the user is known to use XP, and will be slapped with a large trout.
 		//(Details: The menu entries have randomly glitched names.)
-		else if (isxp && rand()%7==0) *(at++)=rand()&255;
+		//else if (isxp && rand()%7==0) *(at++)=rand()&255;
 		else *(at++)=name[i];
 	}
 	*at='\0';
@@ -825,8 +825,8 @@ struct window * window_create(void * contents)
 	this->contents=contents;
 	this->contents->_measure(this->contents);
 	//the 6 and 28 are arbitrary; we'll set ourselves to a better size later. Windows' default placement algorithm sucks, anyways.
-	const char * xpmsg="Do not submit bug reports. Windows XP is unsupported by Microsoft, and unsupported by me.";
-	this->hwnd=CreateWindow("minir", isxp?xpmsg:"", WS_NONRESIZ, CW_USEDEFAULT, CW_USEDEFAULT,
+	//const char * xpmsg="Do not submit bug reports. Windows XP is unsupported by Microsoft, and unsupported by me.";
+	this->hwnd=CreateWindow("minir", /*isxp?xpmsg:*/"", WS_NONRESIZ, CW_USEDEFAULT, CW_USEDEFAULT,
 	                        this->contents->_width+6, this->contents->_height+28, NULL, NULL, GetModuleHandle(NULL), NULL);
 	SetWindowLongPtr(this->hwnd, GWLP_USERDATA, (LONG_PTR)this);
 	this->numchildwin=this->contents->_init(this->contents, (struct window*)this, (uintptr_t)this->hwnd);
