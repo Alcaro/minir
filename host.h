@@ -38,7 +38,7 @@
 //#define VIDEO_GDI
 #define VIDEO_XSHM
 
-#define AUDIO_PULSEAUDIO
+//#define AUDIO_PULSEAUDIO//defined by the configure script
 //#define AUDIO_DIRECTSOUND
 
 //#define NO_ANON_UNION_STRUCT

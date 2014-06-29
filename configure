@@ -1,5 +1,28 @@
 echo "Checking if build environment is sane..."
 
+enabled=""
+disabled=""
+cflags="\$(CFLAGS) -pthread "
+lflags="\$(LFLAGS) -pthread -ldl "
+lflags+="-lX11 -lGL -lXi -lXext "
+#`pkg-config --libs   gtk+-3.0 libpulse` -pthread -ldl -lX11 -lGL -lXi -lXext -lpulse"
+if pkg-config --exists gtk+-3.0; then
+	cflags+="`pkg-config --cflags gtk+-3.0` -DWINDOW_GTK3 "
+	lflags+="`pkg-config --libs gtk+-3.0` "
+#elif pkg-config --exists gtk+-2.0; then
+else
+	echo "Sorry, you do not have any supported GUI toolkit installed."
+	exit
+fi
+
+if pkg-config --exists libpulse; then
+	enabled+="pulseaudio"
+	cflags+="`pkg-config --cflags libpulse` -DAUDIO_PULSEAUDIO "
+	lflags+="`pkg-config --libs libpulse` "
+else
+	disabled+="pulseaudio"
+fi
+
 #uname := $(shell uname -a)
 #ifeq ($(uname),) win
 #ifneq ($(findstring Darwin,$(uname)),) osx
@@ -7,8 +30,8 @@ echo "Checking if build environment is sane..."
 echo "
 CFLAGS = -g
 LFLAGS =
-TRUE_CFLAGS = \$(CFLAGS) `pkg-config --cflags gtk+-3.0 libpulse` -pthread -DWINDOW_GTK3
-TRUE_LFLAGS = \$(LFLAGS) `pkg-config --libs   gtk+-3.0 libpulse` -pthread -ldl -lX11 -lGL -lXi -lXext -lpulse
+TRUE_CFLAGS = $cflags
+TRUE_LFLAGS = $lflags
 EXESUFFIX =
 EXTRAOBJ =
 " > Makefile.custom
@@ -39,3 +62,5 @@ EXTRAOBJ =
 #dsound - audio.directsound - FIXME
 
 echo "...whatever, it probably is. Configuration is done."
+echo "Enabled optional modules: $enabled"
+echo "Disabled optional modules: $disabled"
