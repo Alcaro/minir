@@ -485,7 +485,7 @@ static void statusbar_resize(struct window_gtk3 * this)
 {
 	//if (width<0) gtk_widget_get_size_request(GTK_WIDGET(this->contents), &width, NULL);
 	GtkAllocation size;
-	gtk_widget_get_allocation(GTK_WIDGET(this->contents->_widget), &size);
+	gtk_widget_get_allocation(GTK_WIDGET(this->contents->widget), &size);
 	if (size.width<=1) return;
 	
 	size.width-=(this->status_count*2*2);
@@ -510,9 +510,9 @@ static void statusbar_resize(struct window_gtk3 * this)
 static void replace_contents(struct window * this_, void * contents)
 {
 	struct window_gtk3 * this=(struct window_gtk3*)this_;
-	gtk_widget_destroy(this->contents->_widget);
-	this->contents->_free(this->contents);
-	gtk_grid_attach(this->grid, GTK_WIDGET(this->contents->_widget), 0,1, 1,1);
+	gtk_widget_destroy(this->contents->widget);
+	this->contents->free(this->contents);
+	gtk_grid_attach(this->grid, GTK_WIDGET(this->contents->widget), 0,1, 1,1);
 	this->contents=(struct widget_base*)contents;
 }
 
@@ -566,7 +566,7 @@ static void free_(struct window * this_)
 		this->delayfree=2;
 		return;
 	}
-	this->contents->_free(this->contents);
+	this->contents->free(this->contents);
 	
 	if (this->menu) menu_delete(this->menu);
 	gtk_widget_destroy(GTK_WIDGET(this->wndw));
@@ -621,7 +621,7 @@ struct window * window_create(void * contents_)
 	gtk_container_add(GTK_CONTAINER(this->wndw), GTK_WIDGET(this->grid));
 	
 	this->contents=(struct widget_base*)contents_;
-	gtk_grid_attach(this->grid, GTK_WIDGET(this->contents->_widget), 0,1, 1,1);
+	gtk_grid_attach(this->grid, GTK_WIDGET(this->contents->widget), 0,1, 1,1);
 	
 	this->visible=false;
 	

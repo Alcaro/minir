@@ -229,7 +229,7 @@ static void details_create(struct minircheats_impl * parent, struct window * par
 				widget_create_label("Current Value"), curvalbox=widget_create_textbox(),
 				widget_create_label("New Value"), this->newval=widget_create_textbox(),
 				//TODO: size and type, change mode, etc
-				widget_create_label("Description"), this->desc=widget_create_textbox(),
+				widget_create_label("Description"), this->desc=widget_create_textbox()
 			),
 			widget_create_layout_horz(
 				widget_create_padding_horz(),

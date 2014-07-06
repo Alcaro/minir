@@ -403,22 +403,22 @@ static void listbox_add_checkboxes(struct widget_listbox * this_,
 	g_signal_connect(render, "toggled", G_CALLBACK(listbox_checkbox_toggle), this);
 	
 	GtkRequisition size;
-	gtk_widget_show_all(this->i.base._widget);
+	gtk_widget_show_all(this->i._base.widget);
 	gtk_widget_get_preferred_size(GTK_WIDGET(this->tree), &size, NULL);
-	gtk_widget_set_size_request(this->i.base._widget, size.width, -1);
+	gtk_widget_set_size_request(this->i._base.widget, size.width, -1);
 }
 
 struct widget_listbox * widget_create_listbox_l(unsigned int numcolumns, const char * * columns)
 {
 	struct widget_listbox_gtk3 * this=malloc(sizeof(struct widget_listbox_gtk3));
-	this->i.base._widget=gtk_scrolled_window_new(NULL, NULL);
-	this->i.base._widthprio=3;
-	this->i.base._heightprio=3;
-	this->i.base._free=listbox__free;
+	this->i._base.widget=gtk_scrolled_window_new(NULL, NULL);
+	this->i._base.widthprio=3;
+	this->i._base.heightprio=3;
+	this->i._base.free=listbox__free;
 	
-	gtk_scrolled_window_set_policy(this->i.base._widget, GTK_POLICY_NEVER, GTK_POLICY_AUTOMATIC);
+	gtk_scrolled_window_set_policy(this->i._base.widget, GTK_POLICY_NEVER, GTK_POLICY_AUTOMATIC);
 	this->tree=GTK_TREE_VIEW(gtk_tree_view_new());
-	gtk_container_add(GTK_CONTAINER(this->i.base._widget), GTK_WIDGET(this->tree));
+	gtk_container_add(GTK_CONTAINER(this->i._base.widget), GTK_WIDGET(this->tree));
 	
 	this->i.set_enabled=listbox_set_enabled;
 	this->i.set_contents=listbox_set_contents;
@@ -450,8 +450,8 @@ struct widget_listbox * widget_create_listbox_l(unsigned int numcolumns, const c
 		gtk_tree_view_column_set_sizing(col, GTK_TREE_VIEW_COLUMN_FIXED);
 	}
 	
-	//gtk_widget_set_hexpand(this->i.base._widget, true);
-	//gtk_widget_set_vexpand(this->i.base._widget, true);
+	//gtk_widget_set_hexpand(this->i._base.widget, true);
+	//gtk_widget_set_vexpand(this->i._base.widget, true);
 	gtk_tree_view_set_fixed_height_mode(this->tree, true);
 	
 	gtk_widget_show_all(GTK_WIDGET(this->tree));
