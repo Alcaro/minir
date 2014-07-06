@@ -98,7 +98,7 @@ input input_turbo_toggle
 
 #This one pauses the game.
 input input_pause
-#Frame advance. Push it to move forward one frame.
+#Frame advance. Push it to move forward one frame. Works only while paused.
 input input_frame_adv
 -
 #These two allow the framerate to move (very slowly) while paused; one frame takes the defined delay, in milliseconds.
@@ -158,8 +158,8 @@ bool sram_write_auto=false
 #[TODO]
 input input_sram_write_manual
 
-#Whether to hide the cursor if it's above the minir window.
+#Whether to hide the cursor if it's above the minir window and not moving.
 bool cursor_hide=true
 -
-#Whether to pause the game if minir loses focus. Opening the menues or config panels will still pause the game.
+#Whether to pause the game if minir loses focus. Focusing on the menues or other minir windows will still pause the game.
 bool defocus_pause=true

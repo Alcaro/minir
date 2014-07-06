@@ -144,6 +144,7 @@ static LRESULT CALLBACK window_proc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM l
 	}
 	
 	//unsupported on XP
+	//TODO: do it anyways
 	//if (msg==WM_INPUT_DEVICE_CHANGE)
 	//{
 	//}

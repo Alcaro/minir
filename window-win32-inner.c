@@ -12,7 +12,7 @@
 //controls docs http://msdn.microsoft.com/en-us/library/windows/desktop/bb773169%28v=vs.85%29.aspx
 //alternatively http://msdn.microsoft.com/en-us/library/aa368039%28v=vs.85%29.aspx for some widgets
 
-//NOTE: Widgets must respond to _measure() before _init() is called. Do not measure them in _init.
+//NOTE: Widgets must respond to measure() before init() is called. Do not measure them in init.
 
 #ifndef LVCFMT_FIXED_WIDTH
 #define LVCFMT_FIXED_WIDTH 0x100
@@ -114,7 +114,7 @@ void _window_init_inner()
 	wc.lpszClassName="minir_viewport";
 	RegisterClass(&wc);
 	
-	measure_text("xxxxxxxxxxxx", &xwidth, NULL);
+	measure_text("XXXXXXXXXXXX", &xwidth, NULL);
 	
 	INITCOMMONCONTROLSEX initctrls;
 	initctrls.dwSize=sizeof(initctrls);
@@ -159,7 +159,7 @@ static void label__place(struct widget_base * this_, void* resizeinf,
                          unsigned int x, unsigned int y, unsigned int width, unsigned int height)
 {
 	struct widget_label_win32 * this=(struct widget_label_win32*)this_;
-	place_window(this->hwnd, resizeinf, x,y+(height-this->i.base._height)/2, width,this->i.base._height);
+	place_window(this->hwnd, resizeinf, x,y+(height-this->i._base.height)/2, width,this->i._base.height);
 }
 
 static void label__free(struct widget_base * this_)
@@ -178,7 +178,7 @@ static void label_set_text(struct widget_label * this_, const char * text)
 {
 	struct widget_label_win32 * this=(struct widget_label_win32*)this_;
 	SetWindowText(this->hwnd, text);
-	measure_text(text, &this->i.base._width, &this->i.base._height);
+	measure_text(text, &this->i._base.width, &this->i._base.height);
 	this->parent->_reflow(this->parent);
 }
 
@@ -197,12 +197,12 @@ static void label_set_alignment(struct widget_label * this_, int alignment)
 struct widget_label * widget_create_label(const char * text)
 {
 	struct widget_label_win32 * this=malloc(sizeof(struct widget_label_win32));
-	this->i.base._init=label__init;
-	this->i.base._measure=label__measure;
-	this->i.base._widthprio=0;
-	this->i.base._heightprio=0;
-	this->i.base._place=label__place;
-	this->i.base._free=label__free;
+	this->i._base.init=label__init;
+	this->i._base.measure=label__measure;
+	this->i._base.widthprio=1;
+	this->i._base.heightprio=1;
+	this->i._base.place=label__place;
+	this->i._base.free=label__free;
 	
 	this->i.set_enabled=label_set_enabled;
 	this->i.set_text=label_set_text;
@@ -210,7 +210,7 @@ struct widget_label * widget_create_label(const char * text)
 	this->i.set_alignment=label_set_alignment;
 	
 	this->hwnd=(HWND)strdup(text);
-	measure_text(text, &this->i.base._width, &this->i.base._height);
+	measure_text(text, &this->i._base.width, &this->i._base.height);
 	
 	return (struct widget_label*)this;
 }
@@ -277,19 +277,19 @@ static void button_set_onclick(struct widget_button * this_,
 struct widget_button * widget_create_button(const char * text)
 {
 	struct widget_button_win32 * this=malloc(sizeof(struct widget_button_win32));
-	this->i.base._init=button__init;
-	this->i.base._measure=button__measure;
-	this->i.base._widthprio=0;
-	this->i.base._heightprio=0;
-	this->i.base._place=button__place;
-	this->i.base._free=button__free;
+	this->i._base.init=button__init;
+	this->i._base.measure=button__measure;
+	this->i._base.widthprio=1;
+	this->i._base.heightprio=1;
+	this->i._base.place=button__place;
+	this->i._base.free=button__free;
 	
 	this->i.set_enabled=button_set_enabled;
 	this->i.set_text=button_set_text;
 	this->i.set_onclick=button_set_onclick;
 	
-	this->i.base._width=btn_width;
-	this->i.base._height=btn_height;
+	this->i._base.width=btn_width;
+	this->i._base.height=btn_height;
 	
 	this->onclick=NULL;
 	
@@ -359,8 +359,8 @@ static void radio_set_text(struct widget_radio * this_, const char * text)
 {
 	struct widget_radio_win32 * this=(struct widget_radio_win32*)this_;
 	SetWindowText(this->hwnd, text);
-	measure_text(text, &this->i.base._width, &this->i.base._height);
-	this->i.base._width+=this->i.base._height;
+	measure_text(text, &this->i._base.width, &this->i._base.height);
+	this->i._base.width+=this->i._base.height;
 	this->parent->_reflow(this->parent);
 }
 
@@ -405,12 +405,12 @@ static void radio_set_onclick(struct widget_radio * this_,
 struct widget_radio * widget_create_radio(const char * text)
 {
 	struct widget_radio_win32 * this=malloc(sizeof(struct widget_radio_win32));
-	this->i.base._init=radio__init;
-	this->i.base._measure=radio__measure;
-	this->i.base._widthprio=0;
-	this->i.base._heightprio=0;
-	this->i.base._place=radio__place;
-	this->i.base._free=radio__free;
+	this->i._base.init=radio__init;
+	this->i._base.measure=radio__measure;
+	this->i._base.widthprio=1;
+	this->i._base.heightprio=1;
+	this->i._base.place=radio__place;
+	this->i._base.free=radio__free;
 	
 	this->i.set_enabled=radio_set_enabled;
 	this->i.set_text=radio_set_text;
@@ -419,8 +419,8 @@ struct widget_radio * widget_create_radio(const char * text)
 	this->i.set_state=radio_set_state;
 	this->i.set_onclick=radio_set_onclick;
 	
-	measure_text(text, &this->i.base._width, &this->i.base._height);
-	this->i.base._width+=this->i.base._height;
+	measure_text(text, &this->i._base.width, &this->i._base.height);
+	this->i._base.width+=this->i._base.height;
 	
 	this->leader=NULL;
 	this->hwnd=NULL;
@@ -435,6 +435,7 @@ struct widget_radio * widget_create_radio(const char * text)
 struct widget_textbox_win32 {
 	struct widget_textbox i;
 	
+	struct window * parent;
 	HWND hwnd;
 	
 	char * text;
@@ -453,6 +454,7 @@ static LRESULT CALLBACK textbox_SubclassProc(HWND hwnd, UINT uMsg, WPARAM wParam
 static unsigned int textbox__init(struct widget_base * this_, struct window * parent, uintptr_t parenthandle)
 {
 	struct widget_textbox_win32 * this=(struct widget_textbox_win32*)this_;
+	this->parent=parent;
 	this->hwnd=CreateWindow(WC_EDIT, "", WS_CHILD|WS_VISIBLE|WS_TABSTOP|WS_BORDER|ES_AUTOHSCROLL, 0, 0, 16, 16,
 	                        (HWND)parenthandle, (HMENU)CTID_TEXTBOX, GetModuleHandle(NULL), NULL);
 	SetWindowLongPtr(this->hwnd, GWLP_USERDATA, (LONG_PTR)this);
@@ -516,7 +518,8 @@ static void textbox_set_length(struct widget_textbox * this_, unsigned int maxle
 static void textbox_set_width(struct widget_textbox * this_, unsigned int xs)
 {
 	struct widget_textbox_win32 * this=(struct widget_textbox_win32*)this_;
-	this->i.base._width=xs*xwidth/12;
+	this->i._base.width = xs*xwidth/12 + 6;
+	this->parent->_reflow(this->parent);
 }
 
 static void textbox_set_invalid(struct widget_textbox * this_, bool invalid)
@@ -548,12 +551,12 @@ static void textbox_set_onactivate(struct widget_textbox * this_,
 struct widget_textbox * widget_create_textbox()
 {
 	struct widget_textbox_win32 * this=malloc(sizeof(struct widget_textbox_win32));
-	this->i.base._init=textbox__init;
-	this->i.base._measure=textbox__measure;
-	this->i.base._widthprio=3;
-	this->i.base._heightprio=0;
-	this->i.base._place=textbox__place;
-	this->i.base._free=textbox__free;
+	this->i._base.init=textbox__init;
+	this->i._base.measure=textbox__measure;
+	this->i._base.widthprio=3;
+	this->i._base.heightprio=1;
+	this->i._base.place=textbox__place;
+	this->i._base.free=textbox__free;
 	
 	this->i.set_enabled=textbox_set_enabled;
 	this->i.focus=textbox_focus;
@@ -569,10 +572,9 @@ struct widget_textbox * widget_create_textbox()
 	this->onchange=NULL;
 	this->invalid=false;
 	
-	measure_text("xxxxxxxxxxxx", NULL, &this->i.base._height);
-	this->i.base._width=5*xwidth/12;
-	this->i.base._width+=6;
-	this->i.base._height+=6;
+	measure_text("XXXXXXXXXXXX", NULL, &this->i._base.height);
+	this->i._base.width=5*xwidth/12 + 6;
+	this->i._base.height+=6;
 	
 	return (struct widget_textbox*)this;
 }
@@ -646,8 +648,8 @@ static void viewport__free(struct widget_base * this_)
 static void viewport_resize(struct widget_viewport * this_, unsigned int width, unsigned int height)
 {
 	struct widget_viewport_win32 * this=(struct widget_viewport_win32*)this_;
-	this->i.base._width=width;
-	this->i.base._height=height;
+	this->i._base.width=width;
+	this->i._base.height=height;
 	this->parent->_reflow(this->parent);
 }
 
@@ -681,20 +683,20 @@ static void viewport_set_support_drop(struct widget_viewport * this_,
 struct widget_viewport * widget_create_viewport(unsigned int width, unsigned int height)
 {
 	struct widget_viewport_win32 * this=malloc(sizeof(struct widget_viewport_win32));
-	this->i.base._init=viewport__init;
-	this->i.base._measure=viewport__measure;
-	this->i.base._widthprio=0;
-	this->i.base._heightprio=0;
-	this->i.base._place=viewport__place;
-	this->i.base._free=viewport__free;
+	this->i._base.init=viewport__init;
+	this->i._base.measure=viewport__measure;
+	this->i._base.widthprio=0;
+	this->i._base.heightprio=0;
+	this->i._base.place=viewport__place;
+	this->i._base.free=viewport__free;
 	
 	this->i.resize=viewport_resize;
 	this->i.get_window_handle=viewport_get_window_handle;
 	this->i.set_hide_cursor=viewport_set_hide_cursor;
 	this->i.set_support_drop=viewport_set_support_drop;
 	
-	this->i.base._width=width;
-	this->i.base._height=height;
+	this->i._base.width=width;
+	this->i._base.height=height;
 	
 	this->hide_cursor_user=false;
 	this->hide_cursor_timer=true;
@@ -823,7 +825,7 @@ static unsigned int listbox__init(struct widget_base * this_, struct window * pa
 		col.pszText=(char*)columns[i];
 		ListView_InsertColumn(this->hwnd, i, &col);
 		this->columnwidths[i]=1;
-		//this->i.base._width+=col.cx;
+		//this->i._base.width+=col.cx;
 	}
 	this->columnwidthsum=this->columns;
 	
@@ -925,17 +927,17 @@ static void listbox_set_size(struct widget_listbox * this_, unsigned int height,
 		this->columnwidthsum=0;
 		for (unsigned int i=0;i<this->columns;i++)
 		{
-			listbox_resize_column(this->hwnd, i, widths[i]*xwidth/12+2);
-			widthpx+=widths[i]*xwidth/12+2;
+			listbox_resize_column(this->hwnd, i, widths[i]*xwidth/12+12+5+(i==0));//why are these columns not resized to the sizes I tell them to resize to
+			widthpx+=widths[i]*xwidth/12+12+5;
 			this->columnwidths[i]=widths[i];
 			this->columnwidthsum+=widths[i];
 		}
 	}
 	
 	DWORD widthheight=ListView_ApproximateViewRect(this->hwnd, widthpx, heightpx, height);
-	this->i.base._width=LOWORD(widthheight);
-	this->i.base._height=HIWORD(widthheight)-GetSystemMetrics(SM_CYHSCROLL)+2;//microsoft really aren't making this easy for me
-//printf("%u->%u %u->%u\n",widthpx,this->i.base._width,heightpx,this->i.base._height);
+	this->i._base.width=LOWORD(widthheight);
+	this->i._base.height=HIWORD(widthheight)-GetSystemMetrics(SM_CYHSCROLL)+2;//microsoft really isn't making this easy for me
+//printf("%u->%u %u->%u\n",widthpx,this->i._base.width,heightpx,this->i._base.height);
 	
 	this->parent->_reflow(this->parent);
 }
@@ -970,12 +972,12 @@ static void listbox_add_checkboxes(struct widget_listbox * this_,
 struct widget_listbox * widget_create_listbox_l(unsigned int numcolumns, const char * * columns)
 {
 	struct widget_listbox_win32 * this=malloc(sizeof(struct widget_listbox_win32));
-	this->i.base._init=listbox__init;
-	this->i.base._measure=listbox__measure;
-	this->i.base._widthprio=3;
-	this->i.base._heightprio=3;
-	this->i.base._place=listbox__place;
-	this->i.base._free=listbox__free;
+	this->i._base.init=listbox__init;
+	this->i._base.measure=listbox__measure;
+	this->i._base.widthprio=3;
+	this->i._base.heightprio=3;
+	this->i._base.place=listbox__place;
+	this->i._base.free=listbox__free;
 	
 	this->i.set_enabled=listbox_set_enabled;
 	this->i.set_contents=listbox_set_contents;
@@ -991,8 +993,8 @@ struct widget_listbox * widget_create_listbox_l(unsigned int numcolumns, const c
 	this->onactivate=NULL;
 	this->checkboxes=NULL;
 	
-	this->i.base._width=1+19+1+this->columns*20;
-	this->i.base._height=1+25+19*0+2;
+	this->i._base.width=1+19+1+this->columns*20;
+	this->i._base.height=1+25+19*0+2;
 	
 	this->hwnd=malloc(sizeof(const char*)*numcolumns);
 	memcpy(this->hwnd, columns, sizeof(const char*)*numcolumns);
@@ -1135,25 +1137,25 @@ static unsigned int frame__init(struct widget_base * this_, struct window * pare
 	                        (HWND)parenthandle, (HMENU)CTID_NONINTERACTIVE, GetModuleHandle(NULL), NULL);
 	//SetWindowLongPtr(this->hwnd, GWLP_USERDATA, (LONG_PTR)this);
 	SendMessage(this->hwnd, WM_SETFONT, (WPARAM)dlgfont, FALSE);
-	return 1+this->child->_init(this->child, parent, parenthandle);
+	return 1+this->child->init(this->child, parent, parenthandle);
 }
 
 static void frame__measure(struct widget_base * this_)
 {
 	struct widget_frame_win32 * this=(struct widget_frame_win32*)this_;
-	this->child->_measure(this->child);
-	this->i.base._width=this->child->_width + frame_left+frame_right;
-	this->i.base._height=this->child->_height + frame_top+frame_bottom;
-	this->i.base._widthprio=this->child->_widthprio;
-	this->i.base._heightprio=this->child->_heightprio;
+	this->child->measure(this->child);
+	this->i._base.width=this->child->width + frame_left+frame_right;
+	this->i._base.height=this->child->height + frame_top+frame_bottom;
+	this->i._base.widthprio=this->child->widthprio;
+	this->i._base.heightprio=this->child->heightprio;
 }
 
 static void frame__place(struct widget_base * this_, void* resizeinf,
                          unsigned int x, unsigned int y, unsigned int width, unsigned int height)
 {
 	struct widget_frame_win32 * this=(struct widget_frame_win32*)this_;
-	this->child->_place(this->child, resizeinf, x+frame_left, y+frame_top,
-	                    width-frame_left-frame_right, height-frame_top-frame_bottom);
+	this->child->place(this->child, resizeinf, x+frame_left, y+frame_top,
+	                   width-frame_left-frame_right, height-frame_top-frame_bottom);
 	place_window(this->hwnd, resizeinf, x, y, width, height);
 }
 
@@ -1172,14 +1174,14 @@ static void frame_set_text(struct widget_frame * this_, const char * text)
 struct widget_frame * widget_create_frame(const char * text, void* contents)
 {
 	struct widget_frame_win32 * this=malloc(sizeof(struct widget_frame_win32));
-	this->i.base._init=frame__init;
-	this->i.base._measure=frame__measure;
-	this->i.base._place=frame__place;
-	this->i.base._free=frame__free;
+	this->i._base.init=frame__init;
+	this->i._base.measure=frame__measure;
+	this->i._base.place=frame__place;
+	this->i._base.free=frame__free;
 	
 	this->i.set_text=frame_set_text;
 	
-	this->child=contents;
+	this->child=(struct widget_base*)contents;
 	
 	this->hwnd=(HWND)text;
 	

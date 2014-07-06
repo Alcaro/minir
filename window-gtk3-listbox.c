@@ -357,7 +357,7 @@ static void listbox_set_size(struct widget_listbox * this_, unsigned int height,
 		PangoLayout* layout=pango_layout_new(gtk_widget_get_pango_context(GTK_WIDGET(this->tree)));
 		for (unsigned int i=0;i<this->vlist->columns;i++)
 		{
-			const char xs[]="xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx";
+			const char xs[]="XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX";
 			pango_layout_set_text(layout, xs, widths[i]);
 			int width;
 			pango_layout_get_pixel_size(layout, &width, NULL);

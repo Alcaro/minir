@@ -134,7 +134,7 @@ struct windowmenu * windowmenu_create_item(const char * text,
 struct windowmenu * windowmenu_create_check(const char * text,
                                             void (*onactivate)(struct windowmenu * subject, bool checked, void* userdata),
                                             void* userdata);
-//A radio item counts as one item to the rest of minir, but looks like multiple.
+//A radio item counts as one item to the rest of the program, but looks like multiple.
 struct windowmenu * windowmenu_create_radio(void (*onactivate)(struct windowmenu * subject, unsigned int state, void* userdata),
                                             void* userdata, const char * firsttext, ...);
 struct windowmenu * windowmenu_create_radio_l(unsigned int numitems, const char * const * texts,
@@ -148,11 +148,11 @@ struct windowmenu * windowmenu_create_topmenu_l(unsigned int numchildren, struct
 
 
 
-//Each widget is owned by the layout or window it's put in (layouts own each other). Deleting the window deletes the widget.
+//Each widget is owned by the layout or window it's put in (layouts own each other). Deleting the parent deletes the children.
 //Each widget has a few shared base functions that can be called without knowing what
 // type of widget this is. However, they should all be seen as implementation details.
-//It is undefined behaviour to set a callback to NULL. (It is, however, allowed to not set it.)
-//It is undefined behaviour to set the callback twice.
+//It is undefined behaviour to set a callback to NULL. It is, however, allowed to not set it.
+//It is undefined behaviour to set a callback twice.
 //It is undefined behaviour to interact with any widget, except by putting it inside another widget, before it's placed inside a window.
 //Any pointers given during widget creation must be valid until the widget is placed inside a window.
 struct widget_base {
@@ -161,33 +161,33 @@ struct widget_base {
 	// function call on the widget was not measure(); widgets may choose to update their sizes in
 	// response to anything that resizes them, and leave measure() blank.
 	//If multiple widgets want the space equally much, they get equal fractions, in addition to their base demand.
-	//If a widget gets extra space and doesn't want it, it shouldadd some padding in any direction.
+	//If a widget gets extra space and doesn't want it, it should add some padding in any direction.
 	//The widget should, if needed by the window manager, forward all plausible events to its parent window,
 	// unless the widget wants the events. (For example, a button will want mouse events, but not file drop events.)
 	//The window handles passed around are implementation defined.
 	//The return value from _init() is the number of windows involved, from the window manager's point of view.
-	unsigned int (*_init)(struct widget_base * this, struct window * parent, uintptr_t parenthandle);
-	void (*_measure)(struct widget_base * this);
-	unsigned int _width;
-	unsigned int _height;
-	void (*_place)(struct widget_base * this, void* resizeinf, unsigned int x, unsigned int y, unsigned int width, unsigned int height);
+	unsigned int (*init)(struct widget_base * this, struct window * parent, uintptr_t parenthandle);
+	void (*measure)(struct widget_base * this);
+	unsigned int width;
+	unsigned int height;
+	void (*place)(struct widget_base * this, void* resizeinf, unsigned int x, unsigned int y, unsigned int width, unsigned int height);
 #else
-	void * _widget;
+	void * widget;
 #endif
 	//The priorities mean:
 	//0 - Widget has been assigned a certain size; it must get exactly that. (Canvas, viewport)
 	//1 - Widget wants a specific size; will only grudgingly accept more. (Most of them)
 	//2 - Widget has orders to consume extra space if there's any left over and nothing really wants it. (Padding)
-	//3 - Will work better if given extra space. (Listbox)
+	//3 - Widget will look better if given extra space. (Listbox)
 	//4 - Widget is ordered to be resizable. (Canvas, viewport)
-	unsigned char _widthprio;
-	unsigned char _heightprio;
-	void (*_free)(struct widget_base * this);
+	unsigned char widthprio;
+	unsigned char heightprio;
+	void (*free)(struct widget_base * this);
 };
 
 
 struct widget_padding {
-	struct widget_base base;
+	struct widget_base _base;
 	//can't disable this
 };
 struct widget_padding * widget_create_padding_horz();
@@ -195,7 +195,7 @@ struct widget_padding * widget_create_padding_vert();
 
 
 struct widget_label {
-	struct widget_base base;
+	struct widget_base _base;
 	//Disabling a label does nothing, but may change how it looks.
 	//Useful it if it's attached to another widget, and this widget is disabled.
 	void (*set_enabled)(struct widget_label * this, bool enable);
@@ -209,7 +209,7 @@ struct widget_label * widget_create_label(const char * text);
 
 
 struct widget_button {
-	struct widget_base base;
+	struct widget_base _base;
 	void (*set_enabled)(struct widget_button * this, bool enable);
 	
 	void (*set_text)(struct widget_button * this, const char * text);
@@ -219,7 +219,7 @@ struct widget_button * widget_create_button(const char * text);
 
 
 struct widget_checkbox {
-	struct widget_base base;
+	struct widget_base _base;
 	void (*set_enabled)(struct widget_checkbox * this, bool enable);
 	
 	void (*set_text)(struct widget_checkbox * this, const char * text);
@@ -232,7 +232,7 @@ struct widget_checkbox * widget_create_checkbox(const char * text);
 
 
 struct widget_radio {
-	struct widget_base base;
+	struct widget_base _base;
 	void (*set_enabled)(struct widget_radio * this, bool enable);
 	
 	void (*set_text)(struct widget_radio * this, const char * text);
@@ -265,7 +265,7 @@ struct widget_layout * widget_create_radio_group(struct widget_radio * * leader,
 
 
 struct widget_textbox {
-	struct widget_base base;
+	struct widget_base _base;
 	void (*set_enabled)(struct widget_textbox * this, bool enable);
 	void (*focus)(struct widget_textbox * this);
 	
@@ -275,7 +275,7 @@ struct widget_textbox {
 	void (*set_text)(struct widget_textbox * this, const char * text);
 	//If the length is 0, it's unlimited.
 	void (*set_length)(struct widget_textbox * this, unsigned int maxlen);
-	//How many instances of the letter 'x' should fit in the textbox without scrolling. Defaults to 5.
+	//How many instances of the letter 'X' should fit in the textbox without scrolling. Defaults to 5.
 	void (*set_width)(struct widget_textbox * this, unsigned int xs);
 	
 	//Highlights the widget as containing invalid data. Can paint the background red, focus it, and various other stuff.
@@ -300,7 +300,7 @@ struct widget_textbox * widget_create_textbox();
 
 //A canvas is a simple image. It's easy to work with, but performance is poor and it can't vsync, so it shouldn't be used for video.
 struct widget_canvas {
-	struct widget_base base;
+	struct widget_base _base;
 	//can't disable this
 	
 	void (*resize)(struct widget_canvas * this, unsigned int width, unsigned int height);
@@ -323,7 +323,7 @@ struct widget_canvas * widget_create_canvas(unsigned int width, unsigned int hei
 
 //A viewport fills the same purpose as a canvas, but the tradeoffs go the opposite way.
 struct widget_viewport {
-	struct widget_base base;
+	struct widget_base _base;
 	//can't disable this
 	
 	void (*resize)(struct widget_viewport * this, unsigned int width, unsigned int height);
@@ -343,20 +343,22 @@ struct widget_viewport * widget_create_viewport(unsigned int width, unsigned int
 
 
 struct widget_listbox {
-	struct widget_base base;
+	struct widget_base _base;
 	void (*set_enabled)(struct widget_listbox * this, bool enable);
 	
-	//Row -1 is the checkboxes, if they exist; NULL for unchecked, non-NULL (though not necessarily a valid pointer) for checked.
+	//Column -1 is the checkboxes, if they exist; NULL for unchecked, non-NULL (though not necessarily a valid pointer) for checked.
 	//The search callback should return the row ID closest to 'start' in the given direction where the first column starts with 'str'.
 	//If 'start' itself starts with 'prefix', it should be returned. If there is none in that direction, loop around, or return (size_t)-1.
 	//It's optional, but recommended for better performance.
-	//(GTK+ is stupid and doesn't let me use it. GTK+ also takes time greater than O(1) to process a row, so it's capped to 65536.)
+	//(GTK+ is stupid and doesn't let me use it.)
 	void (*set_contents)(struct widget_listbox * this,
 	                     const char * (*get_cell)(struct widget_listbox * subject, size_t row, int column,
 	                                              void * userdata),
 	                     size_t (*search)(struct widget_listbox * subject, const char * prefix, size_t start, bool up, void * userdata),
 	                     void * userdata);
 	
+	//It is allowed for the implementation to cap this to some sensible value. However, at least 16382 items must be supported.
+	//(On Windows, the limit is 2^32-1 because that's what its interfaces support. On GTK+, the limit is 65536 because anything larger gets slow.)
 	void (*set_num_rows)(struct widget_listbox * this, size_t rows);
 	
 	//Refreshing row (size_t)-1 refreshes all of them.
@@ -372,7 +374,7 @@ struct widget_listbox {
 	                       void* userdata);
 	
 	//This is the size on the screen. The height is how many items show up; the widths are how many
-	// instances of the letter 'x' must fit in the column.
+	// instances of the letter 'X' must fit in the column.
 	//It is allowed to use 0 (height) or NULL (widths) to mean "keep current or use the default".
 	void (*set_size)(struct widget_listbox * this, unsigned int height, const unsigned int * widths);
 	
@@ -390,7 +392,7 @@ struct widget_listbox * widget_create_listbox(const char * firstcol, ...);
 
 //A decorative frame around a widget, to group them together. The widget can be a layout (and probably should, otherwise you're adding a box to a single widget).
 struct widget_frame {
-	struct widget_base base;
+	struct widget_base _base;
 	//can't disable this (well okay, we can, but it's pointless to disable a widget that does nothing)
 	
 	void (*set_text)(struct widget_frame * this, const char * text);
@@ -402,7 +404,7 @@ struct widget_frame * widget_create_frame(const char * text, void* contents);
 //It is safe to put layouts inside each other, though the types should alternate, or you're wasting memory.
 //It is not necessary for the root widget to be a layout.
 struct widget_layout {
-	struct widget_base base;
+	struct widget_base _base;
 	//can't disable this widget - disable its contents instead
 };
 //The lists are terminated with a NULL. It shouldn't be empty.
@@ -413,21 +415,22 @@ struct widget_layout * widget_create_layout(bool vertical, bool uniform, void * 
 struct widget_layout * widget_create_layout_l(bool vertical, bool uniform, unsigned int numchildren, void * * children);
 
 struct widget_grid {
-	struct widget_base base;
+	struct widget_base _base;
 	//can't disable this widget - disable its contents instead
 };
 //The widgets are stored row by row. There is no NULL terminator, because the size is known from the arguments already.
-struct widget_grid * widget_create_grid(unsigned int width, unsigned int height,
+//Uniform sizes mean that every row has the same height, and every column has the same width.
+struct widget_grid * widget_create_grid(unsigned int width, unsigned int height, bool uniformsizes,
                                         void * firstchild, ...);
 //This one allows some widgets to take up multiple boxes of the grid. They're still stored row by
-// row, except that there is no entry for slots that are already used. It is undefined behaviour if
-// a widget does not fit where it belongs, or if it overlaps another widget.
-struct widget_grid * widget_create_grid_v(unsigned int width, unsigned int height,
+// row, except that there is no entry for slots that are already used.
+//It is undefined behaviour if a widget does not fit where it belongs, if it overlaps another widget, or if it's size 0 in either direction.
+struct widget_grid * widget_create_grid_v(unsigned int totwidth,   unsigned int totheight,   bool uniformwidths, bool uniformheights,
                                           unsigned int firstwidth, unsigned int firstheight, void * firstchild, ...);
-//The widths/heights arrays can be NULL, which makes them filled by 1.
-struct widget_grid * widget_create_grid_l(unsigned int cols, unsigned int * widths,  bool uniformwidths,
-                                          unsigned int rows, unsigned int * heights, bool uniformheights,
-                                          void * * children);
+//The widths/heights arrays can be NULL, which is treated as being filled with 1s.
+struct widget_grid * widget_create_grid_l(unsigned int numchildren, void * * children,
+                                          unsigned int totwidth,  unsigned int * widths,  bool uniformwidths,
+                                          unsigned int totheight, unsigned int * heights, bool uniformheights);
 
 
 

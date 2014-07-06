@@ -6,18 +6,13 @@
 #include <limits.h>
 #include "libretro.h"
 
-//http://msdn.microsoft.com/en-us/library/vstudio/tcxf1dw6.aspx says %zX is not supported.
+//http://msdn.microsoft.com/en-us/library/vstudio/tcxf1dw6.aspx says %zX is not supported
 //let's define it to whatever they do support.
 #ifdef _WIN32
 #define z "I"
 #else
 #define z "z"
 #endif
-
-//window titles:
-//Cheat Search
-//Cheat Entry and Editor
-//Cheat Details
 
 enum cheat_compto { cht_prev, cht_cur, cht_curptr };
 enum cheat_dattype { cht_unsign, cht_sign, cht_hex };
@@ -228,18 +223,20 @@ static void details_create(struct minircheats_impl * parent, struct window * par
 	struct widget_button * ok;
 	struct widget_button * cancel;
 	this->wndw=window_create(
-		//widget_create_layout_grid(2, 4,//TODO: use this
 		widget_create_layout_vert(
-			widget_create_label("Address"), this->addr=widget_create_textbox(),
-			widget_create_label("Current Value"), curvalbox=widget_create_textbox(),
-			widget_create_label("New Value"), this->newval=widget_create_textbox(),
-			//TODO: size and type, change mode, etc
-			widget_create_label("Description"), this->desc=widget_create_textbox(),
-			widget_create_padding_horz(), widget_create_layout_horz(
+			widget_create_grid(2, 4, false,
+				widget_create_label("Address"), this->addr=widget_create_textbox(),
+				widget_create_label("Current Value"), curvalbox=widget_create_textbox(),
+				widget_create_label("New Value"), this->newval=widget_create_textbox(),
+				//TODO: size and type, change mode, etc
+				widget_create_label("Description"), this->desc=widget_create_textbox(),
+			),
+			widget_create_layout_horz(
 				widget_create_padding_horz(),
 				ok=widget_create_button("OK"),
 				cancel=widget_create_button("Cancel"),
-				NULL),NULL/*TODO: remove this null*/)
+				NULL),
+			NULL)
 		);
 	
 	this->wndw->set_is_dialog(this->wndw);
@@ -248,6 +245,7 @@ static void details_create(struct minircheats_impl * parent, struct window * par
 	this->wndw->set_onclose(this->wndw, details_onclose, this);
 	
 	this->addr->set_text(this->addr, addr);
+	this->addr->set_width(this->addr, this->parent->model->cheat_get_max_code_len(this->parent->model));
 	this->addr->set_length(this->addr, 31);
 	
 	char valstr[16];
@@ -596,19 +594,19 @@ static void show_list(struct minircheats * this_)
 						widget_create_padding_vert(),
 						NULL),
 					NULL),
-					//widget_create_layout_grid(2, 3,//TODO: use this
-					widget_create_layout_vert(
-						widget_create_label("Cheat Code"),
-						widget_create_textbox(),
-						widget_create_label("Cheat Description"),
-						widget_create_textbox(),
-						widget_create_label("Cheat Address (hex)"),
-						widget_create_layout_horz(
-							widget_create_textbox(),
-							widget_create_label("New Value"),
-							widget_create_textbox(),
-						NULL),
-					NULL/*TODO: remove null*/),
+					
+					widget_create_grid_v(4, 3, false, false,
+						1,1, widget_create_label("Cheat Code"),
+						3,1, widget_create_textbox(),
+						
+						1,1, widget_create_label("Cheat Description"),
+						3,1, widget_create_textbox(),
+						
+						1,1, widget_create_label("Cheat Address (hex)"),
+						1,1, widget_create_textbox(),
+						1,1, widget_create_label("New Value"),
+						1,1, widget_create_textbox()
+					),
 				NULL)
 			);
 		
@@ -619,7 +617,9 @@ static void show_list(struct minircheats * this_)
 		this->wndlist->set_title(this->wndlist, "Cheat Entry and Editor");
 		
 		this->wndlist_listbox->set_contents(this->wndlist_listbox, list_get_cell, NULL, this);
-		const unsigned int tmp[]={15, 15, 15};
+		//value width is max length of 4294967295 and 0xFFFFFFFF
+		//description width is just something random
+		const unsigned int tmp[]={this->model->cheat_get_max_code_len(this->model), 10, 10};
 		this->wndlist_listbox->set_size(this->wndlist_listbox, 8, tmp);
 	}
 	
@@ -688,8 +688,7 @@ struct minircheats * minircheats_create()
 	
 	this->enabled=true;
 	this->model=minircheats_create_model();
-//TODO: enable threads
-//	this->model->thread_enable(this->model, thread_ideal_count());
+	this->model->thread_enable(this->model, thread_ideal_count());
 	
 	return (struct minircheats*)this;
 }

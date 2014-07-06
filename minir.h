@@ -46,13 +46,6 @@ void* try_realloc(void* ptr, size_t size);
 
 #include "window.h"
 
-void         //delete
-window_firstrun//this
-();             //one
-
-//uncomment this to ensure they're all removed - remember to make clean
-//#define window_firstrun %%%
-
 //None of these interfaces should be instantiated and then passed around. Instead, they should be
 // the first member of another, backend-specific, structure, and this structure should then be
 // casted to the desired return value; the implementation can then cast it back. This way, they can
@@ -71,7 +64,7 @@ window_firstrun//this
 // calling that function will not trigger the state callback.
 //No interface may be used from multiple threads, unless otherwise specified; they must be used only
 // by the one creating them. However, it is safe for any thread to create an interface, including
-// having different threads create copies of the same interface.
+// having different threads create multiple instances of the same interface.
 //Don't depend on any pointer being unique; for example, the None interfaces are static. However,
 // even if they are (potentially) non-unique, following the instructed method to free them is safe;
 // either they're owned by the one one giving them to you, or their free() handlers are empty, or
@@ -149,6 +142,8 @@ const char * const * video_supported_backends();
 struct video * video_create(const char * backend, uintptr_t windowhandle, unsigned int screen_width, unsigned int screen_height,
                             unsigned int depth, double fps);
 
+//TODO: D3D11?
+//TODO: D2D? Probably not.
 #ifdef VIDEO_D3D9
 struct video * video_create_d3d9(uintptr_t windowhandle, unsigned int screen_width, unsigned int screen_height,
                                    unsigned int depth, double fps);
@@ -217,17 +212,21 @@ struct audio * audio_create_none(uintptr_t windowhandle, double samplerate, doub
 
 
 
+//inputkb is a quite low-level structure. You'll have to keep the state yourself.
 struct inputkb {
-	void (*set_callbacks)(struct inputkb * this,
-	                      //notifications:
-	                      //- I lost track of the keyboards, you should forget all keys
-	                      //- here's the current state, but don't count them as recently pressed
-	                      //- number of keyboards has changed (clamp to 0-32)
-	                      //- must also tell the size of a keyboard (clamp to 0-1024), though this is constant, so it can be a normal function
-	                      void (*key_cb)(struct inputkb * subject,
-	                                     unsigned int keyboard, unsigned int scancode, unsigned int libretrocode, 
-	                                     bool down, void* userdata),
-	                      void* userdata);
+//possibly useful notifications:
+//- I lost track of the keyboards, you should forget all keys
+//- here's the current state, but don't count them as recently pressed
+//- number of keyboards has changed (clamp to 0-32)
+//- must also tell the size of a keyboard (clamp to 0-1024), though this is constant, so it can be a normal function
+	unsigned int (*get_kb_size)(struct inputkb * this);
+	unsigned int (*get_num_kbs)(struct inputkb * this);
+	
+	void (*set_callback)(struct inputkb * this,
+	                     void (*key_cb)(struct inputkb * subject,
+	                                    unsigned int keyboard, unsigned int scancode, unsigned int libretrocode, 
+	                                    bool down, void* userdata),
+	                     void* userdata);
 	
 	void (*poll)(struct inputkb * this);
 	
@@ -269,11 +268,11 @@ struct inputkb * _inputkb_create_directinput(uintptr_t windowhandle);
 //void _inputraw_windows_keyboard_create_shared(struct inputraw * this);
 #endif
 
-struct inputraw * _inputraw_create_none(uintptr_t windowhandle);
+struct inputkb * _inputkb_create_none(uintptr_t windowhandle);
 
 //This one translates a hardware keycode to a Libretro code. It uses the same tables as inputraw_*_keyboard_create_shared;
-// if an input mapper disagrees, then weird stuff may happen.
-unsigned int inputraw_translate_key(unsigned int keycode);
+// if an input driver disagrees, weird stuff may happen.
+unsigned int inputkb_translate_key(unsigned int keycode);
 
 
 
@@ -282,6 +281,7 @@ struct inputjoy;
 
 
 
+struct inputraw;
 struct inputmapper {
 	//Asks whether a button is pressed. If oneshot is set, the button is considered released after
 	// being held for one frame. If the button is not mapped to anything, it's considered unheld.
@@ -785,6 +785,9 @@ struct minircheats_model {
 	//desc is a human readable description of the cheat code. May not contain ASCII control characters
 	// (0..31 and 127), but is otherwise freeform.
 	//The format is designed so that a SNES Gameshark code is valid.
+	
+	//Returns the longest possible size for a valid address.
+	unsigned int (*cheat_get_max_code_len)(struct minircheats_model * this);
 	
 	//This one tells the current value of an address.
 	//Fails if:

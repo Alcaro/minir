@@ -1517,9 +1517,21 @@ void update_menu()
 */
 
 
+//static const char*gc(struct widget_listbox * subject, size_t row, int column, void * userdata){return "XXXXXX";}
+
 int main(int argc, char * argv[])
 {
 	initialize(argc, argv);
+//struct widget_listbox*l;
+//struct window*w=window_create(l=widget_create_listbox("XXXXXX", "XXXXXX", "XXXXXX", "XXXXXX", NULL));
+//const unsigned int tmp[]={6,6,6,6};
+//l->set_size(l,8,tmp);
+//l->set_contents(l,gc,NULL,NULL);
+//l->set_num_rows(l,4);
+//w->set_visible(w,true);
+//while(w->is_visible(w))window_run_wait();
+//return 0;
+
 if
 (config.firstrun)
 window_message_box(
@@ -1530,8 +1542,9 @@ config.firstrun
 =false;
 #ifdef DEBUG
 cheats->show_search(cheats);
-//cheats->show_list(cheats);
+cheats->show_list(cheats);
 #endif
 	mainloop();
+
 	deinit();
 }
