@@ -738,5 +738,58 @@ struct widget_layout * widget_create_layout_l(bool vertical, bool uniform, unsig
 
 
 
-//grids go here
+struct widget_grid_gtk3 {
+	struct widget_grid i;
+	
+	struct widget_base * * children;
+	unsigned int numchildren;
+};
+
+static void grid__free(struct widget_base * this_)
+{
+	struct widget_grid_gtk3 * this=(struct widget_grid_gtk3*)this_;
+	for (unsigned int i=0;i<this->numchildren;i++)
+	{
+		this->children[i]->free(this->children[i]);
+	}
+	free(this->children);
+	free(this);
+}
+
+struct widget_grid * widget_create_grid_l(unsigned int numchildren, void * * children,
+                                          unsigned int totwidth,  unsigned int * widths,  bool uniformwidths,
+                                          unsigned int totheight, unsigned int * heights, bool uniformheights)
+{
+	struct widget_grid_gtk3 * this=malloc(sizeof(struct widget_grid_gtk3));
+	GtkGrid* grid=GTK_GRID(gtk_grid_new());
+	this->i._base.widget=grid;
+	this->i._base.free=grid__free;
+	
+	this->numchildren=numchildren;
+	this->children=malloc(sizeof(struct widget_base*)*numchildren);
+	memcpy(this->children, children, sizeof(struct widget_base*)*numchildren);
+	
+	bool posused[totheight*totwidth];
+	memset(posused, 0, sizeof(posused));
+	unsigned int firstempty=0;
+	for (int i=0;i<numchildren;i++)
+	{
+		while (posused[firstempty]) firstempty++;
+		
+		unsigned int width=(widths ? widths[i] : 1);
+		unsigned int height=(heights ? heights[i] : 1);
+		
+		gtk_grid_attach(grid, this->children[i]->widget,
+		                firstempty%totwidth, firstempty/totwidth,
+		                width, height);
+		
+		for (int x=0;x<width ;x++)
+		for (int y=0;y<height;y++)
+		{
+			posused[firstempty + y*totwidth + x]=true;
+		}
+	}
+	
+	return (struct widget_grid*)this;
+}
 #endif
