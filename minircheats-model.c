@@ -85,7 +85,7 @@
 // parts of minir.h are STATIC_ASSERT, struct minircheats_model and friends, and UNION_BEGIN and friends.
 //- Do not dynamically change the interface; use a switch. If that becomes a too big pain, stick a
 // function pointer in minircheats_model_impl.
-//- No C++ incompatibilities, except using 'this' as variable name. malloc return values must be casted. This includes C++11.
+//- No C++ incompatibilities, except using 'this' as variable name. This includes C++11. malloc return values must be casted.
 
 //The following assumptions are made:
 //- The child system uses 8bit bytes.
@@ -93,11 +93,10 @@
 //- The child system uses little endian, or big endian.
 //- It is safe to read up to 3 bytes after any memory area. (The results are discarded.)
 //- The host system uses 8bit bytes.
-//- Two threads may access two adjacent uint32s in any way without causing incorrect results. Bad performance is okay.
-//The host system is allowed to use any endianness, including weird ones.
+//(The host system is allowed to use any endianness.)
 
 //http://msdn.microsoft.com/en-us/library/vstudio/tcxf1dw6.aspx says %zX is not supported.
-//let's define it to whatever they do support.
+//Let's define it to whatever they do support.
 #ifdef _WIN32
 #define z "I"
 #else
@@ -147,6 +146,7 @@ static uint8_t popcount64(uint64_t v)
 	v = v - ((v >> 1) & (T)~(T)0/3);                           // temp
 	v = (v & (T)~(T)0/15*3) + ((v >> 2) & (T)~(T)0/15*3);      // temp
 	v = (v + (v >> 4)) & (T)~(T)0/255*15;                      // temp
+	//tried this, no speedup
 	//v = (v + (v >> 8)) & (T)~(T)0/255*255;                     // temp
 	//v = (v + (v >> 16)) & (T)~(T)0/255*65535;                  // temp
 	//v = (v + (v >> 32)) & (T)~(T)0/255*0xFFFFFFFF;             // temp
@@ -811,8 +811,8 @@ static void search_do_search(struct minircheats_model * this_, enum cheat_compfu
 	}
 	this->threadsearch_compto-=signadd;
 	
-	//we must run this unthreaded - it could write two adjacent high trees
-	//it's fast, anyways. Up to 66 iterations per memory block.
+	//we must run this unthreaded - it could touch two adjacent high trees
+	//it's fast, anyways.
 	for (unsigned int i=0;i<this->nummem;i++)
 	{
 		struct memblock * mem=&this->mem[i];
@@ -911,8 +911,6 @@ static void thread_do_search(struct minircheats_model_impl * this, unsigned int 
 			{
 				size_t worklen=SIZE_PAGE_HIGH;
 				if (pagepos+SIZE_PAGE_HIGH >= mem->len) worklen=mem->len-pagepos;
-				
-				uint32_t show_treehigh=mem->show_treehigh[pagepos/SIZE_PAGE_HIGH];
 				
 				size_t pos=0;
 				while (pos<worklen)
@@ -1066,7 +1064,7 @@ static void thread_do_search(struct minircheats_model_impl * this, unsigned int 
 						show&=~remove;
 #endif
 						mem->show[(pos+pagepos)/SIZET_BITS]=show;
-						show_treehigh-=deleted;
+						mem->show_treehigh[pagepos/SIZE_PAGE_HIGH]-=deleted;
 						mem->show_treelow[(pos+pagepos)/SIZE_PAGE_LOW]-=deleted;
 						pos+=SIZET_BITS;
 					}
@@ -1092,7 +1090,7 @@ static void thread_do_search(struct minircheats_model_impl * this, unsigned int 
 								{
 									//delete all
 									unsigned int deleted=popcountS(mem->show[(pos+pagepos)/SIZET_BITS]);
-									show_treehigh-=deleted;
+									mem->show_treehigh[(pos+pagepos)/SIZE_PAGE_HIGH]-=deleted;
 									mem->show_treelow[(pos+pagepos)/SIZE_PAGE_LOW]-=deleted;
 									mem->show[(pos+pagepos)/SIZET_BITS]=0;
 								}
@@ -1160,13 +1158,12 @@ static void thread_do_search(struct minircheats_model_impl * this, unsigned int 
 						if (compfunc_fun>=cht_lte) keep|=eq;
 						keep^=-compfunc_exp;
 						unsigned int deleted=popcountS(show&~keep);
-						show_treehigh-=deleted;
+						mem->show_treehigh[(pos+pagepos)/SIZE_PAGE_HIGH]-=deleted;
 						mem->show_treelow[(pos+pagepos)/SIZE_PAGE_LOW]-=deleted;
 						mem->show[(pos+pagepos)/SIZET_BITS]=show&keep;
 						pos+=SIZET_BITS;
 					}
 				}
-				mem->show_treehigh[pagepos/SIZE_PAGE_HIGH]=show_treehigh;
 				if (mem->prev) memcpy(mem->prev+pagepos, mem->ptr+pagepos, worklen);
 			}
 			workid=(workid+1)%this->numthreads;//just rotate which threads get a piece of work - rather primitive, but works.
@@ -1315,6 +1312,18 @@ static void thread_finish_work(struct minircheats_model * this_)
 
 
 
+
+static unsigned int cheat_get_max_code_len(struct minircheats_model * this_)
+{
+	struct minircheats_model_impl * this=(struct minircheats_model_impl*)this_;
+	unsigned int ret=0;
+	for (unsigned int i=0;i<this->numaddrspace;i++)
+	{
+		unsigned int thislen=strlen(this->addrspaces[i].name)+this->addrspaces[i].addrlen;
+		if (thislen>ret) ret=thislen;
+	}
+	return ret;
+}
 
 //TODO
 static bool cheat_read(struct minircheats_model * this_, const char * addr, unsigned int datsize, uint32_t * val)
@@ -1517,7 +1526,7 @@ const struct minircheats_model_impl minircheats_model_base = {{
 	search_reset, search_set_datsize, search_set_signed, search_do_search,
 	search_get_num_rows, search_get_row, NULL,//search_find_row
 	thread_enable, thread_get_count, thread_do_work, thread_finish_work,
-	cheat_read, cheat_find_for_addr, cheat_get_count,
+	cheat_get_max_code_len, cheat_read, cheat_find_for_addr, cheat_get_count,
 	cheat_set, cheat_get, cheat_remove, NULL/*cheat_sort*/,
 	cheat_apply,
 	code_create, code_parse,
