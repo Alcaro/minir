@@ -6,10 +6,11 @@
 #include <windows.h>
 #include <commctrl.h>
 #include <ctype.h>
-//#include<stdio.h>
+#include<stdio.h>
 
 //TODO:
 //menu_create: check where it's resized if size changes
+//esc doesn't close dialogs correctly
 
 #define WS_BASE WS_OVERLAPPED|WS_CAPTION|WS_SYSMENU|WS_MINIMIZEBOX//okay microsoft, did I miss anything?
 #define WS_RESIZABLE (WS_BASE|WS_MAXIMIZEBOX|WS_THICKFRAME)
@@ -677,9 +678,9 @@ static void statusbar_set(struct window * this_, int slot, const char * text)
 static void replace_contents(struct window * this_, void * contents)
 {
 	struct window_win32 * this=(struct window_win32*)this_;
-	this->contents->_free(this->contents);
+	this->contents->free(this->contents);
 	this->contents=(struct widget_base*)contents;
-	this->numchildwin=this->contents->_init(this->contents, (struct window*)this, (uintptr_t)this->hwnd);
+	this->numchildwin=this->contents->init(this->contents, (struct window*)this, (uintptr_t)this->hwnd);
 	_reflow(this_);
 }
 
@@ -742,7 +743,7 @@ static void free_(struct window * this_)
 		update_modal(this);
 	}
 	
-	this->contents->_free(this->contents);
+	this->contents->free(this->contents);
 	if (this->menu) menu_delete(this->menu);
 	DestroyWindow(this->hwnd);
 	free(this);
@@ -775,14 +776,14 @@ static void _reflow(struct window * this_)
 		size.bottom-=statsize.bottom;
 	}
 	
-	this->contents->_measure(this->contents);
+	this->contents->measure(this->contents);
 	
-	bool badx=(this->contents->_width  > size.right  || (!this->resizable && this->contents->_width  != size.right));
-	bool bady=(this->contents->_height > size.bottom || (!this->resizable && this->contents->_height != size.bottom));
+	bool badx=(this->contents->width  > size.right  || (!this->resizable && this->contents->width  != size.right));
+	bool bady=(this->contents->height > size.bottom || (!this->resizable && this->contents->height != size.bottom));
 	
 //printf("want=%u,%u have=%u,%u",this->contents->_width,this->contents->_height,size.right,size.bottom);
-	if (badx) size.right=this->contents->_width;
-	if (bady) size.bottom=this->contents->_height;
+	if (badx) size.right=this->contents->width;
+	if (bady) size.bottom=this->contents->height;
 	
 	if (badx || bady)
 	{
@@ -801,7 +802,7 @@ static void _reflow(struct window * this_)
 //puts("");
 	
 	HDWP hdwp=BeginDeferWindowPos(this->numchildwin);
-	this->contents->_place(this->contents, &hdwp, 0,0, size.right, size.bottom);
+	this->contents->place(this->contents, &hdwp, 0,0, size.right, size.bottom);
 	EndDeferWindowPos(hdwp);
 	recursive=false;
 }
@@ -822,14 +823,14 @@ struct window * window_create(void * contents)
 	if (this->next) this->next->prev=this;
 	firstwindow=this;
 	
-	this->contents=contents;
-	this->contents->_measure(this->contents);
+	this->contents=(struct widget_base*)contents;
+	this->contents->measure(this->contents);
 	//the 6 and 28 are arbitrary; we'll set ourselves to a better size later. Windows' default placement algorithm sucks, anyways.
 	//const char * xpmsg="Do not submit bug reports. Windows XP is unsupported by Microsoft, and unsupported by me.";
 	this->hwnd=CreateWindow("minir", /*isxp?xpmsg:*/"", WS_NONRESIZ, CW_USEDEFAULT, CW_USEDEFAULT,
-	                        this->contents->_width+6, this->contents->_height+28, NULL, NULL, GetModuleHandle(NULL), NULL);
+	                        this->contents->width+6, this->contents->height+28, NULL, NULL, GetModuleHandle(NULL), NULL);
 	SetWindowLongPtr(this->hwnd, GWLP_USERDATA, (LONG_PTR)this);
-	this->numchildwin=this->contents->_init(this->contents, (struct window*)this, (uintptr_t)this->hwnd);
+	this->numchildwin=this->contents->init(this->contents, (struct window*)this, (uintptr_t)this->hwnd);
 	
 	this->status=NULL;
 	this->menu=NULL;
@@ -840,7 +841,7 @@ struct window * window_create(void * contents)
 	this->status_resizegrip_width=0;
 	this->delayfree=0;
 	
-	resize((struct window*)this, this->contents->_width, this->contents->_height);
+	resize((struct window*)this, this->contents->width, this->contents->height);
 	//_reflow((struct window*)this);
 	
 	return (struct window*)this;
@@ -862,8 +863,8 @@ static LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM l
 				unsigned int pady;
 				getBorderSizes(this, &padx, &pady);
 				
-				mmi->ptMinTrackSize.x=padx+this->contents->_width;
-				mmi->ptMinTrackSize.y=pady+this->contents->_height;
+				mmi->ptMinTrackSize.x=padx+this->contents->width;
+				mmi->ptMinTrackSize.y=pady+this->contents->height;
 			}
 		}
 		break;
