@@ -96,8 +96,6 @@ struct windowmenu_win32 {
 	UNION_END
 	
 	uint16_t thispos;//position in the menu, native position (radios count as multiple)
-	//To get its ID, harass 'parent'. (topmenu has no parent, but it doesn't have an ID either.)
-	//To get from an ID to these structures, use 'menumap'.
 	
 	UNION_BEGIN
 		HMENU parent;//the menu it is in; NULL for the topmenu
@@ -118,13 +116,6 @@ struct windowmenu_win32 {
 	UNION_END
 	void* userdata;
 };
-
-//indexed by WM_COMMAND wParam
-static struct windowmenu_win32 * * menumap=NULL;
-static WORD * menumap_radiostate=NULL;
-static DWORD menudatafirstfree=16;//the pointed to item is not necessarily free, but all before are guaranteed to be used; it's DWORD to terminate a loop
-//it's also initialized to 16 because 2 seems to mean something.
-static DWORD menudatabuflen=16;//this is DWORD only to allow exactly 0x10000
 
 static HWND activedialog=NULL;
 
@@ -290,29 +281,6 @@ static void set_onclose(struct window * this_, bool (*function)(struct window * 
 
 static void menu_delete(struct windowmenu_win32 * this);
 
-static WORD menu_alloc_id()
-{
-	while (menudatafirstfree<menudatabuflen)
-	{
-		if (!menumap[menudatafirstfree]) return menudatafirstfree;
-		menudatafirstfree++;
-	}
-	if (menudatafirstfree>0xFFFF) abort();
-	size_t buflenbytes=sizeof(struct windowmenu_win32*)*menudatabuflen;
-	menudatabuflen*=2;
-	menumap=realloc(menumap, buflenbytes*2);
-	menumap_radiostate=realloc(menumap_radiostate, sizeof(WORD)*menudatabuflen);
-	if (!menumap || !menumap_radiostate) abort();//high index possible - verify success
-	memset((char*)menumap+buflenbytes, 0, buflenbytes);
-	return menudatafirstfree;
-}
-
-static void menu_dealloc_id(WORD id)
-{
-	menumap[id]=NULL;
-	if (id < menudatafirstfree) menudatafirstfree=id;
-}
-
 static char * menu_transform_name(const char * name)
 {
 	bool useaccel=(*name=='_');
@@ -359,12 +327,9 @@ static void menu_add_item(struct windowmenu_win32 * this, unsigned int pos, stru
 		child->thispos=menupos;
 		for (unsigned int i=0;i<child->radio_length;i++)
 		{
-			WORD id=menu_alloc_id();
 			char * name=menu_transform_name(child->texts[i]);
-			InsertMenu(parent, menupos, MF_BYPOSITION|MF_STRING, id, name);
+			InsertMenu(parent, menupos, MF_BYPOSITION|MF_STRING, 0, name);
 			free(name);
-			menumap[id]=child;
-			menumap_radiostate[id]=i;
 			menupos++;
 		}
 		free(child->texts);
@@ -387,10 +352,8 @@ static void menu_add_item(struct windowmenu_win32 * this, unsigned int pos, stru
 	else
 	{
 		child->thispos=menupos;
-		WORD id=menu_alloc_id();
-		menumap[id]=child;
 		char * name=menu_transform_name(child->text);
-		InsertMenu(parent, menupos, MF_BYPOSITION|MF_STRING, id, name);
+		InsertMenu(parent, menupos, MF_BYPOSITION|MF_STRING, 0, name);
 		free(name);
 		child->parent=parent;
 	}
@@ -398,25 +361,13 @@ static void menu_add_item(struct windowmenu_win32 * this, unsigned int pos, stru
 
 static void menu_delete(struct windowmenu_win32 * this)
 {
-	if (this->type==menu_radio)
-	{
-		for (unsigned int i=0;i<this->radio_length;i++)
-		{
-			menu_dealloc_id(GetMenuItemID(this->parent, this->thispos));
-		}
-	}
-	else if (this->type==menu_submenu || this->type==menu_topmenu)
+	if (this->type==menu_submenu || this->type==menu_topmenu)
 	{
 		for (unsigned int i=0;i<this->numchildren;i++)
 		{
 			menu_delete(this->childlist[i]);
 		}
 		free(this->childlist);
-	}
-	else if (this->type==menu_separator) {}
-	else
-	{
-		menu_dealloc_id(GetMenuItemID(this->parent, this->thispos));
 	}
 	free(this);
 }

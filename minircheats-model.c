@@ -83,10 +83,10 @@
 //For compatibility with RetroArch, this file has the following restrictions, in addition to the global rules:
 //- Do not call any function from minir.h; force the user of the object to do that. The only allowed
 // parts of minir.h are STATIC_ASSERT, struct minircheats_model and friends, and UNION_BEGIN and friends.
-//- malloc return values must be checked.
 //- Do not dynamically change the interface; use a switch. If that becomes a too big pain, stick a
 // function pointer in minircheats_model_impl.
 //- No C++ incompatibilities, except using 'this' as variable name. This includes C++11. malloc return values must be casted.
+//However, as RetroArch is not consistent on its malloc checking, we don't do that either.
 
 //The following assumptions are made:
 //- The child system uses 8bit bytes.
