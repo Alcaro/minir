@@ -694,71 +694,9 @@ static void layout__free(struct widget_base * this_)
 	free(this);
 }
 
-struct widget_layout * widget_create_layout_l(bool vertical, bool uniform, unsigned int numchildren, void * * children_)
-{
-	struct widget_base * * children=(struct widget_base**)children_;
-	if (!numchildren)
-	{
-		while (children[numchildren]) numchildren++;
-	}
-	
-	struct widget_layout_gtk3 * this=malloc(sizeof(struct widget_layout_gtk3));
-	this->i._base.free=layout__free;
-	GtkBox* box=GTK_BOX(gtk_box_new(vertical ? GTK_ORIENTATION_VERTICAL : GTK_ORIENTATION_HORIZONTAL, 0));
-	gtk_box_set_homogeneous(box, uniform);
-	this->i._base.widget=box;
-	
-	this->numchildren=numchildren;
-	this->children=malloc(sizeof(struct widget_base*)*numchildren);
-	for (unsigned int i=0;i<numchildren;i++)
-	{
-		this->children[i]=children[i];
-	}
-	
-	unsigned char maxwidthprio=0;
-	unsigned char maxheightprio=0;
-	for (unsigned int i=0;i<numchildren;i++)
-	{
-		if (children[i]->widthprio  > maxwidthprio ) maxwidthprio  = children[i]->widthprio;
-		if (children[i]->heightprio > maxheightprio) maxheightprio = children[i]->heightprio;
-	}
-	for (unsigned int i=0;i<numchildren;i++)
-	{
-		bool vexpand=(children[i]->heightprio == maxheightprio);
-		bool hexpand=(children[i]->widthprio == maxwidthprio);
-		gtk_widget_set_vexpand(children[i]->widget, (vexpand || !vertical));
-		gtk_widget_set_hexpand(children[i]->widget, (hexpand ||  vertical));
-		if (vertical) gtk_box_pack_start(box, children[i]->widget, vexpand, vexpand, 0);
-		else          gtk_box_pack_start(box, children[i]->widget, hexpand, hexpand, 0);
-	}
-	this->i._base.widthprio=maxwidthprio;
-	this->i._base.heightprio=maxheightprio;
-	return (struct widget_layout*)this;
-}
-
-
-
-struct widget_grid_gtk3 {
-	struct widget_grid i;
-	
-	struct widget_base * * children;
-	unsigned int numchildren;
-};
-
-static void grid__free(struct widget_base * this_)
-{
-	struct widget_grid_gtk3 * this=(struct widget_grid_gtk3*)this_;
-	for (unsigned int i=0;i<this->numchildren;i++)
-	{
-		this->children[i]->free(this->children[i]);
-	}
-	free(this->children);
-	free(this);
-}
-
-struct widget_grid * widget_create_grid_l(unsigned int numchildren, void * * children,
-                                          unsigned int totwidth,  unsigned int * widths,  bool uniformwidths,
-                                          unsigned int totheight, unsigned int * heights, bool uniformheights)
+struct widget_layout * widget_create_layout_l(unsigned int numchildren, void * * children,
+                                              unsigned int totwidth,  unsigned int * widths,  bool uniformwidths,
+                                              unsigned int totheight, unsigned int * heights, bool uniformheights)
 {
 	struct widget_grid_gtk3 * this=malloc(sizeof(struct widget_grid_gtk3));
 	GtkGrid* grid=GTK_GRID(gtk_grid_new());
@@ -790,6 +728,6 @@ struct widget_grid * widget_create_grid_l(unsigned int numchildren, void * * chi
 		}
 	}
 	
-	return (struct widget_grid*)this;
+	return (struct widget_layout*)this;
 }
 #endif

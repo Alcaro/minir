@@ -6,7 +6,6 @@
 #include <windows.h>
 #include <commctrl.h>
 #include <ctype.h>
-#include<stdio.h>
 
 //TODO:
 //menu_create: check where it's resized if size changes
@@ -16,8 +15,11 @@
 #define WS_RESIZABLE (WS_BASE|WS_MAXIMIZEBOX|WS_THICKFRAME)
 #define WS_NONRESIZ (WS_BASE|WS_BORDER)
 
+struct window_win32;
+struct windowmenu_win32;
 static LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam);
 static void _reflow(struct window * this_);
+static void reflow_force(struct window_win32 * this);
 
 //static bool isxp;
 
@@ -43,22 +45,59 @@ void _window_init_shell()
 
 
 
+struct window_win32 {
+	struct window i;
+	
+	//used by modality
+	struct window_win32 * prev;
+	struct window_win32 * next;
+	bool modal;
+	//char padding[7];
+	
+	HWND hwnd;
+	struct widget_base * contents;
+	unsigned int numchildwin;
+	
+	DWORD lastmousepos;
+	
+	struct windowmenu_win32 * menu;
+	
+	HWND status;
+	int * status_align;
+	int * status_div;
+	uint16_t status_count;
+	uint8_t status_resizegrip_width;
+	bool status_extra_spacing;
+	
+	bool resizable;
+	bool isdialog;
+	
+	bool menuactive;//odd position to reduce padding
+	uint8_t delayfree;//0=normal, 1=can't free now, 2=free at next opportunity
+	
+	bool (*onclose)(struct window * subject, void* userdata);
+	void* oncloseuserdata;
+};
+
+
 enum { menu_item, menu_check, menu_radio, menu_separator, menu_submenu, menu_topmenu };
+struct windowmenu_win32_radioinfo {
+	struct windowmenu_win32 * parent;
+	unsigned int pos;
+};
 struct windowmenu_win32 {
 	struct windowmenu i;
 	
 	uint8_t type;
-	
-	uint8_t thispos;//position in the menu, native position (radios count as multiple)
-	//To get its ID, harass 'parent'. (topmenu has no parent, but it doesn't have an ID either.)
-	//To get from an ID to these structures, use 'menumap'.
 	
 	UNION_BEGIN
 		uint8_t numchildren;//used only for topmenu and childmenu; the odd location is to reduce padding
 		uint8_t state;
 	UNION_END
 	
-	//char padding[1];
+	uint16_t thispos;//position in the menu, native position (radios count as multiple)
+	//To get its ID, harass 'parent'. (topmenu has no parent, but it doesn't have an ID either.)
+	//To get from an ID to these structures, use 'menumap'.
 	
 	UNION_BEGIN
 		HMENU parent;//the menu it is in; NULL for the topmenu
@@ -83,42 +122,9 @@ struct windowmenu_win32 {
 //indexed by WM_COMMAND wParam
 static struct windowmenu_win32 * * menumap=NULL;
 static WORD * menumap_radiostate=NULL;
-static DWORD menudatafirstfree=1;//the pointed to item is not necessarily free, but all before are guaranteed to be used; it's DWORD to terminate a loop
-static DWORD menudatabuflen=1;//this is DWORD only to allow exactly 0x10000
-
-struct window_win32 {
-	struct window i;
-	
-	//used by modality
-	struct window_win32 * prev;
-	struct window_win32 * next;
-	bool modal;
-	//char padding[7];
-	
-	HWND hwnd;
-	struct widget_base * contents;
-	unsigned int numchildwin;
-	
-	DWORD lastmousepos;
-	
-	struct windowmenu_win32 * menu;
-	
-	HWND status;
-	int * status_align;
-	int * status_div;
-	unsigned short status_count;
-	unsigned char status_resizegrip_width;
-	bool status_extra_spacing;
-	
-	bool resizable;
-	bool isdialog;
-	
-	bool menuactive;//odd position to reduce padding
-	uint8_t delayfree;//0=normal, 1=can't free now, 2=free at next opportunity
-	
-	bool (*onclose)(struct window * subject, void* userdata);
-	void* oncloseuserdata;
-};
+static DWORD menudatafirstfree=16;//the pointed to item is not necessarily free, but all before are guaranteed to be used; it's DWORD to terminate a loop
+//it's also initialized to 16 because 2 seems to mean something.
+static DWORD menudatabuflen=16;//this is DWORD only to allow exactly 0x10000
 
 static HWND activedialog=NULL;
 
@@ -141,8 +147,6 @@ static void getBorderSizes(struct window_win32 * this, unsigned int * width, uns
 		*height+=(statsize.bottom-statsize.top);
 	}
 }
-
-static void _reflow(struct window * this_);
 
 static void resize_stbar(struct window_win32 * this, unsigned int width)
 {
@@ -267,6 +271,22 @@ static void set_onclose(struct window * this_, bool (*function)(struct window * 
 }
 
 
+
+#ifndef MIM_MENUDATA
+#define MIM_MENUDATA 0x08
+#endif
+#ifndef MIM_STYLE
+#define MIM_STYLE 0x10
+#endif
+#ifndef MNS_MODELESS
+#define MNS_MODELESS 0x40000000
+#endif
+#ifndef MNS_NOTIFYBYPOS
+#define MNS_NOTIFYBYPOS 0x08000000
+#endif
+#ifndef WM_MENUCOMMAND
+#define WM_MENUCOMMAND 0x0126
+#endif
 
 static void menu_delete(struct windowmenu_win32 * this);
 
@@ -539,29 +559,30 @@ static void menu_connect(struct windowmenu_win32 * this, unsigned int numchildre
 	}
 }
 
-struct windowmenu * windowmenu_create_submenu_l(const char * text, unsigned int numchildren, struct windowmenu * * children)
+static struct windowmenu * windowmenu_create_submenu_shared(uint8_t type, const char * text, unsigned int numchildren, struct windowmenu * * children)
 {
 	struct windowmenu_win32 * this=malloc(sizeof(struct windowmenu_win32));
 	this->i.set_enabled=menu_set_enabled;
 	this->i.insert_child=menu_insert_child;
 	this->i.remove_child=menu_remove_child;
-	this->type=menu_submenu;
-	this->childmenu=CreatePopupMenu();
+	this->type=type;
+	this->childmenu=(type==menu_topmenu ? CreateMenu() : CreatePopupMenu());
 	this->text=text;
 	menu_connect(this, numchildren, (struct windowmenu_win32**)children);
+	MENUINFO menuinf={ .cbSize=sizeof(menuinf), .fMask=MIM_STYLE|MIM_MENUDATA, .dwStyle=MNS_NOTIFYBYPOS/*|MNS_MODELESS*/, .dwMenuData=(DWORD_PTR)this };
+	//MODELESS makes the window border flash in stupid ways when switching between the menues.
+	SetMenuInfo(this->childmenu, &menuinf);
 	return (struct windowmenu*)this;
+}
+
+struct windowmenu * windowmenu_create_submenu_l(const char * text, unsigned int numchildren, struct windowmenu * * children)
+{
+	return windowmenu_create_submenu_shared(menu_submenu, text, numchildren, children);
 }
 
 struct windowmenu * windowmenu_create_topmenu_l(unsigned int numchildren, struct windowmenu * * children)
 {
-	struct windowmenu_win32 * this=malloc(sizeof(struct windowmenu_win32));
-	this->i.set_enabled=menu_set_enabled;
-	this->i.insert_child=menu_insert_child;
-	this->i.remove_child=menu_remove_child;
-	this->type=menu_topmenu;
-	this->childmenu=CreateMenu();
-	menu_connect(this, numchildren, (struct windowmenu_win32**)children);
-	return (struct windowmenu*)this;
+	return windowmenu_create_submenu_shared(menu_topmenu, NULL, numchildren, children);
 }
 
 static void set_menu(struct window * this_, struct windowmenu * menu_)
@@ -573,27 +594,31 @@ static void set_menu(struct window * this_, struct windowmenu * menu_)
 	this->menu=menu;
 }
 
-static void menu_activate(WORD id)
+static void menu_activate(HMENU menu, DWORD pos)
 {
-	struct windowmenu_win32 * item=menumap[id];
-	if (item->type==menu_item)
+	MENUINFO menuinf={ .cbSize=sizeof(menuinf), .fMask=MIM_MENUDATA };
+	GetMenuInfo(menu, &menuinf);
+	struct windowmenu_win32 * this=(struct windowmenu_win32*)menuinf.dwMenuData;
+	//we could do binary search, but binary search on a list as small as this is just a waste of time.
+	unsigned int i=0;
+	while (pos >= this->childlist[i]->thispos + menu_get_native_length(this->childlist[i])) i++;
+	
+	struct windowmenu_win32 * activate=this->childlist[i];
+	if (activate->type==menu_item)
 	{
-		if (item->onactivate_item) item->onactivate_item((struct windowmenu*)item, item->userdata);
-		return;
+		if (activate->onactivate_item) activate->onactivate_item((struct windowmenu*)activate, activate->userdata);
 	}
-	if (item->type==menu_check)
+	if (activate->type==menu_check)
 	{
-		item->state^=1;
-		CheckMenuItem(item->parent, id, item->state?MF_CHECKED:MF_UNCHECKED);
-		if (item->onactivate_check) item->onactivate_check((struct windowmenu*)item, item->state, item->userdata);
-		return;
+		activate->state^=1;
+		CheckMenuItem(activate->parent, activate->thispos, MF_BYPOSITION | (activate->state?MF_CHECKED:MF_UNCHECKED));
+		if (activate->onactivate_check) activate->onactivate_check((struct windowmenu*)activate, activate->state, activate->userdata);
 	}
-	if (item->type==menu_radio)
+	if (activate->type==menu_radio)
 	{
-		item->state=menumap_radiostate[id];
-		CheckMenuRadioItem(item->parent, item->thispos, item->thispos+item->radio_length-1, item->thispos+item->state, MF_BYPOSITION);
-		if (item->onactivate_radio) item->onactivate_radio((struct windowmenu*)item, item->state, item->userdata);
-		return;
+		activate->state = pos - activate->thispos;
+		CheckMenuRadioItem(activate->parent, activate->thispos, activate->thispos+activate->radio_length-1, activate->thispos+activate->state, MF_BYPOSITION);
+		if (activate->onactivate_radio) activate->onactivate_radio((struct windowmenu*)activate, activate->state, activate->userdata);
 	}
 }
 
@@ -689,7 +714,7 @@ static void set_visible(struct window * this_, bool visible)
 	struct window_win32 * this=(struct window_win32*)this_;
 	if (visible)
 	{
-		_reflow(this_);
+		reflow_force(this);
 		ShowWindow(this->hwnd, SW_SHOWNORMAL);
 	}
 	else
@@ -760,7 +785,11 @@ static void _reflow(struct window * this_)
 	struct window_win32 * this=(struct window_win32*)this_;
 	
 	if (!IsWindowVisible(this->hwnd)) return;
-	
+	reflow_force(this);
+}
+
+static void reflow_force(struct window_win32 * this)
+{
 	//Resizing our window seems to call the resize callback again. We're not interested, it'll just recurse in irritating ways.
 	static bool recursive=false;
 	if (recursive) return;
@@ -878,7 +907,11 @@ static LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM l
 			if (this->onclose)
 			{
 				this->delayfree=1;
-				if (!this->onclose((struct window*)this, this->oncloseuserdata)) break;
+				if (!this->onclose((struct window*)this, this->oncloseuserdata))
+				{
+					this->delayfree=0;
+					break;
+				}
 				if (this->delayfree==2)
 				{
 					this->delayfree=0;
@@ -892,7 +925,8 @@ static LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM l
 		break;
 	case WM_COMMAND:
 		{
-			if (lParam==0) menu_activate(LOWORD(wParam));
+//printf("COMM=%.8zX,%.8zX\n",wParam,lParam);
+			if (lParam==0) printf("HAX %.8X\n",wParam);
 			else
 			{
 				NMHDR nmhdr={(HWND)lParam, LOWORD(wParam), HIWORD(wParam)};
@@ -903,6 +937,11 @@ static LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM l
 	case WM_NOTIFY:
 		{
 			return _window_notify_inner((LPNMHDR)lParam);
+		}
+		break;
+	case WM_MENUCOMMAND:
+		{
+			menu_activate((HMENU)lParam, wParam);
 		}
 		break;
 	case WM_DESTROY:

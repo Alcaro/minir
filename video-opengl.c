@@ -1,7 +1,6 @@
 #include "minir.h"
 #ifdef VIDEO_OPENGL
 #include <stdlib.h>
-#include<stdio.h>
 
 //this file is based on ruby by byuu
 

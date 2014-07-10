@@ -83,6 +83,7 @@
 //For compatibility with RetroArch, this file has the following restrictions, in addition to the global rules:
 //- Do not call any function from minir.h; force the user of the object to do that. The only allowed
 // parts of minir.h are STATIC_ASSERT, struct minircheats_model and friends, and UNION_BEGIN and friends.
+//- malloc return values must be checked.
 //- Do not dynamically change the interface; use a switch. If that becomes a too big pain, stick a
 // function pointer in minircheats_model_impl.
 //- No C++ incompatibilities, except using 'this' as variable name. This includes C++11. malloc return values must be casted.
@@ -459,6 +460,7 @@ memory[i].addrspace);
 		{
 			this->numaddrspace++;
 			this->addrspaces=(struct addressspace*)realloc(this->addrspaces, sizeof(struct addressspace)*this->numaddrspace);
+//TODO: handle failure
 			addr=&this->addrspaces[addrspace];
 			strcpy(addr->name, desc->addrspace ? desc->addrspace : "");
 			for (int i=0;addr->name[i];i++)
@@ -481,6 +483,7 @@ memory[i].addrspace);
 		{
 			this->nummem++;
 			this->mem=(struct memblock*)realloc(this->mem, sizeof(struct memblock)*this->nummem);
+//TODO: handle failure
 			mem=&this->mem[memid];
 			memset(mem, 0, sizeof(struct memblock));
 			mem->ptr=(uint8_t*)desc->ptr;
@@ -496,6 +499,7 @@ memory[i].addrspace);
 		
 		addr->nummap++;
 		addr->map=(struct mapping*)realloc(addr->map, sizeof(struct mapping)*addr->nummap);
+//TODO: handle failure
 		struct mapping * map=&addr->map[addr->nummap-1];
 		map->memid=memid;
 		map->start=desc->start;
@@ -577,6 +581,7 @@ memory[i].addrspace);
 		
 		addr->addrlen=div_rndup(popcountS(top_addr), 4);
 	}
+	return;
 }
 
 static bool addr_guest_to_phys(struct minircheats_model_impl * this, unsigned int addrspace, size_t addr, unsigned int * memid, size_t * offset)
@@ -640,6 +645,11 @@ static size_t addr_phys_to_guest(struct minircheats_model_impl * this, unsigned 
 				prevmap++;
 			}
 		}
+		
+		//size_t cachesize=(map->disconnect|~map->disconnect_mask|map->select);
+		//cachesize&=-cachesize;
+		//cachesize now contains lowest bit set in either 'disconnect' or 'select'
+		//size_t cachestart=offset
 //TODO:
 //  find how long this mapping is linear, that is how far we can go while still ensuring that moving one guest byte still moves one physical byte
 //   (use the most strict of 'length', 'disconnect', 'select', and other mappings)
@@ -649,6 +659,7 @@ static size_t addr_phys_to_guest(struct minircheats_model_impl * this, unsigned 
 //size_t addrcache_start;
 //size_t addrcache_end;
 //size_t addrcache_offset;
+//printf("cache=%zX-%zX\n",this->addrcache_start,this->addrcache_end);
 		return thisaddr;
 	wrongmapping:
 		map++;
@@ -656,33 +667,43 @@ static size_t addr_phys_to_guest(struct minircheats_model_impl * this, unsigned 
 	}
 }
 
-static bool addr_parse(struct minircheats_model_impl * this, const char * rawaddr, const char * * remainder, unsigned int * addrspace, size_t * addr)
+static bool addr_parse(struct minircheats_model_impl * this, const char * rawaddr, unsigned int * addrlen, unsigned int * addrspace, size_t * addr)
 {
 	unsigned int minblklen=0;
-	for (unsigned int i=0;isalpha(rawaddr[i]);i++)
+	for (unsigned int i=0;isalpha(rawaddr[i]) || rawaddr[i]=='_';i++)
 	{
 		if (rawaddr[i]<'A' || rawaddr[i]>'F') minblklen=i;
 	}
+	unsigned int i;
+	size_t addrnamelen;//these are declared up here so that I can use a goto
 	if (this->addrspace_case_sensitive)
 	{
-		for (unsigned int i=0;i<this->numaddrspace;i++)
+		for (i=0;i<this->numaddrspace;i++)
 		{
-			size_t addrnamelen=strlen(this->addrspaces[i].name);
+			addrnamelen=strlen(this->addrspaces[i].name);
 			if (addrnamelen>=minblklen && !strncmp(rawaddr, this->addrspaces[i].name, addrnamelen))
 			{
-				*addrspace=i;
-				*addr=strtoul(rawaddr+addrnamelen, (char**)remainder, 16);
-				return true;
+				goto rightaddrspace;
 			}
 		}
 	}
-	for (unsigned int i=0;i<this->numaddrspace;i++)
+	for (i=0;i<this->numaddrspace;i++)
 	{
-		size_t addrnamelen=strlen(this->addrspaces[i].name);
+		addrnamelen=strlen(this->addrspaces[i].name);
 		if (addrnamelen>=minblklen && !strncasecmp(rawaddr, this->addrspaces[i].name, addrnamelen))
 		{
-			*addrspace=i;
-			*addr=strtoul(rawaddr+addrnamelen, (char**)remainder, 16);
+		rightaddrspace: ;
+			char addrcopy[17];
+			for (unsigned int j=0;j<this->addrspaces[i].addrlen;j++)
+			{
+				if (!isxdigit(rawaddr[addrnamelen+j])) return false;
+				addrcopy[j]=rawaddr[addrnamelen+j];
+			}
+			addrcopy[this->addrspaces[i].addrlen]='\0';
+			if (addrlen) *addrlen=addrnamelen+this->addrspaces[i].addrlen;
+			else if (rawaddr[addrnamelen+this->addrspaces[i].addrlen]!='\0') return false;
+			if (addrspace) *addrspace=i;
+			if (addr) *addr=strtoul(addrcopy, NULL, 16);
 			return true;
 		}
 	}
@@ -722,6 +743,7 @@ static void prev_set_enabled(struct minircheats_model * this_, bool enable)
 	for (unsigned int i=0;i<this->nummem;i++)
 	{
 		if (this->mem[i].showinsearch) this->mem[i].prev=(uint8_t*)malloc(this->mem[i].len);
+//TODO: handle failure
 	}
 	search_prev_set_to_cur(this);
 }
@@ -763,6 +785,7 @@ static void search_ensure_mem_exists(struct minircheats_model_impl * this)
 			mem->show=(size_t*)malloc(div_rndup(mem->len, SIZET_BITS)*sizeof(size_t));
 			mem->show_treelow=(uint16_t*)malloc(div_rndup(mem->len, SIZE_PAGE_LOW)*sizeof(uint16_t));
 			mem->show_treehigh=(uint32_t*)malloc(div_rndup(mem->len, SIZE_PAGE_HIGH)*sizeof(uint32_t));
+//TODO: handle failure
 			
 			search_show_all(mem, this->search_datsize);
 		}
@@ -1313,7 +1336,7 @@ static void thread_finish_work(struct minircheats_model * this_)
 
 
 
-static unsigned int cheat_get_max_code_len(struct minircheats_model * this_)
+static unsigned int cheat_get_max_addr_len(struct minircheats_model * this_)
 {
 	struct minircheats_model_impl * this=(struct minircheats_model_impl*)this_;
 	unsigned int ret=0;
@@ -1348,11 +1371,9 @@ static unsigned int cheat_get_count(struct minircheats_model * this_)
 static bool cheat_set(struct minircheats_model * this_, int pos, const struct cheat * newcheat)
 {
 	struct minircheats_model_impl * this=(struct minircheats_model_impl*)this_;
-	const char * remainder;
 	unsigned int addrspace;
 	size_t addr;
-	if (!addr_parse(this, newcheat->addr, &remainder, &addrspace, &addr)) return false;
-	if (*remainder) return false;
+	if (!addr_parse(this, newcheat->addr, NULL, &addrspace, &addr)) return false;
 	
 	unsigned int memid;
 	size_t offset;
@@ -1370,6 +1391,7 @@ static bool cheat_set(struct minircheats_model * this_, int pos, const struct ch
 	{
 		this->numcheats++;
 		this->cheats=(struct cheat_impl*)realloc(this->cheats, sizeof(struct cheat_impl)*this->numcheats);
+//TODO: handle failure
 		this->cheats[pos].desc=NULL;
 		this->cheats[pos].enabled=false;
 	}
@@ -1422,6 +1444,21 @@ static void cheat_remove(struct minircheats_model * this_, unsigned int pos)
 	this->numcheats--;
 }
 
+static int cheat_sort_comp(const void * a_, const void * b_)
+{
+	struct cheat_impl * a=(struct cheat_impl*)a_;
+	struct cheat_impl * b=(struct cheat_impl*)b_;
+	if (a->memid != b->memid) return ((int)a->memid - (int)b->memid);
+	else if (a->offset < b->offset) return -1;
+	else return 1;
+}
+
+static void cheat_sort(struct minircheats_model * this_)
+{
+	struct minircheats_model_impl * this=(struct minircheats_model_impl*)this_;
+	qsort(this->cheats, this->numcheats, sizeof(struct cheat_impl), cheat_sort_comp);
+}
+
 
 
 static void cheat_apply(struct minircheats_model * this_)
@@ -1455,18 +1492,59 @@ static const char * code_create(struct minircheats_model * this_, struct cheat *
 	free(this->lastcheat);
 	//disable address signspec value direction SP desc NUL
 	this->lastcheat=(char*)malloc(1+strlen(thecheat->addr)+8+1+1+1+strlen(thecheat->desc)+1);
+//TODO: handle failure
 	//TODO: verify that addr points to anything
-	const char * const chngtypenames[]={"", "+", "-", "."};
+	const char * const chngtypenames[]={"", "+", "-", "="};
 	sprintf(this->lastcheat, "%s%s%.*X%s%s%s%s", thecheat->enabled?"":"-", thecheat->addr,
 	                         thecheat->datsize*2, thecheat->val, thecheat->issigned?"S":"", chngtypenames[thecheat->changetype],
 	                         (thecheat->desc && *thecheat->desc) ? " " : "", (thecheat->desc ? thecheat->desc : ""));
 	return this->lastcheat;
 }
 
-//TODO
-static bool code_parse(struct minircheats_model * this, const char * code, struct cheat * thecheat)
+static bool code_parse(struct minircheats_model * this_, const char * code, struct cheat * thecheat)
 {
-	return false;
+	struct minircheats_model_impl * this=(struct minircheats_model_impl*)this_;
+	thecheat->enabled=true;
+	if (*code=='-')
+	{
+		thecheat->enabled=false;
+		code++;
+	}
+	unsigned int addrlen;
+	if (!addr_parse(this, code, &addrlen, NULL, NULL)) return false;
+	memcpy(thecheat->addr, code, addrlen);
+	thecheat->addr[addrlen]='\0';
+	code+=addrlen;
+	unsigned int i=0;
+	while (isxdigit(code[i])) i++;
+	if (i%2) return false;
+	thecheat->datsize=i/2;
+	thecheat->val=strtoul(code, NULL, 16);
+	code+=i;
+	thecheat->issigned=false;
+	if (*code=='S')
+	{
+		thecheat->issigned=true;
+		code++;
+	}
+	thecheat->changetype=cht_const;
+	switch (*code)
+	{
+		case '+': thecheat->changetype=cht_inconly; code++; break;
+		case '-': thecheat->changetype=cht_deconly; code++; break;
+		case '=': thecheat->changetype=cht_once;    code++; break;
+	}
+	if (*code==' ')
+	{
+		thecheat->desc=code+1;
+		return true;
+	}
+	else if (*code=='\0')
+	{
+		thecheat->desc=NULL;
+		return true;
+	}
+	else return false;
 }
 
 
@@ -1524,10 +1602,10 @@ const struct minircheats_model_impl minircheats_model_base = {{
 	set_memory,
 	prev_get_size, prev_set_enabled, prev_get_enabled,
 	search_reset, search_set_datsize, search_set_signed, search_do_search,
-	search_get_num_rows, search_get_row, NULL,//search_find_row
+	search_get_num_rows, search_get_row, NULL/*search_find_row*/,
 	thread_enable, thread_get_count, thread_do_work, thread_finish_work,
-	cheat_get_max_code_len, cheat_read, cheat_find_for_addr, cheat_get_count,
-	cheat_set, cheat_get, cheat_remove, NULL/*cheat_sort*/,
+	cheat_get_max_addr_len, cheat_read, cheat_find_for_addr, cheat_get_count,
+	cheat_set, cheat_get, cheat_remove, cheat_sort,
 	cheat_apply,
 	code_create, code_parse,
 	free_
@@ -1535,6 +1613,7 @@ const struct minircheats_model_impl minircheats_model_base = {{
 struct minircheats_model * minircheats_create_model()
 {
 	struct minircheats_model_impl * this=(struct minircheats_model_impl*)malloc(sizeof(struct minircheats_model_impl));
+	if (!this) return NULL;
 	memcpy(this, &minircheats_model_base, sizeof(struct minircheats_model_impl));
 	this->numthreads=1;
 	return (struct minircheats_model*)this;

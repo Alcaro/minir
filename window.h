@@ -358,17 +358,20 @@ struct widget_listbox {
 	                     void * userdata);
 	
 	//It is allowed for the implementation to cap this to some sensible value. However, at least 16382 items must be supported.
-	//(On Windows, the limit is 2^32-1 because that's what its interfaces support. On GTK+, the limit is 65536 because anything larger gets slow.)
+	//(On Windows, the limit is 100 million; more than that and it gets empty. On GTK+, the limit is 100000 because large lists are slow.)
 	void (*set_num_rows)(struct widget_listbox * this, size_t rows);
 	
 	//Refreshing row (size_t)-1 refreshes all of them.
 	void (*refresh)(struct widget_listbox * this, size_t row);
 	
-	//The active row can change without activating the new item.
+	//If the active row changes, set_focus_change will fire. However, onactivate will likely not.
 	//The exact conditions under which a listbox entry is activated is platform dependent, but double
 	// click and Enter are likely. It is guaranteed to be possible.
 	//Returns (size_t)-1 if no row is active.
 	size_t (*get_active_row)(struct widget_listbox * this);
+	void (*set_on_focus_change)(struct widget_listbox * this,
+	                            void (*onchange)(struct widget_listbox * subject, size_t row, void * userdata),
+	                            void* userdata);
 	void (*set_onactivate)(struct widget_listbox * this,
 	                       void (*onactivate)(struct widget_listbox * subject, size_t row, void * userdata),
 	                       void* userdata);
@@ -376,7 +379,8 @@ struct widget_listbox {
 	//This is the size on the screen. The height is how many items show up; the widths are how many
 	// instances of the letter 'X' must fit in the column.
 	//It is allowed to use 0 (height) or NULL (widths) to mean "keep current or use the default".
-	void (*set_size)(struct widget_listbox * this, unsigned int height, const unsigned int * widths);
+	//'expand' is which column should get all extra size, if the widget is given more space than it asked for. -1 for even distribution.
+	void (*set_size)(struct widget_listbox * this, unsigned int height, const unsigned int * widths, int expand);
 	
 	//It is implementation defined how the checkboxes are represented. They can be prepended to the
 	// first column, on a column of their own, or something weirder. The position relative to the
@@ -411,26 +415,20 @@ struct widget_layout {
 #define widget_create_layout_horz(...) widget_create_layout(false, false, __VA_ARGS__)
 #define widget_create_layout_vert(...) widget_create_layout(true, false, __VA_ARGS__)
 struct widget_layout * widget_create_layout(bool vertical, bool uniform, void * firstchild, ...);
-//numchildren can be 0. In this case, the array is assumed terminated with a NULL.
-struct widget_layout * widget_create_layout_l(bool vertical, bool uniform, unsigned int numchildren, void * * children);
 
-struct widget_grid {
-	struct widget_base _base;
-	//can't disable this widget - disable its contents instead
-};
 //The widgets are stored row by row. There is no NULL terminator, because the size is known from the arguments already.
 //Uniform sizes mean that every row has the same height, and every column has the same width.
-struct widget_grid * widget_create_grid(unsigned int width, unsigned int height, bool uniformsizes,
-                                        void * firstchild, ...);
+struct widget_layout * widget_create_layout_grid(unsigned int width, unsigned int height, bool uniformsizes,
+                                                 void * firstchild, ...);
 //This one allows some widgets to take up multiple boxes of the grid. They're still stored row by
 // row, except that there is no entry for slots that are already used.
 //It is undefined behaviour if a widget does not fit where it belongs, if it overlaps another widget, or if it's size 0 in either direction.
-struct widget_grid * widget_create_grid_v(unsigned int totwidth,   unsigned int totheight,   bool uniformwidths, bool uniformheights,
-                                          unsigned int firstwidth, unsigned int firstheight, void * firstchild, ...);
+struct widget_layout * widget_create_layout_v(unsigned int totwidth,   unsigned int totheight,   bool uniformwidths, bool uniformheights,
+                                              unsigned int firstwidth, unsigned int firstheight, void * firstchild, ...);
 //The widths/heights arrays can be NULL, which is treated as being filled with 1s.
-struct widget_grid * widget_create_grid_l(unsigned int numchildren, void * * children,
-                                          unsigned int totwidth,  unsigned int * widths,  bool uniformwidths,
-                                          unsigned int totheight, unsigned int * heights, bool uniformheights);
+struct widget_layout * widget_create_layout_l(unsigned int numchildren, void * * children,
+                                              unsigned int totwidth,  unsigned int * widths,  bool uniformwidths,
+                                              unsigned int totheight, unsigned int * heights, bool uniformheights);
 
 
 

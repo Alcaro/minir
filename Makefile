@@ -10,15 +10,16 @@ TRUE_CFLAGS = $(CFLAGS)
 TRUE_LFLAGS = $(LFLAGS) -lgdi32 -lcomctl32 -lcomdlg32 -ldinput8 -ldxguid -lopengl32 -ldsound
 EXESUFFIX = .exe
 EXTRAOBJ = obj/resource.o
+OBJSUFFIX =
 obj/resource.o: ico/*
 	windres ico/minir.rc obj/resource.o
 
 -include Makefile.custom
 
-TESTSRC = memory.c thread-*.c minircheats-model.c
+TESTSRC = memory.c
 TESTSEPSRC = test-*.c window-*.c
 
-OBJS = $(patsubst %.c,obj/%.o,$(wildcard *.c)) $(EXTRAOBJ)
+OBJS = $(patsubst %.c,obj/%$(OBJSUFFIX).o,$(wildcard *.c)) $(EXTRAOBJ)
 TESTOBJS = $(patsubst %.c,obj/%.o,$(wildcard $(TESTSRC))) $(patsubst %.c,obj/%-test.o,$(wildcard $(TESTSEPSRC))) $(EXTRAOBJ)
 
 TRUE_CFLAGS += -std=gnu99
@@ -35,9 +36,9 @@ clean:
 obj:
 	mkdir obj
 
-obj/config.o: config.c obj/config.c | obj
-obj/main.o: main.c obj/config.c minir.h | obj
-obj/%.o: %.c | obj obj/config.c
+obj/config$(OBJSUFFIX).o: config.c obj/config.c | obj
+obj/main$(OBJSUFFIX).o: main.c obj/config.c minir.h | obj
+obj/%$(OBJSUFFIX).o: %.c | obj obj/config.c
 	$(CC) $(TRUE_CFLAGS) -c $< -o $@
 
 obj/%-test.o: %.c | obj obj/config.c

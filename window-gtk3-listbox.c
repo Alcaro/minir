@@ -10,7 +10,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-#define MAX_ROWS 0x10000 // GtkTreeView seems to be at least O(n log n) for creating a long list. Let's just add a hard cap.
+#define MAX_ROWS 100000 // GtkTreeView seems to be at least O(n log n) for creating a long list. Let's just add a hard cap.
 
 //http://scentric.net/tutorial/
 static GType M_VIRTUAL_TYPE=0;
@@ -425,6 +425,7 @@ struct widget_listbox * widget_create_listbox_l(unsigned int numcolumns, const c
 	this->i.set_num_rows=listbox_set_num_rows;
 	this->i.refresh=listbox_refresh;
 	this->i.get_active_row=listbox_get_active_row;
+	this->i.set_on_focus_change=listbox_set_on_focus_change;
 	this->i.set_onactivate=listbox_set_onactivate;
 	this->i.set_size=listbox_set_size;
 	this->i.add_checkboxes=listbox_add_checkboxes;

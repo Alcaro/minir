@@ -37,7 +37,7 @@
 //	return GDK_FILTER_CONTINUE;
 //}
 
-#include<sys/resource.h>
+//#include<sys/resource.h>
 void window_init(int * argc, char * * argv[])
 {
 //struct rlimit core_limits;core_limits.rlim_cur=core_limits.rlim_max=64*1024*1024;setrlimit(RLIMIT_CORE,&core_limits);

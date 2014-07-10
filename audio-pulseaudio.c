@@ -3,7 +3,6 @@
 #include <pulse/pulseaudio.h>
 #include <stdlib.h>
 #include <string.h>
-#include<stdio.h>
 
 //this file is heavily based on the implementation in byuu's ruby, written by RedDwarf
 

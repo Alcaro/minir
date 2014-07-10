@@ -8,6 +8,11 @@
 #include <stddef.h>
 #include "host.h"
 
+#ifdef DEBUG
+//Having to include this one all the time annoys me.
+#include <stdio.h>
+#endif
+
 #ifndef NO_ANON_UNION_STRUCT//For crappy compilers.
 #define UNION_BEGIN union {
 #define UNION_END };
@@ -708,13 +713,14 @@ void config_write(const char * path);
 
 
 //All functions on this object yield undefined behaviour if datsize is not within 1..4.
-//For easier transferability to other projects, this object forces you to do a fair bit of stuff by yourself.
+//For easier transferability to other projects, this object does not call any other part of minir,
+// so you'll have to do a fair bit of stuff by yourself.
 enum cheat_compfunc { cht_lt, cht_gt, cht_lte, cht_gte, cht_eq, cht_neq };
 enum cheat_chngtype { cht_const, cht_inconly, cht_deconly, cht_once };
 struct retro_memory_descriptor;
 struct cheat {
-	char * addr;//For cheat_set, this is only read, and may be a casted const char *.
-	            //For cheat_get, this is a caller-allocated buffer of size 32 or larger, and will be written.
+	char * addr;//For cheat_set and code_create, this is only read, and may be a casted const char *.
+	            //For cheat_get and code_parse, this is a caller-allocated buffer of size 32 or larger, and will be written.
 	uint32_t val;
 	unsigned char changetype;//this is an enum cheat_chngtype, but I want sizeof==1, so I have to do this.
 	unsigned char datsize;
@@ -757,15 +763,15 @@ struct minircheats_model {
 	//Once all thread_do_work have returned, call thread_finish_work.
 	//Only thread_do_work may be called from any thread other than the creating thread, and no other
 	// function may be called while any thread is inside thread_do_work. It is safe to call
-	// thread_do_work from other threads than the creator, including for threadid!=0.
+	// thread_do_work from other threads than the creator, including for threadid==0.
 	//Nothing except thread_do_work and thread_get_count may be called between search_do_search and thread_finish_work.
 	//If the structure sees that it has only use for a finite number of threads, thread_get_count may
 	// return a smaller value than given to thread_enable. However, it is safe to call thread_do_work
 	// with excess threads; they will return without doing anything.
 	//Note that while performance theoretically should be linear with the number of CPU cores, it is
 	// not in practice. It is linear for some workloads, but for the expected workloads, it's
-	// sublinear (though it does speed up a little). Reasons aren't known for sure, but could be due
-	// to caching or memory bandwidth limitations.
+	// sublinear (though it does speed up a little). Reasons aren't known for sure, but memory
+	// bandwidth limitations are likely.
 	void (*thread_enable)(struct minircheats_model * this, unsigned int numthreads);
 	unsigned int (*thread_get_count)(struct minircheats_model * this);
 	void (*thread_do_work)(struct minircheats_model * this, unsigned int threadid);
@@ -787,7 +793,7 @@ struct minircheats_model {
 	//The format is designed so that a SNES Gameshark code is valid.
 	
 	//Returns the longest possible size for a valid address.
-	unsigned int (*cheat_get_max_code_len)(struct minircheats_model * this);
+	unsigned int (*cheat_get_max_addr_len)(struct minircheats_model * this);
 	
 	//This one tells the current value of an address.
 	//Fails if:
@@ -802,7 +808,8 @@ struct minircheats_model {
 	int (*cheat_find_for_addr)(struct minircheats_model * this, unsigned int datsize, const char * addr);
 	
 	unsigned int (*cheat_get_count)(struct minircheats_model * this);
-	//To add a new cheat, use pos==count. To check if a cheat is valid without actually adding it, use pos==-1.
+	//To add a new cheat, use pos==count. Note that if changetype==cht_once, it will be used, but not added to the list.
+	//To check if a cheat is valid without actually adding it, use pos==-1.
 	//The possible errors are the same as cheat_read. In all such cases, it's fair to blame the address.
 	//It is not guaranteed that cheat_get returns the same values as given to cheat_set; for example, mirroring may be undone.
 	//However, it is guaranteed that setting a cheat to itself will do nothing.
@@ -820,13 +827,14 @@ struct minircheats_model {
 	
 	//The returned code is invalidated on the next call to code_create.
 	const char * (*code_create)(struct minircheats_model * this, struct cheat * thecheat);
+	//On failure, the contents of thecheat is undefined.
 	bool (*code_parse)(struct minircheats_model * this, const char * code, struct cheat * thecheat);
 	
 	void (*free)(struct minircheats_model * this);
 };
 struct minircheats_model * minircheats_create_model();
 
-//This is a very high-level object; not counting the core, it takes more input directly from the user than from its interface.
+//This is a very high-level object; not counting the core, it takes more input directly from the user than from this object.
 struct minircheats {
 	void (*set_parent)(struct minircheats * this, struct window * parent);
 	//It is allowed to set the core to NULL, and all operations are safe if the core is NULL.
