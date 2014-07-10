@@ -94,7 +94,8 @@
 //- The child system uses little endian, or big endian.
 //- It is safe to read up to 3 bytes after any memory area. (The results are discarded.)
 //- The host system uses 8bit bytes.
-//(The host system is allowed to use any endianness.)
+//- Two threads may access two adjacent uint32s in any way without causing incorrect results. Bad performance is okay.
+//The host system is allowed to use any endianness, including weird ones.
 
 //http://msdn.microsoft.com/en-us/library/vstudio/tcxf1dw6.aspx says %zX is not supported.
 //Let's define it to whatever they do support.
