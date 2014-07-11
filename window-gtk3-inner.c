@@ -176,7 +176,79 @@ struct widget_button * widget_create_button(const char * text)
 
 
 
-struct widget_checkbox_gtk3;
+struct widget_checkbox_gtk3 {
+	struct widget_checkbox i;
+	
+	GtkLabel* label;
+	
+	void (*onclick)(struct widget_checkbox * subject, bool checked, void* userdata);
+	void* userdata;
+};
+
+static void checkbox__free(struct widget_base * this_)
+{
+	struct widget_checkbox_gtk3 * this=(struct widget_checkbox_gtk3*)this_;
+	free(this);
+}
+
+static void checkbox_set_enabled(struct widget_checkbox * this_, bool enable)
+{
+	struct widget_checkbox_gtk3 * this=(struct widget_checkbox_gtk3*)this_;
+	gtk_widget_set_sensitive(GTK_WIDGET(this->i._base.widget), enable);
+}
+
+static void checkbox_set_text(struct widget_checkbox * this_, const char * text)
+{
+	struct widget_checkbox_gtk3 * this=(struct widget_checkbox_gtk3*)this_;
+	gtk_label_set_text(this->label, text);
+}
+
+static bool checkbox_get_state(struct widget_checkbox * this_)
+{
+	struct widget_checkbox_gtk3 * this=(struct widget_checkbox_gtk3*)this_;
+	return gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(this->i._base.widget));
+}
+
+static void checkbox_set_state(struct widget_checkbox * this_, bool checked)
+{
+	struct widget_checkbox_gtk3 * this=(struct widget_checkbox_gtk3*)this_;
+	in_callback=true;
+	gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(this->i._base.widget), checked);
+	in_callback=false;
+}
+
+static void checkbox_onclick(GtkToggleButton* togglebutton, gpointer user_data)
+{
+	if (in_callback) return;
+	struct widget_checkbox_gtk3 * this=(struct widget_checkbox_gtk3*)user_data;
+	this->onclick((struct widget_checkbox*)this, gtk_toggle_button_get_active(togglebutton), this->userdata);
+}
+
+static void checkbox_set_onclick(struct widget_checkbox * this_,
+                                 void (*onclick)(struct widget_checkbox * subject, bool checked, void* userdata), void* userdata)
+{
+	struct widget_checkbox_gtk3 * this=(struct widget_checkbox_gtk3*)this_;
+	this->onclick=onclick;
+	this->userdata=userdata;
+	g_signal_connect(this->i._base.widget, "toggled", G_CALLBACK(checkbox_onclick), this);
+}
+
+struct widget_checkbox * widget_create_checkbox(const char * text)
+{
+	struct widget_checkbox_gtk3 * this=malloc(sizeof(struct widget_checkbox_gtk3));
+	this->i._base.widget=gtk_check_button_new_with_label(text);
+	this->i._base.widthprio=1;
+	this->i._base.heightprio=1;
+	this->i._base.free=checkbox__free;
+	
+	this->i.set_enabled=checkbox_set_enabled;
+	this->i.set_text=checkbox_set_text;
+	this->i.get_state=checkbox_get_state;
+	this->i.set_state=checkbox_set_state;
+	this->i.set_onclick=checkbox_set_onclick;
+	
+	return (struct widget_checkbox*)this;
+}
 
 
 
@@ -211,7 +283,6 @@ static void radio_set_enabled(struct widget_radio * this_, bool enable)
 static void radio_set_text(struct widget_radio * this_, const char * text)
 {
 	struct widget_radio_gtk3 * this=(struct widget_radio_gtk3*)this_;
-	
 	gtk_label_set_text(this->label, text);
 }
 
@@ -252,7 +323,7 @@ static void radio_set_state(struct widget_radio * this_, unsigned int state)
 	in_callback=false;
 }
 
-static void radio_onclick(GtkToggleButton *togglebutton, gpointer user_data)
+static void radio_onclick(GtkToggleButton* togglebutton, gpointer user_data)
 {
 	if (in_callback) return;
 	struct widget_radio_gtk3 * this=(struct widget_radio_gtk3*)user_data;
@@ -417,6 +488,8 @@ struct widget_textbox * widget_create_textbox()
 	this->i.set_invalid=textbox_set_invalid;
 	this->i.set_onchange=textbox_set_onchange;
 	this->i.set_onactivate=textbox_set_onactivate;
+	
+	gtk_entry_set_width_chars(GTK_ENTRY(this->i._base.widget), 5);
 	
 	g_signal_connect(this->i._base.widget, "changed", G_CALLBACK(textbox_onchange), this);
 	this->onchange=NULL;

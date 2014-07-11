@@ -247,12 +247,16 @@ static void details_create(struct minircheats_impl * parent, struct window * par
 	struct widget_button * cancel;
 	this->wndw=window_create(
 		widget_create_layout_vert(
-			widget_create_layout_grid(2, 4, false,
+			widget_create_layout_grid(2, 5, false,
 				widget_create_label("Address"), this->addr=widget_create_textbox(),
 				widget_create_label("Current Value"), curvalbox=widget_create_textbox(),
 				widget_create_label("New Value"), this->newval=widget_create_textbox(),
 				//TODO: size and type, change mode, etc
-				widget_create_label("Description"), this->desc=widget_create_textbox()
+				widget_create_label("Description"), this->desc=widget_create_textbox(),
+				widget_create_label("Allow"), widget_create_layout_horz(
+					widget_create_checkbox("increment"),
+					widget_create_checkbox("decrement"),
+					NULL)
 			),
 			widget_create_layout_horz(
 				widget_create_padding_horz(),
@@ -661,17 +665,19 @@ static void show_list(struct minircheats * this_)
 						NULL),
 					NULL),
 					
-					widget_create_layout_v(4, 3, false, false,
-						1,1, widget_create_label("Cheat Code"),
-						3,1, widget_create_textbox(),
-						
-						1,1, widget_create_label("Cheat Description"),
-						3,1, widget_create_textbox(),
-						
-						1,1, widget_create_label("Cheat Address (hex)"),
-						1,1, widget_create_textbox(),
-						1,1, widget_create_label("New Value"),
-						1,1, widget_create_textbox()
+				widget_create_layout_grid(2, 3, false,
+					widget_create_label("Cheat Code"),
+					widget_create_textbox(),
+					
+					widget_create_label("Cheat Description"),
+					widget_create_textbox(),
+					
+					widget_create_label("Cheat Address (hex)"),
+					widget_create_layout_horz(
+						widget_create_textbox(),
+						widget_create_label("New Value"),
+						widget_create_textbox(),
+						NULL)
 					),
 				NULL)
 			);

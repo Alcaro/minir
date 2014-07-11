@@ -390,14 +390,13 @@ static void listbox_set_size(struct widget_listbox * this_, unsigned int height,
 			pango_layout_get_pixel_size(layout, &width, NULL);
 			GtkTreeViewColumn* col=gtk_tree_view_get_column(this->tree, i);
 			//if (i==expand) width=-1;
-			gtk_tree_view_column_set_fixed_width(col, width);
+			gtk_tree_view_column_set_fixed_width(col, width + 10);
 		}
 		g_object_unref(layout);
 	}
 	if (height)
 	{
 		//this->cellheight
-		
 	}
 	//gtktreeview height
 	//TODO: figure out height
@@ -405,7 +404,7 @@ static void listbox_set_size(struct widget_listbox * this_, unsigned int height,
 	{
 		for (unsigned int i=0;i<this->vlist->columns;i++)
 		{
-			//gtk_tree_view_column_set_expand(gtk_tree_view_get_column(this->tree, i), (i==expand));
+			gtk_tree_view_column_set_expand(gtk_tree_view_get_column(this->tree, i), (i==expand));
 			//gtk_tree_view_column_set_expand(gtk_tree_view_get_column(this->tree, i), 1);
 		}
 	}
