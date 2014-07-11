@@ -698,19 +698,22 @@ struct widget_layout * widget_create_layout_l(unsigned int numchildren, void * *
                                               unsigned int totwidth,  unsigned int * widths,  bool uniformwidths,
                                               unsigned int totheight, unsigned int * heights, bool uniformheights)
 {
-	struct widget_grid_gtk3 * this=malloc(sizeof(struct widget_grid_gtk3));
+	struct widget_layout_gtk3 * this=malloc(sizeof(struct widget_layout_gtk3));
 	GtkGrid* grid=GTK_GRID(gtk_grid_new());
 	this->i._base.widget=grid;
-	this->i._base.free=grid__free;
+	this->i._base.free=layout__free;
 	
 	this->numchildren=numchildren;
 	this->children=malloc(sizeof(struct widget_base*)*numchildren);
 	memcpy(this->children, children, sizeof(struct widget_base*)*numchildren);
 	
+	this->i._base.widthprio=0;
+	this->i._base.heightprio=0;
+	
 	bool posused[totheight*totwidth];
 	memset(posused, 0, sizeof(posused));
 	unsigned int firstempty=0;
-	for (int i=0;i<numchildren;i++)
+	for (unsigned int i=0;i<numchildren;i++)
 	{
 		while (posused[firstempty]) firstempty++;
 		
@@ -726,6 +729,15 @@ struct widget_layout * widget_create_layout_l(unsigned int numchildren, void * *
 		{
 			posused[firstempty + y*totwidth + x]=true;
 		}
+		
+		if (this->children[i]->widthprio  > this->i._base.widthprio)  this->i._base.widthprio =this->children[i]->widthprio;
+		if (this->children[i]->heightprio > this->i._base.heightprio) this->i._base.heightprio=this->children[i]->heightprio;
+	}
+	
+	for (unsigned int i=0;i<numchildren;i++)
+	{
+		gtk_widget_set_hexpand(this->children[i]->widget, (this->children[i]->widthprio  == this->i._base.widthprio));
+		gtk_widget_set_vexpand(this->children[i]->widget, (this->children[i]->heightprio == this->i._base.heightprio));
 	}
 	
 	return (struct widget_layout*)this;

@@ -1531,7 +1531,7 @@ window_message_box(
 config.firstrun
 =false;
 #ifdef DEBUG
-cheats->show_search(cheats);
+//cheats->show_search(cheats);
 cheats->show_list(cheats);
 #endif
 	mainloop();

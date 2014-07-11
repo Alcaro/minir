@@ -404,9 +404,6 @@ struct widget_frame {
 struct widget_frame * widget_create_frame(const char * text, void* contents);
 
 
-//A horizontal layout puts its child widgets beside each other; a vertical layout puts its children on top of each other.
-//It is safe to put layouts inside each other, though the types should alternate, or you're wasting memory.
-//It is not necessary for the root widget to be a layout.
 struct widget_layout {
 	struct widget_base _base;
 	//can't disable this widget - disable its contents instead
