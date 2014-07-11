@@ -840,6 +840,7 @@ static void search_do_search(struct minircheats_model * this_, enum cheat_compfu
 	for (unsigned int i=0;i<this->nummem;i++)
 	{
 		struct memblock * mem=&this->mem[i];
+		if (!mem->showinsearch) continue;
 		signed int removebits=((SIZET_BITS - mem->len%SIZET_BITS)%SIZET_BITS + this->search_datsize-1);
 		unsigned int possub=1;
 		while (removebits > 0)
@@ -869,7 +870,7 @@ static void search_do_search(struct minircheats_model * this_, enum cheat_compfu
 #include <emmintrin.h>
 #define FAST_ALIGN 1
 #else
-#if defined(__x86_64__) || defined(__i386__) || defined(__i486__) || defined(__i686__)
+#if defined(__i386__) || defined(__i486__) || defined(__i686__) || defined(__x86_64__)
 #define FAST_ALIGN 1
 #else
 #define FAST_ALIGN sizeof(size_t)
@@ -887,8 +888,6 @@ static size_t calc_bit_shuffle_constant()
 	} v;
 	v.a[0]=0x80; v.a[1]=0x40; v.a[2]=0x20; v.a[3]=0x10;
 	v.a[4]=0x08; v.a[5]=0x04; v.a[6]=0x02; v.a[7]=0x01;
-	//v.a[0]=0x01; v.a[1]=0x02; v.a[2]=0x04; v.a[3]=0x08;
-	//v.a[4]=0x10; v.a[5]=0x20; v.a[6]=0x40; v.a[7]=0x80;
 	return v.b;
 }
 #endif
@@ -1349,10 +1348,22 @@ static unsigned int cheat_get_max_addr_len(struct minircheats_model * this_)
 	return ret;
 }
 
-//TODO
 static bool cheat_read(struct minircheats_model * this_, const char * addr, unsigned int datsize, uint32_t * val)
 {
-	return false;
+	struct minircheats_model_impl * this=(struct minircheats_model_impl*)this_;
+	
+	unsigned int guestaddrspace;
+	size_t guestaddr;
+	if (!addr_parse(this, addr, NULL, &guestaddrspace, &guestaddr)) return false;
+	
+	unsigned int physmem;
+	size_t physaddr;
+	if (!addr_guest_to_phys(this, guestaddrspace, guestaddr, &physmem, &physaddr)) return false;
+	
+	if (physaddr+datsize > this->mem[physmem].len) return false;
+	
+	*val=readmem(this->mem[physmem].ptr+physaddr, datsize, this->mem[physmem].bigendian);
+	return true;
 }
 
 static int cheat_find_for_addr(struct minircheats_model * this_, unsigned int datsize, const char * addr)
@@ -1398,13 +1409,13 @@ static bool cheat_set(struct minircheats_model * this_, int pos, const struct ch
 	unsigned int memid;
 	size_t offset;
 	if (!addr_guest_to_phys(this, addrspace, addr, &memid, &offset)) return false;
-//printf("conv %X->%X\n",addr,offset);
 	
 	if (pos<0) return true;
 	
+	if (offset+newcheat->datsize-1 > this->mem[memid].len) return false;
 	if (newcheat->changetype == cht_once)
 	{
-		//FIXME: Just write to the given address.
+		writemem(this->mem[memid].ptr+offset, newcheat->datsize, this->mem[memid].bigendian, newcheat->val);
 		return true;
 	}
 	if (pos==this->numcheats)
@@ -1418,7 +1429,7 @@ static bool cheat_set(struct minircheats_model * this_, int pos, const struct ch
 	struct cheat_impl * cht=&this->cheats[pos];
 	if (cht->enabled && cht->restore)
 	{
-		//TODO: Restore
+		writemem(this->mem[cht->memid].ptr + cht->offset, cht->datsize, this->mem[cht->memid].bigendian, cht->orgvalue);
 	}
 	cht->memid=memid;
 	cht->offset=offset;
@@ -1428,8 +1439,8 @@ static bool cheat_set(struct minircheats_model * this_, int pos, const struct ch
 	cht->enabled=newcheat->enabled;
 	cht->restore=true;
 	cht->orgvalue=readmem(this->mem[cht->memid].ptr+cht->offset, cht->datsize, this->mem[cht->memid].bigendian);
-	if (newcheat->changetype == cht_const) cht->value=newcheat->val;
-	else cht->value=cht->orgvalue;
+	cht->value=newcheat->val;
+	writemem(this->mem[memid].ptr+offset, newcheat->datsize, this->mem[memid].bigendian, newcheat->val);
 	if (cht->desc != newcheat->desc)
 	{
 		free(cht->desc);
@@ -1459,6 +1470,11 @@ static void cheat_get(struct minircheats_model * this_, unsigned int pos, struct
 static void cheat_remove(struct minircheats_model * this_, unsigned int pos)
 {
 	struct minircheats_model_impl * this=(struct minircheats_model_impl*)this_;
+	struct cheat_impl * cht=&this->cheats[pos];
+	if (cht->enabled && cht->restore)
+	{
+		writemem(this->mem[cht->memid].ptr + cht->offset, cht->datsize, this->mem[cht->memid].bigendian, cht->orgvalue);
+	}
 	free(this->cheats[pos].desc);
 	memmove(this->cheats+pos, this->cheats+pos+1, sizeof(struct cheat_impl)*(this->numcheats-pos-1));
 	this->numcheats--;
@@ -1493,8 +1509,8 @@ static void cheat_apply(struct minircheats_model * this_)
 		{
 			uint32_t curval=readmem(this->mem[cht->memid].ptr+cht->offset, cht->datsize, this->mem[cht->memid].bigendian);
 			if(0);
-			else if (cht->changetype==cht_inconly && curval+signadd > cht->value+signadd) {}
-			else if (cht->changetype==cht_deconly && curval+signadd < cht->value+signadd) {}
+			else if (cht->changetype==cht_inconly && curval+signadd < cht->value+signadd) {}
+			else if (cht->changetype==cht_deconly && curval+signadd > cht->value+signadd) {}
 			else cht->value=curval;
 		}
 		writemem(this->mem[cht->memid].ptr+cht->offset, cht->datsize, this->mem[cht->memid].bigendian, cht->value);

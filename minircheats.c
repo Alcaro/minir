@@ -374,7 +374,11 @@ static void search_dosearch(struct widget_button * subject, void* userdata)
 		const char * compto_str=(this->wndsrch_compto_entry->get_text(this->wndsrch_compto_entry));
 		if (comptowhat==cht_curptr)
 		{
-			this->model->cheat_read(this->model, compto_str, this->datsize, &compto_val);
+			if (!this->model->cheat_read(this->model, compto_str, this->datsize, &compto_val))
+			{
+				this->wndsrch_compto_entry->set_invalid(this->wndsrch_compto_entry, true);
+				return;
+			}
 		}
 		else
 		{
