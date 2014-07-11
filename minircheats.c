@@ -63,6 +63,10 @@ struct minircheats_impl {
 	
 	struct window * wndlist;
 	struct widget_listbox * wndlist_listbox;
+	struct widget_textbox * wndlist_code;
+	struct widget_textbox * wndlist_desc;
+	struct widget_textbox * wndlist_addr;
+	struct widget_textbox * wndlist_val;
 	
 	struct window * wndwatch;
 	
@@ -160,12 +164,11 @@ struct minircheatdetail {
 	struct widget_textbox * addr;
 	struct widget_textbox * newval;
 	struct widget_textbox * desc;
+	struct widget_radio * size;
+	struct widget_checkbox * allowinc;
+	struct widget_checkbox * allowdec;
 	
-	unsigned int datsize :3;
 	enum cheat_dattype dattype :2;
-	//int padding :3;
-	//char padding[7];
-	
 	char orgaddr[32];
 	
 	//A linked list, so they can be closed.
@@ -185,10 +188,10 @@ static void details_ok(struct widget_button * subject, void* userdata)
 	const char * orgaddr=this->orgaddr;
 	struct cheat newcheat = {
 		.addr=(char*)this->addr->get_text(this->addr),
-		.datsize=this->datsize,
+		.datsize=this->size->get_state(this->size)+1,
 		.val=val,
 		.issigned=(this->dattype==cht_sign),
-		.changetype=cht_const,//TODO: make this variable
+		.changetype=this->allowinc->get_state(this->allowinc) + this->allowdec->get_state(this->allowdec)*2,
 		.enabled=true,
 		.desc=this->desc->get_text(this->desc)
 		};
@@ -197,14 +200,14 @@ static void details_ok(struct widget_button * subject, void* userdata)
 		this->addr->set_invalid(this->addr, true);
 		return;
 	}
-	int cheatid_org=this->parent->model->cheat_find_for_addr(this->parent->model, this->datsize, orgaddr);
-	int cheatid_new=this->parent->model->cheat_find_for_addr(this->parent->model, this->datsize, this->addr->get_text(this->addr));
-	if (cheatid_org<0) cheatid_org=this->parent->model->cheat_get_count(this->parent->model);
+	int cheatid_org=this->parent->model->cheat_find_for_addr(this->parent->model, newcheat.datsize, orgaddr);
+	int cheatid_new=this->parent->model->cheat_find_for_addr(this->parent->model, newcheat.datsize, this->addr->get_text(this->addr));
 	if (cheatid_new>=0 && cheatid_org!=cheatid_new)
 	{
 		//TODO: There is already a cheat set for that address. Do you wish to replace it? (Yes/No)
 		this->parent->model->cheat_remove(this->parent->model, cheatid_new);
 	}
+	if (cheatid_org<0) cheatid_org=this->parent->model->cheat_get_count(this->parent->model);
 	this->parent->model->cheat_set(this->parent->model, cheatid_org, &newcheat);
 	list_update(this->parent);
 	details_free(this);
@@ -237,25 +240,25 @@ static void details_create(struct minircheats_impl * parent, struct window * par
 	struct minircheatdetail * this=malloc(sizeof(struct minircheatdetail));
 	this->parent=parent;
 	this->dattype=hex ? cht_hex : thecheat->issigned ? cht_sign : cht_unsign;
-	this->datsize=thecheat->datsize;
 	const char * addr=thecheat->addr;
 	if (!addr) addr="";
 	strcpy(this->orgaddr, addr);
 	
-	struct widget_textbox * curvalbox;
+	struct widget_textbox * curval;
 	struct widget_button * ok;
 	struct widget_button * cancel;
 	this->wndw=window_create(
 		widget_create_layout_vert(
-			widget_create_layout_grid(2, 5, false,
+			widget_create_layout_grid(2, 6, false,
 				widget_create_label("Address"), this->addr=widget_create_textbox(),
-				widget_create_label("Current Value"), curvalbox=widget_create_textbox(),
+				widget_create_label("Current Value"), curval=widget_create_textbox(),
 				widget_create_label("New Value"), this->newval=widget_create_textbox(),
 				//TODO: size and type, change mode, etc
 				widget_create_label("Description"), this->desc=widget_create_textbox(),
+				widget_create_label("Size"), widget_create_radio_group(&this->size, false, "1", "2", "3", "4 bytes", NULL),
 				widget_create_label("Allow"), widget_create_layout_horz(
-					widget_create_checkbox("increment"),
-					widget_create_checkbox("decrement"),
+					this->allowinc=widget_create_checkbox("increment"),
+					this->allowdec=widget_create_checkbox("decrement"),
 					NULL)
 			),
 			widget_create_layout_horz(
@@ -275,11 +278,19 @@ static void details_create(struct minircheats_impl * parent, struct window * par
 	this->addr->set_width(this->addr, this->parent->model->cheat_get_max_addr_len(this->parent->model));
 	this->addr->set_length(this->addr, 31);
 	
-	char valstr[16];
-	encodeval(this->dattype, this->datsize, thecheat->val, valstr);
-	curvalbox->set_text(curvalbox, valstr);
-	this->newval->set_text(this->newval, valstr);//default to keep at current value
-	curvalbox->set_enabled(curvalbox, false);
+	if (thecheat->datsize!=0)
+	{
+		char valstr[16];
+		encodeval(this->dattype, thecheat->datsize, thecheat->val, valstr);
+		curval->set_text(curval, valstr);
+		this->newval->set_text(this->newval, valstr);//default to keep at current value
+		curval->set_enabled(curval, false);
+		
+		this->size->set_state(this->size, thecheat->datsize-1);
+	}
+	
+	this->allowinc->set_state(this->allowinc, (thecheat->changetype&1));
+	this->allowdec->set_state(this->allowdec, (thecheat->changetype&2));
 	
 	ok->set_onclick(ok, details_ok, this);
 	cancel->set_onclick(cancel, details_cancel, this);
@@ -488,7 +499,7 @@ static void show_search(struct minircheats * this_)
 						widget_create_frame("Compare To",
 							//widget_create_radio_group(&this->wndsrch_compto_select, true, "Previous Value", "Entered Value", "Entered Address", NULL)
 							widget_create_layout_vert(
-								compto_select[0]=widget_create_radio("Previous Value"),
+								compto_select[0]=widget_create_radio("Previous Value"),//this manual layout is because I need to be able to disable #1
 								compto_select[1]=widget_create_radio("Entered Value"),
 								compto_select[2]=widget_create_radio("Entered Address"),
 							NULL)
@@ -605,9 +616,27 @@ static const char * list_get_cell(struct widget_listbox * subject, size_t row, i
 	return this->celltmp;
 }
 
+static void list_listbox_activate(struct widget_listbox * subject, size_t row, void * userdata)
+{
+	struct minircheats_impl * this=(struct minircheats_impl*)userdata;
+	struct cheat thecheat;
+	char addr[32];
+	thecheat.addr=addr;
+	this->model->cheat_get(this->model, row, &thecheat);
+	details_create(this, this->wndlist, &thecheat, false);
+}
+
 static void list_add_cheat(struct widget_button * subject, void * userdata)
 {
-	
+	struct minircheats_impl * this=(struct minircheats_impl*)userdata;
+	struct cheat thecheat = {
+		.addr=NULL,
+		.changetype=cht_const,
+		.datsize=1,
+		.issigned=false,
+		.enabled=true
+	};
+	details_create(this, this->wndlist, &thecheat, false);
 }
 
 static void list_delete_cheat(struct widget_button * subject, void * userdata)
@@ -621,9 +650,18 @@ static void list_delete_cheat(struct widget_button * subject, void * userdata)
 	}
 }
 
-static void list_update_cheat(struct widget_button * subject, void * userdata)
+static void list_edit_cheat(struct widget_button * subject, void * userdata)
 {
-	
+	struct minircheats_impl * this=(struct minircheats_impl*)userdata;
+	size_t pos=this->wndlist_listbox->get_active_row(this->wndlist_listbox);
+	if (pos!=(size_t)-1)
+	{
+		struct cheat thecheat;
+		char addr[32];
+		thecheat.addr=addr;
+		this->model->cheat_get(this->model, pos, &thecheat);
+		details_create(this, this->wndlist, &thecheat, false);
+	}
 }
 
 static void list_clear_cheat(struct widget_button * subject, void * userdata)
@@ -647,45 +685,44 @@ static void show_list(struct minircheats * this_)
 	{
 		struct widget_button * add;
 		struct widget_button * delete;
-		struct widget_button * update;
+		struct widget_button * edit;
 		struct widget_button * clear;
 		struct widget_button * sort;
 		
 		this->wndlist=window_create(
-			widget_create_layout_vert(
+			//widget_create_layout_vert(
 				widget_create_layout_horz(
 					this->wndlist_listbox=widget_create_listbox("Address", "Value", "Description", NULL),
 					widget_create_layout_vert(
-						DISABLED(add=widget_create_button("Add")),
+						add=widget_create_button("Add"),
 						delete=widget_create_button("Delete"),
-						DISABLED(update=widget_create_button("Update")),//replace current
+						edit=widget_create_button("Edit"),
 						clear=widget_create_button("Clear"),
 						sort=widget_create_button("Sort"),
 						widget_create_padding_vert(),
 						NULL),
-					NULL),
+					NULL)//,
 					
-				widget_create_layout_grid(2, 3, false,
-					widget_create_label("Cheat Code"),
-					widget_create_textbox(),
-					
-					widget_create_label("Cheat Description"),
-					widget_create_textbox(),
-					
-					widget_create_label("Cheat Address (hex)"),
-					widget_create_layout_horz(
-						widget_create_textbox(),
-						widget_create_label("New Value"),
-						widget_create_textbox(),
-						NULL)
-					),
-				NULL)
+				//widget_create_layout_grid(2, 3, false,
+					//widget_create_label("Cheat Code"),
+					//widget_create_textbox(),
+					//
+					//widget_create_label("Cheat Description"),
+					//widget_create_textbox(),
+					//
+					//widget_create_label("Cheat Address (hex)"),
+					//widget_create_layout_horz(
+						//widget_create_textbox(),
+						//widget_create_label("New Value"),
+						//widget_create_textbox(),
+						//NULL)
+					//),
+				//NULL)
 			);
-DISABLED(NULL);
 		
 		add->set_onclick(add, list_add_cheat, this);
 		delete->set_onclick(delete, list_delete_cheat, this);
-		update->set_onclick(update, list_update_cheat, this);
+		edit->set_onclick(edit, list_edit_cheat, this);
 		clear->set_onclick(clear, list_clear_cheat, this);
 		sort->set_onclick(sort, list_sort_cheat, this);
 		
@@ -694,6 +731,7 @@ DISABLED(NULL);
 		this->wndlist->set_title(this->wndlist, "Cheat Entry and Editor");
 		
 		this->wndlist_listbox->set_contents(this->wndlist_listbox, list_get_cell, NULL, this);
+		this->wndlist_listbox->set_onactivate(this->wndlist_listbox, list_listbox_activate, this);
 		//value width is max length of 4294967295 and 0xFFFFFFFF
 		//description width is just something random
 		const unsigned int tmp[]={this->model->cheat_get_max_addr_len(this->model), 10, 10};

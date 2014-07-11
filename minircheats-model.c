@@ -368,14 +368,14 @@ struct minircheats_model_impl {
 	size_t addrcache_end;
 	size_t addrcache_offset;
 	
+	struct cheat_impl * cheats;
+	unsigned int numcheats;
+	
+	unsigned int search_lastblock;
 	size_t search_lastrow;
 	size_t search_lastmempos;
 	
-	struct cheat_impl * cheats;
-	unsigned int numcheats;
-	unsigned int search_lastblock;//moved elsewhere due to alignment
-	
-	unsigned char numthreads;//1 for no threading.
+	unsigned char numthreads;//1 for no threading
 	unsigned char threadfunc;
 	
 	unsigned char threadsearch_compfunc;
@@ -1355,9 +1355,54 @@ static bool cheat_read(struct minircheats_model * this_, const char * addr, unsi
 	return false;
 }
 
+
+/*
+	struct cheat_impl {
+	unsigned int memid;
+	//char padding[4];
+	size_t offset;
+	
+	unsigned int changetype :2;
+	unsigned int datsize :3;//only values 1..4 are allowed, but it's easier to give an extra bit than adding 1 on every use.
+	bool issigned :1;
+	bool enabled :1;
+	bool restore :1;
+	//char padding2[2];
+	
+	uint32_t value;//for cht_const: value it's forced to remain at
+	               //for inconly/deconly: value of previous frame
+	               //for once: cht_once does not get a cheat_impl
+	uint32_t orgvalue;//value to restore to if the cheat is disabled
+	
+	char* desc;
+};
+struct cheat_impl * cheats;
+unsigned int numcheats;
+*/
+
 //TODO
 static int cheat_find_for_addr(struct minircheats_model * this_, unsigned int datsize, const char * addr)
 {
+	struct minircheats_model_impl * this=(struct minircheats_model_impl*)this_;
+	
+	unsigned int guestaddrspace;
+	size_t guestaddr;
+	if (!addr_parse(this, addr, NULL, &guestaddrspace, &guestaddr)) return -1;
+	
+	unsigned int physmem;
+	size_t physstart;
+	if (!addr_guest_to_phys(this, guestaddrspace, guestaddr, &physmem, &physstart)) return -1;
+	size_t physend=physstart+datsize-1;
+	
+	for (unsigned int i=0;i<this->numcheats;i++)
+	{
+		if (this->cheats[i].memid==physmem &&
+		    this->cheats[i].offset>=physstart &&
+		    this->cheats[i].offset+this->cheats[i].datsize-1<=physend)
+		{
+			return i;
+		}
+	}
 	return -1;
 }
 
