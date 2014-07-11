@@ -1355,32 +1355,6 @@ static bool cheat_read(struct minircheats_model * this_, const char * addr, unsi
 	return false;
 }
 
-
-/*
-	struct cheat_impl {
-	unsigned int memid;
-	//char padding[4];
-	size_t offset;
-	
-	unsigned int changetype :2;
-	unsigned int datsize :3;//only values 1..4 are allowed, but it's easier to give an extra bit than adding 1 on every use.
-	bool issigned :1;
-	bool enabled :1;
-	bool restore :1;
-	//char padding2[2];
-	
-	uint32_t value;//for cht_const: value it's forced to remain at
-	               //for inconly/deconly: value of previous frame
-	               //for once: cht_once does not get a cheat_impl
-	uint32_t orgvalue;//value to restore to if the cheat is disabled
-	
-	char* desc;
-};
-struct cheat_impl * cheats;
-unsigned int numcheats;
-*/
-
-//TODO
 static int cheat_find_for_addr(struct minircheats_model * this_, unsigned int datsize, const char * addr)
 {
 	struct minircheats_model_impl * this=(struct minircheats_model_impl*)this_;
@@ -1397,8 +1371,8 @@ static int cheat_find_for_addr(struct minircheats_model * this_, unsigned int da
 	for (unsigned int i=0;i<this->numcheats;i++)
 	{
 		if (this->cheats[i].memid==physmem &&
-		    this->cheats[i].offset>=physstart &&
-		    this->cheats[i].offset+this->cheats[i].datsize-1<=physend)
+		    this->cheats[i].offset<=physend &&
+		    this->cheats[i].offset+this->cheats[i].datsize-1>=physstart)
 		{
 			return i;
 		}

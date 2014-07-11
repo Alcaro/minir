@@ -204,7 +204,10 @@ static void details_ok(struct widget_button * subject, void* userdata)
 	int cheatid_new=this->parent->model->cheat_find_for_addr(this->parent->model, newcheat.datsize, this->addr->get_text(this->addr));
 	if (cheatid_new>=0 && cheatid_org!=cheatid_new)
 	{
-		//TODO: There is already a cheat set for that address. Do you wish to replace it? (Yes/No)
+		if (!window_message_box("There is already a cheat set for that address. Do you wish to replace it?", NULL, mb_info, mb_yesno))
+		{
+			return;
+		}
 		this->parent->model->cheat_remove(this->parent->model, cheatid_new);
 	}
 	if (cheatid_org<0) cheatid_org=this->parent->model->cheat_get_count(this->parent->model);
