@@ -1540,67 +1540,6 @@ void update_menu()
 		romonlyitems[i]->set_enabled(romonlyitems[i], (romloaded));
 	}
 }
-/*
-void menu_system_core_any_action(unsigned int id, unsigned int state, void* userdata)
-{
-	load_core(userdata, true);
-}
-
-void menu_system_core_more_action(unsigned int id, unsigned int state, void* userdata)
-{
-	select_cores(NULL);
-}
-
-void update_menu()
-{
-	struct menuitem * menu_system_core_inner=NULL;
-	int current_core_id=-1;
-	
-	if (romloaded)
-	{
-		bool round2=false;
-		bool anyfixed=false;
-		do
-		{
-			if (anyfixed) round2=true;
-			anyfixed=false;
-			
-			unsigned int numcores;
-			struct minircorelist * cores_for_this=config_get_core_for(romloaded, &numcores);
-			menu_system_core_inner=calloc(numcores+1, sizeof(struct menuitem));
-			
-			for (int i=0;i<numcores;i++)
-			{
-				menu_system_core_inner[i].type=menu_radio;
-				menu_system_core_inner[i].text=cores_for_this[i].name;
-				if (!cores_for_this[i].name)
-				{
-					if (!study_core(cores_for_this[i].path)) config_delete_core(cores_for_this[i].path);
-					anyfixed=true;
-				}
-				menu_system_core_inner[i].action=menu_system_core_any_action;
-				menu_system_core_inner[i].userdata=(void*)cores_for_this[i].path;
-				menu_system_core_inner[i].id=menu_system_core_any_id;
-				
-				if (!strcmp(coreloaded, cores_for_this[i].path)) current_core_id=i;
-			}
-			menu_system_core_inner[numcores].type=menu_end;
-			
-			free(cores_for_this);
-		} while (anyfixed && !round2);
-	}
-	else
-	{
-		menu_system_core_inner=calloc(2, sizeof(struct menuitem));
-		menu_system_core_inner[0].type=menu_item;
-		menu_system_core_inner[0].text="(no ROM loaded)";
-		menu_system_core_inner[0].disabled=true;
-		menu_system_core_inner[1].type=menu_end;
-	}
-*/
-
-
-//static const char*gc(struct widget_listbox * subject, size_t row, int column, void * userdata){return "XXXXXX";}
 
 int main(int argc, char * argv[])
 {
