@@ -2,7 +2,6 @@
 #ifdef VIDEO_D3D9
 //#define CINTERFACE//if we want C++ compat for the COM objects; unlikely to ever happen due to all 'this' running around.
 #include <D3D9.h>
-#include <stdio.h>
 
 #define D3DSWAPEFFECT_FLIPEX ((D3DSWAPEFFECT)5)//lazy compiler. and it's an enum so I can't #ifdef it
                                                //(if this one exists, it's safe to ignore; 5 is still 5,
@@ -190,8 +189,6 @@ static void draw(struct video * this_, unsigned int width, unsigned int height, 
 		
 		if (!this->texture)
 		{
-puts("AAAAAAAAAAAAaAa");
-printf("%i %i\n",width,height);
 			this->device->lpVtbl->Clear(this->device, 0, NULL, D3DCLEAR_TARGET, D3DCOLOR_XRGB(255, 0, 0), 1.0f, 0);
 			goto present;
 		}
@@ -228,7 +225,7 @@ printf("%i %i\n",width,height);
 			else this->device->lpVtbl->Present(this->device, NULL, NULL, NULL, NULL);
 			return;
 		}
-		if (locked.Pitch==pitch) memcpy(locked.pBits, data, pitch*height+this->bytes_per_row);
+		if (locked.Pitch==pitch) memcpy(locked.pBits, data, pitch*(height-1)+this->bytes_per_row);
 		else
 		{
 			for (int i=0;i<height;i++)

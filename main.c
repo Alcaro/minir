@@ -237,6 +237,7 @@ void reset_config()
 	draw->set_hide_cursor(draw, config.cursor_hide);
 	
 	create_interfaces(videowidth, videoheight, videodepth, videofps);
+printf("Chosen drivers: %s, %s, %s\n", config.driver_video, config.driver_audio, config.driver_input);
 	
 	aud->set_sync(aud, config.audio_sync);
 	vid->set_sync(vid, config.video_sync);
@@ -473,6 +474,7 @@ bool load_rom(const char * rom)
 			if (!select_cores(rom)) return false;
 			newcores=config_get_core_for(rom, NULL);
 		}
+		if (!newcores[0].path) return false;
 		unload_rom();
 		if (!load_core(newcores[0].path, false))
 		{
@@ -1348,10 +1350,10 @@ void set_core_opt_bool_invert(struct windowmenu * subject, bool checked, void* u
 	set_core_opt_bool(subject, !checked, userdata);
 }
 
-struct windowmenu * update_coreopt_menu(struct windowmenu * parent, bool * enable)
+void update_coreopt_menu(struct windowmenu * parent, unsigned int pos)
 {
 	static struct windowmenu * menu=NULL;
-	if (menu && core && !core->get_core_options_changed(core)) return menu;
+	if (menu && core && !core->get_core_options_changed(core)) return;
 	if (menu) parent->remove_child(parent, menu);
 	menu=windowmenu_create_submenu("_Core _Options", NULL);
 	
@@ -1363,10 +1365,10 @@ struct windowmenu * update_coreopt_menu(struct windowmenu * parent, bool * enabl
 		struct windowmenu * item=windowmenu_create_item("(no core options)", NULL, NULL);
 		menu->insert_child(menu, 0, item);
 		item->set_enabled(item, false);
-		*enable=false;
-		return menu;
+		menu->set_enabled(menu, false);
+		parent->insert_child(parent, pos, menu);
+		return;
 	}
-	*enable=true;
 	
 	for (unsigned int i=0;i<numopts;i++)
 	{
@@ -1388,7 +1390,7 @@ struct windowmenu * update_coreopt_menu(struct windowmenu * parent, bool * enabl
 			radioitem->set_state(radioitem, core->get_core_option(core, i));
 		}
 	}
-	return menu;
+	parent->insert_child(parent, pos, menu);
 }
 
 void menu_system_core_any(struct windowmenu * subject, unsigned int state, void* userdata)
@@ -1505,9 +1507,6 @@ void update_menu()
 	static struct windowmenu * menu_system_core=NULL;
 	static struct windowmenu * menu_cheat_enable=NULL;
 	
-	bool menu_coreopt_enable;
-	struct windowmenu * menu_coreopt=update_coreopt_menu(menu, &menu_coreopt_enable);
-	
 	if (menu_system_core) menu_system->remove_child(menu_system, menu_system_core);
 	menu_system_core=update_corepicker_menu(menu_system);
 	
@@ -1524,20 +1523,20 @@ void update_menu()
 				windowmenu_create_separator(),
 				windowmenu_create_item("_E_xit", menu_system_exit, NULL),
 				NULL),
-			menu_coreopt,
+			//menu_coreopt,
 			menu_with_rom_only(windowmenu_create_submenu("__Cheats",
 				menu_with_rom_only(windowmenu_create_item("_Cheat _List", menu_cheat_list, NULL)),
 				menu_with_rom_only(windowmenu_create_item("_Cheat _Search", menu_cheat_search, NULL)),
 				menu_cheat_enable=menu_with_rom_only(windowmenu_create_check("__Enable Cheats", menu_cheat_enable_f, NULL)),
 				NULL)),
 			NULL);
+		update_coreopt_menu(menu, 1);
 		wndw->set_menu(wndw, menu);
 	}
 	else
 	{
-		if (menu_coreopt) menu->insert_child(menu, 1, menu_coreopt);
+		update_coreopt_menu(menu, 1);
 		menu_system->insert_child(menu_system, 1, menu_system_core);
-		menu_coreopt->set_enabled(menu_coreopt, menu_coreopt_enable);
 	}
 	
 	menu_cheat_enable->set_state(menu_cheat_enable, cheats->get_enabled(cheats));
