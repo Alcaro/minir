@@ -34,10 +34,12 @@ struct windowmenu_gtk3 {
 		struct windowmenu_gtk3 * * children;
 		struct windowradio_gtk3 * radiochildren;
 	UNION_END
+	uint16_t menupos;
+	uint8_t state;
 	uint8_t type;
-	uint8_t menupos;
 	uint8_t numchildren;
 	bool block_signals;
+	//char padding[3];
 };
 
 struct window_gtk3 {
@@ -198,13 +200,15 @@ static void menu_activate_check(GtkMenuItem* menuitem, gpointer user_data)
 {
 	struct windowmenu_gtk3 * this=(struct windowmenu_gtk3*)user_data;
 	if (this->block_signals) return;
-	this->onactivate_check((struct windowmenu*)this, gtk_check_menu_item_get_active(GTK_CHECK_MENU_ITEM(this->item)), this->userdata);
+	this->state=!this->state;
+	this->onactivate_check((struct windowmenu*)this, this->state, this->userdata);
 }
 
 static unsigned int menu_check_get_state(struct windowmenu * this_)
 {
 	struct windowmenu_gtk3 * this=(struct windowmenu_gtk3*)this_;
-	return gtk_check_menu_item_get_active(GTK_CHECK_MENU_ITEM(this->item));
+	return this->state;
+	//return gtk_check_menu_item_get_active(GTK_CHECK_MENU_ITEM(this->item));
 }
 
 static void menu_check_set_state(struct windowmenu * this_, unsigned int state)
@@ -212,6 +216,7 @@ static void menu_check_set_state(struct windowmenu * this_, unsigned int state)
 	struct windowmenu_gtk3 * this=(struct windowmenu_gtk3*)this_;
 	this->block_signals=true;
 	gtk_check_menu_item_set_active(GTK_CHECK_MENU_ITEM(this->item), state);
+	this->state=state;
 	this->block_signals=false;
 }
 
@@ -233,6 +238,7 @@ struct windowmenu * windowmenu_create_check(const char * text,
 	this->i.set_enabled=menu_set_enabled;
 	this->i.get_state=menu_check_get_state;
 	this->i.set_state=menu_check_set_state;
+	this->state=false;
 	menu_set_text(this->item, text);
 	return (struct windowmenu*)this;
 }
@@ -243,7 +249,8 @@ static void menu_activate_radio(GtkMenuItem* menuitem, gpointer user_data)
 	struct windowmenu_gtk3 * this=item->parent;
 	if (this->block_signals) return;
 	if (!gtk_check_menu_item_get_active(GTK_CHECK_MENU_ITEM(item->item))) return;
-	this->onactivate_radio((struct windowmenu*)this, item->state, this->userdata);
+	if (this->state!=item->state) this->onactivate_radio((struct windowmenu*)this, item->state, this->userdata);
+	this->state=item->state;
 }
 
 static void menu_radio_set_enabled(struct windowmenu * this_, bool enable)
@@ -258,9 +265,7 @@ static void menu_radio_set_enabled(struct windowmenu * this_, bool enable)
 static unsigned int menu_radio_get_state(struct windowmenu * this_)
 {
 	struct windowmenu_gtk3 * this=(struct windowmenu_gtk3*)this_;
-	unsigned int ret=0;
-	while (!gtk_check_menu_item_get_active(GTK_CHECK_MENU_ITEM(this->radiochildren[ret].item))) ret++;
-	return ret;
+	return this->state;
 }
 
 static void menu_radio_set_state(struct windowmenu * this_, unsigned int state)
@@ -268,6 +273,7 @@ static void menu_radio_set_state(struct windowmenu * this_, unsigned int state)
 	struct windowmenu_gtk3 * this=(struct windowmenu_gtk3*)this_;
 	this->block_signals=true;
 	gtk_check_menu_item_set_active(GTK_CHECK_MENU_ITEM(this->radiochildren[state].item), true);
+	this->state=state;
 	this->block_signals=false;
 }
 
@@ -293,6 +299,7 @@ struct windowmenu * windowmenu_create_radio_l(unsigned int numitems, const char 
 	}
 	this->item=GTK_MENU_ITEM(this->radiochildren[0].item);
 	gtk_check_menu_item_set_active(GTK_CHECK_MENU_ITEM(this->item), true);
+	this->state=0;
 	
 	this->type=mtype_radio;
 	this->onactivate_radio=onactivate;

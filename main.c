@@ -1384,14 +1384,83 @@ struct windowmenu * update_coreopt_menu(struct windowmenu * parent, bool * enabl
 	return menu;
 }
 
+void menu_system_core_any(struct windowmenu * subject, unsigned int state, void* userdata)
+{
+	struct minircorelist * cores_for_this=userdata;
+	load_core(cores_for_this[state].path, true);
+}
+
+void menu_system_core_more(struct windowmenu * subject, void* userdata)
+{
+	select_cores(NULL);
+}
+
+struct windowmenu * update_corepicker_menu(struct windowmenu * parent)
+{
+	struct windowmenu * menu=windowmenu_create_submenu("__Core", NULL);
+	
+	unsigned int numchildren=0;
+	
+	struct minircorelist * cores_for_this=NULL;
+	if (romloaded)
+	{
+		unsigned int current_core_id=0;
+		
+		int fixstate=0;
+		
+	again:
+		free(cores_for_this);
+		unsigned int numcores;
+		cores_for_this=config_get_core_for(romloaded, &numcores);
+		const char * names[numcores];
+		
+		for (int i=0;i<numcores;i++)
+		{
+			if (!cores_for_this[i].name)
+			{
+				if (!study_core(cores_for_this[i].path)) config_delete_core(cores_for_this[i].path);
+				if (fixstate==0) fixstate=1;
+			}
+			
+			names[i]=cores_for_this[i].name;
+			
+			if (!strcmp(coreloaded, cores_for_this[i].path)) current_core_id=i;
+		}
+		
+		if (fixstate==1)
+		{
+			fixstate=2;
+			goto again;
+		}
+		
+		struct windowmenu * items=windowmenu_create_radio_l(numcores, names, menu_system_core_any, cores_for_this);
+		menu->insert_child(menu, numchildren++, items);
+		items->set_state(items, current_core_id);
+	}
+	else
+	{
+		struct windowmenu * norom=windowmenu_create_item("(no ROM loaded)", NULL, NULL);
+		menu->insert_child(menu, numchildren++, norom);
+		norom->set_enabled(norom, false);
+	}
+	menu->insert_child(menu, numchildren++, windowmenu_create_separator());
+	menu->insert_child(menu, numchildren++, windowmenu_create_item("_Add _more cores", menu_system_core_more, NULL));
+	return menu;
+}
+
 void menu_system_rom(struct windowmenu * subject, void* userdata)
 {
 	select_rom();
 }
 
-void menu_system_reset_f(struct windowmenu * subject, void* userdata)
+void menu_system_reset(struct windowmenu * subject, void* userdata)
 {
 	core->reset(core);
+}
+
+void menu_system_settings(struct windowmenu * subject, void* userdata)
+{
+	
 }
 
 void menu_system_exit(struct windowmenu * subject, void* userdata)
@@ -1414,19 +1483,26 @@ void menu_cheat_enable_f(struct windowmenu * subject, bool state, void* userdata
 	cheats->set_enabled(cheats, state);
 }
 
+struct windowmenu * * romonlyitems=NULL;
+unsigned int numromonlyitems=0;
+struct windowmenu * menu_with_rom_only(struct windowmenu * item)
+{
+	romonlyitems=realloc(romonlyitems, sizeof(struct windowmenu*)*(numromonlyitems+1));
+	romonlyitems[numromonlyitems++]=item;
+	return item;
+}
+
 void update_menu()
 {
 	static struct windowmenu * menu_system;
 	static struct windowmenu * menu_system_core=NULL;
-	static struct windowmenu * menu_system_reset;
 	static struct windowmenu * menu_cheat_enable=NULL;
 	
 	bool menu_coreopt_enable;
 	struct windowmenu * menu_coreopt=update_coreopt_menu(menu, &menu_coreopt_enable);
 	
 	if (menu_system_core) menu_system->remove_child(menu_system, menu_system_core);
-	menu_system_core=windowmenu_create_submenu("__Core", NULL);
-	menu_system_core->insert_child(menu_system_core, 0, windowmenu_create_item("(TODO: Implement this)", NULL, NULL));
+	menu_system_core=update_corepicker_menu(menu_system);
 	
 	if (!menu)
 	{
@@ -1435,16 +1511,18 @@ void update_menu()
 				windowmenu_create_item("__Load ROM", menu_system_rom, NULL),
 				menu_system_core,
 				windowmenu_create_separator(),
-				menu_system_reset=windowmenu_create_item("__Reset", menu_system_reset_f, NULL),
+				menu_with_rom_only(windowmenu_create_item("__Reset", menu_system_reset, NULL)),
+				windowmenu_create_separator(),
+				windowmenu_create_item("__Settings", menu_system_settings, NULL),
 				windowmenu_create_separator(),
 				windowmenu_create_item("_E_xit", menu_system_exit, NULL),
 				NULL),
 			menu_coreopt,
-			windowmenu_create_submenu("__Cheats",
-				windowmenu_create_item("_Cheat _List", menu_cheat_list, NULL),
-				windowmenu_create_item("_Cheat _Search", menu_cheat_search, NULL),
-				menu_cheat_enable=windowmenu_create_check("__Enable Cheats", menu_cheat_enable_f, NULL),
-				NULL),
+			menu_with_rom_only(windowmenu_create_submenu("__Cheats",
+				menu_with_rom_only(windowmenu_create_item("_Cheat _List", menu_cheat_list, NULL)),
+				menu_with_rom_only(windowmenu_create_item("_Cheat _Search", menu_cheat_search, NULL)),
+				menu_cheat_enable=menu_with_rom_only(windowmenu_create_check("__Enable Cheats", menu_cheat_enable_f, NULL)),
+				NULL)),
 			NULL);
 		wndw->set_menu(wndw, menu);
 	}
@@ -1456,6 +1534,11 @@ void update_menu()
 	}
 	
 	menu_cheat_enable->set_state(menu_cheat_enable, cheats->get_enabled(cheats));
+	
+	for (unsigned int i=0;i<numromonlyitems;i++)
+	{
+		romonlyitems[i]->set_enabled(romonlyitems[i], (romloaded));
+	}
 }
 /*
 void menu_system_core_any_action(unsigned int id, unsigned int state, void* userdata)

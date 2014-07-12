@@ -567,6 +567,7 @@ static void menu_activate(HMENU menu, DWORD pos)
 	}
 	if (activate->type==menu_radio)
 	{
+		if (pos - activate->thispos == acticate->state) return;
 		activate->state = pos - activate->thispos;
 		CheckMenuRadioItem(activate->parent, activate->thispos, activate->thispos+activate->radio_length-1, activate->thispos+activate->state, MF_BYPOSITION);
 		if (activate->onactivate_radio) activate->onactivate_radio((struct windowmenu*)activate, activate->state, activate->userdata);
@@ -854,6 +855,7 @@ static LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM l
 		break;
 	case WM_CLOSE:
 	case WM_ENDSESSION://this isn't really the most elegant solution, but it should work.
+	CloseWindow:
 		{
 			if (this->onclose)
 			{
@@ -877,7 +879,11 @@ static LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM l
 	case WM_COMMAND:
 		{
 //printf("COMM=%.8zX,%.8zX\n",wParam,lParam);
-			if (lParam==0) printf("HAX %.8X\n",wParam);
+			if (lParam==0)
+			{
+				//what does this 2 mean? It works, but...
+				if (HIWORD(wParam)==0 && LOWORD(wParam)==2) goto CloseWindow;
+			}
 			else
 			{
 				NMHDR nmhdr={(HWND)lParam, LOWORD(wParam), HIWORD(wParam)};
