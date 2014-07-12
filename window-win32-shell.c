@@ -567,7 +567,7 @@ static void menu_activate(HMENU menu, DWORD pos)
 	}
 	if (activate->type==menu_radio)
 	{
-		if (pos - activate->thispos == acticate->state) return;
+		if (pos - activate->thispos == activate->state) return;
 		activate->state = pos - activate->thispos;
 		CheckMenuRadioItem(activate->parent, activate->thispos, activate->thispos+activate->radio_length-1, activate->thispos+activate->state, MF_BYPOSITION);
 		if (activate->onactivate_radio) activate->onactivate_radio((struct windowmenu*)activate, activate->state, activate->userdata);

@@ -277,7 +277,7 @@ struct inputkb * _inputkb_create_none(uintptr_t windowhandle);
 
 //This one translates a hardware keycode to a Libretro code. It uses the same tables as inputraw_*_keyboard_create_shared;
 // if an input driver disagrees, weird stuff may happen.
-unsigned int inputkb_translate_key(unsigned int keycode);
+//unsigned int inputkb_translate_key(unsigned int keycode);
 
 
 
@@ -547,7 +547,7 @@ struct libretro {
 	//The core options will be reported as having changed on a freshly created core,
 	// even if there are no options. The flag is cleared by calling this function.
 	bool (*get_core_options_changed)(struct libretro * this);
-	//The list is terminated by a { NULL, NULL, 0, NULL }.
+	//The list is terminated by a { NULL, NULL, false, 0, NULL }.
 	//The return value is invalidated by run() or free(), whichever comes first.
 	const struct libretro_core_option * (*get_core_options)(struct libretro * this, unsigned int * numopts);
 	//It is undefined behaviour to set a nonexistent option, or to set an option to a nonexistent value.
@@ -575,19 +575,19 @@ struct libretro {
 //The message notification may be called before libretro_create returns. It may even be called if the
 // function returns NULL afterwards. It can be NULL, in which case the messages will be discarded.
 //It is safe to free this item without loading a ROM.
-//Since a Libretro core is a singleton, only one libretro structure may exist for each core. For the purpose of the
+//Since a libretro core is a singleton, only one libretro structure may exist for each core. For the purpose of the
 // previous sentence, loading the dylib through other ways than this function counts as creating a libretro structure.
 //If one existed already, 'existed' will be set to true. For success, and for other failures, it's false.
 struct libretro * libretro_create(const char * corepath, void (*message_cb)(int severity, const char * message), bool * existed);
 
-//Returns whatever Libretro cores the system can find. The following locations are to be searched for all dylibs:
+//Returns whatever libretro cores the system can find. The following locations are to be searched for all dylibs:
 //- The directory of the executable
 //- All subdirectories of the directory the executable is in (but not subdirectories of those)
 //- Any other directory the system feels like including, including system directories
-//If the scanned directories can be expected to contain large amounts of non-Libretro dylibs, all
+//If the scanned directories can be expected to contain large amounts of non-libretro dylibs, all
 // dylibs whose name does not contain "retro" or "core" should be filtered off. For example,
 // returning the entire /usr/lib is not appropriate.
-//The return value may contain duplicates, may contain non-Libretro dylibs, and may even contain non-dylibs.
+//The return value may contain duplicates, may contain non-libretro dylibs, and may even contain non-dylibs.
 //The return value is invalidated by the next call to this function, or libretro_nearby_cores.
 //
 //For example, the following directory structure would work out of the box:
@@ -601,7 +601,7 @@ struct libretro * libretro_create(const char * corepath, void (*message_cb)(int 
 //     kirby3.smc
 const char * const * libretro_default_cores();
 
-//Equivalent to libretro_default_cores, but looks beside the given ROM instead.
+//Equivalent to libretro_default_cores, but looks near the given path instead.
 const char * const * libretro_nearby_cores(const char * rompath);
 
 
@@ -711,6 +711,10 @@ void config_delete_game(const char * game);
 void config_write(const char * path);
 
 
+
+struct minir {
+	
+};
 
 //All functions on this object yield undefined behaviour if datsize is not within 1..4.
 //For easier transferability to other projects, this object does not call any other part of minir,

@@ -1311,6 +1311,13 @@ void set_status_bar_duration(unsigned int ms)
 
 
 
+void configpanel_show()
+{
+	
+}
+
+
+
 bool is_yesno(const char * yes, const char * no, bool * yesfirst)
 {
 	if (yesfirst) *yesfirst=true;
@@ -1460,7 +1467,7 @@ void menu_system_reset(struct windowmenu * subject, void* userdata)
 
 void menu_system_settings(struct windowmenu * subject, void* userdata)
 {
-	
+	configpanel_show();
 }
 
 void menu_system_exit(struct windowmenu * subject, void* userdata)
