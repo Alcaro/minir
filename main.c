@@ -599,12 +599,12 @@ bool handle_cli_args(const char * const * filenames, bool coresonly)
 	//char* newexts=NULL;
 	//char* newextalts=NULL;
 	
-	const char * load=NULL;
+	char * load=NULL;
 	bool load_is_core=false;
 	const char * ext=dylib_ext();
 	for (int i=0;filenames[i];i++)
 	{
-		const char * path=filenames[i];
+		char * path=window_get_absolute_path(filenames[i]);
 		const char * end=strrchr(path, '.');
 		if (coresonly || (end && !strcmp(end, ext)))
 		{
@@ -615,7 +615,7 @@ bool handle_cli_args(const char * const * filenames, bool coresonly)
 				if (thiscore->supports_no_game(thiscore))
 				{
 					load_is_core=true;
-					if (!load) load=path;
+					if (!load) load=strdup(path);
 					else badload=true;
 				}
 				else
@@ -641,9 +641,10 @@ bool handle_cli_args(const char * const * filenames, bool coresonly)
 		}
 		else
 		{
-			if (!load) load=path;
+			if (!load) load=strdup(path);
 			else badload=true;
 		}
+		free(path);
 	}
 //STBAR: Added &5 cores; can now handle '&smc', '&smc' and '&smc' games
 //alt Added &5 cores; more alternatives available for '&smc' games
@@ -673,8 +674,10 @@ bool handle_cli_args(const char * const * filenames, bool coresonly)
 	{
 		if (load_is_core) load_core_as_rom(load);
 		else load_rom(load);
+		free(load);
 		return true;
 	}
+	free(load);
 	
 	return false;
 }
