@@ -116,7 +116,7 @@ const char * const * window_file_picker(struct window * parent,
 	if (!ismultiple)
 	{
 		ret=malloc(sizeof(char*)*2);
-		ret[0]=strdup(filenames);
+		ret[0]=window_get_absolute_path(filenames);
 		ret[1]=NULL;
 		return (const char * const *)ret;
 	}

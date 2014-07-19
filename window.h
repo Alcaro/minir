@@ -352,8 +352,7 @@ struct widget_listbox {
 	//It's optional, but recommended for better performance.
 	//(GTK+ is stupid and doesn't let me use it.)
 	void (*set_contents)(struct widget_listbox * this,
-	                     const char * (*get_cell)(struct widget_listbox * subject, size_t row, int column,
-	                                              void * userdata),
+	                     const char * (*get_cell)(struct widget_listbox * subject, size_t row, int column, void * userdata),
 	                     size_t (*search)(struct widget_listbox * subject, const char * prefix, size_t start, bool up, void * userdata),
 	                     void * userdata);
 	
@@ -385,7 +384,7 @@ struct widget_listbox {
 	//It is implementation defined how the checkboxes are represented. They can be prepended to the
 	// first column, on a column of their own, or something weirder. The position relative to the
 	// other columns is not guaranteed.
-	//The toggle callback does not contain the current nor former state; the structure does not keep track of that.
+	//The toggle callback does not contain the current nor former state; the user is expected to keep track of that.
 	void (*add_checkboxes)(struct widget_listbox * this,
 	                       void (*ontoggle)(struct widget_listbox * subject, size_t row, void * userdata),
 	                       void * userdata);

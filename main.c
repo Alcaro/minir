@@ -63,7 +63,6 @@ static inline void shutupgcc(int x){}
 
 struct video * vid;
 struct audio * aud;
-struct inputraw * inpraw;
 struct inputmapper * inp;
 struct libretroinput * retroinp;
 struct window * wndw;
@@ -136,11 +135,11 @@ bool try_create_interface_video(const char * interface, unsigned int videowidth,
                                                         unsigned int videodepth, double videofps)
 {
 	vid=(config.video_thread ? video_create_thread : video_create)(interface, draw->get_window_handle(draw),
-										videowidth*config.video_scale, videoheight*config.video_scale, videodepth, videofps);
+	                   videowidth*config.video_scale, videoheight*config.video_scale, videodepth, videofps);
 //printf("create %s = %p\n",interface,vid);
 	if (vid)
 	{
-		if (interface!=config.driver_video)
+		if (interface!=config.driver_video)//yes, this should compare pointers instead of pointer contents; config.driver_video can be NULL, and setting a string to itself does no harm
 		{
 			free(config.driver_video);
 			config.driver_video=strdup(interface);
@@ -153,7 +152,7 @@ bool try_create_interface_video(const char * interface, unsigned int videowidth,
 bool try_create_interface_audio(const char * interface)
 {
 	aud=audio_create(interface, draw->get_window_handle(draw),
-										(core ? (core->get_sample_rate(core)) : 8000), config.audio_latency);
+	                 (core ? (core->get_sample_rate(core)) : 8000), config.audio_latency);
 	if (aud)
 	{
 		if (interface!=config.driver_audio)
@@ -166,16 +165,17 @@ bool try_create_interface_audio(const char * interface)
 	return false;
 }
 
-bool try_create_interface_input(const char * interface)
+bool try_create_interface_inputkb(const char * interface)
 {
-	inpraw=inputraw_create(interface, draw->get_window_handle(draw));
-	if (inpraw)
+	struct inputkb * inpkb=inputkb_create(interface, draw->get_window_handle(draw));
+	if (inpkb)
 	{
-		if (interface!=config.driver_input)
+		if (interface!=config.driver_inputkb)
 		{
-			free(config.driver_input);
-			config.driver_input=strdup(interface);
+			free(config.driver_inputkb);
+			config.driver_inputkb=strdup(interface);
 		}
+		inp->set_keyboard(inp, inpkb);
 		return true;
 	}
 	return false;
@@ -185,7 +185,6 @@ void create_interfaces(unsigned int videowidth, unsigned int videoheight, unsign
 {
 	if (vid) vid->free(vid); vid=NULL;
 	if (aud) aud->free(aud); aud=NULL;
-	if (inpraw) inpraw->free(inpraw); inpraw=NULL;
 	
 	if (!config.driver_video || !try_create_interface_video(config.driver_video, videowidth, videoheight, videodepth, videofps))
 	{
@@ -207,12 +206,12 @@ void create_interfaces(unsigned int videowidth, unsigned int videoheight, unsign
 		}
 	}
 	
-	if (!config.driver_input || !try_create_interface_input(config.driver_input))
+	if (!config.driver_inputkb || !try_create_interface_inputkb(config.driver_inputkb))
 	{
-		const char * const * drivers=inputraw_supported_backends();
+		const char * const * drivers=inputkb_supported_backends();
 		while (true)
 		{
-			if (try_create_interface_input(*drivers)) break;
+			if (try_create_interface_inputkb(*drivers)) break;
 			drivers++;
 		}
 	}
@@ -237,12 +236,10 @@ void reset_config()
 	draw->set_hide_cursor(draw, config.cursor_hide);
 	
 	create_interfaces(videowidth, videoheight, videodepth, videofps);
-printf("Chosen drivers: %s, %s, %s\n", config.driver_video, config.driver_audio, config.driver_input);
+printf("Chosen drivers: %s, %s, %s\n", config.driver_video, config.driver_audio, config.driver_inputkb);
 	
 	aud->set_sync(aud, config.audio_sync);
 	vid->set_sync(vid, config.video_sync);
-	
-	inp->set_input(inp, inpraw);
 	
 	if (config.savestate_disable || !config.rewind_enable)
 	{
@@ -440,7 +437,7 @@ void set_window_title()
 bool load_rom(const char * rom)
 {
 	const char * extension=strrchr(rom, '.');
-	if (extension && !strcmp(extension, dylib_ext()))
+	if (extension && !strcasecmp(extension, dylib_ext()))
 	{
 		if (load_core_as_rom(rom)) return true;
 		//I doubt there is any core that can load a dll, but why not try? Worst case, it just fails, as it would have anyways.
@@ -490,6 +487,10 @@ bool load_rom(const char * rom)
 	{
 		if (wndw) wndw->set_title(wndw, "minir");
 		//MBOX: "Couldn't load %s with %s", romloaded, core->name(core)
+		core->free(core);
+		core=NULL;
+		free(coreloaded);
+		coreloaded=NULL;
 		return false;
 	}
 	
@@ -740,7 +741,7 @@ void initialize(int argc, char * argv[])
 	}
 	
 	retroinp=libretroinput_create(NULL);
-	inp=inputmapper_create(NULL);
+	inp=inputmapper_create();
 	rewind=rewindstack_create(0, 0);
 	
 	cheats=minircheats_create();
@@ -1167,7 +1168,7 @@ i=0;
 		}
 		
 		if (wndw->is_active(wndw)) inp->poll(inp);
-		else inp->clear(inp);
+		//else inp->clear(inp);
 
 char*b=inp->last(inp);
 if(b)printf("%s\n",b),free(b);
@@ -1203,7 +1204,7 @@ if(skip_frame&&!count_skipped_frame)i--;
 		    (!config.defocus_pause && wndw->menu_active(wndw)))
 		{
 			aud->clear(aud);
-			inp->clear(inp);
+			//inp->clear(inp);
 			cheats->update(cheats, true);
 			wndw->statusbar_set(wndw, 1, "Paused");
 			draw->set_hide_cursor(draw, false);
@@ -1216,6 +1217,7 @@ if(skip_frame&&!count_skipped_frame)i--;
 			draw->set_hide_cursor(draw, config.cursor_hide);
 			
 			//get rid of last(), if someone is holding something on focus (they shouldn't, but let's let them anyways.)
+			inp->poll(inp);
 			inp->poll(inp);
 			free(inp->last(inp));
 		}
@@ -1242,7 +1244,6 @@ void deinit()
 	vid->free(vid); vid=NULL; // this gets angry on GTK+. I think I'm trying to destroy an already-dead child window.
 	aud->free(aud); aud=NULL;
 	inp->free(inp); inp=NULL;
-	inpraw->free(inpraw); inpraw=NULL;
 	retroinp->free(retroinp); retroinp=NULL;
 	wndw->free(wndw); wndw=NULL;
 	draw=NULL;//window contents are freed when the window is
@@ -1563,7 +1564,7 @@ config.firstrun
 =false;
 #ifdef DEBUG
 //cheats->show_search(cheats);
-cheats->show_list(cheats);
+//cheats->show_list(cheats);
 #endif
 	mainloop();
 

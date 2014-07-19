@@ -6,14 +6,16 @@
 //Holding a key and unplugging its keyboard will make that key perpetually held, unless the keyboard
 // is reinserted.
 //
-//It is unknown if:
-// Bugs appear if multiple instances of this structure are created
-// The RawInput notifications are deleted once the window is destroyed
-// Things work properly if this structure is deleted and recreated
+//Possible bugs:
+// If multiple instances of this structure are created.
+// The RawInput notifications may or may not stop once the window is destroyed.
+// If this structure is deleted and recreated.
+// If Joy2Key is in use.
 
 //this file is heavily based on ruby by byuu
 
 //TODO: http://molecularmusings.wordpress.com/2011/09/05/properly-handling-keyboard-input/
+//TODO: GetKeyNameText may be useful for debugging
 
 #ifdef INPUT_DIRECTINPUT
 #undef _WIN32_WINNT
@@ -132,6 +134,11 @@ static LRESULT CALLBACK window_proc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM l
 			
 			USHORT code=input->data.keyboard.MakeCode;
 			USHORT flags=input->data.keyboard.Flags;
+#ifdef DEBUG
+printf("KEY key=%.4X fl=%.4X res=%.4X vk=%.4X ms=%.8X exi=%.8lX\n",
+input->data.keyboard.MakeCode,input->data.keyboard.Flags,input->data.keyboard.Reserved,
+input->data.keyboard.VKey,input->data.keyboard.Message,input->data.keyboard.ExtraInformation);
+#endif
 			if (code>0 && code<=255 &&
 			    !(this->keycode_to_libretro[code] && input->data.keyboard.VKey==0xFF)//since Windows is Windows, it naturally emits bogus keypresses.
 			    )
@@ -190,6 +197,7 @@ struct inputraw * _inputraw_create_rawinput(uintptr_t windowhandle)
 	
 	//we could list the devices with GetRawInputDeviceList and GetRawInputDeviceInfo, but we don't
 	// need to; we use their handles only (plus the name, to detect unplug and replug)
+	//TODO: do it anyways, to force them to be in the same order every time
 	
 	RAWINPUTDEVICE device[1];
 	//capture all keyboard input

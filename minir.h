@@ -219,20 +219,19 @@ struct audio * audio_create_none(uintptr_t windowhandle, double samplerate, doub
 
 //inputkb is a quite low-level structure. You'll have to keep the state yourself.
 struct inputkb {
-//possibly useful notifications:
-//- I lost track of the keyboards, you should forget all keys
-//- here's the current state, but don't count them as recently pressed
-//- number of keyboards has changed (clamp to 0-32)
-//- must also tell the size of a keyboard (clamp to 0-1024), though this is constant, so it can be a normal function
-	unsigned int (*get_kb_size)(struct inputkb * this);
-	unsigned int (*get_num_kbs)(struct inputkb * this);
-	
+	//The 'silent' flag is false if the key was pressed while creating the structure, or if the keyboard is unplugged.
+	//If set, the user should pretend it was that way all along; events bound to state change should, if possible, not fire.
+	//However, the structure may also send events with 'silent' false but 'down' same as last time. The user should treat these as if they have the silent flag set.
+	//
+	//If scancode or libretrocode is -1, it means that the key does not have any assigned value. (Undefined scancodes are extremely rare, though.)
+	//scancode is in the range 0..1023; libretrocode is in the range 1..RETROK_LAST-1. keyboard is in 0..31.
 	void (*set_callback)(struct inputkb * this,
 	                     void (*key_cb)(struct inputkb * subject,
-	                                    unsigned int keyboard, unsigned int scancode, unsigned int libretrocode, 
-	                                    bool down, void* userdata),
+	                                    unsigned int keyboard, int scancode, int libretrocode, 
+	                                    bool down, bool silent, void* userdata),
 	                     void* userdata);
 	
+	//It is undefined behaviour to poll this object without setting the callback.
 	void (*poll)(struct inputkb * this);
 	
 	void (*free)(struct inputkb * this);
@@ -241,16 +240,16 @@ struct inputkb {
 const char * const * inputkb_supported_backends();
 struct inputkb * inputkb_create(const char * backend, uintptr_t windowhandle);
 
-//It's better to use inputkb_create() and let it take care of creating the right input handlers. Otherwise, you're surrendering platform independence.
+//It's better to use inputkb_create() and let it pick the right one. Otherwise, you're surrendering platform independence.
 //Linux drivers:
 #ifdef INPUT_X11
-struct inputkb * _inputkb_create_x11(uintptr_t windowhandle);
+struct inputkb * inputkb_create_x11(uintptr_t windowhandle);
 #endif
 #ifdef INPUT_X11_XINPUT2
-struct inputkb * _inputkb_create_x11_xinput2(uintptr_t windowhandle);
+struct inputkb * inputkb_create_x11_xinput2(uintptr_t windowhandle);
 #endif
 #ifdef INPUT_GDK
-struct inputkb * _inputkb_create_gdk(uintptr_t windowhandle);
+struct inputkb * inputkb_create_gdk(uintptr_t windowhandle);
 #endif
 #ifdef WNDPROT_X11
 //All input drivers for X11 use the same keycode translation table. This one sets up
@@ -263,17 +262,17 @@ struct inputkb * _inputkb_create_gdk(uintptr_t windowhandle);
 
 //Windows drivers:
 #ifdef INPUT_RAWINPUT
-struct inputkb * _inputkb_create_rawinput(uintptr_t windowhandle);
+struct inputkb * inputkb_create_rawinput(uintptr_t windowhandle);
 #endif
 #ifdef INPUT_DIRECTINPUT
-struct inputkb * _inputkb_create_directinput(uintptr_t windowhandle);
+struct inputkb * inputkb_create_directinput(uintptr_t windowhandle);
 #endif
 #ifdef WNDPROT_WINDOWS
 //Windows drivers share keycode translations, too. (But they're obviously not the same as X11 key mappings.) This one acts the same way, including the 256.
 //void _inputraw_windows_keyboard_create_shared(struct inputraw * this);
 #endif
 
-struct inputkb * _inputkb_create_none(uintptr_t windowhandle);
+struct inputkb * inputkb_create_none(uintptr_t windowhandle);
 
 //This one translates a hardware keycode to a Libretro code. It uses the same tables as inputraw_*_keyboard_create_shared;
 // if an input driver disagrees, weird stuff may happen.
@@ -286,7 +285,6 @@ struct inputjoy;
 
 
 
-struct inputraw;
 struct inputmapper {
 	//Asks whether a button is pressed. If oneshot is set, the button is considered released after
 	// being held for one frame. If the button is not mapped to anything, it's considered unheld.
@@ -300,11 +298,9 @@ struct inputmapper {
 	// which of them is returned if two keys are released at the same time.
 	char * (*last)(struct inputmapper * this);
 	
-	//Sets which inputraw to use. The inputmapper takes ownership of this item; it can not be used
+	//Sets where to get keyboard input. The inputmapper takes ownership of this item; it can not be used
 	// anymore after calling this, not even to free it (the inputmapper takes care of that).
-	//Note that calling this will reset all mapped keys; an inputmapper may choose different internal
-	// representations for its data depending on which inputraw is installed.
-	void (*set_input)(struct inputmapper * this, struct inputraw * in);
+	void (*set_keyboard)(struct inputmapper * this, struct inputkb * in);
 	
 	//Maps an input descriptor (a string) to an input ID.
 	//IDs should be assigned to low numbers (0 is fine); leaving big unused holes is wasteful, though
@@ -329,12 +325,9 @@ struct inputmapper {
 	//Tells the structure to ask the inputraw for updates. Clears all prior oneshot flags.
 	void (*poll)(struct inputmapper * this);
 	
-	//Clears all input held flags, as well as last().
-	void (*clear)(struct inputmapper * this);
-	
 	void (*free)(struct inputmapper * this);
 };
-struct inputmapper * inputmapper_create(struct inputraw * in);
+struct inputmapper * inputmapper_create();
 
 //Takes an input descriptor and verifies that it's understandable; if it is, it's normalized into
 // the mapper's favourite format, otherwise you get a NULL.
@@ -578,6 +571,7 @@ struct libretro {
 //Since a libretro core is a singleton, only one libretro structure may exist for each core. For the purpose of the
 // previous sentence, loading the dylib through other ways than this function counts as creating a libretro structure.
 //If one existed already, 'existed' will be set to true. For success, and for other failures, it's false.
+//TODO: userdata in message_cb
 struct libretro * libretro_create(const char * corepath, void (*message_cb)(int severity, const char * message), bool * existed);
 
 //Returns whatever libretro cores the system can find. The following locations are to be searched for all dylibs:
@@ -606,10 +600,10 @@ const char * const * libretro_nearby_cores(const char * rompath);
 
 
 
-//An input mapper that converts the interface of an inputmapper to whatever a Libretro core
+//An input mapper that converts the interface of an inputmapper to whatever a libretro core
 // understands. It's roughly a joypad emulator. The input mapper is assumed polled elsewhere.
 struct libretroinput {
-	//Polls input. Same interface as Libretro.
+	//Polls input. Same interface as libretro.
 	int16_t (*query)(struct libretroinput * this, unsigned port, unsigned device, unsigned index, unsigned id);
 	
 	//Sets the input handler. It is still usable for other things while attached to a libretroinput.

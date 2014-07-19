@@ -854,7 +854,8 @@ static LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM l
 		else activedialog=NULL;
 		break;
 	case WM_CLOSE:
-	case WM_ENDSESSION://this isn't really the most elegant solution, but it should work.
+	//case WM_ENDSESSION://this isn't really the most elegant solution, but it should work.
+	//disabling the above because I don't want the possibility of being closed between fopen and fwrite.
 	CloseWindow:
 		{
 			if (this->onclose)

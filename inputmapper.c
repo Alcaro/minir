@@ -20,47 +20,48 @@
 		//"x",          "y",           "z",          NULL,          NULL,         NULL,          NULL,         "Delete",
 
 static const char * const keynames[]={
-		NULL,         NULL,          NULL,         NULL,          NULL,         NULL,          NULL,         NULL,
-		"Backspace",   "Tab",        NULL,         NULL,          "Clear",      "Return",      NULL,         NULL,
-		NULL,         NULL,          NULL,         "Pause",       NULL,         NULL,          NULL,         NULL,
-		NULL,         NULL,          NULL,         "Escape",      NULL,         NULL,          NULL,         NULL,
-		"Space",      "Exclaim",     "QuoteD",     "Hash",        "Dollar",     NULL,          "Ampersand",  "QuoteS",
-		"ParenL",     "ParenR",      "Asterisk",   "Plus",        "Comma",      "Minus",       "Period",     "Slash",
-		"0",          "1",           "2",          "3",           "4",          "5",           "6",          "7",
-		"8",          "9",           "Colon",      "Semicolon",   "Less",       "Equals",      "Greater",    "Question",
-		"At",         NULL,          NULL,         NULL,          NULL,         NULL,          NULL,         NULL,
-		NULL,         NULL,          NULL,         NULL,          NULL,         NULL,          NULL,         NULL,
-		NULL,         NULL,          NULL,         NULL,          NULL,         NULL,          NULL,         NULL,
-		NULL,         NULL,          NULL,         "BracketL",    "Backslash",  "BracketR",    "Caret",      "Underscore",
-		"Backtick",   "A",           "B",          "C",           "D",          "E",           "F",          "G",
-		"H",          "I",           "J",          "K",           "L",          "M",           "N",          "O",
-		"P",          "Q",           "R",          "S",           "T",          "U",           "V",          "W",
-		"X",          "Y",           "Z",          NULL,          NULL,         NULL,          NULL,         "Delete",
-		NULL,         NULL,          NULL,         NULL,          NULL,         NULL,          NULL,         NULL,
-		NULL,         NULL,          NULL,         NULL,          NULL,         NULL,          NULL,         NULL,
-		NULL,         NULL,          NULL,         NULL,          NULL,         NULL,          NULL,         NULL,
-		NULL,         NULL,          NULL,         NULL,          NULL,         NULL,          NULL,         NULL,
-		NULL,         NULL,          NULL,         NULL,          NULL,         NULL,          NULL,         NULL,
-		NULL,         NULL,          NULL,         NULL,          NULL,         NULL,          NULL,         NULL,
-		NULL,         NULL,          NULL,         NULL,          NULL,         NULL,          NULL,         NULL,
-		NULL,         NULL,          NULL,         NULL,          NULL,         NULL,          NULL,         NULL,
-		NULL,         NULL,          NULL,         NULL,          NULL,         NULL,          NULL,         NULL,
-		NULL,         NULL,          NULL,         NULL,          NULL,         NULL,          NULL,         NULL,
-		NULL,         NULL,          NULL,         NULL,          NULL,         NULL,          NULL,         NULL,
-		NULL,         NULL,          NULL,         NULL,          NULL,         NULL,          NULL,         NULL,
-		NULL,         NULL,          NULL,         NULL,          NULL,         NULL,          NULL,         NULL,
-		NULL,         NULL,          NULL,         NULL,          NULL,         NULL,          NULL,         NULL,
-		NULL,         NULL,          NULL,         NULL,          NULL,         NULL,          NULL,         NULL,
-		NULL,         NULL,          NULL,         NULL,          NULL,         NULL,          NULL,         NULL,
-		"KP0",        "KP1",         "KP2",        "KP3",         "KP4",        "KP5",         "KP6",        "KP7",
-		"KP8",        "KP9",         "KP_Period",  "KP_Divide",   "KP_Multiply", "KP_Minus",   "KP_Plus",    "KP_Enter",
-		"KP_Equals",  "Up",          "Down",       "Right",       "Left",       "Insert",      "Home",       "End",
-		"PageUp",     "PageDown",    "F1",         "F2",          "F3",         "F4",          "F5",         "F6",
-		"F7",         "F8",          "F9",         "F10",         "F11",        "F12",         "F13",        "F14",
-		"F15",        NULL,          NULL,         NULL,          "NumLock",    "CapsLock",    "ScrollLock", "ShiftR",
-		"ShiftL",     "CtrlR",       "CtrlL",      "AltR",        "AltL",       "MetaR",       "MetaL",      "SuperL",
-		"SuperR",     "Mode",        "Compose",    "Help",        "Print",      "SysRq",       "Break",      "Menu",
-		"Power",      "Euro",        "Undo",
+	//The first one is defined to RETROK_UNKNOWN.
+	NULL,         NULL,          NULL,         NULL,          NULL,         NULL,          NULL,         NULL,
+	"Backspace",   "Tab",        NULL,         NULL,          "Clear",      "Return",      NULL,         NULL,
+	NULL,         NULL,          NULL,         "Pause",       NULL,         NULL,          NULL,         NULL,
+	NULL,         NULL,          NULL,         "Escape",      NULL,         NULL,          NULL,         NULL,
+	"Space",      "Exclaim",     "QuoteD",     "Hash",        "Dollar",     NULL,          "Ampersand",  "QuoteS",
+	"ParenL",     "ParenR",      "Asterisk",   "Plus",        "Comma",      "Minus",       "Period",     "Slash",
+	"0",          "1",           "2",          "3",           "4",          "5",           "6",          "7",
+	"8",          "9",           "Colon",      "Semicolon",   "Less",       "Equals",      "Greater",    "Question",
+	"At",         NULL,          NULL,         NULL,          NULL,         NULL,          NULL,         NULL,
+	NULL,         NULL,          NULL,         NULL,          NULL,         NULL,          NULL,         NULL,
+	NULL,         NULL,          NULL,         NULL,          NULL,         NULL,          NULL,         NULL,
+	NULL,         NULL,          NULL,         "BracketL",    "Backslash",  "BracketR",    "Caret",      "Underscore",
+	"Backtick",   "A",           "B",          "C",           "D",          "E",           "F",          "G",
+	"H",          "I",           "J",          "K",           "L",          "M",           "N",          "O",
+	"P",          "Q",           "R",          "S",           "T",          "U",           "V",          "W",
+	"X",          "Y",           "Z",          NULL,          NULL,         NULL,          NULL,         "Delete",
+	NULL,         NULL,          NULL,         NULL,          NULL,         NULL,          NULL,         NULL,
+	NULL,         NULL,          NULL,         NULL,          NULL,         NULL,          NULL,         NULL,
+	NULL,         NULL,          NULL,         NULL,          NULL,         NULL,          NULL,         NULL,
+	NULL,         NULL,          NULL,         NULL,          NULL,         NULL,          NULL,         NULL,
+	NULL,         NULL,          NULL,         NULL,          NULL,         NULL,          NULL,         NULL,
+	NULL,         NULL,          NULL,         NULL,          NULL,         NULL,          NULL,         NULL,
+	NULL,         NULL,          NULL,         NULL,          NULL,         NULL,          NULL,         NULL,
+	NULL,         NULL,          NULL,         NULL,          NULL,         NULL,          NULL,         NULL,
+	NULL,         NULL,          NULL,         NULL,          NULL,         NULL,          NULL,         NULL,
+	NULL,         NULL,          NULL,         NULL,          NULL,         NULL,          NULL,         NULL,
+	NULL,         NULL,          NULL,         NULL,          NULL,         NULL,          NULL,         NULL,
+	NULL,         NULL,          NULL,         NULL,          NULL,         NULL,          NULL,         NULL,
+	NULL,         NULL,          NULL,         NULL,          NULL,         NULL,          NULL,         NULL,
+	NULL,         NULL,          NULL,         NULL,          NULL,         NULL,          NULL,         NULL,
+	NULL,         NULL,          NULL,         NULL,          NULL,         NULL,          NULL,         NULL,
+	NULL,         NULL,          NULL,         NULL,          NULL,         NULL,          NULL,         NULL,
+	"KP0",        "KP1",         "KP2",        "KP3",         "KP4",        "KP5",         "KP6",        "KP7",
+	"KP8",        "KP9",         "KP_Period",  "KP_Divide",   "KP_Multiply", "KP_Minus",   "KP_Plus",    "KP_Enter",
+	"KP_Equals",  "Up",          "Down",       "Right",       "Left",       "Insert",      "Home",       "End",
+	"PageUp",     "PageDown",    "F1",         "F2",          "F3",         "F4",          "F5",         "F6",
+	"F7",         "F8",          "F9",         "F10",         "F11",        "F12",         "F13",        "F14",
+	"F15",        NULL,          NULL,         NULL,          "NumLock",    "CapsLock",    "ScrollLock", "ShiftR",
+	"ShiftL",     "CtrlR",       "CtrlL",      "AltR",        "AltL",       "MetaR",       "MetaL",      "SuperL",
+	"SuperR",     "Mode",        "Compose",    "Help",        "Print",      "SysRq",       "Break",      "Menu",
+	"Power",      "Euro",        "Undo",
 };
 
 static unsigned int str_to_id(const char * str, int str_len)
@@ -70,6 +71,11 @@ static unsigned int str_to_id(const char * str, int str_len)
 		if (keynames[i] && !strncmp(str, keynames[i], str_len) && !keynames[i][str_len]) return i;
 	}
 	return 0;
+}
+
+static const char * id_to_str(unsigned int id)
+{
+	return keynames[id];
 }
 
 //Button descriptor specification:
@@ -82,24 +88,24 @@ static unsigned int str_to_id(const char * str, int str_len)
 //s: The selector is 0000 for keyboards.
 //0: The 0s are not used.
 //d: Device ID. If there are multiple keyboards, this tells which one is relevant.
-//l: Libretro keyboard flag. Only set when sanitizing a descriptor without a translation table.
-//k: Key index. It's a native keycode; an index to the array from inputraw::keyboard_poll.
+//n: Native flag. If set, the key index is a native scancode; if not, it's a RETROK_x.
+//k: Key index. See above for details.
 //Special case: 00000000 00000000 00000000 00000000 is never held, can never trigger, and is used as terminator.
 
-static unsigned int * parse_descriptor(const char * descriptor, const char ** descriptor_end, const unsigned int * libretro_to_keycode)
+static uint32_t * parse_descriptor(const char * descriptor, const char ** descriptor_end)
 {
-	unsigned int * rules=rules;
+	uint32_t * rules=rules;
 	
 	if (descriptor[0]=='K' && descriptor[1]=='B' && isdigit(descriptor[2]))
 	{
-		unsigned int keyboardid=strtoul(descriptor+2, (char**)&descriptor, 0);
+		unsigned int keyboardid=strtoul(descriptor+2, (char**)&descriptor, 10);
 		if (descriptor[0]!=':' || descriptor[1]!=':') return NULL;
 		descriptor+=2;
 		
 		keyboardid--;
 		if (keyboardid<0 || keyboardid>31)  return NULL;
 		
-		rules=malloc(sizeof(unsigned int));
+		rules=malloc(sizeof(uint32_t));
 		int rulelen=1;
 		
 		const char * next;
@@ -111,17 +117,13 @@ static unsigned int * parse_descriptor(const char * descriptor, const char ** de
 			if (!next) next=strchr(descriptor, '\0');
 			
 			unsigned int keyid=str_to_id(descriptor, next-descriptor);
-			if (keyid)
-			{
-				if (libretro_to_keycode) keyid=libretro_to_keycode[keyid];
-				else keyid|=0x00000400;
-			}
-			else
+			if (!keyid)
 			{
 				if (*descriptor!='x') goto bad;
 				keyid=strtoul(descriptor, (char**)&descriptor, 16);
 				if (keyid&0xFFFFFC00) goto bad;
 				if (descriptor!=next) goto bad;
+				keyid|=0x00000400;
 			}
 			
 			keyid|=keyboardid<<11;
@@ -129,7 +131,7 @@ static unsigned int * parse_descriptor(const char * descriptor, const char ** de
 			if (*next && *next!=',')
 			{
 				rulelen++;
-				rules=realloc(rules, sizeof(unsigned int)*rulelen);
+				rules=realloc(rules, sizeof(uint32_t)*rulelen);
 				rules[rulelen-1]=keyid;
 			}
 			else
@@ -146,7 +148,7 @@ static unsigned int * parse_descriptor(const char * descriptor, const char ** de
 		}
 		
 		rulelen++;
-		rules=realloc(rules, sizeof(unsigned int)*rulelen);
+		rules=realloc(rules, sizeof(uint32_t)*rulelen);
 		rules[rulelen-1]=0;
 		
 		return rules;
@@ -159,36 +161,36 @@ bad:
 	return NULL;
 }
 
-static unsigned int ** parse_chain_descriptor(const char * descriptor, const unsigned int * libretro_to_keycode)
+static uint32_t ** parse_chain_descriptor(const char * descriptor)
 {
 	int chainlen=0;
-	unsigned int ** ret=NULL;
+	uint32_t ** ret=NULL;
 	while (descriptor)
 	{
 		while (*descriptor==' ') descriptor++;
-		unsigned int * next=parse_descriptor(descriptor, &descriptor, libretro_to_keycode);
+		uint32_t * next=parse_descriptor(descriptor, &descriptor);
 		if (!next)
 		{
 			descriptor=strchr(descriptor, ',');
 			if (descriptor) descriptor++;
 			continue;
 		}
-		ret=realloc(ret, sizeof(unsigned int*)*(chainlen+1));
+		ret=realloc(ret, sizeof(uint32_t*)*(chainlen+1));
 		ret[chainlen]=next;
 		chainlen++;
 	}
 	if (ret)
 	{
-		ret=realloc(ret, sizeof(unsigned int*)*(chainlen+1));
+		ret=realloc(ret, sizeof(uint32_t*)*(chainlen+1));
 		ret[chainlen]=NULL;
 	}
 	return ret;
 }
 
-static void delete_chain_rule(unsigned int ** rules)
+static void delete_chain_rule(uint32_t ** rules)
 {
 	if (!rules) return;
-	unsigned int ** tmp=rules;
+	uint32_t ** tmp=rules;
 	while (*tmp)
 	{
 		free(*tmp);
@@ -198,26 +200,26 @@ static void delete_chain_rule(unsigned int ** rules)
 }
 
 //Note that this one will sort the buttons and delete duplicates.
-static char * create_descriptor(unsigned int * buttons, const unsigned int * keycode_to_libretro, unsigned int keyboardlen)
+static char * create_descriptor(uint32_t * buttons)
 {
-	unsigned int base=buttons[0];
+	uint32_t base=buttons[0];
 	
 	unsigned int nummod=0;
 	if (buttons[1])
 	{
-		unsigned int * sorted=buttons+1;
-		unsigned int * sortend=buttons+1;
-		unsigned int * unsorted=buttons+1;
+		uint32_t * sorted=buttons+1;
+		uint32_t * sortend=buttons+1;
+		uint32_t * unsorted=buttons+1;
 		while (*unsorted)
 		{
-			unsigned int this=*unsorted;
+			uint32_t thisone=*unsorted;
 			*unsorted=0xFFFFFFFF;
-			unsigned int * tmp=sorted;
-			while (this>*tmp) tmp++;
-			if (this!=*tmp && this!=base)
+			uint32_t * tmp=sorted;
+			while (thisone>*tmp) tmp++;
+			if (thisone!=*tmp && thisone!=base)
 			{
-				memmove(tmp+1, tmp, (sortend-tmp)*sizeof(unsigned int));
-				*tmp=this;
+				memmove(tmp+1, tmp, (sortend-tmp)*sizeof(uint32_t));
+				*tmp=thisone;
 				sortend++;
 			}
 			unsorted++;
@@ -240,15 +242,14 @@ static char * create_descriptor(unsigned int * buttons, const unsigned int * key
 			char * outat=out+sprintf(out, "KB%i:", keyboard+1);
 			char * setcolon=outat;
 			
-			unsigned int * terminator=buttons+nummod+1;
+			uint32_t * terminator=buttons+nummod+1;
 			*terminator=base;
 			buttons++;
 			while (buttons<=terminator)
 			{
 				int key=(*buttons&0x7FF);
-				if (key&0x400) outat+=sprintf(outat, "+%s", keynames[key&0x3FF]);
-				else if (key<keyboardlen && keycode_to_libretro[key]) outat+=sprintf(outat, "+%s", keynames[keycode_to_libretro[key]]);
-				else outat+=sprintf(outat, "+x%X", key);
+				if (key&0x400) outat+=sprintf(outat, "+x%.2X", key&0x3FF);
+				else outat+=sprintf(outat, "+%s", id_to_str(key&0x3FF));
 				buttons++;
 			}
 			*terminator=0x00000000;
@@ -259,15 +260,15 @@ static char * create_descriptor(unsigned int * buttons, const unsigned int * key
 	return NULL;
 }
 
-static char * create_chain_descriptor(unsigned int ** buttons, const unsigned int * keycode_to_libretro, unsigned int keyboardlen)
+static char * create_chain_descriptor(uint32_t ** buttons)
 {
 	if (!buttons || !*buttons) return NULL;
-	char * out=create_descriptor(*buttons, keycode_to_libretro, keyboardlen);
+	char * out=create_descriptor(*buttons);
 	int len=strlen(out);
 	buttons++;
 	while (*buttons)
 	{
-		char * newpart=create_descriptor(*buttons, keycode_to_libretro, keyboardlen);
+		char * newpart=create_descriptor(*buttons);
 		int newlen=strlen(newpart);
 		out=realloc(out, len+2+newlen+1);
 		out[len+0]=',';
@@ -281,9 +282,9 @@ static char * create_chain_descriptor(unsigned int ** buttons, const unsigned in
 
 char * inputmapper_normalize(const char * descriptor)
 {
-	unsigned int ** keys=parse_chain_descriptor(descriptor, NULL);
+	uint32_t ** keys=parse_chain_descriptor(descriptor);
 	if (!keys) return NULL;
-	char * newdesc=create_chain_descriptor(keys, NULL, 0);
+	char * newdesc=create_chain_descriptor(keys);
 	delete_chain_rule(keys);
 	return newdesc;
 }
@@ -293,40 +294,42 @@ char * inputmapper_normalize(const char * descriptor)
 struct inputmapper_impl {
 	struct inputmapper i;
 	
-	struct inputraw * in;
+	struct inputkb * kb;
 	
-	const unsigned int * keycode_to_libretro;
-	const unsigned int * libretro_to_keycode;
-	
-	unsigned int numkeyboards;
-	unsigned int keyboardlen;
-	unsigned char * keyboardstate;
+	uint8_t * kb_state;
 	//0=released
 	//1=held
 	//2=released this frame
 	//3=pressed this frame
+	//length is 0x800 * highest observed keyboard ID
+	uint8_t kb_nkb;
+	bool kb_anylastframe;
+	
+	//char padding[2];
+	
+	uint32_t lastreleased;
 	
 	unsigned int numbuttons;
-	unsigned int * ** buttonrules;
-	unsigned int * * shiftstates_for;
+	uint32_t * ** buttonrules;
+	uint32_t * * shiftstates_for;
 	
 	//data structure docs:
 	//buttonrules:
-	// an array of uint*, one for each possible combination of inputs to trigger this one
+	// an array of uint32*, one for each possible combination of inputs to trigger this one
 	// each of the arrays is called 'chain'
 	// if one of them is active, it's active
 	// terminated with NULL
 	//*buttonrules:
-	// an array of uint
+	// an array of uint32
 	// the first one is the base key; it alone decides if oneshots fire
 	// the other ones are which other keys must be held for this array to be true
 	// terminated with 0x00000000
 	//
 	//shiftstates_for:
-	// an array of uint*, one for each keycode (each keyboard counts separately)
+	// an array of uint32*, one for each keycode (each keyboard counts separately)
 	// not terminated, since it's random access; length is numkeyboards*keyboardlen
 	//*shiftstates_for:
-	// an array of uint, telling which keys must be in their requested state (as defined by *buttonrules) for anything to be active
+	// an array of uint32, telling which keys must be in their requested state (as defined by *buttonrules) for anything to be active
 };
 
 static bool button_shiftstates(struct inputmapper * this_, unsigned int id, bool oneshot);
@@ -336,7 +339,7 @@ static void reset_shiftstates(struct inputmapper_impl * this)
 {
 	if (this->shiftstates_for)
 	{
-		for (int i=0;i<this->keyboardlen*this->numkeyboards;i++) free(this->shiftstates_for[i]);
+		for (int i=0;i<0x800*this->kb_nkb;i++) free(this->shiftstates_for[i]);
 		free(this->shiftstates_for);
 		this->shiftstates_for=NULL;
 	}
@@ -347,7 +350,7 @@ static bool map_key(struct inputmapper * this_, const char * descriptor, unsigne
 {
 	struct inputmapper_impl * this=(struct inputmapper_impl*)this_;
 	
-	if (id<this->numbuttons && this->buttonrules[id])
+	if (id<this->numbuttons)
 	{
 		free(this->buttonrules[id]);
 		this->buttonrules[id]=NULL;
@@ -355,12 +358,12 @@ static bool map_key(struct inputmapper * this_, const char * descriptor, unsigne
 	
 	if (!descriptor || !*descriptor) return true;
 	
-	unsigned int ** rules=parse_chain_descriptor(descriptor, this->libretro_to_keycode);
+	uint32_t ** rules=parse_chain_descriptor(descriptor);
 	if (!rules) return false;
 	
 	if (id>=this->numbuttons)
 	{
-		this->buttonrules=realloc(this->buttonrules, sizeof(unsigned int**)*(id+1));
+		this->buttonrules=realloc(this->buttonrules, sizeof(uint32_t**)*(id+1));
 		for (int i=this->numbuttons;i<id;i++)//not initializing the last one; we'll set it to non-NULL soon enough
 		{
 			this->buttonrules[i]=NULL;
@@ -378,21 +381,27 @@ static bool map_key(struct inputmapper * this_, const char * descriptor, unsigne
 static char * last(struct inputmapper * this_)
 {
 	struct inputmapper_impl * this=(struct inputmapper_impl*)this_;
-	for (int kb=0;kb<this->numkeyboards;kb++)
-	for (int key=0;key<this->keyboardlen;key++)
+	if (!this->lastreleased) return NULL;
+	uint32_t lastreleased=this->lastreleased;
+	this->lastreleased=0x00000000;
+	
+	unsigned int type=lastreleased>>28;
+	switch (type)
 	{
-		if (this->keyboardstate[kb*this->keyboardlen + key]==2)
+		case 0:
 		{
+			unsigned int kb=(lastreleased>>11)&31;
+			
 			int numkeys=1;
 			int keybuflen=2;
-			unsigned int * keys=malloc(sizeof(unsigned int)*keybuflen);
-			unsigned int keyboardflags=kb<<11;
+			uint32_t * keys=malloc(sizeof(uint32_t)*keybuflen);
+			uint32_t keyboardflags=kb<<11;
 			
-			keys[0]=keyboardflags | key;
+			keys[0]=lastreleased;
 			
-			for (int key=0;key<this->keyboardlen;key++)
+			for (int key=0;key<0x800;key++)
 			{
-				if (this->keyboardstate[kb*this->keyboardlen + key]==1)
+				if (this->kb_state[kb*0x800 + key]==1)
 				{
 					keys[numkeys]=keyboardflags | key;
 					numkeys++;
@@ -400,12 +409,12 @@ static char * last(struct inputmapper * this_)
 					if (numkeys==keybuflen)
 					{
 						keybuflen*=2;
-						keys=realloc(keys, sizeof(unsigned int)*keybuflen);
+						keys=realloc(keys, sizeof(uint32_t)*keybuflen);
 					}
 				}
 			}
 			keys[numkeys]=0x00000000;
-			char * ret=create_descriptor(keys, this->keycode_to_libretro, this->keyboardlen);
+			char * ret=create_descriptor(keys);
 			free(keys);
 			return ret;
 		}
@@ -417,25 +426,26 @@ static bool button_shiftstates(struct inputmapper * this_, unsigned int id, bool
 {
 	struct inputmapper_impl * this=(struct inputmapper_impl*)this_;
 	
-	this->shiftstates_for=malloc(sizeof(unsigned int*)*this->keyboardlen*this->numkeyboards);
-	memset(this->shiftstates_for, 0, sizeof(unsigned int*)*this->keyboardlen*this->numkeyboards);
+	this->shiftstates_for=malloc(sizeof(uint32_t*)*0x800*this->kb_nkb);
+	memset(this->shiftstates_for, 0, sizeof(uint32_t*)*0x800*this->kb_nkb);
 	for (int i=0;i<this->numbuttons;i++)
 	{
-		unsigned int ** buttonrulechain=this->buttonrules[i];
+		uint32_t ** buttonrulechain=this->buttonrules[i];
 		if (!buttonrulechain) continue;
 		while (*buttonrulechain)
 		{
-			unsigned int * buttonrules=*buttonrulechain;
-			unsigned int baserule=*buttonrules;
+			uint32_t * buttonrules=*(buttonrulechain++);
+			uint32_t baserule=*buttonrules;
 			
 			unsigned int basekb=(baserule>>11)&31;
-			unsigned int basekey=(baserule&0x3FF);
-			unsigned int baseid=basekb*this->keyboardlen + basekey;
+			unsigned int basekey=(baserule&0x7FF);
+			unsigned int baseid=basekb*0x800 + basekey;
+			if (basekb >= this->kb_nkb) continue;
 			
 			buttonrules++;
 			while (*buttonrules)
 			{
-				unsigned int rule=*buttonrules;
+				uint32_t rule=*buttonrules;
 				
 				if (this->shiftstates_for[baseid])
 				{
@@ -444,8 +454,8 @@ static bool button_shiftstates(struct inputmapper * this_, unsigned int id, bool
 					while (this->shiftstates_for[baseid][pos])
 					{
 						//sort it in (looks like a funky insertion sort)
-						unsigned int a=rule;
-						unsigned int b=this->shiftstates_for[baseid][pos];
+						uint32_t a=rule;
+						uint32_t b=this->shiftstates_for[baseid][pos];
 						if (a==b) goto skipthis;
 						if (a>b)
 						{
@@ -454,13 +464,13 @@ static bool button_shiftstates(struct inputmapper * this_, unsigned int id, bool
 						}
 						pos++;
 					}
-					this->shiftstates_for[baseid]=realloc(this->shiftstates_for[baseid], sizeof(unsigned int)*(pos+2));
+					this->shiftstates_for[baseid]=realloc(this->shiftstates_for[baseid], sizeof(uint32_t)*(pos+2));
 					this->shiftstates_for[baseid][pos]=rule;
 					this->shiftstates_for[baseid][pos+1]=0x00000000;
 				}
 				else
 				{
-					this->shiftstates_for[baseid]=malloc(sizeof(unsigned int)*2);
+					this->shiftstates_for[baseid]=malloc(sizeof(uint32_t)*2);
 					this->shiftstates_for[baseid][0]=rule;
 					this->shiftstates_for[baseid][1]=0x00000000;
 				}
@@ -468,7 +478,6 @@ static bool button_shiftstates(struct inputmapper * this_, unsigned int id, bool
 			skipthis:;
 				buttonrules++;
 			}
-			buttonrulechain++;
 		}
 	}
 	
@@ -476,35 +485,35 @@ static bool button_shiftstates(struct inputmapper * this_, unsigned int id, bool
 	return button(this_, id, oneshot);
 }
 
-static bool button_i(struct inputmapper_impl * this, unsigned int * buttons, bool oneshot)
+static bool button_i(struct inputmapper_impl * this, uint32_t * buttons, bool oneshot)
 {
-	int type=buttons[0]>>28;
+	uint32_t type=buttons[0]>>28;
 	switch (type)
 	{
 		case 0:
 		{
 			int kb=(buttons[0]>>11)&31;
-			int key=(buttons[0]&0x3FF);
+			int key=(buttons[0]&0x7FF);
 			
-			if (kb>this->numkeyboards) return false;
-			if (!(this->keyboardstate[kb*this->keyboardlen + key]&1)) return false;
-			if (oneshot && this->keyboardstate[kb*this->keyboardlen + key]!=3) return false;
+			if (kb >= this->kb_nkb) return false;
+			if (!(this->kb_state[kb*0x800 + key]&1)) return false;
+			if (oneshot && this->kb_state[kb*0x800 + key]!=3) return false;
 			
 			unsigned int numenabledshiftstates=0;
 			buttons++;
 			while (*buttons)
 			{
-				if (!(this->keyboardstate[kb*this->keyboardlen + (*buttons&0x3FF)]&1)) return false;
+				if (!(this->kb_state[kb*0x800 + (*buttons&0x7FF)]&1)) return false;
 				buttons++;
 				numenabledshiftstates++;
 			}
 			
-			unsigned int * shiftstates=this->shiftstates_for[kb*this->keyboardlen + key];
+			uint32_t * shiftstates=this->shiftstates_for[kb*0x800 + key];
 			if (shiftstates)
 			{
 				while (*shiftstates)
 				{
-					if (this->keyboardstate[kb*this->keyboardlen + (*shiftstates&0x3FF)]&1) numenabledshiftstates--;
+					if (this->kb_state[kb*0x800 + (*shiftstates&0x7FF)]&1) numenabledshiftstates--;
 					shiftstates++;
 				}
 			}
@@ -519,7 +528,7 @@ static bool button(struct inputmapper * this_, unsigned int id, bool oneshot)
 {
 	struct inputmapper_impl * this=(struct inputmapper_impl*)this_;
 	if (id>=this->numbuttons || !this->buttonrules[id]) return false;
-	unsigned int ** buttons=this->buttonrules[id];
+	uint32_t ** buttons=this->buttonrules[id];
 	
 	while (*buttons)
 	{
@@ -532,49 +541,68 @@ static bool button(struct inputmapper * this_, unsigned int id, bool oneshot)
 static void poll(struct inputmapper * this_)
 {
 	struct inputmapper_impl * this=(struct inputmapper_impl*)this_;
-	
-	unsigned int oldnkb=this->numkeyboards;
-	unsigned int newnkb=this->in->keyboard_num_keyboards(this->in);
-	if (newnkb==0) newnkb=1;
-	
-	if (oldnkb!=newnkb)
+	if (this->kb_anylastframe)
 	{
-		this->keyboardstate=realloc(this->keyboardstate, newnkb*this->keyboardlen);
-		if (newnkb>oldnkb)
-		{
-			memset(this->keyboardstate + oldnkb*this->keyboardlen, 0, (newnkb-oldnkb)*this->keyboardlen);
-		}
-		reset_shiftstates(this);//this won't change them, but we need to resize the buffer
-		this->numkeyboards=newnkb;
+		for (unsigned int i=0;i<0x800*this->kb_nkb;i++) this->kb_state[i]&=1;
+		this->kb_anylastframe=false;
+	}
+	if (this->kb) this->kb->poll(this->kb);
+}
+
+static void kb_cb(struct inputkb * subject, unsigned int keyboard, int scancode, int libretrocode,
+                   bool down, bool changed, void* userdata)
+{
+	struct inputmapper_impl * this=(struct inputmapper_impl*)userdata;
+	if (keyboard >= this->kb_nkb)
+	{
+		reset_shiftstates(this);
+		this->kb_state=realloc(this->kb_state, 0x800*(keyboard+1));
+		memset(this->kb_state + 0x800*this->kb_nkb, 0, 0x800*(keyboard+1-this->kb_nkb));
+		this->kb_nkb=keyboard+1;
 	}
 	
-	unsigned char newstate[this->keyboardlen];
-	for (int i=0;i<this->numkeyboards;i++)
+	unsigned int key;
+	if(0);
+	else if (libretrocode>=0) key=libretrocode;
+	else if (scancode>=0)     key=scancode|0x400;
+	else return;//it's unlikely that we'll get -1 for both, but not impossible
+	
+	key|=keyboard*0x800;
+	if ((this->kb_state[key]&1) != down)
 	{
-		if (!this->in->keyboard_poll(this->in, i, newstate)) memset(newstate, 0, this->keyboardlen);
-		
-		for (int j=0;j<this->keyboardlen;j++)
-		{
-			bool old=(this->keyboardstate[this->keyboardlen*i + j]&1);
-			bool new=newstate[j];
-			this->keyboardstate[this->keyboardlen*i + j]=((old^new)<<1 | new);
-		}
+		this->kb_state[key]=(down?1:0) + (changed?2:0);
+		this->kb_anylastframe |= changed;
+		if (changed && !down) this->lastreleased = key;
 	}
 }
 
-static void clear(struct inputmapper * this_)
+static void set_inputkb(struct inputmapper * this_, struct inputkb * kb)
 {
 	struct inputmapper_impl * this=(struct inputmapper_impl*)this_;
 	
-	memset(this->keyboardstate, 0, this->numkeyboards*this->keyboardlen);
+	if (this->kb) this->kb->free(this->kb);
+	
+	this->kb=kb;
+	
+	if (this->kb)
+	{
+		this->kb_nkb=0;
+		this->kb_state=NULL;
+		this->kb_anylastframe=false;
+		this->kb->set_callback(this->kb, kb_cb, this);
+	}
 }
 
-static void reset(struct inputmapper_impl * this)
+static void free_(struct inputmapper * this_)
 {
+	struct inputmapper_impl * this=(struct inputmapper_impl*)this_;
+	
 	reset_shiftstates(this);
 	
-	free(this->keyboardstate);
-	this->keyboardstate=NULL;
+	if (this->kb) this->kb->free(this->kb);
+	this->kb_nkb=0;
+	free(this->kb_state);
+	this->kb_state=NULL;
 	
 	if (this->buttonrules)
 	{
@@ -583,48 +611,26 @@ static void reset(struct inputmapper_impl * this)
 		this->buttonrules=NULL;
 		this->numbuttons=0;
 	}
-}
-
-static void set_input(struct inputmapper * this_, struct inputraw * in)
-{
-	struct inputmapper_impl * this=(struct inputmapper_impl*)this_;
 	
-	reset(this);
-	
-	this->in=in;
-	
-	if (in)
-	{
-		this->numkeyboards=in->keyboard_num_keyboards(in) ?: 1;
-		this->keyboardlen=in->keyboard_num_keys(in);
-		this->keyboardstate=malloc(this->keyboardlen*this->numkeyboards);
-		memset(this->keyboardstate, 0, this->keyboardlen*this->numkeyboards);
-		
-		in->keyboard_get_map(in, &this->keycode_to_libretro, &this->libretro_to_keycode);
-	}
-}
-
-static void free_(struct inputmapper * this_)
-{
-	struct inputmapper_impl * this=(struct inputmapper_impl*)this_;
-	reset(this);
 	free(this);
 }
 
 struct inputmapper inputmapper_iface = {
-	button, last, set_input, map_key, poll, clear, free_
+	button, last, set_inputkb, map_key, poll, free_
 };
-struct inputmapper * inputmapper_create(struct inputraw * in)
+struct inputmapper * inputmapper_create()
 {
 	struct inputmapper_impl * this=malloc(sizeof(struct inputmapper_impl));
 	memcpy(&this->i, &inputmapper_iface, sizeof(struct inputmapper));
 	
-	this->keyboardstate=NULL;
+	this->kb=NULL;
+	this->kb_state=NULL;
+	this->kb_nkb=0;
+	this->kb_anylastframe=false;
 	
 	this->numbuttons=0;
 	this->buttonrules=NULL;
 	this->shiftstates_for=NULL;
 	
-	set_input((struct inputmapper*)this, in);
 	return (struct inputmapper*)this;
 }

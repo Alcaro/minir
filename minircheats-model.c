@@ -86,6 +86,8 @@
 //- Do not dynamically change the interface; use a switch. If that becomes a too big pain, stick a
 // function pointer in minircheats_model_impl.
 //- No C++ incompatibilities, except using 'this' as variable name. This includes C++11. malloc return values must be casted.
+//- A global s/this/This/i must not alter the program behaviour. The word 'this' (case insensitive)
+// may not be used in any embedded string (other than debug output), and no case other than pure-lower may be used outside comments.
 //However, as RetroArch is not consistent on its malloc checking, we don't do that either.
 
 //The following assumptions are made:
@@ -94,10 +96,11 @@
 //- The child system uses little endian, or big endian.
 //- It is safe to read up to 3 bytes after any memory area. (The results are discarded.)
 //- The host system uses 8bit bytes.
+//- sizeof(int) >= 32 bits
 //- Two threads may access two adjacent uint32s in any way without causing incorrect results. Bad performance is okay.
 //The host system is allowed to use any endianness, including weird ones.
 
-//http://msdn.microsoft.com/en-us/library/vstudio/tcxf1dw6.aspx says %zX is not supported.
+//http://msdn.microsoft.com/en-us/library/vstudio/tcxf1dw6.aspx says %zX is not supported. It works fine on 7, but RetroArch likes XP.
 //Let's define it to whatever they do support.
 #ifdef _WIN32
 #define z "I"
