@@ -717,6 +717,7 @@ void compileconfig(FILE * out)
 		
 		if (pass==p_bytecode)
 		{
+			if (bytecodepos > 32768) error("Resize this buffer.");
 			fprintf(out, "#ifdef CONFIG_BYTECODE\n");
 			fprintf(out, "#define CONFIG_BYTECODE_LEN %i\n", bytecodepos);
 			size_t complen;
@@ -796,12 +797,13 @@ static const char * const keynames[]={
 
 void compilekeynames(FILE * out)
 {
-	char keynamesr[8192];//size ended up as 1139 last time I checked, but let's have a bit of margin.
+	char keynamesr[8192];//size ended up as 869 last time I checked, but let's have a bit of margin.
 	int keynameslenr=0;
 	for (int i=0;i<sizeof(keynames)/sizeof(*keynames);i++)
 	{
 		keynameslenr+=sprintf(keynamesr+keynameslenr, "%s%c", keynames[i]?keynames[i]:"", '\0');
 	}
+	if (keynameslenr > 4096) error("Resize this buffer.");
 	
 	size_t keynameslenc;
 	unsigned char * keynamesc=compress(keynamesr, keynameslenr, &keynameslenc);
