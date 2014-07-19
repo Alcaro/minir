@@ -737,10 +737,94 @@ void compileconfig(FILE * out)
 	fclose(in);
 }
 
+	//"Space",      "!",           "\"",         "#",           "$",          NULL,          "&",          "'",
+	//"(",          ")",           "*",          "+",           ",",          "-",           ".",          "/",
+	//"0",          "1",           "2",          "3",           "4",          "5",           "6",          "7",
+	//"8",          "9",           ":",          ";",           "<",          "=",           ">",          "?",
+	//"At",         NULL,          NULL,         NULL,          NULL,         NULL,          NULL,         NULL,
+	//NULL,         NULL,          NULL,         NULL,          NULL,         NULL,          NULL,         NULL,
+	//NULL,         NULL,          NULL,         NULL,          NULL,         NULL,          NULL,         NULL,
+	//NULL,         NULL,          NULL,         "[",           "\\",         "]",           "^",          "_",
+	//"`",          "a",           "b",          "c",           "d",          "e",           "f",          "g",
+	//"h",          "i",           "j",          "k",           "l",          "m",           "n",          "o",
+	//"p",          "q",           "r",          "s",           "t",          "u",           "v",          "w",
+	//"x",          "y",           "z",          NULL,          NULL,         NULL,          NULL,         "Delete",
+
+static const char * const keynames[]={
+	NULL,         NULL,          NULL,         NULL,          NULL,         NULL,          NULL,         NULL,
+	"Backspace",   "Tab",        NULL,         NULL,          "Clear",      "Return",      NULL,         NULL,
+	NULL,         NULL,          NULL,         "Pause",       NULL,         NULL,          NULL,         NULL,
+	NULL,         NULL,          NULL,         "Escape",      NULL,         NULL,          NULL,         NULL,
+	"Space",      "Exclaim",     "QuoteD",     "Hash",        "Dollar",     NULL,          "Ampersand",  "QuoteS",
+	"ParenL",     "ParenR",      "Asterisk",   "Plus",        "Comma",      "Minus",       "Period",     "Slash",
+	"0",          "1",           "2",          "3",           "4",          "5",           "6",          "7",
+	"8",          "9",           "Colon",      "Semicolon",   "Less",       "Equals",      "Greater",    "Question",
+	"At",         NULL,          NULL,         NULL,          NULL,         NULL,          NULL,         NULL,
+	NULL,         NULL,          NULL,         NULL,          NULL,         NULL,          NULL,         NULL,
+	NULL,         NULL,          NULL,         NULL,          NULL,         NULL,          NULL,         NULL,
+	NULL,         NULL,          NULL,         "BracketL",    "Backslash",  "BracketR",    "Caret",      "Underscore",
+	"Backtick",   "A",           "B",          "C",           "D",          "E",           "F",          "G",
+	"H",          "I",           "J",          "K",           "L",          "M",           "N",          "O",
+	"P",          "Q",           "R",          "S",           "T",          "U",           "V",          "W",
+	"X",          "Y",           "Z",          NULL,          NULL,         NULL,          NULL,         "Delete",
+	NULL,         NULL,          NULL,         NULL,          NULL,         NULL,          NULL,         NULL,
+	NULL,         NULL,          NULL,         NULL,          NULL,         NULL,          NULL,         NULL,
+	NULL,         NULL,          NULL,         NULL,          NULL,         NULL,          NULL,         NULL,
+	NULL,         NULL,          NULL,         NULL,          NULL,         NULL,          NULL,         NULL,
+	NULL,         NULL,          NULL,         NULL,          NULL,         NULL,          NULL,         NULL,
+	NULL,         NULL,          NULL,         NULL,          NULL,         NULL,          NULL,         NULL,
+	NULL,         NULL,          NULL,         NULL,          NULL,         NULL,          NULL,         NULL,
+	NULL,         NULL,          NULL,         NULL,          NULL,         NULL,          NULL,         NULL,
+	NULL,         NULL,          NULL,         NULL,          NULL,         NULL,          NULL,         NULL,
+	NULL,         NULL,          NULL,         NULL,          NULL,         NULL,          NULL,         NULL,
+	NULL,         NULL,          NULL,         NULL,          NULL,         NULL,          NULL,         NULL,
+	NULL,         NULL,          NULL,         NULL,          NULL,         NULL,          NULL,         NULL,
+	NULL,         NULL,          NULL,         NULL,          NULL,         NULL,          NULL,         NULL,
+	NULL,         NULL,          NULL,         NULL,          NULL,         NULL,          NULL,         NULL,
+	NULL,         NULL,          NULL,         NULL,          NULL,         NULL,          NULL,         NULL,
+	NULL,         NULL,          NULL,         NULL,          NULL,         NULL,          NULL,         NULL,
+	"KP0",        "KP1",         "KP2",        "KP3",         "KP4",        "KP5",         "KP6",        "KP7",
+	"KP8",        "KP9",         "KP_Period",  "KP_Divide",   "KP_Multiply", "KP_Minus",   "KP_Plus",    "KP_Enter",
+	"KP_Equals",  "Up",          "Down",       "Right",       "Left",       "Insert",      "Home",       "End",
+	"PageUp",     "PageDown",    "F1",         "F2",          "F3",         "F4",          "F5",         "F6",
+	"F7",         "F8",          "F9",         "F10",         "F11",        "F12",         "F13",        "F14",
+	"F15",        NULL,          NULL,         NULL,          "NumLock",    "CapsLock",    "ScrollLock", "ShiftR",
+	"ShiftL",     "CtrlR",       "CtrlL",      "AltR",        "AltL",       "MetaR",       "MetaL",      "SuperL",
+	"SuperR",     "Mode",        "Compose",    "Help",        "Print",      "SysRq",       "Break",      "Menu",
+	"Power",      "Euro",        "Undo",
+};
+
+void compilekeynames(FILE * out)
+{
+	char keynamesr[8192];//size ended up as 1139 last time I checked, but let's have a bit of margin.
+	int keynameslenr=0;
+	for (int i=0;i<sizeof(keynames)/sizeof(*keynames);i++)
+	{
+		keynameslenr+=sprintf(keynamesr+keynameslenr, "%s%c", keynames[i]?keynames[i]:"", '\0');
+	}
+	
+	size_t keynameslenc;
+	unsigned char * keynamesc=compress(keynamesr, keynameslenr, &keynameslenc);
+	//size_t keynameslenc=keynameslenr;
+	//unsigned char * keynamesc=keynamesr;
+	
+	fprintf(out, "#ifdef KEYNAMES_COMP\n");
+	fprintf(out, "#define KEYNAMES_DECOMP_LEN %i\n", (int)keynameslenr);
+	fprintf(out, "#define NUM_COMP_KEYNAMES %i\n", (int)(sizeof(keynames)/sizeof(*keynames)));
+	for (int i=0;i<keynameslenc;i++)
+	{
+		fprintf(out, "0x%.2X,", keynamesc[i]);
+		if (i%16 == 15) fprintf(out, "\n");
+	}
+	fprintf(out, "\n");
+	fprintf(out, "#endif\n");
+}
+
 int main()
 {
 	FILE * out=fopen("obj/generated.c", "wt");
 	compileconfig(out);
+	compilekeynames(out);
 	fclose(out);
 }
 #endif

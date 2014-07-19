@@ -6,67 +6,32 @@
 #include "libretro.h"
 //static void dump_buttons(const unsigned int * buttons){for(int i=0;buttons[i];i++)printf("%.8X,",buttons[i]);puts("00000000");}
 
-		//"Space",      "!",           "\"",         "#",           "$",          NULL,          "&",          "'",
-		//"(",          ")",           "*",          "+",           ",",          "-",           ".",          "/",
-		//"0",          "1",           "2",          "3",           "4",          "5",           "6",          "7",
-		//"8",          "9",           ":",          ";",           "<",          "=",           ">",          "?",
-		//"At",         NULL,          NULL,         NULL,          NULL,         NULL,          NULL,         NULL,
-		//NULL,         NULL,          NULL,         NULL,          NULL,         NULL,          NULL,         NULL,
-		//NULL,         NULL,          NULL,         NULL,          NULL,         NULL,          NULL,         NULL,
-		//NULL,         NULL,          NULL,         "[",           "\\",         "]",           "^",          "_",
-		//"`",          "a",           "b",          "c",           "d",          "e",           "f",          "g",
-		//"h",          "i",           "j",          "k",           "l",          "m",           "n",          "o",
-		//"p",          "q",           "r",          "s",           "t",          "u",           "v",          "w",
-		//"x",          "y",           "z",          NULL,          NULL,         NULL,          NULL,         "Delete",
-
-static const char * const keynames[]={
-	//The first one is defined to RETROK_UNKNOWN.
-	NULL,         NULL,          NULL,         NULL,          NULL,         NULL,          NULL,         NULL,
-	"Backspace",   "Tab",        NULL,         NULL,          "Clear",      "Return",      NULL,         NULL,
-	NULL,         NULL,          NULL,         "Pause",       NULL,         NULL,          NULL,         NULL,
-	NULL,         NULL,          NULL,         "Escape",      NULL,         NULL,          NULL,         NULL,
-	"Space",      "Exclaim",     "QuoteD",     "Hash",        "Dollar",     NULL,          "Ampersand",  "QuoteS",
-	"ParenL",     "ParenR",      "Asterisk",   "Plus",        "Comma",      "Minus",       "Period",     "Slash",
-	"0",          "1",           "2",          "3",           "4",          "5",           "6",          "7",
-	"8",          "9",           "Colon",      "Semicolon",   "Less",       "Equals",      "Greater",    "Question",
-	"At",         NULL,          NULL,         NULL,          NULL,         NULL,          NULL,         NULL,
-	NULL,         NULL,          NULL,         NULL,          NULL,         NULL,          NULL,         NULL,
-	NULL,         NULL,          NULL,         NULL,          NULL,         NULL,          NULL,         NULL,
-	NULL,         NULL,          NULL,         "BracketL",    "Backslash",  "BracketR",    "Caret",      "Underscore",
-	"Backtick",   "A",           "B",          "C",           "D",          "E",           "F",          "G",
-	"H",          "I",           "J",          "K",           "L",          "M",           "N",          "O",
-	"P",          "Q",           "R",          "S",           "T",          "U",           "V",          "W",
-	"X",          "Y",           "Z",          NULL,          NULL,         NULL,          NULL,         "Delete",
-	NULL,         NULL,          NULL,         NULL,          NULL,         NULL,          NULL,         NULL,
-	NULL,         NULL,          NULL,         NULL,          NULL,         NULL,          NULL,         NULL,
-	NULL,         NULL,          NULL,         NULL,          NULL,         NULL,          NULL,         NULL,
-	NULL,         NULL,          NULL,         NULL,          NULL,         NULL,          NULL,         NULL,
-	NULL,         NULL,          NULL,         NULL,          NULL,         NULL,          NULL,         NULL,
-	NULL,         NULL,          NULL,         NULL,          NULL,         NULL,          NULL,         NULL,
-	NULL,         NULL,          NULL,         NULL,          NULL,         NULL,          NULL,         NULL,
-	NULL,         NULL,          NULL,         NULL,          NULL,         NULL,          NULL,         NULL,
-	NULL,         NULL,          NULL,         NULL,          NULL,         NULL,          NULL,         NULL,
-	NULL,         NULL,          NULL,         NULL,          NULL,         NULL,          NULL,         NULL,
-	NULL,         NULL,          NULL,         NULL,          NULL,         NULL,          NULL,         NULL,
-	NULL,         NULL,          NULL,         NULL,          NULL,         NULL,          NULL,         NULL,
-	NULL,         NULL,          NULL,         NULL,          NULL,         NULL,          NULL,         NULL,
-	NULL,         NULL,          NULL,         NULL,          NULL,         NULL,          NULL,         NULL,
-	NULL,         NULL,          NULL,         NULL,          NULL,         NULL,          NULL,         NULL,
-	NULL,         NULL,          NULL,         NULL,          NULL,         NULL,          NULL,         NULL,
-	"KP0",        "KP1",         "KP2",        "KP3",         "KP4",        "KP5",         "KP6",        "KP7",
-	"KP8",        "KP9",         "KP_Period",  "KP_Divide",   "KP_Multiply", "KP_Minus",   "KP_Plus",    "KP_Enter",
-	"KP_Equals",  "Up",          "Down",       "Right",       "Left",       "Insert",      "Home",       "End",
-	"PageUp",     "PageDown",    "F1",         "F2",          "F3",         "F4",          "F5",         "F6",
-	"F7",         "F8",          "F9",         "F10",         "F11",        "F12",         "F13",        "F14",
-	"F15",        NULL,          NULL,         NULL,          "NumLock",    "CapsLock",    "ScrollLock", "ShiftR",
-	"ShiftL",     "CtrlR",       "CtrlL",      "AltR",        "AltL",       "MetaR",       "MetaL",      "SuperL",
-	"SuperR",     "Mode",        "Compose",    "Help",        "Print",      "SysRq",       "Break",      "Menu",
-	"Power",      "Euro",        "Undo",
+//See rescompile.c for the actual key names.
+static const unsigned char keynames_comp[]={
+#define KEYNAMES_COMP
+#include "obj/generated.c"
+#undef KEYNAMES_COMP
 };
+static char keynames_decomp[KEYNAMES_DECOMP_LEN];
+static const char * keynames[NUM_COMP_KEYNAMES];
+
+static void create_keynames()
+{
+	if (keynames[RETROK_BACKSPACE]) return;
+	tinfl_decompress_mem_to_mem(keynames_decomp, KEYNAMES_DECOMP_LEN, keynames_comp, sizeof(keynames_comp), 0);
+	char * tmp=keynames_decomp;
+	for (unsigned int i=0;i<NUM_COMP_KEYNAMES;i++)
+	{
+		keynames[i]=*tmp ? tmp : NULL;
+		tmp+=strlen(tmp)+1;
+	}
+printf("TEST=%s\n",keynames[RETROK_POWER]);
+printf("TEST=%s\n",keynames[255]);
+}
 
 static unsigned int str_to_id(const char * str, int str_len)
 {
-	for (int i=0;i<RETROK_LAST;i++)
+	for (int i=0;i<NUM_COMP_KEYNAMES;i++)
 	{
 		if (keynames[i] && !strncmp(str, keynames[i], str_len) && !keynames[i][str_len]) return i;
 	}
@@ -631,6 +596,8 @@ struct inputmapper * inputmapper_create()
 	this->numbuttons=0;
 	this->buttonrules=NULL;
 	this->shiftstates_for=NULL;
+	
+	create_keynames();
 	
 	return (struct inputmapper*)this;
 }
