@@ -658,7 +658,7 @@ struct minirconfig {
 	UNION_END
 	
 #define CONFIG_HEADER
-#include "obj/config.c"
+#include "obj/generated.c"
 #undef CONFIG_HEADER
 	
 	//this is at the end for packing reasons
@@ -667,7 +667,7 @@ struct minirconfig {
 
 enum input {
 #define CONFIG_HEADER_ENUM
-#include "obj/config.c"
+#include "obj/generated.c"
 #undef CONFIG_HEADER_ENUM
 input_count
 };

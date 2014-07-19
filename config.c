@@ -33,7 +33,7 @@ static void clear_to_defaults(struct minirconfig * this)
 	memset(this, 0, sizeof(struct minirconfig));
 	for (int i=0;i<count(this->_overrides);i++) this->_overrides[i]=true;
 #define CONFIG_CLEAR_DEFAULTS
-#include "obj/config.c"
+#include "obj/generated.c"
 #undef CONFIG_CLEAR_DEFAULTS
 }
 
@@ -593,7 +593,7 @@ enum {
 };
 const unsigned char config_bytecode_comp[]={
 #define CONFIG_BYTECODE
-#include "obj/config.c"
+#include "obj/generated.c"
 #undef CONFIG_BYTECODE
 };
 unsigned char config_bytecode[CONFIG_BYTECODE_LEN];

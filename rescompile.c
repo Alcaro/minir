@@ -1,4 +1,4 @@
-#ifdef CONFIGGEN
+#ifdef RESCOMPILE
 #include <stdio.h>
 #include <string.h>
 #include <ctype.h>
@@ -8,23 +8,24 @@
 #define MINIZ_HEADER_FILE_ONLY
 #include "miniz.c"
 
-#ifdef _WIN32
-#define WIN 1
-#else
-#define WIN 0
-#endif
-#ifdef __linux__
-#define LIN 1
-#else
-#define LIN 0
-#endif
+//TODO: make this do something valid if it encounters a cross compiler
+//#ifdef _WIN32
+//#define WIN 1
+//#else
+//#define WIN 0
+//#endif
+//#ifdef __linux__
+//#define LIN 1
+//#else
+//#define LIN 0
+//#endif
 
 //TODO: platform-specific things
 //remember the comment coalescing cache, it could screw stuff up
 
 //TODO: use bytecode instead of clear_defaults
 
-#define error(why) do { printf("%s: "why"\n", linecopy); return 1; } while(0);
+#define error(why) do { printf("%s: "why"\n", linecopy); exit(1); } while(0);
 
 enum {
 	CFGB_END,
@@ -82,10 +83,10 @@ static void* compress(void* data, size_t inlen, size_t * outlen)
 }
 
 
-int main()
+
+void compileconfig(FILE * out)
 {
 	FILE * in=fopen("minir.cfg.tmpl", "rt");
-	FILE * out=fopen("obj/config.c", "wt");
 	//FILE * out=stdout;
 	
 	enum {
@@ -734,6 +735,12 @@ int main()
 		}
 	}
 	fclose(in);
+}
+
+int main()
+{
+	FILE * out=fopen("obj/generated.c", "wt");
+	compileconfig(out);
 	fclose(out);
 }
 #endif
