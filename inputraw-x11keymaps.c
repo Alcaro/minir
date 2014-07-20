@@ -13,8 +13,8 @@
 //paragraph, the one left of 1, doesn't map to libretro
 
 static bool initialized=false;
-static unsigned int keycode_to_libretro_g[256];
-static unsigned int libretro_to_keycode_g[RETROK_LAST];
+static int libretrofor[256];
+//static unsigned int libretro_to_keycode_g[RETROK_LAST];
 
 struct {
 	uint16_t libretro;
@@ -79,13 +79,15 @@ struct {
 	{ RETROK_RALT, XK_ISO_Level3_Shift },//AltGr
 };
 
-static void create_mappings()
+void inputkb_x11_translate_init()
 {
 	if (initialized) return;
 	
 	Display* display=window_x11_get_display()->display;
 	
-	int i=sizeof(map)/sizeof(*map);
+	for (unsigned int i=0;i<sizeof(libretrofor)/sizeof(*libretrofor);i++) libretrofor[i]=-1;
+	
+	unsigned int i=sizeof(map)/sizeof(*map);
 	do {
 		i--;
 		int keycode=XKeysymToKeycode(display, map[i].xkey);
@@ -95,35 +97,23 @@ static void create_mappings()
 		}
 		//On the other hand, I have a lot of duplicates; PrintScreen and SysRq
 		//are the same key. We'll map it to the one placed first in the table.
-		libretro_to_keycode_g[map[i].libretro]=keycode;
-		keycode_to_libretro_g[keycode]=map[i].libretro;
+		//libretro_to_keycode_g[map[i].libretro]=keycode;
+		libretrofor[keycode]=map[i].libretro;
 	}
-	while (i);
+	while(i);
 	
-	initialized=true; return;
-}
-
-static unsigned int keyboard_num_keyboards(struct inputraw * this) { return 0; }
-static unsigned int keyboard_num_keys(struct inputraw * this) { return 256; }
-
-static void keyboard_get_map(struct inputraw * this_, const unsigned int ** keycode_to_libretro,
-                                                      const unsigned int ** libretro_to_keycode)
-{
-	if (keycode_to_libretro) *keycode_to_libretro=keycode_to_libretro_g;
-	if (libretro_to_keycode) *libretro_to_keycode=libretro_to_keycode_g;
+	initialized=true;
 }
 
 void _inputraw_x11_keyboard_create_shared(struct inputraw * this)
 {
-	create_mappings();
-	this->keyboard_num_keyboards=keyboard_num_keyboards;
-	this->keyboard_num_keys=keyboard_num_keys;
-	this->keyboard_get_map=keyboard_get_map;
+	this->keyboard_num_keyboards=NULL;
+	this->keyboard_num_keys=NULL;
+	this->keyboard_get_map=NULL;
 }
 
-unsigned int inputraw_translate_key(unsigned int keycode)
+int inputkb_x11_translate_key(unsigned int keycode)
 {
-	create_mappings();
-	return keycode_to_libretro_g[keycode];
+	return libretrofor[keycode];
 }
 #endif

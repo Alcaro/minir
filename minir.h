@@ -253,12 +253,9 @@ struct inputkb * inputkb_create_x11_xinput2(uintptr_t windowhandle);
 struct inputkb * inputkb_create_gdk(uintptr_t windowhandle);
 #endif
 #ifdef WNDPROT_X11
-//All input drivers for X11 use the same keycode translation table. This one sets up
-// keyboard_num_keyboards, keyboard_num_keys, and keyboard_get_map.
-//keyboard_num_keys will return 256. The driver should not override this, and may hardcode this 256 anywhere it wants.
-//keyboard_num_keyboards will return 0. The driver should replace this if the input driver supports separating the keyboards.
-//No deallocation needed.
-//void _inputraw_x11_keyboard_create_shared(struct inputraw * this);
+//This one translates a virtual keycode to a libretro code.
+void inputkb_x11_translate_init();
+int inputkb_x11_translate_key(unsigned int keycode);
 #endif
 
 //Windows drivers:
@@ -269,15 +266,13 @@ struct inputkb * inputkb_create_rawinput(uintptr_t windowhandle);
 struct inputkb * inputkb_create_directinput(uintptr_t windowhandle);
 #endif
 #ifdef WNDPROT_WINDOWS
-//Windows drivers share keycode translations, too. (But they're obviously not the same as X11 key mappings.) This one acts the same way, including the 256.
-//void _inputraw_windows_keyboard_create_shared(struct inputraw * this);
+//Windows drivers share keycode translations, too. (But they're obviously not the same as X11 key mappings.)
+void inputkb_windows_translate_init();
+int inputkb_windows_translate_key(unsigned int keycode);
 #endif
 
 struct inputkb * inputkb_create_none(uintptr_t windowhandle);
 
-//This one translates a hardware keycode to a Libretro code. It uses the same tables as inputraw_*_keyboard_create_shared;
-// if an input driver disagrees, weird stuff may happen.
-//unsigned int inputkb_translate_key(unsigned int keycode);
 
 
 
