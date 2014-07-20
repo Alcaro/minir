@@ -72,8 +72,12 @@ static void device_remove(GdkDeviceManager* object, GdkDevice* device, gpointer 
 static gboolean key_action(GtkWidget* widget, GdkEvent* event, gpointer user_data)
 {
 	struct inputkb_gdk * this=(struct inputkb_gdk*)user_data;
-	
 	GdkDevice* device=gdk_event_get_source_device(event);
+	
+	if (gdk_device_get_device_type(device)==GDK_DEVICE_TYPE_MASTER) return FALSE;
+	//for some reason, repeated keystrokes come from the master device, which screws up device ID assignments
+	//we don't want repeats all, let's just kill them.
+	
 	unsigned int kb=0;
 	while (kb<this->numdevices && this->devices[kb]!=device) kb++;
 	if (kb==this->numdevices)
@@ -92,6 +96,7 @@ static gboolean key_action(GtkWidget* widget, GdkEvent* event, gpointer user_dat
 	guint16 keycode;
 	gdk_event_get_keycode(event, &keycode);
 	
+//printf("%i: %.2X %.2X\n", kb, keycode, inputkb_x11_translate_key(keycode));
 	this->key_cb((struct inputkb*)this, kb,
 	             keycode, inputkb_x11_translate_key(keycode),
 	             (event->type==GDK_KEY_PRESS), true, this->userdata);
