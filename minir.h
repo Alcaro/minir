@@ -225,13 +225,14 @@ struct inputkb {
 	//
 	//If scancode or libretrocode is -1, it means that the key does not have any assigned value. (Undefined scancodes are extremely rare, though.)
 	//scancode is in the range 0..1023; libretrocode is in the range 1..RETROK_LAST-1. keyboard is in 0..31.
+	//
+	//It is undefined behaviour to poll this object without setting the callback. It is undefined behaviour to set it twice.
 	void (*set_callback)(struct inputkb * this,
 	                     void (*key_cb)(struct inputkb * subject,
 	                                    unsigned int keyboard, int scancode, int libretrocode, 
 	                                    bool down, bool silent, void* userdata),
 	                     void* userdata);
 	
-	//It is undefined behaviour to poll this object without setting the callback.
 	void (*poll)(struct inputkb * this);
 	
 	void (*free)(struct inputkb * this);

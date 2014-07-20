@@ -3,26 +3,22 @@
 #include <stdlib.h>
 #include "libretro.h"
 
-static unsigned int keyboard_num_keyboards(struct inputraw * this) { return 0; }
-static unsigned int keyboard_num_keys(struct inputraw * this) { return 1; }
-static bool keyboard_poll(struct inputraw * this, unsigned int kb_id, unsigned char * keys) { keys[0]=0; return true; }
-static void keyboard_get_map(struct inputraw * this, const unsigned int ** keycode_to_libretro,
-                                                     const unsigned int ** libretro_to_keycode)
-{
-	static const unsigned int * fakemap=NULL;
-	if (!fakemap) fakemap=calloc(RETROK_LAST, sizeof(unsigned int));
-	*keycode_to_libretro=fakemap;
-	*libretro_to_keycode=fakemap;
-}
-static void free_(struct inputraw * this) {}
+static void none_set_callback(struct inputkb * this,
+                              void (*key_cb)(struct inputkb * subject,
+                                             unsigned int keyboard, int scancode, int libretrocode, 
+                                             bool down, bool silent, void* userdata),
+                              void* userdata)
+{}
+static void none_poll(struct inputkb * this) {}
+static void none_free(struct inputkb * this) {}
 
-struct inputraw * _inputraw_create_none(uintptr_t windowhandle)
+struct inputkb * inputkb_create_none(uintptr_t windowhandle)
 {
-	static struct inputraw this={ keyboard_num_keyboards, keyboard_num_keys, keyboard_poll, keyboard_get_map, free_ };
+	static struct inputkb this={ none_set_callback, none_poll, none_free };
 	return &this;
 }
 
-struct inputraw * inputraw_create(const char * backend, uintptr_t windowhandle)
+static struct inputraw * inputraw_create(const char * backend, uintptr_t windowhandle)
 {
 #ifdef INPUT_X11_XINPUT2
 	if (!strcmp(backend, "X11-XInput2")) return _inputraw_create_x11_xinput2(windowhandle);
@@ -36,7 +32,6 @@ struct inputraw * inputraw_create(const char * backend, uintptr_t windowhandle)
 #ifdef INPUT_DIRECTINPUT
 	if (!strcmp(backend, "DirectInput")) return _inputraw_create_directinput(windowhandle);
 #endif
-	if (!strcmp(backend, "None")) return _inputraw_create_none(windowhandle);
 	return NULL;
 }
 
@@ -93,12 +88,16 @@ static void ikbc_free(struct inputkb * this_)
 
 struct inputkb * inputkb_create(const char * backend, uintptr_t windowhandle)
 {
+	if (!strcmp(backend, "None")) return _inputraw_create_none(windowhandle);
+	
+	struct inputraw * raw=inputraw_create(backend,windowhandle);
+	
+	if (!raw) return NULL;
 	struct inputkb_compat * this=malloc(sizeof(struct inputkb_compat));
 	this->i.set_callback=ikbc_set_callback;
 	this->i.poll=ikbc_poll;
 	this->i.free=ikbc_free;
 	memset(this->state, 0, sizeof(this->state));
-	this->ir=inputraw_create(backend,windowhandle);
 	return (struct inputkb*)this;
 }
 
