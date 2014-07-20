@@ -594,6 +594,8 @@ struct inputmapper * inputmapper_create()
 	this->kb_nkb=0;
 	this->kb_anylastframe=false;
 	
+	this->lastreleased=0;
+	
 	this->numbuttons=0;
 	this->buttonrules=NULL;
 	this->shiftstates_for=NULL;

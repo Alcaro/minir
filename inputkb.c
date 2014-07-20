@@ -97,6 +97,7 @@ struct inputkb * inputkb_create(const char * backend, uintptr_t windowhandle)
 	this->i.set_callback=ikbc_set_callback;
 	this->i.poll=ikbc_poll;
 	this->i.free=ikbc_free;
+	this->ir=raw;
 	memset(this->state, 0, sizeof(this->state));
 	return (struct inputkb*)this;
 }
