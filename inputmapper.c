@@ -6,6 +6,9 @@
 #include "libretro.h"
 //static void dump_buttons(const unsigned int * buttons){for(int i=0;buttons[i];i++)printf("%.8X,",buttons[i]);puts("00000000");}
 
+#define MINIZ_HEADER_FILE_ONLY
+#include "miniz.c"
+
 //See rescompile.c for the actual key names.
 static const unsigned char keynames_comp[]={
 #define KEYNAMES_COMP
@@ -25,8 +28,6 @@ static void create_keynames()
 		keynames[i]=*tmp ? tmp : NULL;
 		tmp+=strlen(tmp)+1;
 	}
-printf("TEST=%s\n",keynames[RETROK_POWER]);
-printf("TEST=%s\n",keynames[255]);
 }
 
 static unsigned int str_to_id(const char * str, int str_len)

@@ -25,7 +25,6 @@
 
 //TODO: use bytecode instead of clear_defaults
 
-#define error(why) do { printf("%s: "why"\n", linecopy); exit(1); } while(0);
 
 enum {
 	CFGB_END,
@@ -156,6 +155,7 @@ void compileconfig(FILE * out)
 		
 		while (!feof(in))
 		{
+#define error(why) do { printf("%s: "why"\n", linecopy); exit(1); } while(0)
 			char linebuf[1024];
 			char linecopy[1024];
 			char * line=linebuf;
@@ -696,7 +696,9 @@ void compileconfig(FILE * out)
 				numoverrides+=arraylen;
 			}
 			else error("bad line");
+#undef error
 		}
+#define error(why) do { puts(why); exit(1); } while(0)
 		
 		emit_header_input("}; char* inputs[%i]; };\n", numinputs);
 		emit_header_str("}; char* _strings[%i]; };\n", numstrs);
@@ -821,6 +823,7 @@ void compilekeynames(FILE * out)
 	fprintf(out, "\n");
 	fprintf(out, "#endif\n");
 }
+#undef error
 
 int main()
 {

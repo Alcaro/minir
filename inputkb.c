@@ -88,7 +88,7 @@ static void ikbc_free(struct inputkb * this_)
 
 struct inputkb * inputkb_create(const char * backend, uintptr_t windowhandle)
 {
-	if (!strcmp(backend, "None")) return _inputraw_create_none(windowhandle);
+	if (!strcmp(backend, "None")) return inputkb_create_none(windowhandle);
 	
 	struct inputraw * raw=inputraw_create(backend,windowhandle);
 	

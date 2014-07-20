@@ -900,48 +900,13 @@ struct inputraw {
 	// inputraw structures, including inputraw structures of different kinds.
 	void (*keyboard_get_map)(struct inputraw * this, const unsigned int ** keycode_to_libretro,
 	                                                 const unsigned int ** libretro_to_keycode);
-	
 	void (*free)(struct inputraw * this);
 };
-
-const char * const * inputraw_supported_backends();
-struct inputraw * inputraw_create(const char * backend, uintptr_t windowhandle);
-
-
-
-//Linux drivers:
-#ifdef INPUT_X11
 struct inputraw * _inputraw_create_x11(uintptr_t windowhandle);
-#endif
-#ifdef INPUT_X11_XINPUT2
 struct inputraw * _inputraw_create_x11_xinput2(uintptr_t windowhandle);
-#endif
-#ifdef INPUT_GDK
 struct inputraw * _inputraw_create_gdk(uintptr_t windowhandle);
-#endif
-#ifdef WNDPROT_X11
-//All input drivers for X11 use the same keycode translation table. This one sets up
-// keyboard_num_keyboards, keyboard_num_keys, and keyboard_get_map.
-//keyboard_num_keys will return 256. The driver should not override this, and may hardcode this 256 anywhere it wants.
-//keyboard_num_keyboards will return 0. The driver should replace this if the input driver supports separating the keyboards.
-//No deallocation needed.
 void _inputraw_x11_keyboard_create_shared(struct inputraw * this);
-#endif
-
-//Windows drivers:
-#ifdef INPUT_RAWINPUT
 struct inputraw * _inputraw_create_rawinput(uintptr_t windowhandle);
-#endif
-#ifdef INPUT_DIRECTINPUT
 struct inputraw * _inputraw_create_directinput(uintptr_t windowhandle);
-#endif
-#ifdef WNDPROT_WINDOWS
-//Windows drivers share keycode translations, too. (But they're obviously not the same as X11 key mappings.) This one acts the same way, including the 256.
 void _inputraw_windows_keyboard_create_shared(struct inputraw * this);
-#endif
-
-struct inputraw * _inputraw_create_none(uintptr_t windowhandle);
-
-//This one translates a hardware keycode to a Libretro code. It uses the same tables as inputraw_*_keyboard_create_shared;
-// if an input mapper disagrees, then weird stuff may happen.
 unsigned int _inputraw_translate_key(unsigned int keycode);
