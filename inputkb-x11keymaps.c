@@ -86,12 +86,12 @@ void inputkb_x11_translate_init()
 	
 	for (unsigned int i=0;i<sizeof(libretrofor)/sizeof(*libretrofor);i++) libretrofor[i]=-1;
 	
-printf("HI=%.4X\n",XKeycodeToKeysym(display,0x6c,0));
+//printf("HI=%.4X\n",XKeycodeToKeysym(display,0x6c,0));
 	unsigned int i=sizeof(map)/sizeof(*map);
 	do {
 		i--;
 		int keycode=XKeysymToKeycode(display, map[i].xkey);
-if (map[i].libretro==RETROK_RALT) printf("%i %i %i\n",i,map[i].xkey,keycode);
+//if (map[i].libretro==RETROK_RALT) printf("%i %i %i\n",i,map[i].xkey,keycode);
 		if (!keycode)
 		{
 			continue;//can't expect people to have all keys; for example, I lack Compose, and F13 through F15. (But who doesn't?)
