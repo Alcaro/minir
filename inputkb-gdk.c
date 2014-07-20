@@ -2,7 +2,9 @@
 #ifdef INPUT_GDK
 #include <gtk/gtk.h>
 #include <gdk/gdk.h>
+#ifdef WNDPROT_X11
 #include <gdk/gdkx.h>
+#endif
 #include <stdlib.h>
 #include <string.h>
 #include "libretro.h"
@@ -137,7 +139,11 @@ struct inputkb * inputkb_create_gdk(uintptr_t windowhandle)
 	
 	inputkb_x11_translate_init();
 	
+#ifdef WNDPROT_X11
 	this->display=gdk_x11_lookup_xdisplay(window_x11_get_display()->display);
+#else
+#error Fill this in.
+#endif
 	this->devicemanager=gdk_display_get_device_manager(this->display);
 	//g_signal_connect(this->devicemanager, "device-added", G_CALLBACK(device_add), this);
 	g_signal_connect(this->devicemanager, "device-removed", G_CALLBACK(device_remove), this);
@@ -151,6 +157,7 @@ struct inputkb * inputkb_create_gdk(uintptr_t windowhandle)
 	
 	this->numdevices=0;
 	this->devices=NULL;
+	
 	//GdkDeviceType types[2]={ GDK_DEVICE_TYPE_SLAVE, GDK_DEVICE_TYPE_FLOATING };
 	//for (int i=0;i<2;i++)
 	//{
@@ -162,6 +169,30 @@ struct inputkb * inputkb_create_gdk(uintptr_t windowhandle)
 	//		list=list->next;
 	//	}
 	//	g_list_free(devices);
+	//}
+	
+	//a GdkDevice* can be queried with:
+	//XDevice dev;
+	//dev.device_id=gdk_x11_device_get_id(device);
+	//XDeviceState * state=XQueryDeviceState(this->display, this->devices[kb_id]);
+	//if (state)
+	//{
+	//	XInputClass * cls=state->data;
+	//	for (int j=0;j<state->num_classes;j++)
+	//	{
+	//		if (cls->class==KeyClass)
+	//		{
+	//			XKeyState * key_state=(XKeyState*)cls;
+	//			memset(keys+key_state->num_keys, 0, 256-key_state->num_keys);
+	//			for (int k=0;k<key_state->num_keys;k++)
+	//			{
+	//				keys[k]=((key_state->keys[k / 8] & (1 << (k % 8))));
+	//			}
+	//			break;
+	//		}
+	//		cls=(XInputClass*)((char*)cls + cls->length);
+	//	}
+	//	XFreeDeviceState(state);
 	//}
 	
 	return (struct inputkb*)this;
