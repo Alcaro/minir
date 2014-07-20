@@ -105,13 +105,6 @@ void inputkb_x11_translate_init()
 	initialized=true;
 }
 
-void _inputraw_x11_keyboard_create_shared(struct inputraw * this)
-{
-	this->keyboard_num_keyboards=NULL;
-	this->keyboard_num_keys=NULL;
-	this->keyboard_get_map=NULL;
-}
-
 int inputkb_x11_translate_key(unsigned int keycode)
 {
 	return libretrofor[keycode];

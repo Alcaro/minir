@@ -20,8 +20,8 @@ struct inputkb * inputkb_create_none(uintptr_t windowhandle)
 
 static struct inputraw * inputraw_create(const char * backend, uintptr_t windowhandle)
 {
-#ifdef INPUT_X11_XINPUT2
-	if (!strcmp(backend, "X11-XInput2")) return _inputraw_create_x11_xinput2(windowhandle);
+#ifdef INPUT_XINPUT2
+	if (!strcmp(backend, "XInput2")) return _inputraw_create_xinput2(windowhandle);
 #endif
 #ifdef INPUT_RAWINPUT
 	if (!strcmp(backend, "RawInput")) return _inputraw_create_rawinput(windowhandle);
@@ -63,7 +63,7 @@ static void ikbc_poll(struct inputkb * this_)
 struct inputkb_compat * this=(struct inputkb_compat*)this_;
 	unsigned char newstate[1024];
 	memset(newstate, 0, sizeof(newstate));
-	for (int i=0;i<32;i++)
+	for (int i=0;i<this->ir->keyboard_num_keyboards(this->ir);i++)
 	{
 		if (!this->ir->keyboard_poll(this->ir, i, newstate)) memset(newstate, 0, sizeof(newstate));
 		for (int j=0;j<1024;j++)
@@ -83,6 +83,15 @@ static void ikbc_free(struct inputkb * this_)
 	free(this);
 }
 
+static unsigned int return1(struct inputraw * this) { return 1; }
+
+void _inputraw_x11_keyboard_create_shared(struct inputraw * this)
+{
+	this->keyboard_num_keyboards=return1;
+	this->keyboard_num_keys=NULL;
+	this->keyboard_get_map=NULL;
+}
+
 struct inputkb * inputkb_create_gdk(uintptr_t windowhandle);
 struct inputkb * inputkb_create(const char * backend, uintptr_t windowhandle)
 {
@@ -95,6 +104,7 @@ struct inputkb * inputkb_create(const char * backend, uintptr_t windowhandle)
 	
 	if (!raw) return NULL;
 	struct inputkb_compat * this=malloc(sizeof(struct inputkb_compat));
+	inputkb_x11_translate_init();
 	this->i.set_callback=ikbc_set_callback;
 	this->i.poll=ikbc_poll;
 	this->i.free=ikbc_free;
@@ -111,8 +121,8 @@ const char * const * inputkb_supported_backends()
 #ifdef INPUT_GDK
 		"GDK",
 #endif
-#ifdef INPUT_X11_XINPUT2
-		"X11-XInput2",
+#ifdef INPUT_XINPUT2
+		"XInput2",
 #endif
 #ifdef INPUT_RAWINPUT
 		"RawInput",

@@ -247,7 +247,7 @@ struct inputkb * inputkb_create(const char * backend, uintptr_t windowhandle);
 struct inputkb * inputkb_create_x11(uintptr_t windowhandle);
 #endif
 #ifdef INPUT_X11_XINPUT2
-struct inputkb * inputkb_create_x11_xinput2(uintptr_t windowhandle);
+struct inputkb * inputkb_create_xinput2(uintptr_t windowhandle);
 #endif
 #ifdef INPUT_GDK
 struct inputkb * inputkb_create_gdk(uintptr_t windowhandle);
@@ -898,7 +898,7 @@ struct inputraw {
 	void (*free)(struct inputraw * this);
 };
 struct inputraw * _inputraw_create_x11(uintptr_t windowhandle);
-struct inputraw * _inputraw_create_x11_xinput2(uintptr_t windowhandle);
+struct inputraw * _inputraw_create_xinput2(uintptr_t windowhandle);
 struct inputraw * _inputraw_create_gdk(uintptr_t windowhandle);
 void _inputraw_x11_keyboard_create_shared(struct inputraw * this);
 struct inputraw * _inputraw_create_rawinput(uintptr_t windowhandle);

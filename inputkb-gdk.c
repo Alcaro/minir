@@ -24,42 +24,41 @@ struct inputkb_gdk {
 	void* userdata;
 };
 
-static void device_add(GdkDeviceManager* object, GdkDevice* device, gpointer user_data)
-{
-	//ignore everything, because there are a LOT of bogus entries in the device list
-	//If I plug in three keyboards, I get both duplicates and bogus devices:
-/*
-  Virtual core keyboard                         id=3  [master keyboard (2)]
-    Virtual core XTEST keyboard                 id=5  [slave  keyboard (3)]
-    Power Button                                id=6  [slave  keyboard (3)]
-    Power Button                                id=7  [slave  keyboard (3)]
-    CHESEN USB Keyboard                         id=10 [slave  keyboard (3)]
-    CHESEN USB Keyboard                         id=11 [slave  keyboard (3)]
-    LITEON Technology USB Multimedia Keyboard   id=9  [slave  keyboard (3)]
-    DELL Dell USB Wired Multimedia Keyboard     id=12 [slave  keyboard (3)]
-    DELL Dell USB Wired Multimedia Keyboard     id=13 [slave  keyboard (3)]
-*/
-	//where especially the duplicates seem irritating to get rid of.
-	//Instead, we give the lowest ID to the first device to send an event.
-	
-	//struct inputkb_gdk * this=(struct inputkb_gdk*)user_data;
-	//if (gdk_device_get_source(device)!=GDK_SOURCE_KEYBOARD) return;
-	////if (gdk_device_get_device_type(device)!=GDK_DEVICE_TYPE_SLAVE) return;//allow floating ones too - masters fall to the Virtual test
-	//if (!strcasecmp(gdk_device_get_name(device), "Power Button")) return;//Power Button
-	//if (!strncasecmp(gdk_device_get_name(device), "Virtual ", strlen("Virtual "))) return;//Virtual core XTEST keyboard
-	////there are probably more things to ignore...
-	//for (unsigned int i=0;i<this->numdevices;i++)
-	//{
-	//	if (!this->devices[i])
-	//	{
-	//		this->devices[i]=device;
-	//		return;
-	//	}
-	//}
-	//this->devices=realloc(this->devices, sizeof(GdkDevice*)*(this->numdevices+1));
-	//this->devices[this->numdevices]=device;
-	//this->numdevices++;
-}
+//static void device_add(GdkDeviceManager* object, GdkDevice* device, gpointer user_data)
+//{
+//ignore everything, because there are a LOT of bogus entries in the device list
+//If I plug in three keyboards, I get both duplicates and bogus devices:
+//
+//  Virtual core keyboard                         id=3  [master keyboard (2)]
+//    Virtual core XTEST keyboard                 id=5  [slave  keyboard (3)]
+//    Power Button                                id=6  [slave  keyboard (3)]
+//    Power Button                                id=7  [slave  keyboard (3)]
+//    CHESEN USB Keyboard                         id=10 [slave  keyboard (3)]
+//    CHESEN USB Keyboard                         id=11 [slave  keyboard (3)]
+//    LITEON Technology USB Multimedia Keyboard   id=9  [slave  keyboard (3)]
+//    DELL Dell USB Wired Multimedia Keyboard     id=12 [slave  keyboard (3)]
+//    DELL Dell USB Wired Multimedia Keyboard     id=13 [slave  keyboard (3)]
+//where especially the duplicates seem irritating to get rid of.
+//Instead, we give the lowest ID to the first device to send an event.
+//
+//	struct inputkb_gdk * this=(struct inputkb_gdk*)user_data;
+//	if (gdk_device_get_source(device)!=GDK_SOURCE_KEYBOARD) return;
+//	//if (gdk_device_get_device_type(device)!=GDK_DEVICE_TYPE_SLAVE) return;//allow floating ones too - masters fall to the Virtual test
+//	if (!strcasecmp(gdk_device_get_name(device), "Power Button")) return;//Power Button
+//	if (!strncasecmp(gdk_device_get_name(device), "Virtual ", strlen("Virtual "))) return;//Virtual core XTEST keyboard
+//	//there are probably more things to ignore...
+//	for (unsigned int i=0;i<this->numdevices;i++)
+//	{
+//		if (!this->devices[i])
+//		{
+//			this->devices[i]=device;
+//			return;
+//		}
+//	}
+//	this->devices=realloc(this->devices, sizeof(GdkDevice*)*(this->numdevices+1));
+//	this->devices[this->numdevices]=device;
+//	this->numdevices++;
+//}
 
 static void device_remove(GdkDeviceManager* object, GdkDevice* device, gpointer user_data)
 {
@@ -135,7 +134,7 @@ struct inputkb * inputkb_create_gdk(uintptr_t windowhandle)
 	
 	this->display=gdk_x11_lookup_xdisplay(window_x11_get_display()->display);
 	this->devicemanager=gdk_display_get_device_manager(this->display);
-	g_signal_connect(this->devicemanager, "device-added", G_CALLBACK(device_add), this);
+	//g_signal_connect(this->devicemanager, "device-added", G_CALLBACK(device_add), this);
 	g_signal_connect(this->devicemanager, "device-removed", G_CALLBACK(device_remove), this);
 	
 	gdk_window_get_user_data(gdk_x11_window_lookup_for_display(this->display, windowhandle), (void**)&this->widget);
@@ -147,18 +146,18 @@ struct inputkb * inputkb_create_gdk(uintptr_t windowhandle)
 	
 	this->numdevices=0;
 	this->devices=NULL;
-	GdkDeviceType types[2]={ GDK_DEVICE_TYPE_SLAVE, GDK_DEVICE_TYPE_FLOATING };
-	for (int i=0;i<2;i++)
-	{
-		GList* devices=gdk_device_manager_list_devices(this->devicemanager, types[i]);
-		GList* list=devices;
-		while (list)
-		{
-			device_add(NULL, GDK_DEVICE(list->data), this);
-			list=list->next;
-		}
-		g_list_free(devices);
-	}
+	//GdkDeviceType types[2]={ GDK_DEVICE_TYPE_SLAVE, GDK_DEVICE_TYPE_FLOATING };
+	//for (int i=0;i<2;i++)
+	//{
+	//	GList* devices=gdk_device_manager_list_devices(this->devicemanager, types[i]);
+	//	GList* list=devices;
+	//	while (list)
+	//	{
+	//		device_add(NULL, GDK_DEVICE(list->data), this);
+	//		list=list->next;
+	//	}
+	//	g_list_free(devices);
+	//}
 	
 	return (struct inputkb*)this;
 }

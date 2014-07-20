@@ -28,7 +28,7 @@
 
 //Which input/video/audio drivers to enable. Multiple of each kind may be enabled.
 #define INPUT_GDK
-#define INPUT_X11_XINPUT2
+#define INPUT_XINPUT2
 //#define INPUT_RAWINPUT
 #define INPUT_X11
 //#define INPUT_DIRECTINPUT
@@ -72,7 +72,7 @@
 
 //Which input/video/audio drivers to enable. Multiple of each kind may be enabled.
 //#define INPUT_GDK
-//#define INPUT_X11_XINPUT2
+//#define INPUT_XINPUT2
 #define INPUT_RAWINPUT
 //#define INPUT_X11
 #define INPUT_DIRECTINPUT

@@ -5,7 +5,7 @@
 // the entire device each frame, instead of checking for changes; I don't like allocations that run
 // each frame, but it seems unavoidable here.
 //(Using GDK entirely for the input could work, but I can't find any dang way to query a GdkDevice at all.)
-#ifdef INPUT_X11_XINPUT2
+#ifdef INPUT_XINPUT2
 #include <X11/extensions/XInput.h>
 #include <X11/extensions/XInput2.h>
 //#include <X11/extensions/XKB.h>
@@ -16,7 +16,7 @@
 #include <gdk/gdkx.h>
 #endif
 
-struct inputraw_x11_xinput2 {
+struct inputraw_xinput2 {
 	struct inputraw i;
 	
 	Display* display;
@@ -36,7 +36,7 @@ static bool keyboard_poll(struct inputraw * this_, unsigned int kb_id, unsigned 
 
 static unsigned int keyboard_num_keyboards(struct inputraw * this_)
 {
-	struct inputraw_x11_xinput2 * this=(struct inputraw_x11_xinput2*)this_;
+	struct inputraw_xinput2 * this=(struct inputraw_xinput2*)this_;
 	unsigned char state[256];
 	for (int i=this->numvaliddevices;i<this->numdevices;i++)
 	{
@@ -62,7 +62,7 @@ static unsigned int keyboard_num_keyboards(struct inputraw * this_)
 
 static bool keyboard_poll(struct inputraw * this_, unsigned int kb_id, unsigned char * keys)
 {
-	struct inputraw_x11_xinput2 * this=(struct inputraw_x11_xinput2*)this_;
+	struct inputraw_xinput2 * this=(struct inputraw_xinput2*)this_;
 	if (kb_id>=this->numdevices) return false;
 	
 #ifdef WINDOW_GTK3
@@ -93,7 +93,7 @@ static bool keyboard_poll(struct inputraw * this_, unsigned int kb_id, unsigned 
 	return true;
 }
 
-//static void recreate_devices(struct inputraw_x11_xinput2 * this, bool delete)
+//static void recreate_devices(struct inputraw_xinput2 * this, bool delete)
 //{
 //	int ndevices=0;
 //	XIDeviceInfo * devices=XIQueryDevice(this->display, XIAllDevices, &ndevices);
@@ -154,7 +154,7 @@ static bool keyboard_poll(struct inputraw * this_, unsigned int kb_id, unsigned 
 #ifdef WINDOW_GTK3
 static void add_device_gdk(GdkDeviceManager* object, GdkDevice* device, void * this_)
 {
-	struct inputraw_x11_xinput2 * this=(struct inputraw_x11_xinput2*)this_;
+	struct inputraw_xinput2 * this=(struct inputraw_xinput2*)this_;
 	if (gdk_device_get_source(device)!=GDK_SOURCE_KEYBOARD) return;
 	
 	int deviceid=gdk_x11_device_get_id(device);
@@ -182,7 +182,7 @@ static void add_device_gdk(GdkDeviceManager* object, GdkDevice* device, void * t
 
 static void remove_device_gdk(GdkDeviceManager* object, GdkDevice* device, void * this_)
 {
-	struct inputraw_x11_xinput2 * this=(struct inputraw_x11_xinput2*)this_;
+	struct inputraw_xinput2 * this=(struct inputraw_xinput2*)this_;
 	if (gdk_device_get_source(device)!=GDK_SOURCE_KEYBOARD) return;
 	int deviceid=gdk_x11_device_get_id(device);
 	for (int i=0;i<this->numdevices;i++)
@@ -206,7 +206,7 @@ static void remove_device_gdk(GdkDeviceManager* object, GdkDevice* device, void 
 
 static void free_(struct inputraw * this_)
 {
-	struct inputraw_x11_xinput2 * this=(struct inputraw_x11_xinput2*)this_;
+	struct inputraw_xinput2 * this=(struct inputraw_xinput2*)this_;
 	
 #ifdef WINDOW_GTK3
 	GdkDeviceManager* devicemanager=gdk_display_get_device_manager(this->gdkdisplay);
@@ -233,9 +233,9 @@ static void free_(struct inputraw * this_)
 	free(this);
 }
 
-struct inputraw * _inputraw_create_x11_xinput2(uintptr_t windowhandle)
+struct inputraw * _inputraw_create_xinput2(uintptr_t windowhandle)
 {
-	struct inputraw_x11_xinput2 * this=malloc(sizeof(struct inputraw_x11_xinput2));
+	struct inputraw_xinput2 * this=malloc(sizeof(struct inputraw_xinput2));
 	_inputraw_x11_keyboard_create_shared((struct inputraw*)this);
 	this->i.keyboard_num_keyboards=keyboard_num_keyboards;
 	//this->i.keyboard_num_keys=keyboard_num_keys;
