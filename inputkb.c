@@ -20,11 +20,11 @@ struct inputkb * inputkb_create_none(uintptr_t windowhandle)
 
 static struct inputraw * inputraw_create(const char * backend, uintptr_t windowhandle)
 {
-#ifdef INPUT_XINPUT2
-	if (!strcmp(backend, "XInput2")) return _inputraw_create_xinput2(windowhandle);
-#endif
 #ifdef INPUT_RAWINPUT
 	if (!strcmp(backend, "RawInput")) return _inputraw_create_rawinput(windowhandle);
+#endif
+#ifdef INPUT_XINPUT2
+	if (!strcmp(backend, "XInput2")) return _inputraw_create_xinput2(windowhandle);
 #endif
 #ifdef INPUT_X11
 	if (!strcmp(backend, "X11")) return _inputraw_create_x11(windowhandle);
@@ -95,6 +95,9 @@ void _inputraw_x11_keyboard_create_shared(struct inputraw * this)
 struct inputkb * inputkb_create_gdk(uintptr_t windowhandle);
 struct inputkb * inputkb_create(const char * backend, uintptr_t windowhandle)
 {
+#ifdef INPUT_UDEV
+	if (!strcmp(backend, "udev")) return inputkb_create_udev(windowhandle);
+#endif
 #ifdef INPUT_GDK
 	if (!strcmp(backend, "GDK")) return inputkb_create_gdk(windowhandle);
 #endif
@@ -118,6 +121,9 @@ struct inputkb * inputkb_create(const char * backend, uintptr_t windowhandle)
 const char * const * inputkb_supported_backends()
 {
 	static const char * backends[]={
+#ifdef INPUT_UDEV
+		"udev",
+#endif
 #ifdef INPUT_GDK
 		"GDK",
 #endif

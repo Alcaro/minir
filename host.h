@@ -27,9 +27,10 @@
 //#define THREAD_WIN32
 
 //Which input/video/audio drivers to enable. Multiple of each kind may be enabled.
+#define INPUT_UDEV
 #define INPUT_GDK
-#define INPUT_XINPUT2
 //#define INPUT_RAWINPUT
+#define INPUT_XINPUT2
 #define INPUT_X11
 //#define INPUT_DIRECTINPUT
 
@@ -71,9 +72,10 @@
 #define THREAD_WIN32
 
 //Which input/video/audio drivers to enable. Multiple of each kind may be enabled.
+//#define INPUT_UDEV
 //#define INPUT_GDK
-//#define INPUT_XINPUT2
 #define INPUT_RAWINPUT
+//#define INPUT_XINPUT2
 //#define INPUT_X11
 #define INPUT_DIRECTINPUT
 

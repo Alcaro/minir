@@ -252,6 +252,9 @@ struct inputkb * inputkb_create_xinput2(uintptr_t windowhandle);
 #ifdef INPUT_GDK
 struct inputkb * inputkb_create_gdk(uintptr_t windowhandle);
 #endif
+#ifdef INPUT_UDEV
+struct inputkb * inputkb_create_udev(uintptr_t windowhandle);
+#endif
 #ifdef WNDPROT_X11
 //This one translates a virtual keycode to a libretro code.
 void inputkb_x11_translate_init();
