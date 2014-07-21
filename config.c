@@ -340,38 +340,41 @@ void config_create_core(const char * core, bool override_existing, const char * 
 		char* * primary=malloc(sizeof(char*)*primary_buflen);
 		size_t primary_count=0;
 		
-		for (size_t i=0;supported_extensions[i];i++)
+		if (supported_extensions)
 		{
-			for (size_t j=0;j<support_count;j++)
+			for (size_t i=0;supported_extensions[i];i++)
 			{
-				if (!strcmp(support[j], supported_extensions[i])) goto nope;
-			}
-			
-			support[support_count]=strdup(supported_extensions[support_count]);
-			support_count++;
-			if (support_count==support_buflen)
-			{
-				support_buflen*=2;
-				support=realloc(support, sizeof(char*)*support_buflen);
-			}
-			
-			for (size_t j=0;j<bycore.num;j++)
-			{
-				if (!bycore.config[j]._primary) continue;
-				for (size_t k=0;bycore.config[j]._primary[k];k++)
+				for (size_t j=0;j<support_count;j++)
 				{
-					if (!strcmp(bycore.config[j]._primary[k], supported_extensions[i])) goto nope;
+					if (!strcmp(support[j], supported_extensions[i])) goto nope;
 				}
+				
+				support[support_count]=strdup(supported_extensions[support_count]);
+				support_count++;
+				if (support_count==support_buflen)
+				{
+					support_buflen*=2;
+					support=realloc(support, sizeof(char*)*support_buflen);
+				}
+				
+				for (size_t j=0;j<bycore.num;j++)
+				{
+					if (!bycore.config[j]._primary) continue;
+					for (size_t k=0;bycore.config[j]._primary[k];k++)
+					{
+						if (!strcmp(bycore.config[j]._primary[k], supported_extensions[i])) goto nope;
+					}
+				}
+				
+				primary[primary_count]=strdup(supported_extensions[i]);
+				primary_count++;
+				if (primary_count==primary_buflen)
+				{
+					primary_buflen*=2;
+					primary=realloc(primary, sizeof(char*)*primary_buflen);
+				}
+			nope: ;
 			}
-			
-			primary[primary_count]=strdup(supported_extensions[i]);
-			primary_count++;
-			if (primary_count==primary_buflen)
-			{
-				primary_buflen*=2;
-				primary=realloc(primary, sizeof(char*)*primary_buflen);
-			}
-		nope: ;
 		}
 		
 		support[support_count]=NULL;

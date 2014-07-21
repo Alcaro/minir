@@ -1446,7 +1446,18 @@ struct windowmenu * update_corepicker_menu(struct windowmenu * parent)
 			goto again;
 		}
 		
-		struct windowmenu * items=windowmenu_create_radio_l(numcores, names, menu_system_core_any, cores_for_this);
+		struct windowmenu * items;
+		if (romloaded!=coreloaded)
+		{
+			items=windowmenu_create_radio_l(numcores, names, menu_system_core_any, cores_for_this);
+		}
+		else
+		{
+			//for gameless cores, claim the core itself is the only one who can do this
+			//also ignore change requests because there is nothing changable there.
+			const char * name=core->name(core);
+			items=windowmenu_create_radio_l(1, &name, NULL, NULL);
+		}
 		menu->insert_child(menu, numchildren++, items);
 		items->set_state(items, current_core_id);
 	}
