@@ -255,11 +255,6 @@ struct inputkb * inputkb_create_gdk(uintptr_t windowhandle);
 #ifdef INPUT_UDEV
 struct inputkb * inputkb_create_udev(uintptr_t windowhandle);
 #endif
-#ifdef WNDPROT_X11
-//This one translates a virtual keycode to a libretro code.
-void inputkb_x11_translate_init();
-int inputkb_x11_translate_key(unsigned int keycode);
-#endif
 
 //Windows drivers:
 #ifdef INPUT_RAWINPUT
@@ -268,11 +263,10 @@ struct inputkb * inputkb_create_rawinput(uintptr_t windowhandle);
 #ifdef INPUT_DIRECTINPUT
 struct inputkb * inputkb_create_directinput(uintptr_t windowhandle);
 #endif
-#ifdef WNDPROT_WINDOWS
-//Windows drivers share keycode translations, too. (But they're obviously not the same as X11 key mappings.)
-void inputkb_windows_translate_init();
-int inputkb_windows_translate_key(unsigned int keycode);
-#endif
+
+//This one translates a hardware scancode to a libretro code.
+void inputkb_translate_init();
+int inputkb_translate_key(unsigned int keycode);
 
 struct inputkb * inputkb_create_none(uintptr_t windowhandle);
 

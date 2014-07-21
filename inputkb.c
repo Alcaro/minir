@@ -71,7 +71,7 @@ struct inputkb_compat * this=(struct inputkb_compat*)this_;
 			if (newstate[j]!=this->state[i][j])
 			{
 				this->state[i][j]=newstate[j];
-				this->key_cb((struct inputkb*)this, i, j, inputkb_x11_translate_key(j), this->state[i][j], true, this->userdata);
+				this->key_cb((struct inputkb*)this, i, j, inputkb_translate_key(j), this->state[i][j], true, this->userdata);
 			}
 		}
 	}
@@ -91,6 +91,10 @@ void _inputraw_x11_keyboard_create_shared(struct inputraw * this)
 	this->keyboard_num_keys=NULL;
 	this->keyboard_get_map=NULL;
 }
+void _inputraw_windows_keyboard_create_shared(struct inputraw * this)
+{
+	_inputraw_x11_keyboard_create_shared(this);
+}
 
 struct inputkb * inputkb_create_gdk(uintptr_t windowhandle);
 struct inputkb * inputkb_create(const char * backend, uintptr_t windowhandle)
@@ -107,7 +111,7 @@ struct inputkb * inputkb_create(const char * backend, uintptr_t windowhandle)
 	
 	if (!raw) return NULL;
 	struct inputkb_compat * this=malloc(sizeof(struct inputkb_compat));
-	inputkb_x11_translate_init();
+	inputkb_translate_init();
 	this->i.set_callback=ikbc_set_callback;
 	this->i.poll=ikbc_poll;
 	this->i.free=ikbc_free;
@@ -118,26 +122,36 @@ struct inputkb * inputkb_create(const char * backend, uintptr_t windowhandle)
 
 
 
+//Keyboard driver features (in order of importance to have or not have):
+//Having a no-x is negative; x is positive.
+//no-inputkb - Uses the legacy driver support. Implies no-fast. (This one does not affect order, as it's expected to be temporary.)
+//no-multi - Can not differ between multiple keyboards.
+//fast - Input comes directly from the kernel.
+//no-public - Demands escalated privileges to work.
+//no-fast - Polls each frame. Not having this means that the driver's poll function is empty.
+//no-global - Only works while the program is focused.
+//initial - Can tell the state of the devices when the driver is initialized. The opposite is only seeing changes.
+//no-remote - Can only listen to input from the local machine (as opposed to taking input over X11).
 const char * const * inputkb_supported_backends()
 {
 	static const char * backends[]={
+#ifdef INPUT_RAWINPUT
+		"RawInput",//fast no-inputkb
+#endif
 #ifdef INPUT_UDEV
-		"udev",
+		"udev",//fast no-public no-remote
 #endif
 #ifdef INPUT_GDK
-		"GDK",
+		"GDK",//no-global
 #endif
 #ifdef INPUT_XINPUT2
-		"XInput2",
-#endif
-#ifdef INPUT_RAWINPUT
-		"RawInput",
+		"XInput2",//no-fast initial no-inputkb
 #endif
 #ifdef INPUT_X11
-		"X11",
+		"X11",//no-multi no-fast initial no-inputkb
 #endif
 #ifdef INPUT_DIRECTINPUT
-		"DirectInput",
+		"DirectInput",//no-multi no-fast initial no-inputkb
 #endif
 		"None",
 		NULL

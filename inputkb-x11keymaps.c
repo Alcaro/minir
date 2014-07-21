@@ -78,7 +78,7 @@ struct {
 	{ RETROK_RALT, XK_ISO_Level3_Shift },//AltGr
 };
 
-void inputkb_x11_translate_init()
+void inputkb_translate_init()
 {
 	if (initialized) return;
 	
@@ -106,7 +106,7 @@ void inputkb_x11_translate_init()
 	initialized=true;
 }
 
-int inputkb_x11_translate_key(unsigned int keycode)
+int inputkb_translate_key(unsigned int keycode)
 {
 	return libretrofor[keycode];
 }

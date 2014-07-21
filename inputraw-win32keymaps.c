@@ -4,8 +4,7 @@
 #include "libretro.h"
 
 static bool initialized=false;
-static unsigned int scancode_to_libretro_g[256];
-static unsigned int libretro_to_scancode_g[RETROK_LAST];
+static int libretrofor[256];
 //GetKeyboardLayout(GetCurrentThreadId())
 //guess whether the mingw headers include these
 //I don't use all of them, but no reason not to include them.
@@ -101,9 +100,12 @@ struct {
 	/*{ RETROK_EURO,  },*/ /*{ RETROK_UNDO,  },*/
 };
 
-static void create_map()
+void inputkb_translate_init()
 {
 	if (initialized) return;
+	
+	for (unsigned int i=0;i<sizeof(libretrofor)/sizeof(*libretrofor);i++) libretrofor[i]=-1;
+	
 	for (int i=0;i<sizeof(map_raw)/sizeof(*map_raw);i++)
 	{
 		int scancode=MapVirtualKey(map_raw[i].virtual, MAPVK_VK_TO_VSC);
@@ -111,34 +113,13 @@ static void create_map()
 		//Of those, RETROK_PAUSE is the only one that doesn't just add 0xE0, and I am unsure on how to poll them.
 		//It's not worth it.
 		if (!scancode) continue;
-		libretro_to_scancode_g[map_raw[i].libretro]=scancode;
-		scancode_to_libretro_g[scancode]=map_raw[i].libretro;
+		libretrofor[scancode]=map_raw[i].libretro;
 	}
 	initialized=true;
 }
 
-static unsigned int keyboard_num_keyboards(struct inputraw * this) { return 0; }
-static unsigned int keyboard_num_keys(struct inputraw * this) { return 256; }
-
-static void keyboard_get_map(struct inputraw * this_, const unsigned int ** keycode_to_libretro,
-                                                      const unsigned int ** libretro_to_keycode)
+int inputkb_translate_key(unsigned int keycode)
 {
-	if (keycode_to_libretro) *keycode_to_libretro=scancode_to_libretro_g;
-	if (libretro_to_keycode) *libretro_to_keycode=libretro_to_scancode_g;
-}
-
-void _inputraw_windows_keyboard_create_shared(struct inputraw * this)
-{
-	create_map();
-	this->keyboard_num_keyboards=keyboard_num_keyboards;
-	this->keyboard_num_keys=keyboard_num_keys;
-	this->keyboard_get_map=keyboard_get_map;
-}
-
-
-unsigned int _inputraw_translate_key(unsigned int keycode)
-{
-	create_map();
-	return scancode_to_libretro_g[keycode];
+	return libretrofor[keycode];
 }
 #endif
