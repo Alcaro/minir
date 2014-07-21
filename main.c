@@ -1454,7 +1454,7 @@ struct windowmenu * update_corepicker_menu(struct windowmenu * parent)
 		else
 		{
 			//for gameless cores, claim the core itself is the only one who can do this
-			//also ignore change requests because there is nothing changable there.
+			//also ignore change requests because there is nothing changable in a single-item radio item.
 			const char * name=core->name(core);
 			items=windowmenu_create_radio_l(1, &name, NULL, NULL);
 		}

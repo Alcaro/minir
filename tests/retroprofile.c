@@ -42,9 +42,16 @@ int main(int argc, char * argv[])
 	
 	uint64_t t_run=window_get_time();
 	
-	for (unsigned int i=0;i<frames;i++)
+	unsigned int fps=0;
+	while (window_get_time() < t_run+1000000)
 	{
-		printf("%i/%i\r", i, frames);
+		core->run(core);
+		fps++;
+	}
+	printf("fps: %i\n", fps);
+	for (unsigned int i=fps;i<frames;i++)
+	{
+		if (i%fps==0) printf("%i/%i\r", i, frames),fflush(stdout);
 		core->run(core);
 	}
 	uint64_t t_run_done=window_get_time();
