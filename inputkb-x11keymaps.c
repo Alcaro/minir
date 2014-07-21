@@ -106,8 +106,11 @@ void inputkb_translate_init()
 	initialized=true;
 }
 
-int inputkb_translate_key(unsigned int keycode)
+int inputkb_translate_scan(unsigned int keycode)
 {
 	return libretrofor[keycode];
 }
+
+//no inputkb_translate_vkey because an X11 vkey is 29 bits.
+//I'll fill it in if I can find any way to make it not slow. And a way to make it useful.
 #endif

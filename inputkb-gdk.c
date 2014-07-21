@@ -100,7 +100,7 @@ static gboolean key_action(GtkWidget* widget, GdkEvent* event, gpointer user_dat
 	
 //printf("%i: %.2X %.2X\n", kb, keycode, inputkb_x11_translate_key(keycode));
 	this->key_cb((struct inputkb*)this, kb,
-	             keycode, inputkb_translate_key(keycode),
+	             keycode, inputkb_translate_scan(keycode),
 	             (event->type==GDK_KEY_PRESS), true, this->userdata);
 	return FALSE;
 }

@@ -89,8 +89,8 @@ static gboolean fd_activity_glib(gint fd, GIOCondition condition, gpointer user_
 }
 #endif
 
-static void fd_
-epoll_create1(0);
+//static void fd_
+//epoll_create1(0);
 
 static void fd_watch(struct inputkb_udev * this, int fd)
 {
@@ -158,6 +158,7 @@ static void free_(struct inputkb * this_)
 
 struct inputkb * inputkb_create_udev(uintptr_t windowhandle)
 {
+return NULL;
 	struct inputkb_udev * this=malloc(sizeof(struct inputkb_udev));
 	this->i.set_callback=set_callback;
 	this->i.poll=poll;
