@@ -24,48 +24,20 @@
 #include <stdlib.h>
 #include "libretro.h"
 
-struct inputraw_rawinput {
-	struct inputraw i;
+struct inputkb_rawinput {
+	struct inputkb i;
 	
 	HWND hwnd;
 	
 	int numkb;
 	HANDLE * kbhandle;
-	char * * kbnames;
-	unsigned char * kbstate;
+	char* * kbnames;
 	
-	//this->i.keyboard_get_map
-	const unsigned int * keycode_to_libretro;
+	void (*key_cb)(struct inputkb * subject,
+	               unsigned int keyboard, int scancode, int libretrocode,
+	               bool down, bool silent, void* userdata);
+	void* userdata;
 };
-
-static unsigned int keyboard_num_keyboards(struct inputraw * this_)
-{
-	struct inputraw_rawinput * this=(struct inputraw_rawinput*)this_;
-	if (this->numkb) return this->numkb;
-	else return 1;
-}
-
-static bool keyboard_poll(struct inputraw * this_, unsigned int kb_id, unsigned char * keys)
-{
-	struct inputraw_rawinput * this=(struct inputraw_rawinput*)this_;
-	if (kb_id>=this->numkb) return false;
-	memcpy(keys, this->kbstate + 256*kb_id, 256);
-	return true;
-}
-
-static void free_(struct inputraw * this_)
-{
-	struct inputraw_rawinput * this=(struct inputraw_rawinput*)this_;
-	
-	DestroyWindow(this->hwnd);
-	free(this->kbhandle);
-	free(this->kbstate);
-	
-	for (int i=0;i<this->numkb;i++) free(this->kbnames[i]);
-	free(this->kbnames);
-	
-	free(this);
-}
 
 static LRESULT CALLBACK window_proc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam)
 {
@@ -79,14 +51,7 @@ static LRESULT CALLBACK window_proc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM l
 		RAWINPUT* input=(RAWINPUT*)data;
 		if (input->header.dwType==RIM_TYPEKEYBOARD)//unneeded check, we only ask for keyboard; could be relevant later, though.
 		{
-//printf(" Kbd: make=%04x Flags:%04x Reserved:%04x ExtraInformation:%08x, msg=%04x VK=%04x \n",
-//            input->data.keyboard.MakeCode, 
-//            input->data.keyboard.Flags, 
-//            input->data.keyboard.Reserved, 
-//            input->data.keyboard.ExtraInformation, 
-//            input->data.keyboard.Message, 
-//            input->data.keyboard.VKey);
-			struct inputraw_rawinput * this=(struct inputraw_rawinput*)GetWindowLongPtr(hwnd, GWLP_USERDATA);
+			struct inputkb_rawinput * this=(struct inputkb_rawinput*)GetWindowLongPtr(hwnd, GWLP_USERDATA);
 			int deviceid;
 			for (deviceid=0;deviceid<this->numkb;deviceid++)
 			{
@@ -116,7 +81,6 @@ static LRESULT CALLBACK window_proc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM l
 					if (!strcmp(this->kbnames[i], newname))
 					{
 						this->kbhandle[i]=input->header.hDevice;
-						memset(this->kbstate + 256*i, 0, 256);
 						goto done;
 					}
 				}
@@ -124,27 +88,61 @@ static LRESULT CALLBACK window_proc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM l
 				this->numkb++;
 				
 				this->kbhandle=realloc(this->kbhandle, sizeof(HANDLE)*this->numkb);
-				this->kbstate=realloc(this->kbstate, 256*this->numkb);
-				this->kbnames=realloc(this->kbnames, sizeof(char*)*this->numkb);
-				
 				this->kbhandle[this->numkb-1]=input->header.hDevice;
-				memset(this->kbstate + 256*(this->numkb-1), 0, 256);
+				
+				this->kbnames=realloc(this->kbnames, sizeof(char*)*this->numkb);
 				this->kbnames[this->numkb-1]=newname;
 			}
 			
-			USHORT code=input->data.keyboard.MakeCode;
+			USHORT scan=input->data.keyboard.MakeCode;
 			USHORT flags=input->data.keyboard.Flags;
-#ifdef DEBUG
-printf("KEY key=%.4X fl=%.4X res=%.4X vk=%.4X ms=%.8X exi=%.8lX\n",
-input->data.keyboard.MakeCode,input->data.keyboard.Flags,input->data.keyboard.Reserved,
-input->data.keyboard.VKey,input->data.keyboard.Message,input->data.keyboard.ExtraInformation);
-#endif
-			if (code>0 && code<=255 &&
-			    !(this->keycode_to_libretro[code] && input->data.keyboard.VKey==0xFF)//since Windows is Windows, it naturally emits bogus keypresses.
-			    )
+			USHORT vkey=input->data.keyboard.VKey;
+			
+			//mostly copypasta from http://molecularmusings.wordpress.com/2011/09/05/properly-handling-keyboard-input/
+			//ignore vkey=0xFF scan=0x45, we get one with vkey=VK_PAUSE scan=0x1D at the same time which we do handle.
+			if (vkey!=0xFF)
 			{
-				this->kbstate[256*deviceid + code]=!(flags&RI_KEY_BREAK);
+				if (vkey==VK_SHIFT) vkey=MapVirtualKey(scan, MAPVK_VSC_TO_VK_EX);
+				if (vkey==VK_NUMLOCK) scan=MapVirtualKey(vkey, MAPVK_VK_TO_VSC) | 0x100;
+				
+				if (flags&RI_KEY_E1)
+				{
+					if (vkey==VK_PAUSE) scan=0x45;
+					else scan=MapVirtualKey(vkey, MAPVK_VK_TO_VSC);
+				}
+				if (flags&RI_KEY_E0)
+				{
+					if (vkey==VK_CONTROL) vkey=VK_RCONTROL;
+					if (vkey==VK_MENU) vkey=VK_RMENU;
+					if (vkey==VK_RETURN) vkey=0xFF;//there is no VK_ numpad enter
+				}
+				else
+				{
+					if (vkey==VK_CONTROL) vkey=VK_LCONTROL;
+					if (vkey==VK_MENU) vkey=VK_LMENU;
+					
+					if (vkey==VK_INSERT) vkey=VK_NUMPAD0;
+					if (vkey==VK_DELETE) vkey=VK_DECIMAL;
+					if (vkey==VK_HOME) vkey=VK_NUMPAD7;
+					if (vkey==VK_END) vkey=VK_NUMPAD1;
+					if (vkey==VK_PRIOR) vkey=VK_NUMPAD9;
+					if (vkey==VK_NEXT) vkey=VK_NUMPAD3;
+					if (vkey==VK_LEFT) vkey=VK_NUMPAD4;
+					if (vkey==VK_RIGHT) vkey=VK_NUMPAD6;
+					if (vkey==VK_UP) vkey=VK_NUMPAD8;
+					if (vkey==VK_DOWN) vkey=VK_NUMPAD2;
+					if (vkey==VK_CLEAR) vkey=VK_NUMPAD5;
+				}
+				
+				this->key_cb((struct inputkb*)this, deviceid, scan, inputkb_translate_vkey(vkey), !(flags&RI_KEY_BREAK), true, this->userdata);
 			}
+			
+#ifdef DEBUG
+//printf("KEY key=%.4X fl=%.4X res=%.4X vk=%.4X ms=%.8X exi=%.8lX\n",
+//input->data.keyboard.MakeCode,input->data.keyboard.Flags,input->data.keyboard.Reserved,
+//input->data.keyboard.VKey,input->data.keyboard.Message,input->data.keyboard.ExtraInformation);
+//printf("KEY key=%.4X                  vk=%.4X\n",scan,vkey);
+#endif
 		}
 		
 	done:;
@@ -161,15 +159,43 @@ input->data.keyboard.VKey,input->data.keyboard.Message,input->data.keyboard.Extr
 	return DefWindowProc(hwnd, msg, wparam, lparam);
 }
 
-struct inputraw * _inputraw_create_rawinput(uintptr_t windowhandle)
+static void set_callback(struct inputkb * this_,
+                         void (*key_cb)(struct inputkb * subject,
+                                        unsigned int keyboard, int scancode, int libretrocode, 
+                                        bool down, bool changed, void* userdata),
+                         void* userdata)
 {
-	struct inputraw_rawinput * this=malloc(sizeof(struct inputraw_rawinput));
-	_inputraw_windows_keyboard_create_shared((struct inputraw*)this);
-	this->i.keyboard_num_keyboards=keyboard_num_keyboards;
-	//this->i.keyboard_num_keys=keyboard_num_keys;
-	this->i.keyboard_poll=keyboard_poll;
-	//this->i.keyboard_get_map=keyboard_get_map;
+	struct inputkb_rawinput * this=(struct inputkb_rawinput*)this_;
+	this->key_cb=key_cb;
+	this->userdata=userdata;
+}
+
+static void poll(struct inputkb * this)
+{
+	//do nothing - we're polled through the windows main loop
+}
+
+static void free_(struct inputkb * this_)
+{
+	struct inputkb_rawinput * this=(struct inputkb_rawinput*)this_;
+	
+	DestroyWindow(this->hwnd);
+	free(this->kbhandle);
+	
+	for (int i=0;i<this->numkb;i++) free(this->kbnames[i]);
+	free(this->kbnames);
+	
+	free(this);
+}
+
+struct inputkb * inputkb_create_rawinput(uintptr_t windowhandle)
+{
+	struct inputkb_rawinput * this=malloc(sizeof(struct inputkb_rawinput));
+	this->i.set_callback=set_callback;
+	this->i.poll=poll;
 	this->i.free=free_;
+	
+	inputkb_translate_init();
 	
 	WNDCLASS wc;
 	wc.style=0;
@@ -189,10 +215,9 @@ struct inputraw * _inputraw_create_rawinput(uintptr_t windowhandle)
 	
 	this->numkb=0;
 	this->kbhandle=NULL;
-	this->kbstate=NULL;
 	this->kbnames=NULL;
 	
-	this->i.keyboard_get_map((struct inputraw*)this, &this->keycode_to_libretro, NULL);
+	//this->i.keyboard_get_map((struct inputkb*)this, &this->keycode_to_libretro, NULL);
 	
 	
 	//we could list the devices with GetRawInputDeviceList and GetRawInputDeviceInfo, but we don't
@@ -207,6 +232,6 @@ struct inputraw * _inputraw_create_rawinput(uintptr_t windowhandle)
 	device[0].hwndTarget=this->hwnd;
 	RegisterRawInputDevices(device, 1, sizeof(RAWINPUTDEVICE));
 	
-	return (struct inputraw*)this;
+	return (struct inputkb*)this;
 } 
 #endif

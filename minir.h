@@ -230,7 +230,7 @@ struct inputkb {
 	void (*set_callback)(struct inputkb * this,
 	                     void (*key_cb)(struct inputkb * subject,
 	                                    unsigned int keyboard, int scancode, int libretrocode, 
-	                                    bool down, bool silent, void* userdata),
+	                                    bool down, bool changed, void* userdata),
 	                     void* userdata);
 	
 	void (*poll)(struct inputkb * this);
@@ -264,9 +264,11 @@ struct inputkb * inputkb_create_rawinput(uintptr_t windowhandle);
 struct inputkb * inputkb_create_directinput(uintptr_t windowhandle);
 #endif
 
-//This one translates a hardware scancode to a libretro code.
+//These translate hardware scancodes or virtual keycodes to libretro cores.
+//Note that "virtual keycode" is platform dependent, and because they're huge on X11, they don't exist at all there.
 void inputkb_translate_init();
-int inputkb_translate_key(unsigned int keycode);
+int inputkb_translate_scan(unsigned int scancode);
+int inputkb_translate_vkey(unsigned int vkey);
 
 struct inputkb * inputkb_create_none(uintptr_t windowhandle);
 

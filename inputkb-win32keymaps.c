@@ -3,9 +3,6 @@
 #include <windows.h>
 #include "libretro.h"
 
-static bool initialized=false;
-static int libretrofor[256];
-//GetKeyboardLayout(GetCurrentThreadId())
 //guess whether the mingw headers include these
 //I don't use all of them, but no reason not to include them.
 #ifndef MAPVK_VK_TO_VSC
@@ -100,26 +97,38 @@ struct {
 	/*{ RETROK_EURO,  },*/ /*{ RETROK_UNDO,  },*/
 };
 
+static bool initialized=false;
+static int sc_to_libretro[256];
+static int vk_to_libretro[256];
+
 void inputkb_translate_init()
 {
 	if (initialized) return;
 	
-	for (unsigned int i=0;i<sizeof(libretrofor)/sizeof(*libretrofor);i++) libretrofor[i]=-1;
+	for (unsigned int i=0;i<256;i++) sc_to_libretro[i]=-1;
+	for (unsigned int i=0;i<256;i++) vk_to_libretro[i]=-1;
 	
-	for (int i=0;i<sizeof(map_raw)/sizeof(*map_raw);i++)
+	for (unsigned int i=0;i<sizeof(map_raw)/sizeof(*map_raw);i++)
 	{
+		vk_to_libretro[map_raw[i].virtual]=map_raw[i].libretro;
+		
 		int scancode=MapVirtualKey(map_raw[i].virtual, MAPVK_VK_TO_VSC);
 		//Ex gives me different answers for RETROK_PAUSE, RETROK_KP_DIVIDE, RETROK_RCTRL, RETROK_RALT, RETROK_POWER.
 		//Of those, RETROK_PAUSE is the only one that doesn't just add 0xE0, and I am unsure on how to poll them.
 		//It's not worth it.
 		if (!scancode) continue;
-		libretrofor[scancode]=map_raw[i].libretro;
+		sc_to_libretro[scancode]=map_raw[i].libretro;
 	}
 	initialized=true;
 }
 
-int inputkb_translate_key(unsigned int keycode)
+int inputkb_translate_scan(unsigned int scancode)
 {
-	return libretrofor[keycode];
+	return sc_to_libretro[scancode];
+}
+
+int inputkb_translate_vkey(unsigned int vkey)
+{
+	return vk_to_libretro[vkey];
 }
 #endif
