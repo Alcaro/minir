@@ -100,7 +100,7 @@ static gboolean key_action(GtkWidget* widget, GdkEvent* event, gpointer user_dat
 	
 //printf("%i: %.2X %.2X\n", kb, keycode, inputkb_x11_translate_key(keycode));
 	this->key_cb((struct inputkb*)this, kb,
-	             keycode, inputkb_x11_translate_key(keycode),
+	             keycode, inputkb_translate_key(keycode),
 	             (event->type==GDK_KEY_PRESS), true, this->userdata);
 	return FALSE;
 }
@@ -137,7 +137,7 @@ struct inputkb * inputkb_create_gdk(uintptr_t windowhandle)
 	this->i.poll=poll;
 	this->i.free=free_;
 	
-	inputkb_x11_translate_init();
+	inputkb_translate_init();
 	
 #ifdef WNDPROT_X11
 	this->display=gdk_x11_lookup_xdisplay(window_x11_get_display()->display);
