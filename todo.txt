@@ -1,0 +1,12 @@
+current:
+- rewrite inputraw to inputkb
+- rewrite config handler
+- make config panel
+
+other:
+- get gl cores working
+- get shaders working
+
+- rewrite main.c (maybe do one part at the time?)
+
+- figure out how to do alternate input sources
