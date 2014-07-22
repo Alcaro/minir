@@ -940,6 +940,7 @@ unsigned int _inputraw_translate_key(unsigned int keycode);
                                            // frontend since last call to RETRO_ENVIRONMENT_GET_VARIABLE.
                                            // Variables should be queried with GET_VARIABLE.
                                            //
+
 struct retro_variable
 {
    const char *key;        // Variable to query in RETRO_ENVIRONMENT_GET_VARIABLE.
@@ -949,11 +950,46 @@ struct retro_variable
    const char *value;      // Value to be obtained. If key does not exist, it is set to NULL.
 };
 
-//Proposed replacement:
+//Proposed addition (ID and names can be changed):
 
 #define RETRO_ENVIRONMENT_SET_VARIABLES_NEW -1
-                                           // struct retro_variables_new * --
+                                           // const struct retro_variables_new * --
                                            // Interface to acquire user-defined information from environment
                                            // that cannot feasibly be supported in a multi-system way.
                                            // 
+                                           // If the frontend acknowledges this, an implementation may not use RETRO_ENVIRONMENT_SET_VARIABLES.
+                                           // However, RETRO_ENVIRONMENT_GET_VARIABLE and RETRO_ENVIRONMENT_GET_VARIABLE_UPDATE will still work.
+                                           // 
+
+enum retro_variable_type
+{
+   RETRO_VARIABLE_TYPE_TERMINATOR, // Tells that the variable list has ended.
+   RETRO_VARIABLE_TYPE_SEPARATOR,  // A separator in the list. Use for smaller groups.
+   RETRO_VARIABLE_TYPE_GROUP,      // Puts the listed items in a submenu. 'values' is a const struct retro_variable_new *. Use for larger groups.
+   RETRO_VARIABLE_TYPE_ENUM,       // Enumeration. 'values' is const char *, with each entry separated by \n. The first value is the default. change_notify gets an unsigned int * containing the index of the relevant string.
+   RETRO_VARIABLE_TYPE_INT,        // Integer. 'values' is const int *; the first entry is the lowest valid value, the second is the highest valid value, and the third is the default value.
+   RETRO_VARIABLE_TYPE_FLOAT,      // Floating point. 'values' is const float *; same format as RETRO_VARIABLE_INT.
+};
+
+enum retro_variable_change
+{
+   RETRO_VARIABLE_CHANGE_INSTANT, // Changes take effect at the next retro_run.
+   RETRO_VARIABLE_CHANGE_DELAYED, // Changes take effect during retro_run, but takes a few frames; for example, it may be delayed until the next level is loaded.
+   RETRO_VARIABLE_CHANGE_RESET,   // Only used during retro_load_game and retro_reset.
+   RETRO_VARIABLE_CHANGE_RELOAD,  // Only used during retro_load_game.
+};
+
+struct retro_variable_new
+{
+   const char *name;                  // Variable name, to be used internally. Suitable for saving to configuration files. Example: gb_colorize
+   const char *pub_name;              // Variable name, to show the user. Suitable for GUIs. Example: Game Boy colorization
+   const char *description;           // Variable description. Suitable as a second line in GUIs. Example: Emulate fake colors on black&white games.
+   enum retro_variable_type type;     // Variable type. See above.
+   void *values;                      // Possible values. See enum retro_variable_type for what type it has. Example: "Enabled\nDisabled"
+   
+   enum retro_variable_change change; // When the implementation will acknowledge changes to this variable.
+   
+   //Called by the frontend every time this variable changes, or NULL to ignore. Can be different for different variables.
+   void (*change_notify)(unsigned int id, void *value);
+};
 */
