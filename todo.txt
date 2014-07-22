@@ -2,6 +2,7 @@ current:
 - rewrite inputraw to inputkb
 - rewrite config handler
 - make config panel
+ - tie core options to input sources
 
 other:
 - get gl cores working
@@ -10,3 +11,7 @@ other:
 - rewrite main.c (maybe do one part at the time?)
 
 - figure out how to do alternate input sources
+
+- rewrite audio:
+ - dynamic rate control
+ - move to another thread

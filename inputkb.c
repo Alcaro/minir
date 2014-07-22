@@ -124,7 +124,7 @@ struct inputkb * inputkb_create(const char * backend, uintptr_t windowhandle)
 
 //Keyboard driver features (in order of importance to have or not have):
 //Having a no-x is negative; x is positive.
-//no-inputkb - Uses the legacy driver support. Implies no-fast. (This one does not affect order, as it is fixable.)
+//no-inputkb - Uses the legacy driver support. Implies various negative properties. Does not affect order, as it is fixable.
 //no-multi - Can not differ between multiple keyboards.
 //fast - Input comes directly from the kernel.
 //no-public - Demands escalated privileges to work.
@@ -139,7 +139,7 @@ const char * const * inputkb_supported_backends()
 		"RawInput",//fast
 #endif
 #ifdef INPUT_UDEV
-		"udev",//fast no-public no-remote
+		"udev",//fast no-public initial no-remote
 		       //add no-fast if !defined(WINDOW_GTK3)
 #endif
 #ifdef INPUT_GDK

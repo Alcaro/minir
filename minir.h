@@ -904,3 +904,56 @@ struct inputraw * _inputraw_create_rawinput(uintptr_t windowhandle);
 struct inputraw * _inputraw_create_directinput(uintptr_t windowhandle);
 void _inputraw_windows_keyboard_create_shared(struct inputraw * this);
 unsigned int _inputraw_translate_key(unsigned int keycode);
+
+
+
+/*
+#define RETRO_ENVIRONMENT_GET_VARIABLE 15
+                                           // struct retro_variable * --
+                                           // Interface to acquire user-defined information from environment
+                                           // that cannot feasibly be supported in a multi-system way.
+                                           // 'key' should be set to a key which has already been set by SET_VARIABLES.
+                                           // 'data' will be set to a value or NULL.
+                                           //
+#define RETRO_ENVIRONMENT_SET_VARIABLES 16
+                                           // const struct retro_variable * --
+                                           // Allows an implementation to signal the environment
+                                           // which variables it might want to check for later using GET_VARIABLE.
+                                           // This allows the frontend to present these variables to a user dynamically.
+                                           // This should be called as early as possible (ideally in retro_set_environment).
+                                           //
+                                           // 'data' points to an array of retro_variable structs terminated by a { NULL, NULL } element.
+                                           // retro_variable::key should be namespaced to not collide with other implementations' keys. E.g. A core called 'foo' should use keys named as 'foo_option'.
+                                           // retro_variable::value should contain a human readable description of the key as well as a '|' delimited list of expected values.
+                                           // The number of possible options should be very limited, i.e. it should be feasible to cycle through options without a keyboard.
+                                           // First entry should be treated as a default.
+                                           //
+                                           // Example entry:
+                                           // { "foo_option", "Speed hack coprocessor X; false|true" }
+                                           //
+                                           // Text before first ';' is description. This ';' must be followed by a space, and followed by a list of possible values split up with '|'.
+                                           // Only strings are operated on. The possible values will generally be displayed and stored as-is by the frontend.
+                                           //
+#define RETRO_ENVIRONMENT_GET_VARIABLE_UPDATE 17
+                                           // bool * --
+                                           // Result is set to true if some variables are updated by
+                                           // frontend since last call to RETRO_ENVIRONMENT_GET_VARIABLE.
+                                           // Variables should be queried with GET_VARIABLE.
+                                           //
+struct retro_variable
+{
+   const char *key;        // Variable to query in RETRO_ENVIRONMENT_GET_VARIABLE.
+                           // If NULL, obtains the complete environment string if more complex parsing is necessary.
+                           // The environment string is formatted as key-value pairs delimited by semicolons as so:
+                           // "key1=value1;key2=value2;..."
+   const char *value;      // Value to be obtained. If key does not exist, it is set to NULL.
+};
+
+//Proposed replacement:
+
+#define RETRO_ENVIRONMENT_SET_VARIABLES_NEW -1
+                                           // struct retro_variables_new * --
+                                           // Interface to acquire user-defined information from environment
+                                           // that cannot feasibly be supported in a multi-system way.
+                                           // 
+*/
