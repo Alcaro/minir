@@ -666,7 +666,51 @@ static bool environment(unsigned cmd, void *data)
 		memcpy(this->memdesc, map->descriptors, sizeof(struct retro_memory_descriptor)*map->num_descriptors);
 		return true;
 	}
-	log_callback(RETRO_LOG_WARN, "Unsupported environ command #%u.", cmd);
+	
+	const char * const names[]={
+		"SET_ROTATION",
+		"GET_OVERSCAN",
+		"GET_CAN_DUPE",
+		"(removed)",
+		"(removed)",
+		"SET_MESSAGE",
+		"SHUTDOWN",
+		"SET_PERFORMANCE_LEVEL",
+		"GET_SYSTEM_DIRECTORY",
+		"SET_PIXEL_FORMAT",
+		"SET_INPUT_DESCRIPTORS",
+		"SET_KEYBOARD_CALLBACK",
+		"SET_DISK_CONTROL_INTERFACE",
+		"SET_HW_RENDER",
+		"GET_VARIABLE",
+		"SET_VARIABLES",
+		"GET_VARIABLE_UPDATE",
+		"SET_SUPPORT_NO_GAME",
+		"GET_LIBRETRO_PATH",
+		"(removed)",
+		"SET_FRAME_TIME_CALLBACK",
+		"SET_AUDIO_CALLBACK",
+		"GET_RUMBLE_INTERFACE",
+		"GET_INPUT_DEVICE_CAPABILITIES",
+		"GET_SENSOR_INTERFACE",
+		"GET_CAMERA_INTERFACE",
+		"GET_LOG_INTERFACE",
+		"GET_PERF_INTERFACE",
+		"GET_LOCATION_INTERFACE",
+		"GET_CONTENT_DIRECTORY",
+		"GET_SAVE_DIRECTORY",
+		"SET_SYSTEM_AV_INFO",
+		"SET_PROC_ADDRESS_CALLBACK",
+		"SET_SUBSYSTEM_INFO",
+		"SET_CONTROLLER_INFO",
+		"SET_MEMORY_MAPS",
+		"SET_GEOMETRY",
+	};
+	if ((cmd&~RETRO_ENVIRONMENT_EXPERIMENTAL) < sizeof(names)/sizeof(*names))
+	{
+		log_callback(RETRO_LOG_WARN, "Unsupported environ command #%u %s.", cmd, names[cmd&~RETRO_ENVIRONMENT_EXPERIMENTAL]);
+	}
+	else log_callback(RETRO_LOG_WARN, "Unsupported environ command #%u.", cmd);
 	return false;
 }
 
