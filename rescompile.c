@@ -150,7 +150,7 @@ void compileconfig(FILE * out)
 		emit_header_override_enum("union { struct {\n");
 		emit_header_override_bool("union { struct {\n");
 		
-		char comment[1024];
+		char comment[8192];
 		int commentlen=0;
 		
 		while (!feof(in))
@@ -178,6 +178,7 @@ void compileconfig(FILE * out)
 				commentlen+=strlen(line);
 				strcpy(comment+commentlen, "\n");
 				commentlen++;
+				if (commentlen>4096) error("Too much comments, increase buffer size.");
 			}
 			else if (!strcmp(line, "-"))
 			{
