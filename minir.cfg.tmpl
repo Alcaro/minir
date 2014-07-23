@@ -12,8 +12,8 @@
 #Audio: PulseAudio[L], DirectSound[W]
 #Input: RawInput[W], DirectInput[W], udev[L], GDK[L], XInput2[L], X11[L]
 #[W] means available on Windows; [L] means available on Linux.
-#They are in order of descending desirability; the first one is best.
-#Note that using udev requires access to various items in /dev/input, which requires either chmodding them or running with escalated privileges.
+#They are in order of descending desirability; the first one is best, except that pure-Linux drivers are in no particular order relative to pure-Windows.
+#Note that using udev requires access to various items in /dev/input, which requires either chmodding them or running minir with escalated privileges.
 #
 #This item exists, but is not supposed to exist in the final version.
 #Can't be set non-global.

@@ -269,11 +269,44 @@ void compileconfig(FILE * out)
 				else error("no such type");
 				
 				const char * basetype=basetype;
-				if (type==num && rangelow>=0) basetype="unsigned int";
-				if (type==num && rangelow<0) basetype="signed int";
-				if (type==str) basetype="char*";
-				if (type==flag) basetype="bool";
-				if (type==enumer) basetype=enumtype;
+				const char * arrayname=arrayname;
+				unsigned int arraypos=arraypos;
+				if (type==str && isinput)
+				{
+					basetype="char*";
+					arrayname="inputs";
+					arraypos=numinputs;
+				}
+				if (type==str && !isinput)
+				{
+					basetype="char*";
+					arrayname="_strings";
+					arraypos=numstrs;
+				}
+				if (type==num && rangelow>=0)
+				{
+					basetype="unsigned int";
+					arrayname="_uints";
+					arraypos=numuints;
+				}
+				if (type==num && rangelow<0)
+				{
+					basetype="signed int";
+					arrayname="_ints";
+					arraypos=numints;
+				}
+				if (type==flag)
+				{
+					basetype="bool";
+					arrayname="_bools";
+					arraypos=numbools;
+				}
+				if (type==enumer)
+				{
+					basetype=enumtype;
+					arrayname="_enums";
+					arraypos=numenums;
+				}
 				
 				if (*typeend!=' ') error("bad type");
 				while (*typeend==' ') typeend++;
@@ -623,15 +656,12 @@ void compileconfig(FILE * out)
 						//emit_bytecode("CFGB_ENUM, %i>>8, %i&255, ", numenums, numenums);
 					}
 					
-					emit_clear_defaults("this->%s=", varname);
+					emit_clear_defaults("this->%s[%i]=", arrayname, arraypos);
 					if (type==str && strcmp(defaults[0], "NULL"))
 					{
 						emit_clear_defaults("strdup(\"%s\");\n", defaults[0]);
 					}
-					else
-					{
-						emit_clear_defaults("%s;\n", defaults[0]);
-					}
+					else emit_clear_defaults("%s;\n", defaults[0]);
 				}
 				else
 				{
@@ -665,8 +695,8 @@ void compileconfig(FILE * out)
 						emit_header_override_bool("bool _override_%s[%u];\n", varname, arraylen);
 					}
 					
-					emit_clear_defaults("for (unsigned int i=0;i<%i;i++)\n{\n", arraylen);
-						emit_clear_defaults("this->%s[i]=%s;\n", varname, stddefault);
+					emit_clear_defaults("for (unsigned int i=0;i<%u;i++)\n{\n", arraylen);
+						emit_clear_defaults("this->%s[%u+i]=%s;\n", arrayname, arraypos, stddefault);
 						//if (arrayshowtop!=arraylen)
 						//{
 						//	emit_clear_defaults("this->_override_%s[i]=(i<%i);\n", varname, arrayshowtop);
@@ -676,15 +706,15 @@ void compileconfig(FILE * out)
 							//emit_clear_defaults("this->_override_%s[i]=true;\n", varname);
 						//}
 						emit_clear_defaults("}\n");
-						for (unsigned int i=0;i<arraylen;i++)
+					for (unsigned int i=0;i<arraylen;i++)
+					{
+						if (defaults[i][0])
 						{
-							if (defaults[i][0])
-							{
-								emit_clear_defaults("this->%s[%u]=", varname, i);
-								if (type==str) emit_clear_defaults("strdup(\"%s\");\n", defaults[i]);
-								else emit_clear_defaults("%s;\n", defaults[i]);
-							}
+							emit_clear_defaults("this->%s[%u+%u]=", arrayname, arraypos, i);
+							if (type==str) emit_clear_defaults("strdup(\"%s\");\n", defaults[i]);
+							else emit_clear_defaults("%s;\n", defaults[i]);
 						}
+					}
 				}
 				
 				if (isinput) emit_header_input_enum("%s=%i,\n", varname, numinputs);
