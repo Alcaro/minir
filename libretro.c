@@ -633,8 +633,14 @@ static bool environment(unsigned cmd, void *data)
 	}
 	//19 GET_LIBRETRO_PATH, see 9.
 	//20 was removed and can safely be ignored.
+	if (cmd==RETRO_ENVIRONMENT_SET_FRAME_TIME_CALLBACK) //21
+	{
+		struct retro_frame_time_callback * timecb=(struct retro_frame_time_callback*)data;
+		//FIXME: This should be used in libretro->run once I've figured out how to pass around the timing in a sane way.
+		timecb->callback(timecb->reference);
+		return true;
+	}
 	//22 SET_AUDIO_CALLBACK, ignored because no non-emulator is supported.
-	//21 SET_FRAME_TIME_CALLBACK, ignored because it seems completely pointless.
 	//23 GET_RUMBLE_INTERFACE, ignored because no known supported core uses rumble, and because it's untestable.
 	if (cmd==RETRO_ENVIRONMENT_GET_INPUT_DEVICE_CAPABILITIES) //24
 	{
@@ -657,7 +663,7 @@ static bool environment(unsigned cmd, void *data)
 	//33 SET_PROC_ADDRESS_CALLBACK, ignored because there are no extensions.
 	//34 SET_SUBSYSTEM_INFO, should probably be added.
 	//35 SET_CONTROLLER_INFO, should probably be added.
-	if (cmd==RETRO_ENVIRONMENT_SET_MEMORY_MAPS) //probably 36
+	if (cmd==RETRO_ENVIRONMENT_SET_MEMORY_MAPS) //36
 	{
 		struct retro_memory_map * map=(struct retro_memory_map*)data;
 		free(this->memdesc);
@@ -666,6 +672,7 @@ static bool environment(unsigned cmd, void *data)
 		memcpy(this->memdesc, map->descriptors, sizeof(struct retro_memory_descriptor)*map->num_descriptors);
 		return true;
 	}
+	//37 SET_GEOMETRY, should be added.
 	
 	const char * const names[]={
 		"SET_ROTATION",
