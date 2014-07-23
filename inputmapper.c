@@ -507,12 +507,16 @@ static bool button(struct inputmapper * this_, unsigned int id, bool oneshot)
 static void poll(struct inputmapper * this_)
 {
 	struct inputmapper_impl * this=(struct inputmapper_impl*)this_;
+	if (this->kb) this->kb->poll(this->kb);
 	if (this->kb_anylastframe)
 	{
-		for (unsigned int i=0;i<0x800*this->kb_nkb;i++) this->kb_state[i]&=1;
 		this->kb_anylastframe=false;
+		for (unsigned int i=0;i<0x800*this->kb_nkb;i++)
+		{
+			if (this->kb_state[i]>=2) this->kb_state[i]-=2;
+			if (this->kb_state[i]>=2) this->kb_anylastframe=true;
+		}
 	}
-	if (this->kb) this->kb->poll(this->kb);
 }
 
 static void kb_cb(struct inputkb * subject, unsigned int keyboard, int scancode, int libretrocode,
@@ -536,7 +540,7 @@ static void kb_cb(struct inputkb * subject, unsigned int keyboard, int scancode,
 	key|=keyboard*0x800;
 	if ((this->kb_state[key]&1) != down)
 	{
-		this->kb_state[key]=(down?1:0) + (changed?2:0);
+		this->kb_state[key]=(down?1:0) + (changed?4:0);
 		this->kb_anylastframe |= changed;
 		if (changed && !down) this->lastreleased = key;
 	}
