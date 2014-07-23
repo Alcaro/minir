@@ -675,6 +675,7 @@ static bool environment(unsigned cmd, void *data)
 	//37 SET_GEOMETRY, should be added.
 	
 	const char * const names[]={
+		"(invalid)",
 		"SET_ROTATION",
 		"GET_OVERSCAN",
 		"GET_CAN_DUPE",
