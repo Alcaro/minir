@@ -75,6 +75,7 @@ struct libretro_impl {
 	
 	struct dylib * lib;
 	char * libpath;
+	char * rompath;
 	struct libretro_raw raw;
 	
 	struct video * v;
@@ -270,6 +271,10 @@ static bool load_rom(struct libretro * this_, const char * filename)
 	
 	initialize(this);
 	
+	free(this->rompath);
+	if (filename) this->rompath=strdup(filename);
+	else this->rompath=NULL;
+	
 	free(this->memdesc);
 	this->memdesc=NULL;
 	this->nummemdesc=0;
@@ -291,7 +296,7 @@ add_snes_mmap(this);
 	return ret;
 }
 
-static bool load_rom_mem(struct libretro * this_, const char * data, size_t datalen)
+static bool load_rom_mem(struct libretro * this_, const char * data, size_t datalen, const char * path)
 {
 	struct libretro_impl * this=(struct libretro_impl*)this_;
 	
@@ -299,12 +304,15 @@ static bool load_rom_mem(struct libretro * this_, const char * data, size_t data
 	
 	initialize(this);
 	
+	free(this->rompath);
+	this->rompath=NULL;
+	
 	free(this->memdesc);
 	this->memdesc=NULL;
 	this->nummemdesc=0;
 	
 	struct retro_game_info game;
-	game.path=NULL;
+	game.path=path;
 	game.data=data;
 	game.size=datalen;
 	game.meta=NULL;
@@ -442,6 +450,11 @@ static void free_core_opts(struct libretro_impl * this)
 static void free_(struct libretro * this_)
 {
 	struct libretro_impl * this=(struct libretro_impl*)this_;
+	if (this->initialized)
+	{
+		this->raw.unload_game();
+		this->raw.deinit();
+	}
 	free_core_opts(this);
 	free(this->memdesc);
 	free(this->tmpptr[0]);
@@ -449,11 +462,7 @@ static void free_(struct libretro * this_)
 	free(this->tmpptr[2]);
 	free(this->tmpptr[3]);
 	free(this->libpath);
-	if (this->initialized)
-	{
-		this->raw.unload_game();
-		this->raw.deinit();
-	}
+	free(this->rompath);
 	this->lib->free(this->lib);
 	free(this);
 }
@@ -658,7 +667,25 @@ static bool environment(unsigned cmd, void *data)
 	//28 GET_PERF_INTERFACE, ignored because (besides get_cpu_features), its only uses seem to be debugging and breaking fastforward.
 	//29 GET_LOCATION_INTERFACE, ignored because we're not a phone.
 	//30 GET_CONTENT_DIRECTORY, see 9.
-	//31 GET_SAVE_DIRECTORY, should be added. Should return the ROM folder.
+	if (cmd==RETRO_ENVIRONMENT_GET_SAVE_DIRECTORY) //31
+	{
+		const char * usepath=this->rompath;
+		if (!usepath)
+		{
+			if (this->i.supports_no_game((struct libretro*)this)) usepath=this->libpath;
+			if (!usepath)
+			{
+				(*(const char**)data)=NULL;
+				return true;
+			}
+		}
+		char * ret=strdup(usepath);
+		appendtmpptr(this, ret);
+		char * retend=strrchr(ret, '/');
+		if (retend) *retend='\0';
+		(*(const char**)data)=ret;
+		return true;
+	}
 	//32 SET_SYSTEM_AV_INFO, should be added. Seems reasonably easy.
 	//33 SET_PROC_ADDRESS_CALLBACK, ignored because there are no extensions.
 	//34 SET_SUBSYSTEM_INFO, should probably be added.
@@ -795,6 +822,7 @@ struct libretro * libretro_create(const char * corepath, void (*message_cb)(int 
 	this->message_cb=message_cb;
 	
 	this->libpath=strdup(corepath);
+	this->rompath=NULL;
 	
 	this->core_opt_changed=false;
 	this->core_opt_list_changed=true;
