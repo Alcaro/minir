@@ -114,17 +114,19 @@ void compileconfig(FILE * output)
 #define emit_header_input(...) emit_to(p_header_input, __VA_ARGS__)
 	emit_header_input("#ifdef CONFIG_HEADER\n");
 #define emit_header_str(...) emit_to(p_header_str, __VA_ARGS__)
-#define emit_header_uint(...) emit_to(p_header_uint, __VA_ARGS__)
 #define emit_header_int(...) emit_to(p_header_int, __VA_ARGS__)
+#define emit_header_uint(...) emit_to(p_header_uint, __VA_ARGS__)
 #define emit_header_enum(...) emit_to(p_header_enum, __VA_ARGS__)
 #define emit_header_bool(...) emit_to(p_header_bool, __VA_ARGS__)
+#define emit_header_this(...) emit_to(p_header_input+type_pass_id, __VA_ARGS__)
 	
 #define emit_header_override_input(...) emit_to(p_header_override_input, __VA_ARGS__)
 #define emit_header_override_str(...) emit_to(p_header_override_str, __VA_ARGS__)
-#define emit_header_override_uint(...) emit_to(p_header_override_uint, __VA_ARGS__)
 #define emit_header_override_int(...) emit_to(p_header_override_int, __VA_ARGS__)
+#define emit_header_override_uint(...) emit_to(p_header_override_uint, __VA_ARGS__)
 #define emit_header_override_enum(...) emit_to(p_header_override_enum, __VA_ARGS__)
 #define emit_header_override_bool(...) emit_to(p_header_override_bool, __VA_ARGS__)
+#define emit_header_override_this(...) emit_to(p_header_override_input+type_pass_id, __VA_ARGS__)
 	
 #define emit_header_input_enum(...) emit_to(p_header_input_enum, __VA_ARGS__)
 	emit_header_input_enum("#ifdef CONFIG_HEADER_ENUM\n");
@@ -132,11 +134,10 @@ void compileconfig(FILE * output)
 #define emit_clear_defaults_input(...) emit_to(p_clear_defaults_input, __VA_ARGS__)
 	emit_clear_defaults_input("#ifdef CONFIG_CLEAR_DEFAULTS\n");
 #define emit_clear_defaults_str(...) emit_to(p_clear_defaults_str, __VA_ARGS__)
-#define emit_clear_defaults_uint(...) emit_to(p_clear_defaults_uint, __VA_ARGS__)
 #define emit_clear_defaults_int(...) emit_to(p_clear_defaults_int, __VA_ARGS__)
+#define emit_clear_defaults_uint(...) emit_to(p_clear_defaults_uint, __VA_ARGS__)
 #define emit_clear_defaults_enum(...) emit_to(p_clear_defaults_enum, __VA_ARGS__)
 #define emit_clear_defaults_bool(...) emit_to(p_clear_defaults_bool, __VA_ARGS__)
-	
 #define emit_clear_defaults_this(...) emit_to(p_clear_defaults_input+type_pass_id, __VA_ARGS__)
 	
 	unsigned char bytecode[65536];
@@ -303,18 +304,18 @@ void compileconfig(FILE * output)
 				arraypos=numstrs;
 				type_pass_id=1;
 			}
-			if (type==num && rangelow>=0)
-			{
-				basetype="unsigned int";
-				arrayname="_uints";
-				arraypos=numuints;
-				type_pass_id=2;
-			}
 			if (type==num && rangelow<0)
 			{
 				basetype="signed int";
 				arrayname="_ints";
 				arraypos=numints;
+				type_pass_id=2;
+			}
+			if (type==num && rangelow>=0)
+			{
+				basetype="unsigned int";
+				arrayname="_uints";
+				arraypos=numuints;
 				type_pass_id=3;
 			}
 			if (type==flag)
@@ -637,33 +638,10 @@ void compileconfig(FILE * output)
 			
 			if (arraylen==1)
 			{
-				if (type==str)
+				if (type!=enumer)
 				{
-					if (isinput)
-					{
-						emit_header_input("%s %s;\n", basetype, varname);
-						emit_header_override_input("bool _override_%s;\n", varname);
-					}
-					else
-					{
-						emit_header_str("%s %s;\n", basetype, varname);
-						emit_header_override_str("bool _override_%s;\n", varname);
-					}
-				}
-				if (type==num && rangelow>=0)
-				{
-					emit_header_uint("%s %s;\n", basetype, varname);
-					emit_header_override_uint("bool _override_%s;\n", varname);
-				}
-				if (type==num && rangelow<0)
-				{
-					emit_header_int("%s %s;\n", basetype, varname);
-					emit_header_override_int("bool _override_%s;\n", varname);
-				}
-				if (type==flag)
-				{
-					emit_header_bool("%s %s;\n", basetype, varname);
-					emit_header_override_bool("bool _override_%s;\n", varname);
+					emit_header_this("%s %s;\n", basetype, varname);
+					emit_header_override_this("bool _override_%s;\n", varname);
 				}
 				if (type==enumer)
 				{
@@ -686,35 +664,9 @@ void compileconfig(FILE * output)
 			}
 			else
 			{
-				if (type==str)
-				{
-					if (isinput)
-					{
-						emit_header_input("%s %s[%u];\n", basetype, varname, arraylen);
-						emit_header_override_input("bool _override_%s[%u];\n", varname, arraylen);
-					}
-					else
-					{
-						emit_header_str("%s %s[%u];\n", basetype, varname, arraylen);
-						emit_header_override_str("bool _override_%s[%u];\n", varname, arraylen);
-					}
-				}
-				if (type==num && rangelow<0)
-				{
-					emit_header_int("%s %s[%u];\n", basetype, varname, arraylen);
-					emit_header_override_int("bool _override_%s[%u];\n", varname, arraylen);
-				}
-				if (type==num && rangelow>=0)
-				{
-					emit_header_uint("%s %s[%u];\n", basetype, varname, arraylen);
-					emit_header_override_uint("bool _override_%s[%u];\n", varname, arraylen);
-				}
+				emit_header_this("%s %s[%u];\n", basetype, varname, arraylen);
+				emit_header_override_this("bool _override_%s[%u];\n", varname, arraylen);
 				if (type==enumer) error("enum array");
-				if (type==flag)
-				{
-					emit_header_bool("%s %s[%u];\n", basetype, varname, arraylen);
-					emit_header_override_bool("bool _override_%s[%u];\n", varname, arraylen);
-				}
 				
 				emit_clear_defaults_this("for (unsigned int i=0;i<%u;i++)\n{\n", arraylen);
 					emit_clear_defaults_this("this->%s[%u+i]=%s;\n", arrayname, arraypos, stddefault);
