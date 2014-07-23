@@ -83,7 +83,7 @@ static void* compress(void* data, size_t inlen, size_t * outlen)
 
 
 
-void compileconfig(FILE * out)
+void compileconfig(FILE * output)
 {
 	FILE * in=fopen("minir.cfg.tmpl", "rt");
 	//FILE * out=stdout;
@@ -98,33 +98,42 @@ void compileconfig(FILE * out)
 		p_bytecode,
 		p_last };
 	
-	for (int pass=0;pass<p_last;pass++)
+	struct mem outputs[p_last];
+	char sprintfbuf[2048];
+	
+	for (unsigned int i=0;i<p_last;i++)
 	{
-		fseek(in, 0, SEEK_SET);
-#define emit_header_input(...) do { if (pass==p_header_input) fprintf(out, __VA_ARGS__); } while(0)
+		outputs[i].buflen=1024;
+		outputs[i].ptr=malloc(outputs[i].buflen);
+		outputs[i].len=0;
+	}
+	
+#define emit_to(id, ...) do { mem_append(sprintfbuf, sprintf(sprintfbuf, __VA_ARGS__), &outputs[id]); } while(0)
+		//fseek(in, 0, SEEK_SET);
+#define emit_header_input(...) emit_to(p_header_input, __VA_ARGS__)
 		emit_header_input("#ifdef CONFIG_HEADER\n");
-#define emit_header_str(...) do { if (pass==p_header_str) fprintf(out, __VA_ARGS__); } while(0)
-#define emit_header_uint(...) do { if (pass==p_header_uint) fprintf(out, __VA_ARGS__); } while(0)
-#define emit_header_int(...) do { if (pass==p_header_int) fprintf(out, __VA_ARGS__); } while(0)
-#define emit_header_enum(...) do { if (pass==p_header_enum) fprintf(out, __VA_ARGS__); } while(0)
-#define emit_header_bool(...) do { if (pass==p_header_bool) fprintf(out, __VA_ARGS__); } while(0)
+#define emit_header_str(...) emit_to(p_header_str, __VA_ARGS__)
+#define emit_header_uint(...) emit_to(p_header_uint, __VA_ARGS__)
+#define emit_header_int(...) emit_to(p_header_int, __VA_ARGS__)
+#define emit_header_enum(...) emit_to(p_header_enum, __VA_ARGS__)
+#define emit_header_bool(...) emit_to(p_header_bool, __VA_ARGS__)
 		
-#define emit_header_override_input(...) do { if (pass==p_header_override_input) fprintf(out, __VA_ARGS__); } while(0)
-#define emit_header_override_str(...) do { if (pass==p_header_override_str) fprintf(out, __VA_ARGS__); } while(0)
-#define emit_header_override_uint(...) do { if (pass==p_header_override_uint) fprintf(out, __VA_ARGS__); } while(0)
-#define emit_header_override_int(...) do { if (pass==p_header_override_int) fprintf(out, __VA_ARGS__); } while(0)
-#define emit_header_override_enum(...) do { if (pass==p_header_override_enum) fprintf(out, __VA_ARGS__); } while(0)
-#define emit_header_override_bool(...) do { if (pass==p_header_override_bool) fprintf(out, __VA_ARGS__); } while(0)
+#define emit_header_override_input(...) emit_to(p_header_override_input, __VA_ARGS__)
+#define emit_header_override_str(...) emit_to(p_header_override_str, __VA_ARGS__)
+#define emit_header_override_uint(...) emit_to(p_header_override_uint, __VA_ARGS__)
+#define emit_header_override_int(...) emit_to(p_header_override_int, __VA_ARGS__)
+#define emit_header_override_enum(...) emit_to(p_header_override_enum, __VA_ARGS__)
+#define emit_header_override_bool(...) emit_to(p_header_override_bool, __VA_ARGS__)
 		
-#define emit_header_input_enum(...) do { if (pass==p_header_input_enum) fprintf(out, __VA_ARGS__); } while(0)
+#define emit_header_input_enum(...) emit_to(p_header_input_enum, __VA_ARGS__)
 		emit_header_input_enum("#ifdef CONFIG_HEADER_ENUM\n");
 		
-#define emit_clear_defaults(...) do { if (pass==p_clear_defaults) fprintf(out, __VA_ARGS__); } while(0)
+#define emit_clear_defaults(...) emit_to(p_clear_defaults, __VA_ARGS__)
 		emit_clear_defaults("#ifdef CONFIG_CLEAR_DEFAULTS\n");
 		
 		unsigned char bytecode[65536];
 		int bytecodepos=0;
-#define emit_bytecode(byte) do { if (pass==p_bytecode) bytecode[bytecodepos++]=byte; } while(0)
+#define emit_bytecode(byte) do { bytecode[bytecodepos++]=byte; } while(0)
 #define emit_bytecode_2(word) do { emit_bytecode(((word)>>8)&255); emit_bytecode(((word)>>0)&255); } while(0)
 #define emit_bytecode_4(dword) do { emit_bytecode_2(((dword)>>16)&65535); emit_bytecode_2(((dword)>>0)&65535); } while(0)
 		
@@ -461,8 +470,8 @@ void compileconfig(FILE * out)
 					static char table_byte_prev[4096];
 					static int table_byte_pos_prev;
 					
-#define append_table_num(byte) do { if (pass==p_bytecode) table_num[table_num_pos++]=byte; } while(0)
-#define append_table_byte(byte) do { if (pass==p_bytecode) table_byte[table_byte_pos++]=byte; } while(0)
+#define append_table_num(byte) do { table_num[table_num_pos++]=byte; } while(0)
+#define append_table_byte(byte) do { table_byte[table_byte_pos++]=byte; } while(0)
 					
 					while (true)
 					{
@@ -501,37 +510,34 @@ void compileconfig(FILE * out)
 						if (thisdepth<0) break;
 					}
 					
-					if (pass==p_bytecode)
+					if (table_byte_pos!=table_byte_pos_prev || memcmp(table_byte, table_byte_prev, table_byte_pos))
 					{
-						if (table_byte_pos!=table_byte_pos_prev || memcmp(table_byte, table_byte_prev, table_byte_pos))
+						table_byte_pos_prev=table_byte_pos;
+						memcpy(table_byte_prev, table_byte, table_byte_pos);
+						
+						if (!shuffled)
 						{
-							table_byte_pos_prev=table_byte_pos;
-							memcpy(table_byte_prev, table_byte, table_byte_pos);
-							
-							if (!shuffled)
-							{
-								emit_bytecode(CFGB_ARRAY);
-								emit_bytecode(arraylen);
-								emit_bytecode(maxdynamiclen);
-								emit_bytecode(arrayshowtop);
-							}
-							if (shuffled)
-							{
-								emit_bytecode(CFGB_ARRAY_SHUFFLED);
-								emit_bytecode(arraylen);
-								emit_bytecode(maxdynamiclen);
-								emit_bytecode(arrayshowtop);
-								for (int i=0;i<table_num_pos;i++) emit_bytecode(table_num[i]);
-							}
-							for (int i=0;i<table_byte_pos;i++) emit_bytecode(table_byte[i]);
-						}
-						else
-						{
-							emit_bytecode(CFGB_ARRAY_SAME);
+							emit_bytecode(CFGB_ARRAY);
 							emit_bytecode(arraylen);
 							emit_bytecode(maxdynamiclen);
 							emit_bytecode(arrayshowtop);
 						}
+						if (shuffled)
+						{
+							emit_bytecode(CFGB_ARRAY_SHUFFLED);
+							emit_bytecode(arraylen);
+							emit_bytecode(maxdynamiclen);
+							emit_bytecode(arrayshowtop);
+							for (int i=0;i<table_num_pos;i++) emit_bytecode(table_num[i]);
+						}
+						for (int i=0;i<table_byte_pos;i++) emit_bytecode(table_byte[i]);
+					}
+					else
+					{
+						emit_bytecode(CFGB_ARRAY_SAME);
+						emit_bytecode(arraylen);
+						emit_bytecode(maxdynamiclen);
+						emit_bytecode(arrayshowtop);
 					}
 				}
 				else if (*varend=='=')
@@ -748,26 +754,28 @@ void compileconfig(FILE * out)
 		
 		emit_bytecode(CFGB_END);
 		
-		if (pass==p_bytecode)
+		if (bytecodepos > 32768) error("Resize this buffer.");
+		emit_to(p_bytecode, "#ifdef CONFIG_BYTECODE\n");
+		emit_to(p_bytecode, "#define CONFIG_BYTECODE_LEN %i\n", bytecodepos);
+		size_t complen;
+		unsigned char * comp=compress(bytecode, bytecodepos, &complen);
+		for (int i=0;i<complen;i++)
 		{
-			if (bytecodepos > 32768) error("Resize this buffer.");
-			fprintf(out, "#ifdef CONFIG_BYTECODE\n");
-			fprintf(out, "#define CONFIG_BYTECODE_LEN %i\n", bytecodepos);
-			size_t complen;
-			unsigned char * comp=compress(bytecode, bytecodepos, &complen);
-			for (int i=0;i<complen;i++)
-			{
-				fprintf(out, "0x%.2X,", comp[i]);
-				if (i%16 == 15) fprintf(out, "\n");
-			}
-			fprintf(out, "\n");
+			emit_to(p_bytecode, "0x%.2X,", comp[i]);
+			if (i%16 == 15) emit_to(p_bytecode, "\n");
 		}
+		emit_to(p_bytecode, "\n");
 		
-		if (pass>=p_header_override_bool)
-		{
-			fprintf(out, "#endif\n\n");
-		}
+		emit_header_override_bool("#endif\n\n");
+		emit_header_input_enum("#endif\n\n");
+		emit_clear_defaults("#endif\n\n");
+		emit_to(p_bytecode, "#endif\n\n");
+	
+	for (unsigned int i=0;i<p_last;i++)
+	{
+		fwrite(outputs[i].ptr, 1,outputs[i].len, output);
 	}
+	
 	fclose(in);
 }
 
