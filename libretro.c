@@ -263,7 +263,7 @@ this->nummemdesc=2;
 #endif
 }
 
-static bool load_rom(struct libretro * this_, const char * filename)
+static bool load_rom(struct libretro * this_, const char * data, size_t datalen, const char * filename)
 {
 	struct libretro_impl * this=(struct libretro_impl*)this_;
 	
@@ -296,7 +296,8 @@ add_snes_mmap(this);
 	return ret;
 }
 
-static bool load_rom_mem(struct libretro * this_, const char * data, size_t datalen, const char * path)
+/*
+static bool load_rom_mem(struct libretro * this_, const char * path)
 {
 	struct libretro_impl * this=(struct libretro_impl*)this_;
 	
@@ -321,6 +322,7 @@ bool ret=this->raw.load_game(&game);
 add_snes_mmap(this);
 return ret;
 }
+*/
 
 static bool load_rom_mem_supported(struct libretro * this_)
 {
@@ -784,7 +786,7 @@ struct libretro libretro_iface = {
 	name, supported_extensions, supports_extension,
 	void_false,//supports_no_game
 	attach_interfaces,
-	load_rom, load_rom_mem, load_rom_mem_supported,
+	load_rom, load_rom_mem_supported,
 	get_video_settings, get_sample_rate,
 	get_core_options_changed, get_core_options, set_core_option, get_core_option,
 	get_memory, get_memory_info, reset,

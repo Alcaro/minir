@@ -523,9 +523,9 @@ struct libretro {
 	//It is safe to attach new interfaces if the previous ones are destroyed.
 	void (*attach_interfaces)(struct libretro * this, struct video * v, struct audio * a, struct libretroinput * i);
 	
-	//filename can be NULL if supports_no_game returns true, or if you're using load_rom_mem.
-	bool (*load_rom)(struct libretro * this, const char * filename);
-	bool (*load_rom_mem)(struct libretro * this, const char * data, size_t datalen, const char * filename);
+	//data/datalen or filename can be NULL, but not both unless supports_no_game is true. It is allowed for both to be non-NULL.
+	//If load_rom_mem_supported is false, filename must be non-NULL, and data/datalen are unlikely to be used.
+	bool (*load_rom)(struct libretro * this, const char * data, size_t datalen, const char * filename);
 	bool (*load_rom_mem_supported)(struct libretro * this);
 	
 	//The following are only valid after a game is loaded.

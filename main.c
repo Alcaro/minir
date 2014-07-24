@@ -483,7 +483,7 @@ bool load_rom(const char * rom)
 		free(newcores);
 	}
 	unload_rom();
-	if (!core->load_rom(core, rom))
+	if (!core->load_rom(core, NULL, 0, rom))
 	{
 		if (wndw) wndw->set_title(wndw, "minir");
 		//MBOX: "Couldn't load %s with %s", romloaded, core->name(core)
@@ -510,7 +510,7 @@ bool load_rom(const char * rom)
 
 bool load_core_as_rom(const char * rom)
 {
-	if (!load_core(rom, false) || !core->load_rom(core, NULL))
+	if (!load_core(rom, false) || !core->load_rom(core, NULL, 0, NULL))
 	{
 		wndw->set_title(wndw, "minir");
 		return false;
@@ -534,7 +534,7 @@ void load_rom_finish()
 	size_t sramsize;
 	void* sramptr;
 	core->get_memory(core, libretromem_sram, &sramsize, &sramptr);
-	file_read_to(sram_path(), sramptr, sramsize);
+	if (sramsize) file_read_to(sram_path(), sramptr, sramsize);
 	
 	if (config.savestate_auto)
 	{
