@@ -86,12 +86,12 @@ struct {
 	
 	int frame;
 	
-	uint16_t test3a[28][3];
+	uint16_t test3a[28*3];
 } state;
 
 uint16_t inpstate[2];
 bool sound_enable;
-pixel_t pixels[240][320];
+pixel_t pixels[240*320];
 
 void renderchr(int chr, int x, int y);
 void renderstr(const char * str, int x, int y);
@@ -103,18 +103,18 @@ void test1a()
 {
 	for (int x=0;x<320;x++)
 	{
-		if ((x+state.frame)%40 > 20) pixels[0][x]=p_blk;
-		else pixels[0][x]=p_wht;
+		if ((x+state.frame)%40 > 20) pixels[x]=p_blk;
+		else pixels[x]=p_wht;
 	}
-	for (int y=1;y<240;y++) memcpy(pixels[y], pixels[0], sizeof(*pixels));
+	for (int y=1;y<240;y++) memcpy(pixels+(320*y), pixels+0, sizeof(*pixels)*320);
 }
 
 void test1b()
 {
 	for (int p=0;p<320*240;p++)
 	{
-		if ((y+state.frame)%30 > 15) pixels[0][p]=p_blk|p_x;
-		else pixels[0][p]=p_wht|p_x;
+		if ((p+state.frame)%30 > 15) pixels[p]=p_blk|p_x;
+		else pixels[p]=p_wht|p_x;
 	}
 }
 
@@ -129,8 +129,8 @@ void test1d()
 	for (int y=0;y<240;y++)
 	for (int x=0;x<320;x++)
 	{
-		if ((y^x) & 1) pixels[y][x]=p_wht;
-		else pixels[y][x]=p_blk;
+		if ((y^x) & 1) pixels[y*320+x]=p_wht;
+		else pixels[y*320+x]=p_blk;
 	}
 }
 
@@ -139,13 +139,13 @@ void test1e()
 	memset(pixels, 0xFF, sizeof(pixels));
 	for (int x=0;x<320;x++)
 	{
-		pixels[  0][x]=((x&1)?p_red:p_yel);
-		pixels[239][x]=((x&1)?p_yel:p_red);
+		pixels[         x]=((x&1)?p_red:p_yel);
+		pixels[239*320+x]=((x&1)?p_yel:p_red);
 	}
 	for (int y=0;y<240;y++)
 	{
-		pixels[y][  0]=((y&1)?p_red:p_yel);
-		pixels[y][319]=((y&1)?p_yel:p_red);
+		pixels[y*320+  0]=((y&1)?p_red:p_yel);
+		pixels[y*320+319]=((y&1)?p_yel:p_red);
 	}
 }
 
@@ -155,13 +155,13 @@ void test2a()
 	if (state.frame%240 >= 120)
 	{
 		memset(pixels, 0x00, sizeof(pixels));
-		memset(pixels[(state.frame%120)*2], 0xFF, sizeof(*pixels)*2);
+		memset(pixels+(320*(state.frame%120)*2), 0xFF, sizeof(*pixels)*2);
 		sound_enable=true;
 	}
 	else
 	{
 		memset(pixels, 0xFF, sizeof(pixels));
-		memset(pixels[(state.frame%120)*2], 0x00, sizeof(*pixels)*2);
+		memset(pixels+(320*(state.frame%120)*2), 0x00, sizeof(*pixels)*2);
 		sound_enable=false;
 	}
 }
@@ -183,26 +183,26 @@ void test2b()
 
 void test3a()
 {
-	if (inpstate[0]!=state.test3a[27][1] || inpstate[1]!=state.test3a[27][2])
+	if (inpstate[0]!=state.test3a[27*3+1] || inpstate[1]!=state.test3a[27*3+2])
 	{
 		for (int i=0;i<27*3;i++)
 		{
-			state.test3a[0][i]=state.test3a[0][i+3];
+			state.test3a[0*3+i]=state.test3a[0*3+i+3];
 		}
-		state.test3a[27][0]=state.frame;
-		state.test3a[27][1]=inpstate[0];
-		state.test3a[27][2]=inpstate[1];
+		state.test3a[27*3+0]=state.frame;
+		state.test3a[27*3+1]=inpstate[0];
+		state.test3a[27*3+2]=inpstate[1];
 	}
 	
 	uint16_t color=(~crc32_calc((void*)state.test3a, 6*28, ~0U))&p_dark;
-	for (int i=0;i<320*240;i++) pixels[0][i]=color;
+	for (int i=0;i<320*240;i++) pixels[i]=color;
 	
 	for (int i=0;i<28;i++)
 	{
-		if (state.test3a[i][0])
+		if (state.test3a[i*3+0])
 		{
 			char line[17];
-			sprintf(line, "%i: %.4X %.4X", state.test3a[i][0], state.test3a[i][1], state.test3a[i][2]);
+			sprintf(line, "%i: %.4X %.4X", state.test3a[i*3+0], state.test3a[i*3+1], state.test3a[i*3+2]);
 			renderstr(line, 8, 8+i*8);
 		}
 	}
@@ -387,7 +387,7 @@ EXPORT bool retro_load_game(const struct retro_game_info *game)
 EXPORT bool retro_load_game_special(unsigned game_type, const struct retro_game_info *info, size_t num_info) { return false; }
 EXPORT void retro_unload_game(void) {}
 EXPORT unsigned retro_get_region(void) { return RETRO_REGION_NTSC; }
-EXPORT void *retro_get_memory_data(unsigned id) { return NULL; }
+EXPORT void *retro_get_memory_data(unsigned id) { printf("MEMREQ %u\n", id); return NULL; }
 EXPORT size_t retro_get_memory_size(unsigned id) { return 0; }
 
 
@@ -446,7 +446,7 @@ void renderchr(int chr, int x, int y)
 	{
 		if ((zfont[convtable[chr]*5 + iy]>>ix)&1)
 		{
-			pixels[y+iy][x+(ix^7)]=p_wht;
+			pixels[(y+iy)*320 + x+(ix^7)]=p_wht;
 		}
 	}
 }
