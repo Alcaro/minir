@@ -322,34 +322,6 @@ return ret;
 	else return false;
 }
 
-/*
-static bool load_rom_mem(struct libretro * this_, const char * path)
-{
-	struct libretro_impl * this=(struct libretro_impl*)this_;
-	
-	g_this=this;
-	
-	initialize(this);
-	
-	free(this->rompath);
-	this->rompath=NULL;
-	
-	free(this->memdesc);
-	this->memdesc=NULL;
-	this->nummemdesc=0;
-	
-	struct retro_game_info game;
-	game.path=path;
-	game.data=data;
-	game.size=datalen;
-	game.meta=NULL;
-	//return this->raw.load_game(&game);
-bool ret=this->raw.load_game(&game);
-add_snes_mmap(this);
-return ret;
-}
-*/
-
 static bool load_rom_mem_supported(struct libretro * this_)
 {
 	struct libretro_impl * this=(struct libretro_impl*)this_;
