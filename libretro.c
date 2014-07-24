@@ -269,31 +269,57 @@ static bool load_rom(struct libretro * this_, const char * data, size_t datalen,
 	
 	g_this=this;
 	
-	initialize(this);
-	
 	free(this->rompath);
-	if (filename) this->rompath=strdup(filename);
-	else this->rompath=NULL;
+	this->rompath=NULL;
 	
 	free(this->memdesc);
 	this->memdesc=NULL;
 	this->nummemdesc=0;
 	
-	if (!filename && this->i.supports_no_game((struct libretro*)this))
+	initialize(this);
+	
+	bool gameless=this->i.supports_no_game((struct libretro*)this);
+this->i.load_rom_mem_supported((struct libretro*)this)
+	
+	if (filename)
 	{
+		this->rompath=strdup(filename);
+		
+		struct retro_game_info game;
+		game.path=filename;
+		game.data=NULL;
+		game.size=0;
+		game.meta=NULL;
+		if (data)
+		{
+			game.data=data;
+			game.size=datalen;
+		}
+		else file_read(filename, (char**)&game.data, &game.size);
+		bool ret=this->raw.load_game(&game);
+		free((char*)game.data);
+add_snes_mmap(this);
+		return ret;
+	}
+	else if (data)
+	{
+		this->rompath=NULL;
+		
+		struct retro_game_info game;
+		game.path=NULL;
+		game.data=data;
+		game.size=datalen;
+		game.meta=NULL;
+bool ret=this->raw.load_game(&game);
+add_snes_mmap(this);
+return ret;
+	}
+	else if (gameless)
+	{
+		this->rompath=strdup(this->libpath);
 		return this->raw.load_game(NULL);
 	}
-	
-	struct retro_game_info game;
-	game.path=filename;
-	game.data=NULL;
-	game.size=0;
-	game.meta=NULL;
-	if (!file_read(filename, (char**)&game.data, &game.size)) return false;
-	bool ret=this->raw.load_game(&game);
-	free((char*)game.data);
-add_snes_mmap(this);
-	return ret;
+	else return false;
 }
 
 /*
