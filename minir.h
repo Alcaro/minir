@@ -671,9 +671,8 @@ struct configdata {
 #include "obj/generated.c"
 #undef CONFIG_HEADER
 	
+	//these are at the end for packing reasons
 	unsigned char verbosity;//not an enum configverbosity because sizeof(enum) isn't guaranteed to be 1.
-	
-	//this is at the end for packing reasons
 	bool _autoload;
 };
 
