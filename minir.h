@@ -697,12 +697,14 @@ struct minirconfig {
 	//This one loads config for the given core and game.
 	//NULL is valid for either or both of them. It is not an error if a given entry doesn't exist; it will be created.
 	//If the given game demands a specific core, the given core will be ignored. The game will always be honored unless it's NULL.
+	//The caller gets ownership of everything in 'config'. When you're done, use data_free().
 	void (*data_load)(struct minirconfig * this, struct configdata * config,
 	                  bool free_old, const char * corepath, const char * gamepath);
 	//To change anything permanently, free() the old value if needed and hand in the new one.
 	//NULL is treated identically to an empty item.
 	//If anything is written to 'support' and no core has an entry for that in 'primary', it will be created.
 	//If anything is written to 'primary', it will be deleted from the entries for all other cores.
+	//Nothing is freed; the caller is responsible for cleaning out the structure.
 	void (*data_save)(struct minirconfig * this, struct configdata * config);
 	//Frees all pointers in 'config' and sets them to NULL. 'config' itself is not freed.
 	void (*data_free)(struct minirconfig * this, struct configdata * config);

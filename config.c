@@ -451,7 +451,7 @@ void config_delete_core(const char * core)
 	size_t id=find_core(core);
 	if (id==bycore.num) return;
 	
-	if (bycore.this==id) config_load(NULL, g_config.gamename);
+	//if (bycore.this==id) config_load(NULL, g_config.gamename);
 	if (bycore.this>id) bycore.this--;
 	
 	memmove(&bycore.config[id], &bycore.config[id+1], sizeof(*bycore.config)*(bycore.num-id));
@@ -463,7 +463,7 @@ void config_delete_game(const char * game)
 	size_t id=find_core(game);
 	if (id==bygame.num) return;
 	
-	if (bygame.this==id) config_load(g_config.corename, NULL);
+	//if (bygame.this==id) config_load(g_config.corename, NULL);
 	if (bygame.this>id) bygame.this--;
 	
 	memmove(&bygame.config[id], &bygame.config[id+1], sizeof(*bygame.config)*(bygame.num-id));
@@ -507,12 +507,15 @@ struct configcorelist * config_get_core_for(const char * gamepath, unsigned int 
 		for (int i=1;i<bycore.num;i++)
 		{
 			bool thisprimary=false;
-			for (int j=0;bycore.config[i].support[j];j++)
+			for (int j=0;bycore.config[i].primary[j];j++)
 			{
-				if (bycore.config[i].primary[j] && !strcmp(extension, bycore.config[i].primary[j]))
+				if (!strcmp(extension, bycore.config[i].primary[j]))
 				{
 					thisprimary=true;
 				}
+			}
+			for (int j=0;bycore.config[i].support[j];j++)
+			{
 				if (!strcmp(extension, bycore.config[i].support[j]))
 				{
 					if (thisprimary && numret!=0)
@@ -1373,30 +1376,65 @@ static void data_load(struct minirconfig * this_, struct configdata * config,
 	for (unsigned int i=0;i<count(config->_strings);i++) config->_strings[i]=strdup_s(config->_strings[i]);
 	
 	unsigned int i;
+	//this loop also calculates the buffer size
 	for (i=0;g_config.support[i];i++) {}
-	i++;
+ //printf("%i: %p->",i,g_config.support[i]),
+//g_config.support[i]=strdup(g_config.support[i]),
+//printf("%p [%p]\n",g_config.support[i],g_config.support);
+	i++;//for the NULL
 	config->support=malloc(sizeof(char*)*i);
-	memcpy(config->support, g_config.support, sizeof(char*)*i);
+	for (i=0;g_config.support[i];i++) config->support[i]=strdup(g_config.support[i]);
+	config->support[i]=NULL;
+	//memcpy(config->support, g_config.support, sizeof(char*)*i);
 	
-	for (i=0;g_config.primary[i];i++) {}
+	for (i=0;g_config.primary[i];i++) {}//g_config.primary[i]=strdup(g_config.primary[i]);
 	i++;
 	config->primary=malloc(sizeof(char*)*i);
 	memcpy(config->primary, g_config.primary, sizeof(char*)*i);
+	for (i=0;g_config.primary[i];i++) config->primary[i]=strdup(g_config.primary[i]);
+	config->primary[i]=NULL;
 	
-printf("c1=%s c2=%s c3=%s\n",corepath,g_config._corepath,config->_corepath);
+	if (config->_corepath) config->_corepath=strdup(config->_corepath);
+	if (config->_gamepath) config->_gamepath=strdup(config->_gamepath);
+	
+	//delete_conf(&g_config);
 	memset(&g_config, 0, sizeof(*config));
 }
 
 static void set_support(struct minirconfig_impl * this, unsigned int id, char * * support_in, char * * primary_in)
 {
-	for (unsigned int i=0;bycore.config[id].support[i];i++) free(bycore.config[id].support[i]);
-	for (unsigned int i=0;bycore.config[id].primary[i];i++) free(bycore.config[id].primary[i]);
-	free(bycore.config[id].support);
-	free(bycore.config[id].primary);
+	//check if the support list is unchanged (it should be unless this core is fresh)
+	if (support_in)
+	{
+		for (unsigned int i=0;true;i++)
+		{
+			if (!bycore.config[id].support[i] && !support_in[i])
+			{
+				support_in=NULL;
+				break;
+			}
+printf("%i %p/%p [%p]\n",i,bycore.config[id].support[i], support_in[i],bycore.config[id].support);
+			if (!bycore.config[id].support[i] || !support_in[i] || strcmp(bycore.config[id].support[i], support_in[i])) break;
+		}
+	}
+	//same for primary
+	if (primary_in)
+	{
+		for (unsigned int i=0;true;i++)
+		{
+			if (!bycore.config[id].primary[i] && !primary_in[i])
+			{
+				primary_in=NULL;
+				break;
+			}
+			if (!bycore.config[id].primary[i] || !primary_in[i] || strcmp(bycore.config[id].primary[i], primary_in[i])) break;
+		}
+	}
 	
-	size_t support_buflen=2;
-	char* * support=malloc(sizeof(char*)*support_buflen);
-	size_t support_count=0;
+	if (!support_in && !primary_in) return;
+	
+	for (unsigned int i=0;bycore.config[id].primary[i];i++) free(bycore.config[id].primary[i]);
+	bycore.config[id].primary[0]=NULL;
 	
 	size_t primary_buflen=2;
 	char* * primary=malloc(sizeof(char*)*primary_buflen);
@@ -1404,6 +1442,13 @@ static void set_support(struct minirconfig_impl * this, unsigned int id, char * 
 	
 	if (support_in)
 	{
+		for (unsigned int i=0;bycore.config[id].support[i];i++) free(bycore.config[id].support[i]);
+		bycore.config[id].support[0]=NULL;
+		
+		size_t support_buflen=2;
+		char* * support=malloc(sizeof(char*)*support_buflen);
+		size_t support_count=0;
+		
 		for (size_t i=0;support_in[i];i++)
 		{
 			//check if it's already known by this core; if it is, discard it
@@ -1412,7 +1457,7 @@ static void set_support(struct minirconfig_impl * this, unsigned int id, char * 
 				if (!strcmp(support[j], support_in[i])) goto nope;
 			}
 			
-			support[support_count]=strdup(support_in[support_count]);
+			support[support_count]=strdup(support_in[i]);
 			support_count++;
 			if (support_count==support_buflen)
 			{
@@ -1438,6 +1483,10 @@ static void set_support(struct minirconfig_impl * this, unsigned int id, char * 
 			}
 		nope: ;
 		}
+		
+		support[support_count]=NULL;
+		free(bycore.config[id].support);
+		bycore.config[id].support=support;
 	}
 	
 	if (primary_in)
@@ -1481,10 +1530,8 @@ static void set_support(struct minirconfig_impl * this, unsigned int id, char * 
 		}
 	}
 	
-	support[support_count]=NULL;
 	primary[primary_count]=NULL;
-	
-	bycore.config[id].support=support;
+	free(bycore.config[id].primary);
 	bycore.config[id].primary=primary;
 	
 	sort_and_clean_core_support(&bycore.config[id]);
@@ -1492,7 +1539,6 @@ static void set_support(struct minirconfig_impl * this, unsigned int id, char * 
 
 static void data_save(struct minirconfig * this_, struct configdata * config)
 {
-printf("store %s,%s\n",config->_corepath,config->_gamepath);
 	struct minirconfig_impl * this=(struct minirconfig_impl*)this_;
 	memcpy(&g_config, config, sizeof(*config));
 	bycore.this=find_or_create_core(config->_corepath);

@@ -361,6 +361,7 @@ void unload_rom()
 
 bool study_core(const char * path, struct libretro * core)
 {
+printf("study=%s\n",path); fflush(stdout);
 	bool freecore=(!core);
 	struct libretro * thiscore = core ? core : libretro_create(path, NULL, NULL);
 	if (!thiscore) return false;
@@ -369,14 +370,15 @@ bool study_core(const char * path, struct libretro * core)
 	configmgr->data_load(configmgr, &coreconfig, false, path, NULL);
 	
 	//ugly tricks ahead...
-	for (unsigned int i=0;coreconfig.support[i];i++) free(coreconfig.support[i]);
+	for (unsigned int i=0;coreconfig.support[i];i++)
+ printf("free%i=%p [%p]\n",i,coreconfig.support[i],coreconfig.support),
+free(coreconfig.support[i]);
+fflush(stdout);
 	free(coreconfig.support);
 	coreconfig.support=(char**)thiscore->supported_extensions(thiscore, NULL);
 	
 	free(coreconfig.corename); coreconfig.corename=strdup(thiscore->name(thiscore));
 	
-printf("study=%s\n",path);
-if(coreconfig.support)printf("sup=%s\n",coreconfig.support[0]);
 	configmgr->data_save(configmgr, &coreconfig);
 	coreconfig.support=NULL;
 	configmgr->data_free(configmgr, &coreconfig);
