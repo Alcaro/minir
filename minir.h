@@ -700,12 +700,6 @@ struct minirconfig {
 	//Removes all data for a core or game.
 	void (*data_destroy)(struct minirconfig * this, const char * item);
 	
-//void config_create_core(const char * core, bool override_existing, const char * name, const char * const * supported_extensions);
-//void config_create_game(const char * game, bool override_existing, const char * name);
-//void config_set_primary_core(const char * core, const char * extension);
-//void config_delete_core(const char * core);
-//void config_delete_game(const char * game);
-	
 	//This one writes the configuration back to disk, if changed.
 	void (*write)(struct minirconfig * this, const char * path);
 	
