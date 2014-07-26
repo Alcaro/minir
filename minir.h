@@ -656,9 +656,9 @@ struct configdata {
 	char * gamename;
 	char * _gamepath;
 	
-	UNION_BEGIN
+	//UNION_BEGIN
 	//cores
-	STRUCT_BEGIN
+	//STRUCT_BEGIN
 		char* * support;
 		char* * primary;
 	//STRUCT_END
@@ -666,8 +666,8 @@ struct configdata {
 	//games
 	//STRUCT_BEGIN
 		char * _forcecore;
-	STRUCT_END
-	UNION_END
+	//STRUCT_END
+	//UNION_END
 	
 #define CONFIG_HEADER
 #include "obj/generated.c"

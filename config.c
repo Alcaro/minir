@@ -332,6 +332,7 @@ void config_load(const char * corepath, const char * gamepath)
 		bycore.this=find_or_create_core(truecore);
 		free(truecore);
 		g_config.corename=bycore.config[bycore.this].corename;
+		g_config._corepath=bycore.config[bycore.this]._corepath;
 		g_config.support=bycore.config[bycore.this].support;
 		g_config.primary=bycore.config[bycore.this].primary;
 		join_config(&g_config, &bycore.config[bycore.this]);
@@ -352,6 +353,7 @@ void config_load(const char * corepath, const char * gamepath)
 		free(truegame);
 		join_config(&g_config, &bygame.config[bygame.this]);
 		g_config.gamename=bygame.config[bygame.this].gamename;
+		g_config._gamepath=bygame.config[bygame.this]._gamepath;
 	}
 	else g_config.gamename=NULL;
 }
@@ -1227,14 +1229,17 @@ void config_write(unsigned char verbosity, const char * path)
 	{
 		if (outat[-2]!='\n') appendstr("\n");
 		appendstr("[game]\n");
-		if (i==1) appendstr("#You can copypaste global settings to here too,"
-												" and they will override the global or core-specific settings.\n"
-												"#You can also set core=C:/path/to/core_libretro.dll to pick another"
-												" core for that ROM specifically.\n"
+		if (verbosity>=cfgv_default && i==1)
+		{
+			appendstr("#You can copypaste global settings to here too,"
+			          " and they will override the global or core-specific settings.\n"
+			          "#You can also set core=C:/path/to/core_libretro.dll to pick another"
+			          " core for that ROM specifically.\n"
 #ifdef _WIN32
-												"#Use forward slashes.\n"
+			          "#Use forward slashes.\n"
 #endif
-												);
+			          );
+		}
 		if (bygame.config[i].gamename)
 		{
 			appendstr("name="); appendstr(bygame.config[i].gamename); appendlf();
@@ -1364,17 +1369,138 @@ static void data_load(struct minirconfig * this_, struct configdata * config,
 	config_load(corepath, gamepath);
 	memcpy(config, &g_config, sizeof(*config));
 	
-	for (int i=0;i<count(config->inputs);i++) config->inputs[i]=strdup_s(config->inputs[i]);
-	for (int i=0;i<count(config->_strings);i++) config->_strings[i]=strdup_s(config->_strings[i]);
-	g_config.support=NULL;
-	g_config.primary=NULL;
-	delete_conf(&g_config);
+	for (unsigned int i=0;i<count(config->inputs);i++) config->inputs[i]=strdup_s(config->inputs[i]);
+	for (unsigned int i=0;i<count(config->_strings);i++) config->_strings[i]=strdup_s(config->_strings[i]);
+	
+	unsigned int i;
+	for (i=0;g_config.support[i];i++) {}
+	i++;
+	config->support=malloc(sizeof(char*)*i);
+	memcpy(config->support, g_config.support, sizeof(char*)*i);
+	
+	for (i=0;g_config.primary[i];i++) {}
+	i++;
+	config->primary=malloc(sizeof(char*)*i);
+	memcpy(config->primary, g_config.primary, sizeof(char*)*i);
+	
+printf("c1=%s c2=%s c3=%s\n",corepath,g_config._corepath,config->_corepath);
+	memset(&g_config, 0, sizeof(*config));
+}
+
+static void set_support(struct minirconfig_impl * this, unsigned int id, char * * support_in, char * * primary_in)
+{
+	for (unsigned int i=0;bycore.config[id].support[i];i++) free(bycore.config[id].support[i]);
+	for (unsigned int i=0;bycore.config[id].primary[i];i++) free(bycore.config[id].primary[i]);
+	free(bycore.config[id].support);
+	free(bycore.config[id].primary);
+	
+	size_t support_buflen=2;
+	char* * support=malloc(sizeof(char*)*support_buflen);
+	size_t support_count=0;
+	
+	size_t primary_buflen=2;
+	char* * primary=malloc(sizeof(char*)*primary_buflen);
+	size_t primary_count=0;
+	
+	if (support_in)
+	{
+		for (size_t i=0;support_in[i];i++)
+		{
+			//check if it's already known by this core; if it is, discard it
+			for (size_t j=0;j<support_count;j++)
+			{
+				if (!strcmp(support[j], support_in[i])) goto nope;
+			}
+			
+			support[support_count]=strdup(support_in[support_count]);
+			support_count++;
+			if (support_count==support_buflen)
+			{
+				support_buflen*=2;
+				support=realloc(support, sizeof(char*)*support_buflen);
+			}
+			
+			//check if it's known by other cores; if it is, do not set it as primary
+			for (size_t j=1;j<bycore.num;j++)
+			{
+				for (size_t k=0;bycore.config[j].primary[k];k++)
+				{
+					if (!strcmp(bycore.config[j].primary[k], support_in[i])) goto nope;
+				}
+			}
+			
+			primary[primary_count]=strdup(support_in[i]);
+			primary_count++;
+			if (primary_count==primary_buflen)
+			{
+				primary_buflen*=2;
+				primary=realloc(primary, sizeof(char*)*primary_buflen);
+			}
+		nope: ;
+		}
+	}
+	
+	if (primary_in)
+	{
+		for (size_t i=0;primary_in[i];i++)
+		{
+			//if we're already primary for this one, we don't need to set anything
+			for (size_t j=0;j<primary_count;j++)
+			{
+				if (!strcmp(primary[j], primary_in[i])) goto nope2;
+			}
+			
+			//someone else has claimed this extension as their primary, throw them out
+			
+			for (size_t j=1;j<bycore.num;j++)
+			{
+				for (size_t k=0;bycore.config[j].primary[k];k++)
+				{
+					if (!strcmp(bycore.config[j].primary[k], primary_in[i]))
+					{
+						//found it; let's shift the others
+						while (bycore.config[j].primary[k])
+						{
+							bycore.config[j].primary[k]=bycore.config[j].primary[k+1];
+							k++;
+						}
+						break;
+					}
+				}
+			}
+			
+			primary[primary_count]=strdup(primary_in[i]);
+			primary_count++;
+			if (primary_count==primary_buflen)
+			{
+				primary_buflen*=2;
+				primary=realloc(primary, sizeof(char*)*primary_buflen);
+			}
+			
+		nope2: ;
+		}
+	}
+	
+	support[support_count]=NULL;
+	primary[primary_count]=NULL;
+	
+	bycore.config[id].support=support;
+	bycore.config[id].primary=primary;
+	
+	sort_and_clean_core_support(&bycore.config[id]);
 }
 
 static void data_save(struct minirconfig * this_, struct configdata * config)
 {
+printf("store %s,%s\n",config->_corepath,config->_gamepath);
+	struct minirconfig_impl * this=(struct minirconfig_impl*)this_;
 	memcpy(&g_config, config, sizeof(*config));
+	bycore.this=find_or_create_core(config->_corepath);
+	bygame.this=find_or_create_game(config->_gamepath);
 	split_config(&g_config, global, &bycore.config[bycore.this], &bygame.config[bygame.this]);
+	
+	if (bycore.this) set_support(this, bycore.this, config->support, config->primary);
+	
 	memset(&g_config, 0, sizeof(*config));
 }
 
@@ -1400,12 +1526,8 @@ static void free_(struct minirconfig * this_)
 	free(this);
 }
 
-static bool first=true;
 struct minirconfig * config_create(const char * path)
 {
-	if (!first) return NULL;
-	first=false;
-	
 	struct minirconfig_impl * this=malloc(sizeof(struct minirconfig_impl));
 	this->i.get_autoload=get_autoload;
 	this->i.get_supported_extensions=get_supported_extensions;

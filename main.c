@@ -373,10 +373,10 @@ bool study_core(const char * path, struct libretro * core)
 	free(coreconfig.support);
 	coreconfig.support=(char**)thiscore->supported_extensions(thiscore, NULL);
 	
-printf("%p->",coreconfig.corename);
 	free(coreconfig.corename); coreconfig.corename=strdup(thiscore->name(thiscore));
-printf("%p\n",coreconfig.corename);
 	
+printf("study=%s\n",path);
+if(coreconfig.support)printf("sup=%s\n",coreconfig.support[0]);
 	configmgr->data_save(configmgr, &coreconfig);
 	coreconfig.support=NULL;
 	configmgr->data_free(configmgr, &coreconfig);
