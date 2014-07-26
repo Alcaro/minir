@@ -640,8 +640,14 @@ enum configscope {
 	cfgsc_game
 };
 
+enum configverbosity {
+	cfgv_minimal,
+	cfgv_nocomments,
+	cfgv_default
+};
+
 struct configdata {
-	//Only config.c may use the items starting with underscores.
+	//Only config.c may access the items starting with underscores.
 	char * name;
 	char * _path;
 	
@@ -664,6 +670,8 @@ struct configdata {
 #define CONFIG_HEADER
 #include "obj/generated.c"
 #undef CONFIG_HEADER
+	
+	unsigned char verbosity;//not an enum configverbosity because sizeof(enum) isn't guaranteed to be 1.
 	
 	//this is at the end for packing reasons
 	bool _autoload;

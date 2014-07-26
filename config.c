@@ -3,50 +3,68 @@
 struct minirconfig_impl {
 	struct minirconfig i;
 	
+	struct configdata global;
+	struct configdata * bycore;
+	struct configdata * bygame;
+	
+	const char * autoload;
 };
 
-static const char * get_autoload(struct minirconfig * this)
+static const char * get_autoload(struct minirconfig * this_);
+static const char * * get_supported_extensions(struct minirconfig * this_);
+static struct configcorelist * get_core_for(struct minirconfig * this_, const char * gamepath, unsigned int * count);
+static void data_load(struct minirconfig * this_, struct configdata * config,
+                      bool free_old, const char * corepath, const char * gamepath);
+static void data_save(struct minirconfig * this_, struct configdata * config);
+static void data_free(struct minirconfig * this_, struct configdata * config);
+static void data_destroy(struct minirconfig * this_, const char * item);
+static void write(struct minirconfig * this_, const char * path);
+static void free_(struct minirconfig * this_);
+
+static const char * get_autoload(struct minirconfig * this_)
+{
+	struct minirconfig_impl * this=(struct minirconfig_impl*)this_;
+	return this->autoload;
+}
+
+static const char * * get_supported_extensions(struct minirconfig * this_)
 {
 	return NULL;
 }
 
-static const char * * get_supported_extensions(struct minirconfig * this)
+static struct configcorelist * get_core_for(struct minirconfig * this_, const char * gamepath, unsigned int * count)
 {
 	return NULL;
 }
 
-static struct configcorelist * get_core_for(struct minirconfig * this, const char * gamepath, unsigned int * count)
-{
-	return NULL;
-}
-
-static void data_load(struct minirconfig * this, struct configdata * config,
+static void data_load(struct minirconfig * this_, struct configdata * config,
                       bool free_old, const char * corepath, const char * gamepath)
 {
+	if (free_old) data_free(this_, config);
 	
 }
 
-static void data_save(struct minirconfig * this, struct configdata * config)
+static void data_save(struct minirconfig * this_, struct configdata * config)
 {
 	
 }
 
-static void data_free(struct minirconfig * this, struct configdata * config)
+static void data_free(struct minirconfig * this_, struct configdata * config)
 {
 	
 }
 
-static void data_destroy(struct minirconfig * this, const char * item)
+static void data_destroy(struct minirconfig * this_, const char * item)
 {
 	
 }
 
-static void write(struct minirconfig * this, const char * path)
+static void write(struct minirconfig * this_, const char * path)
 {
 	
 }
 
-static void free_(struct minirconfig * this)
+static void free_(struct minirconfig * this_)
 {
 	
 }
