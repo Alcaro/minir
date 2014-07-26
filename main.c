@@ -367,14 +367,15 @@ bool study_core(const char * path, struct libretro * core)
 	
 	struct configdata coreconfig;
 	configmgr->data_load(configmgr, &coreconfig, false, path, NULL);
-printf("%p->",coreconfig.corename);
-	free(coreconfig.corename); coreconfig.corename=strdup(thiscore->name(thiscore));
-printf("%p\n",coreconfig.corename);
 	
 	//ugly tricks ahead...
 	for (unsigned int i=0;coreconfig.support[i];i++) free(coreconfig.support[i]);
 	free(coreconfig.support);
 	coreconfig.support=(char**)thiscore->supported_extensions(thiscore, NULL);
+	
+printf("%p->",coreconfig.corename);
+	free(coreconfig.corename); coreconfig.corename=strdup(thiscore->name(thiscore));
+printf("%p\n",coreconfig.corename);
 	
 	configmgr->data_save(configmgr, &coreconfig);
 	coreconfig.support=NULL;

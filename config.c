@@ -99,6 +99,10 @@ static size_t find_or_create_core(const char * core)
 	{
 		create_core();
 		bycore.config[i]._corepath=strdup(core);
+		bycore.config[i].support=malloc(sizeof(char*));
+		bycore.config[i].support[0]=NULL;
+		bycore.config[i].primary=malloc(sizeof(char*));
+		bycore.config[i].primary[0]=NULL;
 		return i;
 	}
 	return i;
@@ -144,11 +148,17 @@ static void delete_conf(struct configdata * this)
 {
 	free(this->_corepath);
 	free(this->_gamepath);
-printf("free %p,%p\n",this->corename,this->gamename);
 	free(this->corename);
 	free(this->gamename);
-	for (int i=0;i<count(this->inputs);i++) free(this->inputs[i]);
-	for (int i=0;i<count(this->_strings);i++) free(this->_strings[i]);
+	
+	for (unsigned int i=0;i<count(this->inputs);i++) free(this->inputs[i]);
+	for (unsigned int i=0;i<count(this->_strings);i++) free(this->_strings[i]);
+	
+	if (this->support) for (unsigned int i=0;this->support[i];i++) free(this->support[i]);
+	if (this->primary) for (unsigned int i=0;this->primary[i];i++) free(this->primary[i]);
+	free(this->support);
+	free(this->primary);
+	
 	memset(this, 0, sizeof(*this));
 }
 
@@ -321,12 +331,10 @@ void config_load(const char * corepath, const char * gamepath)
 		char * truecore=window_get_absolute_path(corepath);
 		bycore.this=find_or_create_core(truecore);
 		free(truecore);
-		bycore.config[bycore.this].support=malloc(sizeof(char*));
-		bycore.config[bycore.this].support[0]=NULL;
-		bycore.config[bycore.this].primary=malloc(sizeof(char*));
-		bycore.config[bycore.this].primary[0]=NULL;
-		join_config(&g_config, &bycore.config[bycore.this]);
 		g_config.corename=bycore.config[bycore.this].corename;
+		g_config.support=bycore.config[bycore.this].support;
+		g_config.primary=bycore.config[bycore.this].primary;
+		join_config(&g_config, &bycore.config[bycore.this]);
 	}
 	else
 	{
@@ -790,11 +798,7 @@ void config_read(const char * path)
 	initialize_to_parent(global);
 	
 	char * rawconfig;
-	if (!file_read(path, &rawconfig, NULL))
-	{
-		memcpy(&g_config, global, sizeof(struct configdata));
-		return;
-	}
+	if (!file_read(path, &rawconfig, NULL)) return;
 	
 	originalconfig=strdup(rawconfig);
 	
@@ -993,7 +997,6 @@ void config_read(const char * path)
 		}
 	}
 	
-	memcpy(&g_config, global, sizeof(struct configdata));
 	free(rawconfig);
 }
 
@@ -1363,6 +1366,8 @@ static void data_load(struct minirconfig * this_, struct configdata * config,
 	
 	for (int i=0;i<count(config->inputs);i++) config->inputs[i]=strdup_s(config->inputs[i]);
 	for (int i=0;i<count(config->_strings);i++) config->_strings[i]=strdup_s(config->_strings[i]);
+	g_config.support=NULL;
+	g_config.primary=NULL;
 	delete_conf(&g_config);
 }
 
@@ -1370,6 +1375,7 @@ static void data_save(struct minirconfig * this_, struct configdata * config)
 {
 	memcpy(&g_config, config, sizeof(*config));
 	split_config(&g_config, global, &bycore.config[bycore.this], &bygame.config[bygame.this]);
+	memset(&g_config, 0, sizeof(*config));
 }
 
 static void data_free(struct minirconfig * this_, struct configdata * config)

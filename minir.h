@@ -661,10 +661,10 @@ struct configdata {
 	STRUCT_BEGIN
 		char* * support;
 		char* * primary;
-	STRUCT_END
+	//STRUCT_END
 	
 	//games
-	STRUCT_BEGIN
+	//STRUCT_BEGIN
 		char * _forcecore;
 	STRUCT_END
 	UNION_END
