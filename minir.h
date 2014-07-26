@@ -648,11 +648,13 @@ enum configverbosity {
 
 struct configdata {
 	//Only config.c may access the items starting with underscores.
-	char * name;
-	char * _path;
+	//char * name;
+	//char * _path;
 	
 	char * corename;
+	char * _corepath;
 	char * gamename;
+	char * _gamepath;
 	
 	UNION_BEGIN
 	//cores
@@ -672,7 +674,8 @@ struct configdata {
 #undef CONFIG_HEADER
 	
 	//these are at the end for packing reasons
-	unsigned char verbosity;//not an enum configverbosity because sizeof(enum) isn't guaranteed to be 1.
+	unsigned char verbosity;
+	
 	bool _autoload;
 };
 
@@ -708,7 +711,7 @@ struct minirconfig {
 	void (*data_destroy)(struct minirconfig * this, const char * item);
 	
 	//This one writes the configuration back to disk, if changed.
-	void (*write)(struct minirconfig * this, const char * path);
+	void (*write)(struct minirconfig * this, unsigned char verbosity, const char * path);
 	
 	void (*free)(struct minirconfig * this);
 };

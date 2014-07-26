@@ -225,8 +225,10 @@ void reset_config()
 	//calling this before creating the window is so config.video_scale can get loaded properly, which helps initial placement
 	//and also for savestate_auto, which is also used before creating the window; it could be delayed, but this method is easier.
 	configmgr->data_save(configmgr, &config);
+	
 	if (romloaded==coreloaded) configmgr->data_load(configmgr, &config, true, NULL, romloaded);
 	else configmgr->data_load(configmgr, &config, true, coreloaded, romloaded);
+printf("scale=%i auto=%i wnd=%p\n",config.video_scale,config.auto_locate_cores,wndw);
 	if (!wndw) return;
 	
 	unsigned int videowidth=320;
@@ -365,7 +367,9 @@ bool study_core(const char * path, struct libretro * core)
 	
 	struct configdata coreconfig;
 	configmgr->data_load(configmgr, &coreconfig, false, path, NULL);
-	free(coreconfig.name); coreconfig.name=strdup(thiscore->name(thiscore));
+printf("%p->",coreconfig.corename);
+	free(coreconfig.corename); coreconfig.corename=strdup(thiscore->name(thiscore));
+printf("%p\n",coreconfig.corename);
 	
 	//ugly tricks ahead...
 	for (unsigned int i=0;coreconfig.support[i];i++) free(coreconfig.support[i]);
@@ -515,14 +519,14 @@ bool load_rom(const char * rom)
 	romloaded=strdup(rom);
 	load_rom_finish();
 	
-	if (!config.name)
+	if (!config.gamename)
 	{
 		char * basenamestart=strrchr(romloaded, '/');
 		if (basenamestart) basenamestart++;
 		else basenamestart=romloaded;
 		char * basenameend=strrchr(basenamestart, '.');
 		if (basenameend) *basenameend='\0';
-		config.name=strdup(basenamestart);
+		config.gamename=strdup(basenamestart);
 		if (basenameend) *basenameend='.';
 	}
 	
@@ -540,8 +544,8 @@ bool load_core_as_rom(const char * rom)
 	
 	load_rom_finish();
 	
-	free(config.name);
-	config.name=strdup(core->name(core));
+	free(config.corename);
+	config.corename=strdup(core->name(core));
 	
 	return true;
 }
@@ -730,6 +734,7 @@ void initialize(int argc, char * argv[])
 	strcpy(selfpathend, selfname);
 	strcat(selfpathend, ".cfg");
 	configmgr=config_create(selfpath);
+	configmgr->data_load(configmgr, &config, false, NULL, NULL);
 	
 	if (argc==1)
 	{
@@ -1262,7 +1267,7 @@ void deinit()
 		configmgr->data_save(configmgr, &config);
 		strcpy(selfpathend, selfname);
 		strcat(selfpathend, ".cfg");
-		configmgr->write(configmgr, selfpath);
+		configmgr->write(configmgr, cfgv_minimal, selfpath);
 	}
 	configmgr->free(configmgr);
 	

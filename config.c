@@ -8,11 +8,13 @@
 #define MINIZ_HEADER_FILE_ONLY
 #include "miniz.c"
 
-struct configdata config={};
+struct configdata g_config={};
+struct configdata g_defaults;
 
 #define count(array) (sizeof(array)/sizeof(*(array)))
 
 #define nop(x) (x)
+#define strdup_s(x) ((x) ? strdup(x) : NULL)
 
 static struct configdata * global=NULL;
 
@@ -30,7 +32,7 @@ static const char * autoload=NULL;
 
 static char * originalconfig=NULL;
 
-static void clear_to_defaults(struct configdata * this)
+static void initialize_to_defaults(struct configdata * this)
 {
 	memset(this, 0, sizeof(struct configdata));
 	for (int i=0;i<count(this->_scopes);i++) this->_scopes[i]=cfgsc_default;
@@ -39,7 +41,7 @@ static void clear_to_defaults(struct configdata * this)
 #undef CONFIG_CLEAR_DEFAULTS
 }
 
-static void clear_to_parent(struct configdata * this)
+static void initialize_to_parent(struct configdata * this)
 {
 	memset(this, 0, sizeof(struct configdata));
 	for (int i=0;i<count(this->_scopes);i++) this->_scopes[i]=cfgsc_default;
@@ -57,8 +59,8 @@ static void join_config(struct configdata * parent, struct configdata * child)
 				parent->groupname[i]=child->groupname[i]; \
 			} \
 		}
-	JOIN(inputs,_scopes_input,free,strdup);
-	JOIN(_strings,_scopes_str,free,strdup);
+	JOIN(inputs,_scopes_input,free,strdup_s);
+	JOIN(_strings,_scopes_str,free,strdup_s);
 	JOIN(_ints,_scopes_int,nop,nop);
 	JOIN(_uints,_scopes_uint,nop,nop);
 	JOIN(_enums,_scopes_enum,nop,nop);
@@ -73,7 +75,7 @@ static size_t create_core()
 		bycore.buflen*=2;
 		bycore.config=realloc(bycore.config, bycore.buflen*sizeof(struct configdata));
 	}
-	clear_to_parent(&bycore.config[bycore.num]);
+	initialize_to_parent(&bycore.config[bycore.num]);
 	bycore.num++;
 	return bycore.num-1;
 }
@@ -83,7 +85,7 @@ static size_t find_core(const char * core)
 	size_t i;
 	for (i=1;i<bycore.num;i++)
 	{
-		if (!strcmp(core, bycore.config[i]._path)) break;
+		if (!strcmp(core, bycore.config[i]._corepath)) break;
 	}
 	return i;
 }
@@ -96,7 +98,7 @@ static size_t find_or_create_core(const char * core)
 	if (i==bycore.num)
 	{
 		create_core();
-		bycore.config[i]._path=strdup(core);
+		bycore.config[i]._corepath=strdup(core);
 		return i;
 	}
 	return i;
@@ -109,7 +111,7 @@ static size_t create_game()
 		bygame.buflen*=2;
 		bygame.config=realloc(bygame.config, bygame.buflen*sizeof(struct configdata));
 	}
-	clear_to_parent(&bygame.config[bygame.num]);
+	initialize_to_parent(&bygame.config[bygame.num]);
 	bygame.num++;
 	return bygame.num-1;
 }
@@ -119,7 +121,7 @@ static size_t find_game(const char * game)
 	size_t i;
 	for (i=1;i<bygame.num;i++)
 	{
-		if (!strcmp(game, bygame.config[i]._path)) break;
+		if (!strcmp(game, bygame.config[i]._gamepath)) break;
 	}
 	return i;
 }
@@ -132,7 +134,7 @@ static size_t find_or_create_game(const char * game)
 	if (i==bygame.num)
 	{
 		create_game();
-		bygame.config[i]._path=strdup(game);
+		bygame.config[i]._gamepath=strdup(game);
 		return i;
 	}
 	return i;
@@ -140,10 +142,14 @@ static size_t find_or_create_game(const char * game)
 
 static void delete_conf(struct configdata * this)
 {
-	free(this->_path);
-	free(this->name);
+	free(this->_corepath);
+	free(this->_gamepath);
+printf("free %p,%p\n",this->corename,this->gamename);
+	free(this->corename);
+	free(this->gamename);
 	for (int i=0;i<count(this->inputs);i++) free(this->inputs[i]);
 	for (int i=0;i<count(this->_strings);i++) free(this->_strings[i]);
+	memset(this, 0, sizeof(*this));
 }
 
 
@@ -297,8 +303,8 @@ static void split_config(struct configdata * public, struct configdata * global,
 				global->groupname[i]=clone(public->groupname[i]); \
 			} \
 		}
-	SPLIT(inputs,_scopes_input,free,strdup);
-	SPLIT(_strings,_scopes_str,free,strdup);
+	SPLIT(inputs,_scopes_input,free,strdup_s);
+	SPLIT(_strings,_scopes_str,free,strdup_s);
 	SPLIT(_ints,_scopes_int,nop,nop);
 	SPLIT(_uints,_scopes_uint,nop,nop);
 	SPLIT(_enums,_scopes_enum,nop,nop);
@@ -308,29 +314,38 @@ static void split_config(struct configdata * public, struct configdata * global,
 
 void config_load(const char * corepath, const char * gamepath)
 {
-	split_config(&config, global, &bycore.config[bycore.this], &bygame.config[bygame.this]);
-	
-	join_config(&config, global);
+	join_config(&g_config, global);
 	
 	if (corepath)
 	{
 		char * truecore=window_get_absolute_path(corepath);
 		bycore.this=find_or_create_core(truecore);
 		free(truecore);
-		join_config(&config, &bycore.config[bycore.this]);
-		config.corename=bycore.config[bycore.this].name;
+		bycore.config[bycore.this].support=malloc(sizeof(char*));
+		bycore.config[bycore.this].support[0]=NULL;
+		bycore.config[bycore.this].primary=malloc(sizeof(char*));
+		bycore.config[bycore.this].primary[0]=NULL;
+		join_config(&g_config, &bycore.config[bycore.this]);
+		g_config.corename=bycore.config[bycore.this].corename;
 	}
-	else config.corename=NULL;
+	else
+	{
+		g_config.corename=NULL;
+		g_config.support=malloc(sizeof(char*));
+		g_config.support[0]=NULL;
+		g_config.primary=malloc(sizeof(char*));
+		g_config.primary[0]=NULL;
+	}
 	
 	if (gamepath)
 	{
 		char * truegame=window_get_absolute_path(gamepath);
 		bygame.this=find_or_create_game(truegame);
 		free(truegame);
-		join_config(&config, &bygame.config[bygame.this]);
-		config.gamename=bygame.config[bygame.this].name;
+		join_config(&g_config, &bygame.config[bygame.this]);
+		g_config.gamename=bygame.config[bygame.this].gamename;
 	}
-	else config.gamename=NULL;
+	else g_config.gamename=NULL;
 }
 
 
@@ -341,18 +356,18 @@ void config_create_core(const char * core, bool override_existing, const char * 
 	size_t id=find_or_create_core(truecore);
 	free(truecore);
 	
-	if (override_existing || !bycore.config[id].name)
+	if (override_existing || !bycore.config[id].corename)
 	{
-		free(bycore.config[id].name);
-		bycore.config[id].name=strdup(name);
+		free(bycore.config[id].corename);
+		bycore.config[id].corename=strdup(name);
 	}
 	
 	if (override_existing || !bycore.config[id].support[0])
 	{
 		for (unsigned int i=0;bycore.config[id].support[i];i++) free(bycore.config[id].support[i]);
 		for (unsigned int i=0;bycore.config[id].primary[i];i++) free(bycore.config[id].primary[i]);
-		free(bycore.config[id].support); bycore.config[id].support=NULL;
-		free(bycore.config[id].primary); bycore.config[id].primary=NULL;
+		free(bycore.config[id].support);
+		free(bycore.config[id].primary);
 		
 		size_t support_buflen=2;
 		char* * support=malloc(sizeof(char*)*support_buflen);
@@ -379,7 +394,7 @@ void config_create_core(const char * core, bool override_existing, const char * 
 					support=realloc(support, sizeof(char*)*support_buflen);
 				}
 				
-				for (size_t j=0;j<bycore.num;j++)
+				for (size_t j=1;j<bycore.num;j++)
 				{
 					for (size_t k=0;bycore.config[j].primary[k];k++)
 					{
@@ -414,10 +429,10 @@ void config_create_game(const char * game, bool override_existing, const char * 
 	size_t id=find_or_create_game(truegame);
 	free(truegame);
 	
-	if (override_existing || !bygame.config[id].name)
+	if (override_existing || !bygame.config[id].gamename)
 	{
-		free(bygame.config[id].name);
-		bygame.config[id].name=strdup(name);
+		free(bygame.config[id].gamename);
+		bygame.config[id].gamename=strdup(name);
 	}
 }
 
@@ -426,7 +441,7 @@ void config_delete_core(const char * core)
 	size_t id=find_core(core);
 	if (id==bycore.num) return;
 	
-	if (bycore.this==id) config_load(NULL, config.gamename);
+	if (bycore.this==id) config_load(NULL, g_config.gamename);
 	if (bycore.this>id) bycore.this--;
 	
 	memmove(&bycore.config[id], &bycore.config[id+1], sizeof(*bycore.config)*(bycore.num-id));
@@ -438,7 +453,7 @@ void config_delete_game(const char * game)
 	size_t id=find_core(game);
 	if (id==bygame.num) return;
 	
-	if (bygame.this==id) config_load(config.corename, NULL);
+	if (bygame.this==id) config_load(g_config.corename, NULL);
 	if (bygame.this>id) bygame.this--;
 	
 	memmove(&bygame.config[id], &bygame.config[id+1], sizeof(*bygame.config)*(bygame.num-id));
@@ -458,8 +473,8 @@ struct configcorelist * config_get_core_for(const char * gamepath, unsigned int 
 			if (coreid!=bycore.num)
 			{
 				struct configcorelist * ret=malloc(sizeof(struct configcorelist)*2);
-				ret[0].path=bycore.config[coreid]._path;
-				ret[0].name=bycore.config[coreid].name;
+				ret[0].path=bycore.config[coreid]._corepath;
+				ret[0].name=bycore.config[coreid].corename;
 				ret[1].path=NULL;
 				ret[1].name=NULL;
 				return ret;
@@ -479,7 +494,7 @@ struct configcorelist * config_get_core_for(const char * gamepath, unsigned int 
 	if (extension && !strchr(extension, '/'))
 	{
 		extension++;
-		for (int i=0;i<bycore.num;i++)
+		for (int i=1;i<bycore.num;i++)
 		{
 			bool thisprimary=false;
 			for (int j=0;bycore.config[i].support[j];j++)
@@ -495,13 +510,13 @@ struct configcorelist * config_get_core_for(const char * gamepath, unsigned int 
 						//memmove(ret+1, ret, sizeof(struct configcorelist)*(numret-1));
 						ret[numret].path=ret[0].path;
 						ret[numret].name=ret[0].name;
-						ret[0].path=bycore.config[i]._path;
-						ret[0].name=bycore.config[i].name;
+						ret[0].path=bycore.config[i]._corepath;
+						ret[0].name=bycore.config[i].corename;
 					}
 					else
 					{
-						ret[numret].path=bycore.config[i]._path;
-						ret[numret].name=bycore.config[i].name;
+						ret[numret].path=bycore.config[i]._corepath;
+						ret[numret].name=bycore.config[i].corename;
 					}
 					
 					numret++;
@@ -667,7 +682,8 @@ static void load_var_from_file(const char * name, const char * value, struct con
 			at+=4;
 		}
 		
-		     if (*at==CFGB_INPUT) at+=3;
+		if(0);
+		else if (*at==CFGB_INPUT) at+=3;
 		else if (*at==CFGB_STR) at+=3;
 		else if (*at==CFGB_INT) at+=11;
 		else if (*at==CFGB_UINT) at+=11;
@@ -759,24 +775,24 @@ void config_read(const char * path)
 	bycore.num=1;
 	bycore.buflen=1;
 	bycore.config=malloc(sizeof(struct configdata));
-	clear_to_parent(&bycore.config[0]);
+	initialize_to_parent(&bycore.config[0]);
 	bycore.this=0;
 	
 	bygame.num=1;
 	bygame.buflen=1;
 	bygame.config=malloc(sizeof(struct configdata));
-	clear_to_parent(&bygame.config[0]);
+	initialize_to_parent(&bygame.config[0]);
 	bygame.this=0;
 	
 	struct configdata * thisconf=NULL;
 	
-	if (!global) global=malloc(sizeof(struct configdata));
-	clear_to_defaults(global);
+	global=malloc(sizeof(struct configdata));
+	initialize_to_parent(global);
 	
 	char * rawconfig;
 	if (!file_read(path, &rawconfig, NULL))
 	{
-		memcpy(&config, global, sizeof(struct configdata));
+		memcpy(&g_config, global, sizeof(struct configdata));
 		return;
 	}
 	
@@ -796,12 +812,12 @@ void config_read(const char * path)
 #define finishsection() \
 			if (thisconf) \
 			{ \
-				if (thisscope==cfgsc_core && !thisconf->_path) \
+				if (thisscope==cfgsc_core && !thisconf->_corepath) \
 				{ \
 					delete_conf(thisconf); \
 					bycore.num--; \
 				} \
-				else if (thisscope==cfgsc_game && !thisconf->_path) \
+				else if (thisscope==cfgsc_game && !thisconf->_gamepath) \
 				{ \
 					delete_conf(thisconf); \
 					bygame.num--; \
@@ -811,7 +827,7 @@ void config_read(const char * path)
 					if (thisconf->_autoload) \
 					{ \
 						if (autoload) thisconf->_autoload=false; \
-						else autoload=strdup(thisconf->_path); \
+						else autoload=strdup(thisconf->_gamepath); \
 					} \
 					if (support) \
 					{ \
@@ -883,16 +899,26 @@ void config_read(const char * path)
 			while (isspace(trailing[-1]) && trailing!=thisline) trailing--;
 			*trailing='\0';
 			
-			if ((thisscope==cfgsc_core || thisscope==cfgsc_game) && !strcmp(thisline, "path"))
+			if (thisscope==cfgsc_core && !strcmp(thisline, "path"))
 			{
-				free(thisconf->_path);
-				thisconf->_path=window_get_absolute_path(value);
+				free(thisconf->_corepath);
+				thisconf->_corepath=window_get_absolute_path(value);
+			}
+			if (thisscope==cfgsc_game && !strcmp(thisline, "path"))
+			{
+				free(thisconf->_gamepath);
+				thisconf->_gamepath=window_get_absolute_path(value);
 			}
 			
-			if ((thisscope==cfgsc_core || thisscope==cfgsc_game) && !strcmp(thisline, "name"))
+			if (thisscope==cfgsc_core && !strcmp(thisline, "name"))
 			{
-				free(thisconf->name);
-				thisconf->name=strdup(value);
+				free(thisconf->corename);
+				thisconf->corename=strdup(value);
+			}
+			if (thisscope==cfgsc_game && !strcmp(thisline, "name"))
+			{
+				free(thisconf->gamename);
+				thisconf->gamename=strdup(value);
 			}
 			if (thisscope==cfgsc_core && !strcmp(thisline, "support"))
 			{
@@ -934,19 +960,23 @@ void config_read(const char * path)
 	finishsection();
 	
 	//find support without corresponding primary
-	for (unsigned int i=0;i<bycore.num;i++)
+	for (unsigned int i=1;i<bycore.num;i++)
 	{
 		//unsigned int supportcount;
 		//for (supportcount=0;bycore.config[i].support[supportcount];supportcount++) {}
 		unsigned int primarycount;
-		for (primarycount=0;bycore.config[i].primary[primarycount];primarycount++) {}
+		//if (bycore.config[i].primary)
+		//{
+			for (primarycount=0;bycore.config[i].primary[primarycount];primarycount++) {}
+		//}
+		//else primarycount=0;
 		for (unsigned int j=0;bycore.config[i].support[j];j++)
 		{
 			for (unsigned int l=0;l<primarycount;l++)
 			{
 				if (!strcmp(bycore.config[i].support[j], bycore.config[i].primary[l])) goto foundit;
 			}
-			for (unsigned int k=0;k<bycore.num;k++)
+			for (unsigned int k=1;k<bycore.num;k++)
 			{
 				if (k==i) continue;
 				for (unsigned int l=0;bycore.config[k].primary[l];l++)
@@ -963,7 +993,7 @@ void config_read(const char * path)
 		}
 	}
 	
-	memcpy(&config, global, sizeof(struct configdata));
+	memcpy(&g_config, global, sizeof(struct configdata));
 	free(rawconfig);
 }
 
@@ -1002,7 +1032,7 @@ static void appendlf()
 	appenddat("\n", 1);
 }
 
-static void print_config_file(struct configdata * this, bool comments, unsigned char minscope)
+static void print_config_file(struct configdata * this, unsigned char verbosity, unsigned char minscope)
 {
 	const unsigned char * thisone=config_bytecode;
 	const unsigned char * arrayshuffle=arrayshuffle;//these ones are initialized by ARRAY and ARRAY_SHUFFLED
@@ -1023,7 +1053,7 @@ static void print_config_file(struct configdata * this, bool comments, unsigned 
 		}
 		if (*at==CFGB_COMMENT)
 		{
-			if (comments)
+			if (verbosity>=cfgv_default)
 			{
 				appenddat((char*)at+2, at[1]);
 			}
@@ -1099,21 +1129,21 @@ static void print_config_file(struct configdata * this, bool comments, unsigned 
 			appendstr("=");
 			if (itemtype==CFGB_INPUT)
 			{
-				if (this->_scopes_input[offset])
+				if (this->_scopes_input[offset]>=minscope)
 				{
 					appendstr(this->inputs[offset]?this->inputs[offset]:"");
 				}
 			}
 			if (itemtype==CFGB_STR)
 			{
-				if (this->_scopes_str[offset])
+				if (this->_scopes_str[offset]>=minscope)
 				{
 					appendstr(this->_strings[offset]?this->_strings[offset]:"");
 				}
 			}
 			if (itemtype==CFGB_INT)
 			{
-				if (this->_scopes_int[offset])
+				if (this->_scopes_int[offset]>=minscope)
 				{
 					sprintf(buf, "%i", this->_ints[offset]);
 					appendstr(buf);
@@ -1121,7 +1151,7 @@ static void print_config_file(struct configdata * this, bool comments, unsigned 
 			}
 			if (itemtype==CFGB_UINT)
 			{
-				if (this->_scopes_uint[offset])
+				if (this->_scopes_uint[offset]>=minscope)
 				{
 					sprintf(buf, "%u", this->_uints[offset]);
 					appendstr(buf);
@@ -1129,7 +1159,7 @@ static void print_config_file(struct configdata * this, bool comments, unsigned 
 			}
 			if (itemtype==CFGB_BOOL)
 			{
-				if (this->_scopes_bool[offset])
+				if (this->_scopes_bool[offset]>=minscope)
 				{
 					appendstr(this->_bools[offset]?"true":"false");
 				}
@@ -1141,34 +1171,37 @@ static void print_config_file(struct configdata * this, bool comments, unsigned 
 	}
 }
 
-void config_write(const char * path)
+void config_write(unsigned char verbosity, const char * path)
 {
-	split_config(&config, global, &bycore.config[bycore.this], &bygame.config[bygame.this]);
+	split_config(&g_config, global, &bycore.config[bycore.this], &bygame.config[bygame.this]);
 	
 	outstart=malloc(8192);
 	outat=outstart;
 	outend=outstart+8192;
 	appendstr("[global]\n");
-	print_config_file(global, true, cfgsc_global);
+	print_config_file(global, verbosity, (verbosity==cfgv_default ? cfgsc_default : cfgsc_global));
 	
 	for (unsigned int i=1;i<bycore.num;i++)
 	{
 		if (outat[-2]!='\n') appendlf();
 		appendstr("[core]\n");
-		if (i==1) appendstr("#minir will only set core-specific entries here by default,"
-		                    "but you can copy any setting from [global] if you want to.\n"
-		                    "#You will, of course, still be able to change it from within minir.\n"
-		                    "#However, you can't change whether something is core-specific from within minir.\n"
-		                    "#Anything that starts core-specific stays that way, "
-		                        "even if it's set to the same value as the global one.\n"
-		                    "#Additionally, you can't copy anything originating from here into other sections; "
-		                        "that wouldn't make sense.\n"
-		                    );
-		if (bycore.config[i].name)
+		if (verbosity>=cfgv_default && i==1)
 		{
-			appendstr("name="); appendstr(bycore.config[i].name); appendlf();
+			appendstr("#minir will only set core-specific entries here by default,"
+			          "but you can copy any setting from [global] if you want to.\n"
+			          "#You will, of course, still be able to change it from within minir.\n"
+			          "#However, you can't change whether something is core-specific from within minir.\n"
+			          "#Anything that starts core-specific stays that way, "
+			              "even if it's set to the same value as the global one.\n"
+			          "#Additionally, you can't copy anything originating from here into other sections; "
+			              "that wouldn't make sense.\n"
+			          );
 		}
-		appendstr("path="); appendstr(bycore.config[i]._path); appendlf();
+		if (bycore.config[i].corename)
+		{
+			appendstr("name="); appendstr(bycore.config[i].corename); appendlf();
+		}
+		appendstr("path="); appendstr(bycore.config[i]._corepath); appendlf();
 		for (unsigned int j=0;bycore.config[i].primary[j];j++)
 		{
 			appendstr("primary=");
@@ -1184,7 +1217,7 @@ void config_write(const char * path)
 		
 		//print core options HERE
 		
-		print_config_file(&bycore.config[i], false, cfgsc_core);
+		print_config_file(&bycore.config[i], verbosity, cfgsc_core);
 	}
 	
 	for (unsigned int i=1;i<bygame.num;i++)
@@ -1199,17 +1232,17 @@ void config_write(const char * path)
 												"#Use forward slashes.\n"
 #endif
 												);
-		if (bygame.config[i].name)
+		if (bygame.config[i].gamename)
 		{
-			appendstr("name="); appendstr(bygame.config[i].name); appendlf();
+			appendstr("name="); appendstr(bygame.config[i].gamename); appendlf();
 		}
-		appendstr("path="); appendstr(bygame.config[i]._path); appendlf();
+		appendstr("path="); appendstr(bygame.config[i]._gamepath); appendlf();
 		if (bygame.config[i]._forcecore) { appendstr("core="); appendstr(bygame.config[i]._forcecore); appendlf(); }
 		if (bygame.config[i]._autoload) { appendstr("autoload=true\n"); }
 		
 		//print core options HERE if any
 		
-		print_config_file(&bygame.config[i], false, cfgsc_game);
+		print_config_file(&bygame.config[i], verbosity, cfgsc_game);
 	}
 	
 	if (outat[-2]=='\n') outat--;
@@ -1247,6 +1280,37 @@ void config_write(const char * path)
 
 
 
+
+
+//Reads the config from disk.
+void config_read(const char * path);
+
+//Tells which game to autoload. Can be NULL if none. Don't free it.
+const char * config_get_autoload();
+
+//Returns { "smc", "sfc", NULL } for all possible values. Free it when you're done, but don't free the pointers inside.
+const char * * config_get_supported_extensions();
+
+//Tells which cores support this game. Send it to free() when you're done; however, the pointers
+// inside should not be freed. If a game specifies it should be opened with one specific core, only that is returned.
+//count can be NULL if you don't care. Alternatively, it's terminated with a { NULL, NULL }.
+struct configcorelist * config_get_core_for(const char * gamepath, unsigned int * count);
+
+//Populates struct config with the core- or game-specific options for this. Will memorize all changed config.
+//NULL is valid for either or both of them. It is not an error if a given entry doesn't exist.
+//If the given game demands a specific core, the given core will be ignored. The game will always be honored unless it's NULL.
+void config_load(const char * corepath, const char * gamepath);
+
+bool config_core_supports(const char * core, const char * extension);
+void config_create_core(const char * core, bool override_existing, const char * name, const char * const * supported_extensions);
+void config_create_game(const char * game, bool override_existing, const char * name);
+void config_set_primary_core(const char * core, const char * extension);
+void config_delete_core(const char * core);
+void config_delete_game(const char * game);
+
+//Writes the changes back to the file, if there are any changes.
+void config_write(unsigned char verbosity, const char * path);
+
 struct minirconfig_impl {
 	struct minirconfig i;
 	
@@ -1270,25 +1334,22 @@ static void data_load(struct minirconfig * this_, struct configdata * config,
 static void data_save(struct minirconfig * this_, struct configdata * config);
 static void data_free(struct minirconfig * this_, struct configdata * config);
 static void data_destroy(struct minirconfig * this_, const char * item);
-static void write(struct minirconfig * this_, const char * path);
+static void write(struct minirconfig * this_, unsigned char verbosity, const char * path);
 static void free_(struct minirconfig * this_);
-
-static void load_file(struct minirconfig_impl * this, const char * path);
 
 static const char * get_autoload(struct minirconfig * this_)
 {
-	struct minirconfig_impl * this=(struct minirconfig_impl*)this_;
-	return this->autoload;
+	return config_get_autoload();
 }
 
 static const char * * get_supported_extensions(struct minirconfig * this_)
 {
-	return NULL;
+	return config_get_supported_extensions();
 }
 
 static struct configcorelist * get_core_for(struct minirconfig * this_, const char * gamepath, unsigned int * count)
 {
-	return NULL;
+	return config_get_core_for(gamepath, count);
 }
 
 static void data_load(struct minirconfig * this_, struct configdata * config,
@@ -1296,37 +1357,49 @@ static void data_load(struct minirconfig * this_, struct configdata * config,
 {
 	if (free_old) data_free(this_, config);
 	
+	initialize_to_defaults(&g_config);
+	config_load(corepath, gamepath);
+	memcpy(config, &g_config, sizeof(*config));
+	
+	for (int i=0;i<count(config->inputs);i++) config->inputs[i]=strdup_s(config->inputs[i]);
+	for (int i=0;i<count(config->_strings);i++) config->_strings[i]=strdup_s(config->_strings[i]);
+	delete_conf(&g_config);
 }
 
 static void data_save(struct minirconfig * this_, struct configdata * config)
 {
-	
+	memcpy(&g_config, config, sizeof(*config));
+	split_config(&g_config, global, &bycore.config[bycore.this], &bygame.config[bygame.this]);
 }
 
 static void data_free(struct minirconfig * this_, struct configdata * config)
 {
-	
+	delete_conf(config);
 }
 
 static void data_destroy(struct minirconfig * this_, const char * item)
 {
-	
+	config_delete_core(item);
+	config_delete_game(item);
 }
 
-static void write(struct minirconfig * this_, const char * path)
+static void write(struct minirconfig * this_, unsigned char verbosity, const char * path)
 {
-	
+	config_write(verbosity, path);
 }
 
 static void free_(struct minirconfig * this_)
 {
 	struct minirconfig_impl * this=(struct minirconfig_impl*)this_;
-	free(this->originalconfig);
 	free(this);
 }
 
+static bool first=true;
 struct minirconfig * config_create(const char * path)
 {
+	if (!first) return NULL;
+	first=false;
+	
 	struct minirconfig_impl * this=malloc(sizeof(struct minirconfig_impl));
 	this->i.get_autoload=get_autoload;
 	this->i.get_supported_extensions=get_supported_extensions;
@@ -1338,7 +1411,7 @@ struct minirconfig * config_create(const char * path)
 	this->i.write=write;
 	this->i.free=free_;
 	
-	//load_file(this, path);
+	config_read(path);
 	
 	return (struct minirconfig*)this;
 }
