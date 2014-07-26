@@ -126,9 +126,9 @@ struct inputkb * inputkb_create(const char * backend, uintptr_t windowhandle)
 //Having a no-x is negative; x is positive.
 //no-inputkb - Uses the legacy driver support. Implies various negative properties. Does not affect order, as it is fixable.
 //no-multi - Can not differ between multiple keyboards.
-//fast - Input comes directly from the kernel.
+//no-auto - Polls each frame. Not having this means that window_run() handles polling; the driver's poll function is empty.
+//direct - Input comes directly from the kernel, as opposed to bouncing through various processes. Not applicable on Windows.
 //no-public - Demands escalated privileges to work.
-//no-fast - Polls each frame. Not having this means that window_run() handles polling; the driver's poll function is empty.
 //no-global - Only works while the program is focused.
 //initial - Can tell the state of the devices when the driver is initialized. The opposite is only seeing changes.
 //no-remote - Can only listen to input from the local machine (as opposed to taking input over X11).
@@ -136,23 +136,23 @@ const char * const * inputkb_supported_backends()
 {
 	static const char * backends[]={
 #ifdef INPUT_RAWINPUT
-		"RawInput",//fast
+		"RawInput",//(null)
 #endif
 #ifdef INPUT_UDEV
-		"udev",//fast no-public initial no-remote
-		       //add no-fast if !defined(WINDOW_GTK3)
+		"udev",//direct no-public initial no-remote
+		       //add no-auto if !defined(WINDOW_GTK3)
 #endif
 #ifdef INPUT_GDK
 		"GDK",//no-global
 #endif
 #ifdef INPUT_XINPUT2
-		"XInput2",//no-fast initial no-inputkb
+		"XInput2",//no-auto initial no-inputkb
 #endif
 #ifdef INPUT_X11
-		"X11",//no-multi no-fast initial no-inputkb
+		"X11",//no-multi no-auto initial no-inputkb
 #endif
 #ifdef INPUT_DIRECTINPUT
-		"DirectInput",//no-multi no-fast initial no-inputkb
+		"DirectInput",//no-multi no-auto initial no-inputkb
 #endif
 		"None",
 		NULL

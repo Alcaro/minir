@@ -641,7 +641,7 @@ void compileconfig(FILE * output)
 				if (type!=enumer)
 				{
 					emit_header_this("%s %s;\n", basetype, varname);
-					emit_header_override_this("bool _override_%s;\n", varname);
+					emit_header_override_this("unsigned char %s_scope;\n", varname);
 				}
 				if (type==enumer)
 				{
@@ -651,7 +651,7 @@ void compileconfig(FILE * output)
 						emit_header_enum("%s, ", defaults[i]);
 					}
 					emit_header_enum("} %s;\n", varname);
-					emit_header_override_enum("bool _override_%s;\n", varname);
+					emit_header_override_enum("unsigned char %s_scope;\n", varname);
 					//emit_bytecode("CFGB_ENUM, %i>>8, %i&255, ", numenums, numenums);
 				}
 				
@@ -665,7 +665,7 @@ void compileconfig(FILE * output)
 			else
 			{
 				emit_header_this("%s %s[%u];\n", basetype, varname, arraylen);
-				emit_header_override_this("bool _override_%s[%u];\n", varname, arraylen);
+				emit_header_override_this("unsigned char %s_scope[%u];\n", varname, arraylen);
 				if (type==enumer) error("enum array");
 				
 				emit_clear_defaults_this("for (unsigned int i=0;i<%u;i++)\n{\n", arraylen);
@@ -711,13 +711,13 @@ void compileconfig(FILE * output)
 	emit_header_enum("}; unsigned int _enums[%i]; };\n", numenums);
 	emit_header_bool("}; bool _bools[%i]; };\n", numbools);
 	
-	emit_header_override_input("}; bool _overrides_input[%i]; };\n", numinputs);
-	emit_header_override_str("}; bool _overrides_str[%i]; };\n", numstrs);
-	emit_header_override_uint("}; bool _overrides_uint[%i]; };\n", numuints);
-	emit_header_override_int("}; bool _overrides_int[%i]; };\n", numints);
-	emit_header_override_enum("}; bool _overrides_enum[%i]; };\n", numenums);
-	emit_header_override_bool("}; bool _overrides_bool[%i]; };\n", numbools);
-	emit_header_override_bool("}; bool _overrides[%i]; };\n", numoverrides);
+	emit_header_override_input("}; unsigned char _scopes_input[%i]; };\n", numinputs);
+	emit_header_override_str("}; unsigned char _scopes_str[%i]; };\n", numstrs);
+	emit_header_override_uint("}; unsigned char _scopes_uint[%i]; };\n", numuints);
+	emit_header_override_int("}; unsigned char _scopes_int[%i]; };\n", numints);
+	emit_header_override_enum("}; unsigned char _scopes_enum[%i]; };\n", numenums);
+	emit_header_override_bool("}; unsigned char _scopes_bool[%i]; };\n", numbools);
+	emit_header_override_bool("}; unsigned char _scopes[%i]; };\n", numoverrides);
 	
 	emit_bytecode(CFGB_END);
 	

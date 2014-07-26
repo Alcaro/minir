@@ -129,6 +129,9 @@ uint64_t pause_next_fwd;
 
 bool handle_cli_args(const char * const * filenames, bool coresonly);
 
+struct minirconfig * configmgr;
+struct configdata config;
+
 
 
 bool try_create_interface_video(const char * interface, unsigned int videowidth, unsigned int videoheight,
@@ -221,8 +224,9 @@ void reset_config()
 {
 	//calling this before creating the window is so config.video_scale can get loaded properly, which helps initial placement
 	//and also for savestate_auto, which is also used before creating the window; it could be delayed, but this method is easier.
-	if (romloaded==coreloaded) config_load(NULL, romloaded);
-	else config_load(coreloaded, romloaded);
+	configmgr->data_save(configmgr, &config);
+	if (romloaded==coreloaded) configmgr->data_load(configmgr, &config, true, NULL, romloaded);
+	else configmgr->data_load(configmgr, &config, true, coreloaded, romloaded);
 	if (!wndw) return;
 	
 	unsigned int videowidth=320;
@@ -353,12 +357,26 @@ void unload_rom()
 	if (wndw) wndw->set_title(wndw, "minir");
 }
 
-bool study_core(const char * path)
+bool study_core(const char * path, struct libretro * core)
 {
-	struct libretro * thiscore=libretro_create(path, NULL, NULL);
+	bool freecore=(!core);
+	struct libretro * thiscore = core ? core : libretro_create(path, NULL, NULL);
 	if (!thiscore) return false;
-	config_create_core(path, true, thiscore->name(thiscore), thiscore->supported_extensions(thiscore));
-	thiscore->free(thiscore);
+	
+	struct configdata coreconfig;
+	configmgr->data_load(configmgr, &coreconfig, false, path, NULL);
+	free(coreconfig.name); coreconfig.name=strdup(thiscore->name(thiscore));
+	
+	//ugly tricks ahead...
+	for (unsigned int i=0;coreconfig.support[i];i++) free(coreconfig.support[i]);
+	free(coreconfig.support);
+	coreconfig.support=(char**)thiscore->supported_extensions(thiscore, NULL);
+	
+	configmgr->data_save(configmgr, &coreconfig);
+	coreconfig.support=NULL;
+	configmgr->data_free(configmgr, &coreconfig);
+	
+	if (freecore) thiscore->free(thiscore);
 	return true;
 }
 
@@ -405,7 +423,7 @@ bool load_core(const char * path, bool keep_rom)
 	}
 	coreloaded=strdup(path);
 	
-	config_create_core(path, true, core->name(core), core->supported_extensions(core));//why not
+	study_core(path, core);
 	core->attach_interfaces(core, vid, aud, retroinp);
 	
 	if (kept_rom)
@@ -445,23 +463,23 @@ bool load_rom(const char * rom)
 	if (!core ||
 			(extension && !core->supports_extension(core, extension+1)))
 	{
-		struct minircorelist * newcores;
-		newcores=config_get_core_for(rom, NULL);
+		struct configcorelist * newcores;
+		newcores=configmgr->get_core_for(configmgr, rom, NULL);
 		if (config.auto_locate_cores)
 		{
 			if (!newcores[0].path)
 			{
 				free(newcores);
 				const char * const * cores=libretro_nearby_cores(rom);
-				for (int i=0;cores[i];i++) study_core(cores[i]);
-				newcores=config_get_core_for(rom, NULL);
+				for (int i=0;cores[i];i++) study_core(cores[i], NULL);
+				newcores=configmgr->get_core_for(configmgr, rom, NULL);
 			}
 			if (!newcores[0].path)
 			{
 				free(newcores);
 				const char * const * cores=libretro_default_cores();
-				for (int i=0;cores[i];i++) study_core(cores[i]);
-				newcores=config_get_core_for(rom, NULL);
+				for (int i=0;cores[i];i++) study_core(cores[i], NULL);
+				newcores=configmgr->get_core_for(configmgr, rom, NULL);
 			}
 		}
 		if (!newcores[0].path)
@@ -469,13 +487,13 @@ bool load_rom(const char * rom)
 			//MBOX:No Libretro core found for this file type. Do you wish to look for one?
 			free(newcores);
 			if (!select_cores(rom)) return false;
-			newcores=config_get_core_for(rom, NULL);
+			newcores=configmgr->get_core_for(configmgr, rom, NULL);
 		}
 		if (!newcores[0].path) return false;
 		unload_rom();
 		if (!load_core(newcores[0].path, false))
 		{
-			config_delete_core(newcores[0].path);
+			configmgr->data_destroy(configmgr, newcores[0].path);
 			if (wndw) wndw->set_title(wndw, "minir");
 			//MBOX: "Couldn't load core at %s", newcores[0].path
 			return false;
@@ -495,15 +513,18 @@ bool load_rom(const char * rom)
 	}
 	
 	romloaded=strdup(rom);
-	char * basenamestart=strrchr(romloaded, '/');
-	if (basenamestart) basenamestart++;
-	else basenamestart=romloaded;
-	char * basenameend=strrchr(basenamestart, '.');
-	if (basenameend) *basenameend='\0';
-	config_create_game(rom, false, basenamestart);
-	if (basenameend) *basenameend='.';
-	
 	load_rom_finish();
+	
+	if (!config.name)
+	{
+		char * basenamestart=strrchr(romloaded, '/');
+		if (basenamestart) basenamestart++;
+		else basenamestart=romloaded;
+		char * basenameend=strrchr(basenamestart, '.');
+		if (basenameend) *basenameend='\0';
+		config.name=strdup(basenamestart);
+		if (basenameend) *basenameend='.';
+	}
 	
 	return true;
 }
@@ -517,8 +538,10 @@ bool load_core_as_rom(const char * rom)
 	}
 	romloaded=coreloaded;
 	
-	config_create_game(rom, true, core->name(core));
 	load_rom_finish();
+	
+	free(config.name);
+	config.name=strdup(core->name(core));
 	
 	return true;
 }
@@ -550,13 +573,13 @@ printf("Chosen ROM: %s\n", romloaded);
 
 void select_rom()
 {
-	const char * * extensions=config_get_supported_extensions();
+	const char * * extensions=configmgr->get_supported_extensions(configmgr);
 	if (!*extensions && config.auto_locate_cores)
 	{
 		free(extensions);
 		const char * const * cores=libretro_default_cores();
-		for (int i=0;cores[i];i++) study_core(cores[i]);
-		extensions=config_get_supported_extensions();
+		for (int i=0;cores[i];i++) study_core(cores[i], NULL);
+		extensions=configmgr->get_supported_extensions(configmgr);
 	}
 	const char * const * roms=window_file_picker(wndw, "Select ROM to open", extensions, "All supported ROMs", false, false);
 	free(extensions);
@@ -621,7 +644,7 @@ bool handle_cli_args(const char * const * filenames, bool coresonly)
 				}
 				else
 				{
-					config_create_core(path, true, thiscore->name(thiscore), thiscore->supported_extensions(thiscore));
+					study_core(path, thiscore);
 				}
 				thiscore->free(thiscore);
 				numnewcores++;
@@ -700,15 +723,17 @@ void initialize(int argc, char * argv[])
 {
 	window_init(&argc, &argv);
 	
+	memset(&config, 0, sizeof(config));
+	
 	create_self_path(argv[0]);
 	
 	strcpy(selfpathend, selfname);
 	strcat(selfpathend, ".cfg");
-	config_read(selfpath);
+	configmgr=config_create(selfpath);
 	
 	if (argc==1)
 	{
-		const char * defautoload=config_get_autoload();
+		const char * defautoload=configmgr->get_autoload(configmgr);
 		if (defautoload) load_rom(defautoload);
 	}
 	else handle_cli_args((const char * const *)argv+1, false);
@@ -1234,10 +1259,12 @@ void deinit()
 	
 	if (!config.readonly)
 	{
+		configmgr->data_save(configmgr, &config);
 		strcpy(selfpathend, selfname);
 		strcat(selfpathend, ".cfg");
-		config_write(selfpath);
+		configmgr->write(configmgr, selfpath);
 	}
+	configmgr->free(configmgr);
 	
 	free(state_buf);
 	
@@ -1399,7 +1426,7 @@ void update_coreopt_menu(struct windowmenu * parent, unsigned int pos)
 
 void menu_system_core_any(struct windowmenu * subject, unsigned int state, void* userdata)
 {
-	struct minircorelist * cores_for_this=userdata;
+	struct configcorelist * cores_for_this=userdata;
 	load_core(cores_for_this[state].path, true);
 }
 
@@ -1414,7 +1441,7 @@ struct windowmenu * update_corepicker_menu(struct windowmenu * parent)
 	
 	unsigned int numchildren=0;
 	
-	struct minircorelist * cores_for_this=NULL;
+	struct configcorelist * cores_for_this=NULL;
 	if (romloaded)
 	{
 		unsigned int current_core_id=0;
@@ -1424,14 +1451,14 @@ struct windowmenu * update_corepicker_menu(struct windowmenu * parent)
 	again:
 		free(cores_for_this);
 		unsigned int numcores;
-		cores_for_this=config_get_core_for(romloaded, &numcores);
+		cores_for_this=configmgr->get_core_for(configmgr, romloaded, &numcores);
 		const char * names[numcores];
 		
 		for (int i=0;i<numcores;i++)
 		{
 			if (!cores_for_this[i].name)
 			{
-				if (!study_core(cores_for_this[i].path)) config_delete_core(cores_for_this[i].path);
+				if (!study_core(cores_for_this[i].path, NULL)) configmgr->data_destroy(configmgr, cores_for_this[i].path);
 				if (fixstate==0) fixstate=1;
 			}
 			

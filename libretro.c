@@ -151,7 +151,7 @@ static const char * name(struct libretro * this_)
 	return out;
 }
 
-static char ** convert_extensions(const char * extensions)
+static char ** convert_extensions(const char * extensions, unsigned int * count)
 {
 	size_t datalen=1;
 	size_t numptrs=2;//one for the first, one for the final NULL
@@ -181,17 +181,19 @@ static char ** convert_extensions(const char * extensions)
 	}
 	*str='\0';
 	ptrs[ptrat]=NULL;
+	
+	if (count) *count=ptrat;
 	return ptrs;
 }
 
-static const char * const * supported_extensions(struct libretro * this_)
+static const char * const * supported_extensions(struct libretro * this_, unsigned int * count)
 {
 	struct libretro_impl * this=(struct libretro_impl*)this_;
 	
 	struct retro_system_info info;
 	this->raw.get_system_info(&info);
 	if (!info.valid_extensions) return (const char * const *){NULL};
-	char ** ret=convert_extensions(info.valid_extensions);
+	char ** ret=convert_extensions(info.valid_extensions, count);
 	appendtmpptr(this, ret);
 	return (const char * const *)ret;
 }
@@ -279,7 +281,6 @@ static bool load_rom(struct libretro * this_, const char * data, size_t datalen,
 	initialize(this);
 	
 	bool gameless=this->i.supports_no_game((struct libretro*)this);
-this->i.load_rom_mem_supported((struct libretro*)this)
 	
 	if (filename)
 	{

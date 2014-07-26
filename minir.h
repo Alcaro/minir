@@ -326,6 +326,7 @@ struct inputmapper * inputmapper_create();
 
 //Takes an input descriptor and verifies that it's understandable; if it is, it's normalized into
 // the mapper's favourite format, otherwise you get a NULL.
+//Free it once you're done.
 char * inputmapper_normalize(const char * descriptor);
 
 
@@ -510,7 +511,9 @@ struct libretro {
 	//Input pointers are, unless otherwise specified, not expected valid after the function returns.
 	
 	const char * (*name)(struct libretro * this);
-	const char * const * (*supported_extensions)(struct libretro * this);//Return value format is { "smc", "sfc", NULL }.
+	
+	//Return value format is { "smc", "sfc", NULL }.
+	const char * const * (*supported_extensions)(struct libretro * this, unsigned int * count);
 	
 	//This one is also without the dot.
 	bool (*supports_extension)(struct libretro * this, const char * extension);
@@ -622,29 +625,34 @@ struct libretroinput * libretroinput_create(struct inputmapper * in);
 
 
 
-struct minircorelist {
+struct configcorelist {
 	const char * path;
 	const char * name;
 };
 
-struct minirconfig {
+enum configscope {
+	cfgsc_default,
+	cfgsc_default_globonly,
+	cfgsc_global,
+	cfgsc_global_globonly,
+	cfgsc_core,
+	cfgsc_invalid1,//this would be by-core global-only, which doesn't make sense
+	cfgsc_game
+};
+
+struct configdata {
 	//Only config.c may use the items starting with underscores.
-	char * _name;
+	char * name;
 	char * _path;
 	
-	UNION_BEGIN
-	//global
-	STRUCT_BEGIN
-		char * corename;
-		char * gamename;
-	STRUCT_END
+	char * corename;
+	char * gamename;
 	
+	UNION_BEGIN
 	//cores
 	STRUCT_BEGIN
-		char* * _support;
-		char* * _primary;
-		unsigned int _support_count;
-		unsigned int _primary_count;
+		char* * support;
+		char* * primary;
 	STRUCT_END
 	
 	//games
@@ -668,16 +676,52 @@ enum input {
 input_count
 };
 
+struct minirconfig {
+	//Tells which game to autoload. Can be NULL if none. Don't free it.
+	const char * (*get_autoload)(struct minirconfig * this);
+	//Returns { "smc", "sfc", NULL } for the extensions supported by any core.
+	//Free it when you're done, but don't free the pointers inside.
+	const char * * (*get_supported_extensions)(struct minirconfig * this);
+	struct configcorelist * (*get_core_for)(struct minirconfig * this, const char * gamepath, unsigned int * count);
+	
+	//This one loads config for the given core and game.
+	//NULL is valid for either or both of them. It is not an error if a given entry doesn't exist; it will be created.
+	//If the given game demands a specific core, the given core will be ignored. The game will always be honored unless it's NULL.
+	void (*data_load)(struct minirconfig * this, struct configdata * config,
+	                  bool free_old, const char * corepath, const char * gamepath);
+	//To change anything permanently, free() the old value if needed and hand in the new one.
+	//NULL is treated identically to an empty item.
+	//If anything is written to 'support' and no core has an entry for that in 'primary', it will be created.
+	//If anything is written to 'primary', it will be deleted from the entries for all other cores.
+	void (*data_save)(struct minirconfig * this, struct configdata * config);
+	//Frees all pointers in 'config' and sets them to NULL. 'config' itself is not freed.
+	void (*data_free)(struct minirconfig * this, struct configdata * config);
+	
+	//Removes all data for a core or game.
+	void (*data_destroy)(struct minirconfig * this, const char * item);
+	
+//void config_create_core(const char * core, bool override_existing, const char * name, const char * const * supported_extensions);
+//void config_create_game(const char * game, bool override_existing, const char * name);
+//void config_set_primary_core(const char * core, const char * extension);
+//void config_delete_core(const char * core);
+//void config_delete_game(const char * game);
+	
+	//This one writes the configuration back to disk, if changed.
+	void (*write)(struct minirconfig * this, const char * path);
+	
+	void (*free)(struct minirconfig * this);
+};
+struct minirconfig * config_create(const char * path);
+
+/*
 //See minir.cfg for valid values.
-extern struct minirconfig config;
+extern struct configdata config;
 
 //Reads the config from disk.
 void config_read(const char * path);
 
-//Tells which game to autoload. Can be NULL if none. Don't free it.
 const char * config_get_autoload();
 
-//Returns { "smc", "sfc", NULL } for all possible values. Free it when you're done, but don't free the pointers inside.
 const char * * config_get_supported_extensions();
 
 //Tells which cores support this game. Send it to free() when you're done; however, the pointers
@@ -690,7 +734,6 @@ struct minircorelist * config_get_core_for(const char * gamepath, unsigned int *
 //If the given game demands a specific core, the given core will be ignored. The game will always be honored unless it's NULL.
 void config_load(const char * corepath, const char * gamepath);
 
-bool config_core_supports(const char * core, const char * extension);
 void config_create_core(const char * core, bool override_existing, const char * name, const char * const * supported_extensions);
 void config_create_game(const char * game, bool override_existing, const char * name);
 void config_set_primary_core(const char * core, const char * extension);
@@ -699,6 +742,7 @@ void config_delete_game(const char * game);
 
 //Writes the changes back to the file, if there are any changes.
 void config_write(const char * path);
+*/
 
 
 
