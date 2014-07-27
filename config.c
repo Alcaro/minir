@@ -482,17 +482,21 @@ struct configcorelist * config_get_core_for(const char * gamepath, unsigned int 
 		if (bygame.config[gameid]._forcecore)
 		{
 			size_t coreid=find_core(bygame.config[gameid]._forcecore);
+			//size_t coreid=find_or_create_core(bygame.config[gameid]._forcecore);
 			if (coreid!=bycore.num)
 			{
 				struct configcorelist * ret=malloc(sizeof(struct configcorelist)*2);
-				ret[0].path=bycore.config[coreid]._corepath;
+				ret[0].path=bygame.config[gameid]._forcecore;
 				ret[0].name=bycore.config[coreid].corename;
+printf("core=%s/%s\n",ret[0].path,ret[0].name);
 				ret[1].path=NULL;
 				ret[1].name=NULL;
+				if (count) *count=1;
 				return ret;
 			}
 			else
 			{
+printf("kill=%s\n",bygame.config[gameid]._forcecore);
 				free(bygame.config[gameid]._forcecore);
 				bygame.config[gameid]._forcecore=NULL;
 			}
@@ -963,6 +967,7 @@ void config_read(const char * path)
 			{
 				free(thisconf->_forcecore);
 				thisconf->_forcecore=strdup(value);
+printf("%lu:%p %p\n",bygame.num,thisconf->_forcecore,thisconf);
 			}
 			load_var_from_file(thisline, value, thisconf, thisscope);
 		}
@@ -1252,6 +1257,7 @@ void config_write(const char * path)
 			appendstr("name="); appendstr(bygame.config[i].gamename); appendlf();
 		}
 		appendstr("path="); appendstr(bygame.config[i]._gamepath); appendlf();
+printf("%i:%p %p\n",i,bygame.config[i]._forcecore,&bygame.config[i]);
 		if (bygame.config[i]._forcecore) { appendstr("core="); appendstr(bygame.config[i]._forcecore); appendlf(); }
 		if (bygame.config[i]._autoload) { appendstr("autoload=true\n"); }
 		
@@ -1288,7 +1294,8 @@ void config_write(const char * path)
 	
 	if (!originalconfig || strcmp(outstart, originalconfig))
 	{
-		file_write(path, outstart, len);
+(void)len;
+		//file_write(path, outstart, len);
 	}
 	free(outstart);
 }
@@ -1562,6 +1569,8 @@ static void data_save(struct minirconfig * this_, struct configdata * config)
 	{
 		free(bygame.config[bygame.this].gamename);
 		bygame.config[bygame.this].gamename=strdup(config->gamename);
+		//free(bygame.config[bygame.this]._forcecore);
+		//bygame.config[bygame.this]._forcecore=strdup(config->_forcecore);
 	}
 	
 	memset(&g_config, 0, sizeof(*config));
@@ -1574,7 +1583,6 @@ static void data_free(struct minirconfig * this_, struct configdata * config)
 
 static void data_destroy(struct minirconfig * this_, const char * item)
 {
-printf("murder=%s\n",item);
 	config_delete_core(item);
 	config_delete_game(item);
 }

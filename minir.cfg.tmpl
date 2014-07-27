@@ -28,7 +28,7 @@ global bool readonly=false
 #Verbosity is how much things are put in this file.
 #2: Include everything.
 #1: Remove comments.
-#0: Remove comments, and remove instructions to change a value to its default.
+#0: Remove comments, and remove instructions to change a value to its default. [TODO] Actually remove these entries if they're present.
 #The config panel does not include this one, since it has no effect on the GUI.
 #Can't be set non-global.
 global int[0-2] verbosity=2
@@ -64,7 +64,7 @@ input input_joy_auto|_p[1-8?-1]_{up=4;dn=5;lf=6;rt=7;aa=8;bb=0;xx=9;yy=1;st=3;se
 
 #This one is whether to block left+right and up+down. If blocked, both are ignored while the other is held.
 #(I'm open to suggestions for how else it could act.)
-#Note that the Libretro core may also block L+R. If it does, L+R will only go through if both minir and the core says it should.
+#Note that the libretro core may also block L+R. If it does, L+R will only go through if both minir and the core says it should.
 bool joypad_block_opposing=true
 
 input input_savestate_load|[1-10]=KB1::F1;KB1::F2;KB1::F3;KB1::F4;KB1::F5;KB1::F6;KB1::F7;KB1::F8;KB1::F9;KB1::F10
