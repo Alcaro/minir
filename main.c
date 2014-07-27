@@ -228,7 +228,6 @@ void reset_config()
 	
 	if (romloaded==coreloaded) configmgr->data_load(configmgr, &config, true, NULL, romloaded);
 	else configmgr->data_load(configmgr, &config, true, coreloaded, romloaded);
-printf("scale=%i auto=%i wnd=%p\n",config.video_scale,config.auto_locate_cores,wndw);
 	if (!wndw) return;
 	
 	unsigned int videowidth=320;
@@ -377,10 +376,11 @@ fflush(stdout);
 	free(coreconfig.support);
 	coreconfig.support=(char**)thiscore->supported_extensions(thiscore, NULL);
 	
-	free(coreconfig.corename); coreconfig.corename=strdup(thiscore->name(thiscore));
+	free(coreconfig.corename); coreconfig.corename=(char*)thiscore->name(thiscore);
 	
 	configmgr->data_save(configmgr, &coreconfig);
 	coreconfig.support=NULL;
+	coreconfig.corename=NULL;
 	configmgr->data_free(configmgr, &coreconfig);
 	
 	if (freecore) thiscore->free(thiscore);
@@ -1270,7 +1270,7 @@ void deinit()
 		configmgr->data_save(configmgr, &config);
 		strcpy(selfpathend, selfname);
 		strcat(selfpathend, ".cfg");
-		configmgr->write(configmgr, cfgv_minimal, selfpath);
+		configmgr->write(configmgr, selfpath);
 	}
 	configmgr->free(configmgr);
 	

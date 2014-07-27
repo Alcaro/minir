@@ -14,10 +14,6 @@
 #[W] means available on Windows; [L] means available on Linux.
 #They are in order of descending desirability; the first one is best, except that pure-Linux drivers are in no particular order relative to pure-Windows.
 #Note that using udev requires access to various items in /dev/input, which requires either chmodding them or running minir with escalated privileges.
-#
-#This item exists, but is not supposed to exist in the final version.
-#Can't be set non-global.
-global bool firstrun=true
 
 #It's fine to edit this file; in fact, you need to edit this file if you want core- or game-specific settings.
 #If you do anything wrong, minir will remove the offending line from this file and stick in the default value.
@@ -28,6 +24,14 @@ global bool firstrun=true
 #This one is whether to update this file once minir exits. Note that if writing is disabling, invalid directives won't be validated.
 #Can't be set non-global.
 global bool readonly=false
+
+#Verbosity is how much things are put in this file.
+#2: Include everything.
+#1: Remove comments.
+#0: Remove comments, and remove instructions to change a value to its default.
+#The config panel does not include this one, since it has no effect on the GUI.
+#Can't be set non-global.
+global int[0-2] verbosity=2
 
 #Not all drivers support synchronizing. Video/OpenGL on Windows with DWM enabled, for example, doesn't.
 #Which drivers are supported is not listed here; it varies. Use the config panel.

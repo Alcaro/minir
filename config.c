@@ -32,6 +32,8 @@ static const char * autoload=NULL;
 
 static char * originalconfig=NULL;
 
+static bool firstrun;
+
 static void initialize_to_defaults(struct configdata * this)
 {
 	memset(this, 0, sizeof(struct configdata));
@@ -460,7 +462,7 @@ void config_delete_core(const char * core)
 
 void config_delete_game(const char * game)
 {
-	size_t id=find_core(game);
+	size_t id=find_game(game);
 	if (id==bygame.num) return;
 	
 	//if (bygame.this==id) config_load(g_config.corename, NULL);
@@ -803,7 +805,9 @@ void config_read(const char * path)
 	initialize_to_parent(global);
 	
 	char * rawconfig;
+	firstrun=true;
 	if (!file_read(path, &rawconfig, NULL)) return;
+	firstrun=false;
 	
 	originalconfig=strdup(rawconfig);
 	
@@ -1040,7 +1044,7 @@ static void appendlf()
 	appenddat("\n", 1);
 }
 
-static void print_config_file(struct configdata * this, unsigned char verbosity, unsigned char minscope)
+static void print_config_file(struct configdata * this, unsigned char minscope)
 {
 	const unsigned char * thisone=config_bytecode;
 	const unsigned char * arrayshuffle=arrayshuffle;//these ones are initialized by ARRAY and ARRAY_SHUFFLED
@@ -1061,7 +1065,7 @@ static void print_config_file(struct configdata * this, unsigned char verbosity,
 		}
 		if (*at==CFGB_COMMENT)
 		{
-			if (verbosity>=cfgv_default)
+			if (global->verbosity>=cfgv_default)
 			{
 				appenddat((char*)at+2, at[1]);
 			}
@@ -1179,21 +1183,21 @@ static void print_config_file(struct configdata * this, unsigned char verbosity,
 	}
 }
 
-void config_write(unsigned char verbosity, const char * path)
+void config_write(const char * path)
 {
-	split_config(&g_config, global, &bycore.config[bycore.this], &bygame.config[bygame.this]);
+	//split_config(&g_config, global, &bycore.config[bycore.this], &bygame.config[bygame.this]);
 	
 	outstart=malloc(8192);
 	outat=outstart;
 	outend=outstart+8192;
 	appendstr("[global]\n");
-	print_config_file(global, verbosity, (verbosity==cfgv_default ? cfgsc_default : cfgsc_global));
+	print_config_file(global, (global->verbosity>=cfgv_default ? cfgsc_default : cfgsc_global));
 	
 	for (unsigned int i=1;i<bycore.num;i++)
 	{
 		if (outat[-2]!='\n') appendlf();
 		appendstr("[core]\n");
-		if (verbosity>=cfgv_default && i==1)
+		if (global->verbosity>=cfgv_default && i==1)
 		{
 			appendstr("#minir will only set core-specific entries here by default,"
 			          "but you can copy any setting from [global] if you want to.\n"
@@ -1225,14 +1229,14 @@ void config_write(unsigned char verbosity, const char * path)
 		
 		//print core options HERE
 		
-		print_config_file(&bycore.config[i], verbosity, cfgsc_core);
+		print_config_file(&bycore.config[i], cfgsc_core);
 	}
 	
 	for (unsigned int i=1;i<bygame.num;i++)
 	{
 		if (outat[-2]!='\n') appendstr("\n");
 		appendstr("[game]\n");
-		if (verbosity>=cfgv_default && i==1)
+		if (global->verbosity>=cfgv_default && i==1)
 		{
 			appendstr("#You can copypaste global settings to here too,"
 			          " and they will override the global or core-specific settings.\n"
@@ -1253,7 +1257,7 @@ void config_write(unsigned char verbosity, const char * path)
 		
 		//print core options HERE if any
 		
-		print_config_file(&bygame.config[i], verbosity, cfgsc_game);
+		print_config_file(&bygame.config[i], cfgsc_game);
 	}
 	
 	if (outat[-2]=='\n') outat--;
@@ -1320,7 +1324,7 @@ void config_delete_core(const char * core);
 void config_delete_game(const char * game);
 
 //Writes the changes back to the file, if there are any changes.
-void config_write(unsigned char verbosity, const char * path);
+void config_write(const char * path);
 
 struct minirconfig_impl {
 	struct minirconfig i;
@@ -1345,7 +1349,7 @@ static void data_load(struct minirconfig * this_, struct configdata * config,
 static void data_save(struct minirconfig * this_, struct configdata * config);
 static void data_free(struct minirconfig * this_, struct configdata * config);
 static void data_destroy(struct minirconfig * this_, const char * item);
-static void write(struct minirconfig * this_, unsigned char verbosity, const char * path);
+static void write(struct minirconfig * this_, const char * path);
 static void free_(struct minirconfig * this_);
 
 static const char * get_autoload(struct minirconfig * this_)
@@ -1394,8 +1398,12 @@ static void data_load(struct minirconfig * this_, struct configdata * config,
 	for (i=0;g_config.primary[i];i++) config->primary[i]=strdup(g_config.primary[i]);
 	config->primary[i]=NULL;
 	
+	if (config->corename) config->corename=strdup(config->corename);
+	if (config->gamename) config->gamename=strdup(config->gamename);
 	if (config->_corepath) config->_corepath=strdup(config->_corepath);
 	if (config->_gamepath) config->_gamepath=strdup(config->_gamepath);
+	
+	config->firstrun=firstrun;
 	
 	//delete_conf(&g_config);
 	memset(&g_config, 0, sizeof(*config));
@@ -1413,7 +1421,6 @@ static void set_support(struct minirconfig_impl * this, unsigned int id, char * 
 				support_in=NULL;
 				break;
 			}
-printf("%i %p/%p [%p]\n",i,bycore.config[id].support[i], support_in[i],bycore.config[id].support);
 			if (!bycore.config[id].support[i] || !support_in[i] || strcmp(bycore.config[id].support[i], support_in[i])) break;
 		}
 	}
@@ -1545,7 +1552,17 @@ static void data_save(struct minirconfig * this_, struct configdata * config)
 	bygame.this=find_or_create_game(config->_gamepath);
 	split_config(&g_config, global, &bycore.config[bycore.this], &bygame.config[bygame.this]);
 	
-	if (bycore.this) set_support(this, bycore.this, config->support, config->primary);
+	if (bycore.this)
+	{
+		set_support(this, bycore.this, config->support, config->primary);
+		free(bycore.config[bycore.this].corename);
+		bycore.config[bycore.this].corename=strdup(config->corename);
+	}
+	if (bygame.this)
+	{
+		free(bygame.config[bygame.this].gamename);
+		bygame.config[bygame.this].gamename=strdup(config->gamename);
+	}
 	
 	memset(&g_config, 0, sizeof(*config));
 }
@@ -1557,13 +1574,14 @@ static void data_free(struct minirconfig * this_, struct configdata * config)
 
 static void data_destroy(struct minirconfig * this_, const char * item)
 {
+printf("murder=%s\n",item);
 	config_delete_core(item);
 	config_delete_game(item);
 }
 
-static void write(struct minirconfig * this_, unsigned char verbosity, const char * path)
+static void write(struct minirconfig * this_, const char * path)
 {
-	config_write(verbosity, path);
+	config_write(path);
 }
 
 static void free_(struct minirconfig * this_)

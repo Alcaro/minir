@@ -674,7 +674,7 @@ struct configdata {
 #undef CONFIG_HEADER
 	
 	//these are at the end for packing reasons
-	unsigned char verbosity;
+	bool firstrun;
 	
 	bool _autoload;
 };
@@ -713,7 +713,7 @@ struct minirconfig {
 	void (*data_destroy)(struct minirconfig * this, const char * item);
 	
 	//This one writes the configuration back to disk, if changed.
-	void (*write)(struct minirconfig * this, unsigned char verbosity, const char * path);
+	void (*write)(struct minirconfig * this, const char * path);
 	
 	void (*free)(struct minirconfig * this);
 };
