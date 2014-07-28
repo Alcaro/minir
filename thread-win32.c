@@ -39,6 +39,11 @@ void thread_create(void(*startpos)(void* userdata), void* userdata)
 #include <process.h>
 void thread_create(void(*startpos)(void* userdata), void* userdata)
 {
+	//MemoryBarrier();//gcc lacks this, and msvc lacks the gcc builtin I could use instead.
+	//And of course my gcc supports only ten out of the 137 InterlockedXxx functions. Let's pick the simplest one...
+	LONG ignored=0;
+	InterlockedIncrement(&ignored);
+	
 	_beginthread(startpos, 0, userdata);
 }
 
