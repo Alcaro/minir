@@ -6,6 +6,7 @@
 
 //list of synchronization points: http://msdn.microsoft.com/en-us/library/windows/desktop/ms686355%28v=vs.85%29.aspx
 
+/*
 struct threaddata_win32 {
 	void(*startpos)(void* userdata);
 	void* userdata;
@@ -32,6 +33,13 @@ void thread_create(void(*startpos)(void* userdata), void* userdata)
 	InterlockedIncrement(&ignored);
 	
 	CloseHandle(CreateThread(NULL, 0, ThreadProc, thdat, 0, NULL));
+}
+*/
+
+#include <process.h>
+void thread_create(void(*startpos)(void* userdata), void* userdata)
+{
+	_beginthread(startpos, 0, userdata);
 }
 
 unsigned int thread_ideal_count()
