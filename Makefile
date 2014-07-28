@@ -1,4 +1,4 @@
-all: minir_dummy
+top_dummy: all
 
 CC = gcc
 CFLAGS =
@@ -23,7 +23,7 @@ OBJSUFFIX =
 obj/resource$(OBJSUFFIX).o: ico/*
 	$(RC) $(RCFLAGS) ico/minir.rc obj/resource$(OBJSUFFIX).o
 
-#On Linux, this undoes most of the above. On Windows, this file doesn't exist because 'configure' wasn't executed.€
+#On Linux, this undoes most of the above. On Windows, this file doesn't exist because 'configure' wasn't executed.
 -include Makefile.custom
 
 OUTNAME = minir$(EXESUFFIX)
@@ -69,4 +69,4 @@ obj/rescompile$(EXESUFFIX): rescompile.c miniz.c | obj
 $(OUTNAME): $(OBJS)
 	$(LD) $+ $(TRUE_LFLAGS) -o $@ -lm
 
-minir_dummy: $(OUTNAME)
+all: $(OUTNAME)
