@@ -908,6 +908,7 @@ static LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM l
 		{
 //printf("SC=%.4X\n",wParam&0xFFFF);
 			if ((wParam&0xFFF0)==SC_KEYMENU) break;//go away, we don't want automenues. Alt could be hit by accident.
+#error Check if the stupid lockups still appear if I eat WM_MOVE and WM_SIZE.
 			goto _default;
 		}
 	//check WM_CONTEXTMENU
