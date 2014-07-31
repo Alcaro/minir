@@ -2,8 +2,10 @@
 #include <stdlib.h>
 #include <stdio.h>
 /*
-gcc -I. -std=c99 tests/retroprofile.c libretro.c dylib.c memory.c -ldl -lrt -DWINDOW_MINIMAL window-none.c -Os -s -o retroprofile
+gcc -I. -std=c99 tests/retroprofile.c libretro.c dylib.c memory.c -ldl -lrt -DDYLIB_POSIX -DWINDOW_MINIMAL window-none.c -Os -s -o retroprofile
 mv retroprofile ~/bin
+
+compile differently on Windows
 */
 
 void no_video(struct video * this, unsigned int width, unsigned int height, const void * data, unsigned int pitch) {}
@@ -34,7 +36,7 @@ int main(int argc, char * argv[])
 	
 	core->attach_interfaces(core, &novideo, &noaudio, &noinput);
 	
-	if (!core->load_rom(core, argv[2]))
+	if (!core->load_rom(core, NULL,0, argv[2]))
 	{
 		puts("Couldn't load ROM.");
 		return 1;

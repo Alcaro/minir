@@ -1,4 +1,4 @@
-#if (!defined(WINDOW_WIN32) && !defined(WINDOW_GTK3))
+#if (!defined(WINDOW_WIN32) && !defined(WINDOW_GTK3) && !defined(WINDOW_MINIMAL))
 #define WINDOW_WIN32
 #endif
 
