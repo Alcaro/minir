@@ -45,12 +45,11 @@ int main(int argc, char * argv[])
 	uint64_t t_run=window_get_time();
 	
 	unsigned int fps=0;
-	while (window_get_time() < t_run+1000000)
+	while (window_get_time() < t_run+1000000 && fps < frames)
 	{
 		core->run(core);
 		fps++;
 	}
-	printf("fps: %i\n", fps);
 	for (unsigned int i=fps;i<frames;i++)
 	{
 		if (i%fps==0) printf("%i/%i\r", i, frames),fflush(stdout);
