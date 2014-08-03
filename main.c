@@ -360,7 +360,7 @@ void unload_rom()
 
 bool study_core(const char * path, struct libretro * core)
 {
-printf("study=%s\n",path); fflush(stdout);
+//printf("study=%s\n",path); fflush(stdout);
 	bool freecore=(!core);
 	struct libretro * thiscore = core ? core : libretro_create(path, NULL, NULL);
 	if (!thiscore) return false;
@@ -369,10 +369,9 @@ printf("study=%s\n",path); fflush(stdout);
 	configmgr->data_load(configmgr, &coreconfig, false, path, NULL);
 	
 	//ugly tricks ahead...
-	for (unsigned int i=0;coreconfig.support[i];i++)
- printf("free%i=%p [%p]\n",i,coreconfig.support[i],coreconfig.support),
-free(coreconfig.support[i]);
-fflush(stdout);
+	for (unsigned int i=0;coreconfig.support[i];i++) free(coreconfig.support[i]);
+// printf("free%i=%p [%p]\n",i,coreconfig.support[i],coreconfig.support),
+//fflush(stdout);
 	free(coreconfig.support);
 	coreconfig.support=(char**)thiscore->supported_extensions(thiscore, NULL);
 	
@@ -520,7 +519,7 @@ bool load_rom(const char * rom)
 	}
 	
 	romloaded=strdup(rom);
-	load_rom_finish();
+	reset_config();
 	
 	if (!config.gamename)
 	{
@@ -532,6 +531,8 @@ bool load_rom(const char * rom)
 		config.gamename=strdup(basenamestart);
 		if (basenameend) *basenameend='.';
 	}
+	
+	load_rom_finish();
 	
 	return true;
 }
@@ -545,6 +546,7 @@ bool load_core_as_rom(const char * rom)
 	}
 	romloaded=coreloaded;
 	
+	reset_config();
 	load_rom_finish();
 	
 	free(config.corename);
@@ -558,8 +560,6 @@ void load_rom_finish()
 	free(state_buf);
 	state_size=core->state_size(core);
 	state_buf=malloc(state_size);
-	
-	reset_config();
 	
 	size_t sramsize;
 	void* sramptr;
@@ -1276,7 +1276,7 @@ void deinit()
 	
 	free(state_buf);
 	
-	vid->free(vid); vid=NULL; // this gets angry on GTK+. I think I'm trying to destroy an already-dead child window.
+	vid->free(vid); vid=NULL;
 	aud->free(aud); aud=NULL;
 	inp->free(inp); inp=NULL;
 	retroinp->free(retroinp); retroinp=NULL;

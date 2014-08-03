@@ -2,8 +2,8 @@
 //
 //A line containing only a "-" gives a linebreak if the comments are emitted, but not otherwise.
 #[TODO] Delete this section
-#minir is not done. Some things in this config file exist, but do nothing; they are marked with [TODO]. Each TODO
-# tag applies to only the option directly after it, and the comments do accurately describe its planned function.
+#minir is not done. Some things in this config file exist, but do nothing; they are marked with [TODO].
+# Each TODO tag applies to only the option directly after it, and the comments do accurately describe its planned function.
 #The comments also often refer to a config panel that doesn't exist.
 #More config options may appear in the future. Some of them, especially the ones marked TODO, may even disappear.
 #
@@ -26,12 +26,13 @@
 global bool readonly=false
 
 #Verbosity is how much things are put in this file.
-#2: Include everything.
-#1: Remove comments.
-#0: Remove comments, and remove instructions to change a value to its default. [TODO] Actually remove these entries if they're present.
+#3: Include everything.
+#2: Like 3, but remove unchanged entries from the joypad mappings. This is the default.
+#1: Like 2, but remove comments too.
+#0: Like 1, but remove instructions to change any value to its default (not just large arrays). [TODO] Actually remove these entries if they're present.
 #The config panel does not include this one, since it has no effect on the GUI.
 #Can't be set non-global.
-global int[0-2] verbosity=2
+global int[0-3] verbosity=2
 
 #Not all drivers support synchronizing. Video/OpenGL on Windows with DWM enabled, for example, doesn't.
 #Which drivers are supported is not listed here; it varies. Use the config panel.
@@ -50,10 +51,15 @@ str driver_audio
 int[10-1000] audio_latency=120
 bool audio_sync=true
 
+#You can set these separately, but it's better to use the same driver for everything.
 str driver_inputkb
+#[TODO]
+str driver_inputmouse
+#[TODO]
+str driver_inputjoy
 
 #Whether to automatically look for cores in the most plausible places if told to open an unknown ROM.
-#If this is false, you'll have to show minir the cores by yourself, or accept (or even want) minir to fail loading unknown ROMs.
+#If this is false, you'll have to show minir the cores by yourself, or accept (or even want) minir to fail loading unfamiliar ROMs.
 #Can't be set non-global.
 global bool auto_locate_cores=true
 
@@ -128,7 +134,6 @@ bool rewind_enable=true
 int[1-600] rewind_granularity=1
 #The turbo resolution allows you to increase the delay between rewind points while turbo is enabled, to decrease
 # the framerate hit. 0 here will make it not save at all while turboing. Rewind speed is still 1x real time.
-#Setting this one higher than rewind_delay is possible, but pointless.
 int[0-600] rewind_granularity_turbo=1
 #This one makes rewinding go N times faster than realtime. It's independent of rewind_granularity,
 # though you should probably set this lower than or equal to the granularity.

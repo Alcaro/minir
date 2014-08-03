@@ -9,7 +9,6 @@
 
 //TODO:
 //menu_create: check where it's resized if size changes
-//esc doesn't close dialogs correctly
 
 #define WS_BASE WS_OVERLAPPED|WS_CAPTION|WS_SYSMENU|WS_MINIMIZEBOX//okay microsoft, did I miss anything?
 #define WS_RESIZABLE (WS_BASE|WS_MAXIMIZEBOX|WS_THICKFRAME)
@@ -550,7 +549,7 @@ static void menu_activate(HMENU menu, DWORD pos)
 	MENUINFO menuinf={ .cbSize=sizeof(menuinf), .fMask=MIM_MENUDATA };
 	GetMenuInfo(menu, &menuinf);
 	struct windowmenu_win32 * this=(struct windowmenu_win32*)menuinf.dwMenuData;
-	//we could do binary search, but binary search on a list as small as this is just a waste of time.
+	//we could do a binary search, but binary search on a list as small as this is just a waste of time.
 	unsigned int i=0;
 	while (pos >= this->childlist[i]->thispos + menu_get_native_length(this->childlist[i])) i++;
 	
@@ -908,13 +907,13 @@ static LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM l
 		{
 //printf("SC=%.4X\n",wParam&0xFFFF);
 			if ((wParam&0xFFF0)==SC_KEYMENU) break;//go away, we don't want automenues. Alt could be hit by accident.
-#error Check if the stupid lockups still appear if I eat WM_MOVE and WM_SIZE.
+			//we could eat WM_MOVE and WM_SIZE to nuke the stupid lockups, but that blocks moving the window entirely.
+			//We'll have to mess with threads.
 			goto _default;
 		}
 	//check WM_CONTEXTMENU
 	case WM_SIZE:
 		{
-			//not sure which of the windows get this
 			if (!this) break;//this one seems to hit only on Wine, but whatever, worth checking.
 			_reflow((struct window*)this);
 			if (this->status) PostMessage(this->status, WM_SIZE, wParam, lParam);

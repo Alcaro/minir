@@ -43,6 +43,8 @@ enum {
 	CFGB_UINT,
 	CFGB_ENUM,
 	CFGB_BOOL,
+	CFGB_STR_MULTI,
+	CFGB_STR_MAP,
 };
 
 //#define V
@@ -89,13 +91,26 @@ void compileconfig(FILE * output)
 	//FILE * out=stdout;
 	
 	enum {
+		p_header_first,
 		p_header_input, p_header_str, p_header_int,
 		p_header_uint, p_header_enum, p_header_bool,
+		p_header_stringlist, p_header_stringmap,
+		p_header_last,
+		
+		p_header_override_first,
 		p_header_override_input, p_header_override_str, p_header_override_int,
 		p_header_override_uint, p_header_override_enum, p_header_override_bool,
+		p_header_override_stringlist, p_header_override_stringmap,
+		p_header_override_last,
+		
 		p_header_input_enum,
+		
+		p_clear_defaults_first,
 		p_clear_defaults_input, p_clear_defaults_str, p_clear_defaults_int,
 		p_clear_defaults_uint, p_clear_defaults_enum, p_clear_defaults_bool,
+		p_clear_defaults_stringlist, p_clear_defaults_stringmap,
+		p_clear_defaults_last,
+		
 		p_bytecode,
 		p_last };
 	
@@ -118,21 +133,27 @@ void compileconfig(FILE * output)
 #define emit_header_uint(...) emit_to(p_header_uint, __VA_ARGS__)
 #define emit_header_enum(...) emit_to(p_header_enum, __VA_ARGS__)
 #define emit_header_bool(...) emit_to(p_header_bool, __VA_ARGS__)
+#define emit_header_strlist(...) emit_to(p_header_stringlist, __VA_ARGS__)
+#define emit_header_strmap(...) emit_to(p_header_stringmap, __VA_ARGS__)
 #define emit_header_this(...) emit_to(p_header_input+type_pass_id, __VA_ARGS__)
 	
+#define emit_header_override_first(...) emit_to(p_header_override_first, __VA_ARGS__)
 #define emit_header_override_input(...) emit_to(p_header_override_input, __VA_ARGS__)
 #define emit_header_override_str(...) emit_to(p_header_override_str, __VA_ARGS__)
 #define emit_header_override_int(...) emit_to(p_header_override_int, __VA_ARGS__)
 #define emit_header_override_uint(...) emit_to(p_header_override_uint, __VA_ARGS__)
 #define emit_header_override_enum(...) emit_to(p_header_override_enum, __VA_ARGS__)
 #define emit_header_override_bool(...) emit_to(p_header_override_bool, __VA_ARGS__)
+#define emit_header_override_strlist(...) emit_to(p_header_override_stringlist, __VA_ARGS__)
+#define emit_header_override_strmap(...) emit_to(p_header_override_stringmap, __VA_ARGS__)
+#define emit_header_override_last(...) emit_to(p_header_override_last, __VA_ARGS__)
 #define emit_header_override_this(...) emit_to(p_header_override_input+type_pass_id, __VA_ARGS__)
 	
 #define emit_header_input_enum(...) emit_to(p_header_input_enum, __VA_ARGS__)
-	emit_header_input_enum("#ifdef CONFIG_HEADER_ENUM\n");
+	emit_header_input_enum("#define CONFIG_ENUM_INPUT \\\n");
 	
+	emit_to(p_clear_defaults_first, "#ifdef CONFIG_CLEAR_DEFAULTS\n");
 #define emit_clear_defaults_input(...) emit_to(p_clear_defaults_input, __VA_ARGS__)
-	emit_clear_defaults_input("#ifdef CONFIG_CLEAR_DEFAULTS\n");
 #define emit_clear_defaults_str(...) emit_to(p_clear_defaults_str, __VA_ARGS__)
 #define emit_clear_defaults_int(...) emit_to(p_clear_defaults_int, __VA_ARGS__)
 #define emit_clear_defaults_uint(...) emit_to(p_clear_defaults_uint, __VA_ARGS__)
@@ -146,27 +167,36 @@ void compileconfig(FILE * output)
 #define emit_bytecode_2(word) do { emit_bytecode(((word)>>8)&255); emit_bytecode(((word)>>0)&255); } while(0)
 #define emit_bytecode_4(dword) do { emit_bytecode_2(((dword)>>16)&65535); emit_bytecode_2(((dword)>>0)&65535); } while(0)
 	
-	int numinputs=0;
-	int numstrs=0;
-	int numuints=0;
-	int numints=0;
-	int numenums=0;
-	int numbools=0;
-	int numoverrides=0;
+	unsigned int numinputs=0;
+	unsigned int numstrs=0;
+	unsigned int numuints=0;
+	unsigned int numints=0;
+	unsigned int numenums=0;
+	unsigned int numbools=0;
+	unsigned int numstringlists=0;
+	unsigned int numstringmaps=0;
+	unsigned int numoverrides=0;
 	
+	//for (unsigned int i=p_header_first+1;i<p_header_last;i++) emit_to(i, "union { struct {\n");
+	//emit_header_override_first("union { struct {\n");
+	//for (unsigned int i=p_header_override_first+1;i<p_header_override_last;i++) emit_to(i, "union { struct {\n");
 	emit_header_input("union { struct {\n");
 	emit_header_str("union { struct {\n");
 	emit_header_uint("union { struct {\n");
 	emit_header_int("union { struct {\n");
 	emit_header_enum("union { struct {\n");
 	emit_header_bool("union { struct {\n");
-	emit_header_override_input("union { struct {\n");
+	emit_header_strlist("union { struct {\n");
+	emit_header_strmap("union { struct {\n");
+	emit_header_override_first("union { struct {\n");
 	emit_header_override_input("union { struct {\n");
 	emit_header_override_str("union { struct {\n");
 	emit_header_override_uint("union { struct {\n");
 	emit_header_override_int("union { struct {\n");
 	emit_header_override_enum("union { struct {\n");
 	emit_header_override_bool("union { struct {\n");
+	emit_header_override_strlist("union { struct {\n");
+	emit_header_override_strmap("union { struct {\n");
 	
 	char comment[8192];
 	int commentlen=0;
@@ -180,6 +210,8 @@ void compileconfig(FILE * output)
 		*line='\0';
 		if(fgets(line, 1024, in)){};//shut up gcc, if I cast a return value to void it means I don't care.
 		char * eol=strchr(line, '\n');
+		if (eol) *eol='\0';
+		eol=strchr(line, '\r');
 		if (eol) *eol='\0';
 		strcpy(linecopy, line);
 		
@@ -213,8 +245,7 @@ void compileconfig(FILE * output)
 					emit_bytecode(CFGB_COMMENT);
 					emit_bytecode(remaining>255?255:remaining);
 				}
-				if (comment[i]=='\r') {}
-				else emit_bytecode(comment[i]);
+				emit_bytecode(comment[i]);
 			}
 			
 			commentlen=0;
@@ -235,7 +266,7 @@ void compileconfig(FILE * output)
 				emit_bytecode(CFGB_GLOBAL);
 			}
 			
-			enum { num, str, flag, enumer } type;
+			enum { num, str, flag, enumer, strmulti, strmap } type;
 			//number
 				long long int rangelow=rangelow;//shut up about those too gcc, they're only used if type==num, and if it is, they're initialized.
 				long long int rangehigh=rangehigh;
@@ -247,6 +278,11 @@ void compileconfig(FILE * output)
 			//enumeration
 				char enumtype[64];
 				int numenumopts=numenumopts;
+			
+			const char * basetype=basetype;
+			const char * arrayname=arrayname;
+			unsigned int arraypos=arraypos;
+			unsigned int type_pass_id=type_pass_id;
 			
 			char * typeend=line;
 			while (islower(*typeend)) typeend++;
@@ -265,73 +301,80 @@ void compileconfig(FILE * output)
 				rangehigh=strtoll(rangebegin, &rangeend, 0);
 				if (rangebegin==rangeend || *rangeend!=']') error("bad range");
 				typeend=rangeend+1;
+				
+				if (rangelow<0)
+				{
+					basetype="signed int";
+					arrayname="_ints";
+					arraypos=numints;
+					type_pass_id=p_header_int-p_header_first-1;
+				}
+				else
+				{
+					basetype="unsigned int";
+					arrayname="_uints";
+					arraypos=numuints;
+					type_pass_id=p_header_uint-p_header_first-1;
+				}
 			}
 			else if (!strncmp(line, "input", typeend-line))
 			{
 				type=str;
 				isinput=true;
+				
+				basetype="char*";
+				arrayname="inputs";
+				arraypos=numinputs;
+				type_pass_id=p_header_input-p_header_first-1;
 			}
 			else if (!strncmp(line, "str", typeend-line))
 			{
 				type=str;
+				
+				basetype="char*";
+				arrayname="_strings";
+				arraypos=numstrs;
+				type_pass_id=p_header_str-p_header_first-1;
 			}
 			else if (!strncmp(line, "bool", typeend-line))
 			{
 				type=flag;
+				
+				basetype="bool";
+				arrayname="_bools";
+				arraypos=numbools;
+				type_pass_id=p_header_bool-p_header_first-1;
 			}
 			else if (!strncmp(line, "enum", typeend-line))
 			{
 				type=enumer;
-				error("enum not supported");
-			}
-			else error("no such type");
-			
-			const char * basetype=basetype;
-			const char * arrayname=arrayname;
-			unsigned int arraypos=arraypos;
-			unsigned int type_pass_id=type_pass_id;
-			if (type==str && isinput)
-			{
-				basetype="char*";
-				arrayname="inputs";
-				arraypos=numinputs;
-				type_pass_id=0;
-			}
-			if (type==str && !isinput)
-			{
-				basetype="char*";
-				arrayname="_strings";
-				arraypos=numstrs;
-				type_pass_id=1;
-			}
-			if (type==num && rangelow<0)
-			{
-				basetype="signed int";
-				arrayname="_ints";
-				arraypos=numints;
-				type_pass_id=2;
-			}
-			if (type==num && rangelow>=0)
-			{
-				basetype="unsigned int";
-				arrayname="_uints";
-				arraypos=numuints;
-				type_pass_id=3;
-			}
-			if (type==flag)
-			{
-				basetype="bool";
-				arrayname="_bools";
-				arraypos=numbools;
-				type_pass_id=5;
-			}
-			if (type==enumer)
-			{
+				
 				basetype=enumtype;
 				arrayname="_enums";
 				arraypos=numenums;
-				type_pass_id=4;
+				type_pass_id=p_header_enum-p_header_first-1;
+				
+				error("enum not supported");
 			}
+			else if (!strncmp(line, "stringlist", typeend-line))
+			{
+				type=strmulti;
+				
+				basetype="char**";
+				arrayname="_stringlists";
+				arraypos=numstringlists;
+				type_pass_id=p_header_stringlist-p_header_first-1;
+			}
+			else if (!strncmp(line, "stringmap", typeend-line))
+			{
+				type=strmap;
+				
+				basetype="char**";
+				arrayname="_stringmaps";
+				arraypos=numstringmaps;
+				type_pass_id=p_header_stringmap-p_header_first-1;
+			}
+			else error("no such type");
 			
 			if (*typeend!=' ') error("bad type");
 			while (*typeend==' ') typeend++;
@@ -598,13 +641,6 @@ void compileconfig(FILE * output)
 					emit_bytecode_2(numstrs);
 				}
 			}
-			if (type==num && rangelow>=0)
-			{
-				emit_bytecode(CFGB_UINT);
-				emit_bytecode_2(numuints);
-				emit_bytecode_4(rangelow);
-				emit_bytecode_4(rangehigh);
-			}
 			if (type==num && rangelow<0)
 			{
 				emit_bytecode(CFGB_INT);
@@ -612,10 +648,27 @@ void compileconfig(FILE * output)
 				emit_bytecode_4(-rangelow);
 				emit_bytecode_4(rangehigh);
 			}
+			if (type==num && rangelow>=0)
+			{
+				emit_bytecode(CFGB_UINT);
+				emit_bytecode_2(numuints);
+				emit_bytecode_4(rangelow);
+				emit_bytecode_4(rangehigh);
+			}
 			if (type==flag)
 			{
 				emit_bytecode(CFGB_BOOL);
 				emit_bytecode_2(numbools);
+			}
+			if (type==strmulti)
+			{
+				emit_bytecode(CFGB_STR_MULTI);
+				emit_bytecode_2(numstringlists);
+			}
+			if (type==strmap)
+			{
+				emit_bytecode(CFGB_STR_MAP);
+				emit_bytecode_2(numstringmaps);
 			}
 			if (type==enumer)
 			{
@@ -690,7 +743,7 @@ void compileconfig(FILE * output)
 				}
 			}
 			
-			if (isinput) emit_header_input_enum("%s=%i,\n", varname, numinputs);
+			if (isinput) emit_header_input_enum("\t%s=%i, \\\n", varname, numinputs);
 			if (type==str && isinput) numinputs+=arraylen;
 			if (type==str && !isinput) numstrs+=arraylen;
 			if (type==num && rangelow>=0) numuints+=arraylen;
@@ -710,6 +763,8 @@ void compileconfig(FILE * output)
 	emit_header_int("}; int _ints[%i]; };\n", numints);
 	emit_header_enum("}; unsigned int _enums[%i]; };\n", numenums);
 	emit_header_bool("}; bool _bools[%i]; };\n", numbools);
+	emit_header_strlist("}; char** _strlists[%i]; };\n", numstringlists);
+	emit_header_strmap("}; char** _strmaps[%i]; };\n", numstringmaps);
 	
 	emit_header_override_input("}; unsigned char _scopes_input[%i]; };\n", numinputs);
 	emit_header_override_str("}; unsigned char _scopes_str[%i]; };\n", numstrs);
@@ -717,7 +772,11 @@ void compileconfig(FILE * output)
 	emit_header_override_int("}; unsigned char _scopes_int[%i]; };\n", numints);
 	emit_header_override_enum("}; unsigned char _scopes_enum[%i]; };\n", numenums);
 	emit_header_override_bool("}; unsigned char _scopes_bool[%i]; };\n", numbools);
-	emit_header_override_bool("}; unsigned char _scopes[%i]; };\n", numoverrides);
+	emit_header_override_strlist("}; unsigned char _scopes_strlist[%i]; };\n", numstringlists);
+	emit_header_override_strmap("}; unsigned char _scopes_strmap[%i]; };\n", numstringmaps);
+	emit_header_override_last("}; unsigned char _scopes[%i]; };\n", numoverrides);
+	
+	emit_header_input_enum("\tinput_count=%i\n", numinputs);
 	
 	emit_bytecode(CFGB_END);
 	
@@ -733,7 +792,6 @@ void compileconfig(FILE * output)
 	}
 	emit_to(p_bytecode, "\n");
 	
-	emit_header_override_bool("#endif\n\n");
 	emit_header_input_enum("#endif\n\n");
 	emit_clear_defaults_bool("#endif\n\n");
 	emit_to(p_bytecode, "#endif\n\n");

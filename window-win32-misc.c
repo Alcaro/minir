@@ -19,9 +19,10 @@
 //Level 5 - program won't start
 //Maximum allowed incompatibility level: 2 [will be increased later, and eventually this list removed]
 //List:
-//Level 1: LVCFMT_FIXED_WIDTH on the listbox requires Vista+
+//Level 1: LVCFMT_FIXED_WIDTH on the listbox is ignored before Vista
 //Danger list (likely to hit):
 //Level 4: printf dislikes z (size_t) size specifiers; they must be behind #ifdef DEBUG, or turned into "I" via #define
+//Level 5: 64-bit programs dislike XP
 
 //static LARGE_INTEGER timer_freq;
 

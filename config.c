@@ -8,36 +8,33 @@
 #define MINIZ_HEADER_FILE_ONLY
 #include "miniz.c"
 
-struct configdata g_config={};
-struct configdata g_defaults;
-
 #define count(array) (sizeof(array)/sizeof(*(array)))
 
 #define nop(x) (x)
 #define strdup_s(x) ((x) ? strdup(x) : NULL)
 
-static struct configdata * global=NULL;
-
-struct varying {
-	struct configdata * config;
-	size_t num;
-	size_t buflen;
-	size_t this;
+struct minirconfig_impl {
+	struct minirconfig i;
+	
+	struct configdata global;//we can be reasonably sure that this one does not have an unaligned size
+	
+	struct configdata * bycore;
+	struct configdata * bygame;
+	unsigned int numbycore;
+	unsigned int numbygame;
+	
+	const char * autoload;
+	
+	char * originalconfig;
+	
+	bool firstrun;
+	//char padding[7];
 };
-
-static struct varying bycore;
-static struct varying bygame;
-
-static const char * autoload=NULL;
-
-static char * originalconfig=NULL;
-
-static bool firstrun;
 
 static void initialize_to_defaults(struct configdata * this)
 {
 	memset(this, 0, sizeof(struct configdata));
-	for (int i=0;i<count(this->_scopes);i++) this->_scopes[i]=cfgsc_default;
+	for (unsigned int i=0;i<count(this->_scopes);i++) this->_scopes[i]=cfgsc_default;
 #define CONFIG_CLEAR_DEFAULTS
 #include "obj/generated.c"
 #undef CONFIG_CLEAR_DEFAULTS
@@ -46,14 +43,14 @@ static void initialize_to_defaults(struct configdata * this)
 static void initialize_to_parent(struct configdata * this)
 {
 	memset(this, 0, sizeof(struct configdata));
-	for (int i=0;i<count(this->_scopes);i++) this->_scopes[i]=cfgsc_default;
+	for (unsigned int i=0;i<count(this->_scopes);i++) this->_scopes[i]=cfgsc_default;
 }
 
 static void join_config(struct configdata * parent, struct configdata * child)
 {
 	if (!child) return;
 #define JOIN(groupname, scopegroupname, deleteold, clone) \
-		for (int i=0;i<count(parent->groupname);i++) \
+		for (unsigned int i=0;i<count(parent->groupname);i++) \
 		{ \
 			if (child->scopegroupname[i] > parent->scopegroupname[i]) \
 			{ \
@@ -70,77 +67,75 @@ static void join_config(struct configdata * parent, struct configdata * child)
 #undef JOIN
 }
 
-static size_t create_core()
+static size_t create_core(struct minirconfig_impl * this)
 {
-	if (bycore.num==bycore.buflen)
+	if ((this->numbycore & (this->numbycore-1)) == 0)
 	{
-		bycore.buflen*=2;
-		bycore.config=realloc(bycore.config, bycore.buflen*sizeof(struct configdata));
+		this->bycore=realloc(this->bycore, sizeof(struct configdata)*this->numbycore*2);
 	}
-	initialize_to_parent(&bycore.config[bycore.num]);
-	bycore.num++;
-	return bycore.num-1;
+	initialize_to_parent(&this->bycore[this->numbycore]);
+	this->numbycore++;
+	return this->numbycore-1;
 }
 
-static size_t find_core(const char * core)
+static size_t find_core(struct minirconfig_impl * this, const char * core)
 {
 	size_t i;
-	for (i=1;i<bycore.num;i++)
+	for (i=1;i<this->numbycore;i++)
 	{
-		if (!strcmp(core, bycore.config[i]._corepath)) break;
+		if (!strcmp(core, this->bycore[i]._corepath)) break;
 	}
 	return i;
 }
 
-static size_t find_or_create_core(const char * core)
+static size_t find_or_create_core(struct minirconfig_impl * this, const char * core)
 {
 	if (core==NULL) return 0;
 	
-	size_t i=find_core(core);
-	if (i==bycore.num)
+	size_t i=find_core(this, core);
+	if (i==this->numbycore)
 	{
-		create_core();
-		bycore.config[i]._corepath=strdup(core);
-		bycore.config[i].support=malloc(sizeof(char*));
-		bycore.config[i].support[0]=NULL;
-		bycore.config[i].primary=malloc(sizeof(char*));
-		bycore.config[i].primary[0]=NULL;
+		create_core(this);
+		this->bycore[i]._corepath=strdup(core);
+		this->bycore[i].support=malloc(sizeof(char*));
+		this->bycore[i].support[0]=NULL;
+		this->bycore[i].primary=malloc(sizeof(char*));
+		this->bycore[i].primary[0]=NULL;
 		return i;
 	}
 	return i;
 }
 
-static size_t create_game()
+static size_t create_game(struct minirconfig_impl * this)
 {
-	if (bygame.num==bygame.buflen)
+	if ((this->numbygame & (this->numbygame-1)) == 0)
 	{
-		bygame.buflen*=2;
-		bygame.config=realloc(bygame.config, bygame.buflen*sizeof(struct configdata));
+		this->bygame=realloc(this->bygame, sizeof(struct configdata)*this->numbygame*2);
 	}
-	initialize_to_parent(&bygame.config[bygame.num]);
-	bygame.num++;
-	return bygame.num-1;
+	initialize_to_parent(&this->bygame[this->numbygame]);
+	this->numbygame++;
+	return this->numbygame-1;
 }
 
-static size_t find_game(const char * game)
+static size_t find_game(struct minirconfig_impl * this, const char * game)
 {
 	size_t i;
-	for (i=1;i<bygame.num;i++)
+	for (i=1;i<this->numbygame;i++)
 	{
-		if (!strcmp(game, bygame.config[i]._gamepath)) break;
+		if (!strcmp(game, this->bygame[i]._gamepath)) break;
 	}
 	return i;
 }
 
-static size_t find_or_create_game(const char * game)
+static size_t find_or_create_game(struct minirconfig_impl * this, const char * game)
 {
 	if (game==NULL) return 0;
 	
-	size_t i=find_game(game);
-	if (i==bygame.num)
+	size_t i=find_game(this, game);
+	if (i==this->numbygame)
 	{
-		create_game();
-		bygame.config[i]._gamepath=strdup(game);
+		create_game(this);
+		this->bygame[i]._gamepath=strdup(game);
 		return i;
 	}
 	return i;
@@ -259,39 +254,6 @@ static void sort_and_clean_core_support(struct configdata * core)
 
 
 
-const char * config_get_autoload()
-{
-	return autoload;
-}
-
-
-
-const char * * config_get_supported_extensions()
-{
-	unsigned int numret=0;
-	for (unsigned int i=0;i<bycore.num;i++)
-	{
-		unsigned int j;
-		for (j=0;bycore.config[i].primary[j];j++) {}
-		numret+=j;
-	}
-	
-	const char * * ret=malloc(sizeof(const char*)*(numret+1));
-	ret[numret]=NULL;
-	numret=0;
-	for (int i=0;i<bycore.num;i++)
-	{
-		unsigned int j;
-		for (j=0;bycore.config[i].primary[j];j++) {}
-		
-		memcpy(ret+numret, bycore.config[i].primary, sizeof(const char*)*j);
-		numret+=j;
-	}
-	return ret;
-}
-
-
-
 static void split_config(struct configdata * public, struct configdata * global,
 												 struct configdata * bycore, struct configdata * bygame)
 {
@@ -324,171 +286,191 @@ static void split_config(struct configdata * public, struct configdata * global,
 #undef SPLIT
 }
 
-void config_load(const char * corepath, const char * gamepath)
+
+
+static void set_support(struct minirconfig_impl * this, unsigned int id, char * * support_in, char * * primary_in)
 {
-	join_config(&g_config, global);
-	
-	if (corepath)
+	//check if the support list is unchanged (it should be unless this core is fresh)
+	if (support_in)
 	{
-		char * truecore=window_get_absolute_path(corepath);
-		bycore.this=find_or_create_core(truecore);
-		free(truecore);
-		g_config.corename=bycore.config[bycore.this].corename;
-		g_config._corepath=bycore.config[bycore.this]._corepath;
-		g_config.support=bycore.config[bycore.this].support;
-		g_config.primary=bycore.config[bycore.this].primary;
-		join_config(&g_config, &bycore.config[bycore.this]);
+		for (unsigned int i=0;true;i++)
+		{
+			if (!this->bycore[id].support[i] && !support_in[i])
+			{
+				support_in=NULL;
+				break;
+			}
+			if (!this->bycore[id].support[i] || !support_in[i] || strcmp(this->bycore[id].support[i], support_in[i])) break;
+		}
 	}
-	else
+	//same for primary
+	if (primary_in)
 	{
-		g_config.corename=NULL;
-		g_config.support=malloc(sizeof(char*));
-		g_config.support[0]=NULL;
-		g_config.primary=malloc(sizeof(char*));
-		g_config.primary[0]=NULL;
-	}
-	
-	if (gamepath)
-	{
-		char * truegame=window_get_absolute_path(gamepath);
-		bygame.this=find_or_create_game(truegame);
-		free(truegame);
-		join_config(&g_config, &bygame.config[bygame.this]);
-		g_config.gamename=bygame.config[bygame.this].gamename;
-		g_config._gamepath=bygame.config[bygame.this]._gamepath;
-	}
-	else g_config.gamename=NULL;
-}
-
-
-
-void config_create_core(const char * core, bool override_existing, const char * name, const char * const * supported_extensions)
-{
-	char * truecore=window_get_absolute_path(core);
-	size_t id=find_or_create_core(truecore);
-	free(truecore);
-	
-	if (override_existing || !bycore.config[id].corename)
-	{
-		free(bycore.config[id].corename);
-		bycore.config[id].corename=strdup(name);
+		for (unsigned int i=0;true;i++)
+		{
+			if (!this->bycore[id].primary[i] && !primary_in[i])
+			{
+				primary_in=NULL;
+				break;
+			}
+			if (!this->bycore[id].primary[i] || !primary_in[i] || strcmp(this->bycore[id].primary[i], primary_in[i])) break;
+		}
 	}
 	
-	if (override_existing || !bycore.config[id].support[0])
+	if (!support_in && !primary_in) return;
+	
+	for (unsigned int i=0;this->bycore[id].primary[i];i++) free(this->bycore[id].primary[i]);
+	this->bycore[id].primary[0]=NULL;
+	
+	size_t primary_buflen=2;
+	char* * primary=malloc(sizeof(char*)*primary_buflen);
+	size_t primary_count=0;
+	
+	if (support_in)
 	{
-		for (unsigned int i=0;bycore.config[id].support[i];i++) free(bycore.config[id].support[i]);
-		for (unsigned int i=0;bycore.config[id].primary[i];i++) free(bycore.config[id].primary[i]);
-		free(bycore.config[id].support);
-		free(bycore.config[id].primary);
+		for (unsigned int i=0;this->bycore[id].support[i];i++) free(this->bycore[id].support[i]);
+		this->bycore[id].support[0]=NULL;
 		
 		size_t support_buflen=2;
 		char* * support=malloc(sizeof(char*)*support_buflen);
 		size_t support_count=0;
 		
-		size_t primary_buflen=2;
-		char* * primary=malloc(sizeof(char*)*primary_buflen);
-		size_t primary_count=0;
-		
-		if (supported_extensions)
+		for (size_t i=0;support_in[i];i++)
 		{
-			for (size_t i=0;supported_extensions[i];i++)
+			//check if it's already known by this core; if it is, discard it
+			for (size_t j=0;j<support_count;j++)
 			{
-				for (size_t j=0;j<support_count;j++)
-				{
-					if (!strcmp(support[j], supported_extensions[i])) goto nope;
-				}
-				
-				support[support_count]=strdup(supported_extensions[support_count]);
-				support_count++;
-				if (support_count==support_buflen)
-				{
-					support_buflen*=2;
-					support=realloc(support, sizeof(char*)*support_buflen);
-				}
-				
-				for (size_t j=1;j<bycore.num;j++)
-				{
-					for (size_t k=0;bycore.config[j].primary[k];k++)
-					{
-						if (!strcmp(bycore.config[j].primary[k], supported_extensions[i])) goto nope;
-					}
-				}
-				
-				primary[primary_count]=strdup(supported_extensions[i]);
-				primary_count++;
-				if (primary_count==primary_buflen)
-				{
-					primary_buflen*=2;
-					primary=realloc(primary, sizeof(char*)*primary_buflen);
-				}
-			nope: ;
+				if (!strcmp(support[j], support_in[i])) goto nope;
 			}
+			
+			support[support_count]=strdup(support_in[i]);
+			support_count++;
+			if (support_count==support_buflen)
+			{
+				support_buflen*=2;
+				support=realloc(support, sizeof(char*)*support_buflen);
+			}
+			
+			//check if it's known by other cores; if it is, do not set it as primary
+			for (size_t j=1;j<this->numbycore;j++)
+			{
+				for (size_t k=0;this->bycore[j].primary[k];k++)
+				{
+					if (!strcmp(this->bycore[j].primary[k], support_in[i])) goto nope;
+				}
+			}
+			
+			primary[primary_count]=strdup(support_in[i]);
+			primary_count++;
+			if (primary_count==primary_buflen)
+			{
+				primary_buflen*=2;
+				primary=realloc(primary, sizeof(char*)*primary_buflen);
+			}
+		nope: ;
 		}
 		
 		support[support_count]=NULL;
-		primary[primary_count]=NULL;
-		
-		bycore.config[id].support=support;
-		bycore.config[id].primary=primary;
-		
-		sort_and_clean_core_support(&bycore.config[id]);
+		free(this->bycore[id].support);
+		this->bycore[id].support=support;
 	}
-}
-
-void config_create_game(const char * game, bool override_existing, const char * name)
-{
-	char * truegame=window_get_absolute_path(game);
-	size_t id=find_or_create_game(truegame);
-	free(truegame);
 	
-	if (override_existing || !bygame.config[id].gamename)
+	if (primary_in)
 	{
-		free(bygame.config[id].gamename);
-		bygame.config[id].gamename=strdup(name);
-	}
-}
-
-void config_delete_core(const char * core)
-{
-	size_t id=find_core(core);
-	if (id==bycore.num) return;
-	
-	//if (bycore.this==id) config_load(NULL, g_config.gamename);
-	if (bycore.this>id) bycore.this--;
-	
-	memmove(&bycore.config[id], &bycore.config[id+1], sizeof(*bycore.config)*(bycore.num-id));
-	bycore.num--;
-}
-
-void config_delete_game(const char * game)
-{
-	size_t id=find_game(game);
-	if (id==bygame.num) return;
-	
-	//if (bygame.this==id) config_load(g_config.corename, NULL);
-	if (bygame.this>id) bygame.this--;
-	
-	memmove(&bygame.config[id], &bygame.config[id+1], sizeof(*bygame.config)*(bygame.num-id));
-	bygame.num--;
-}
-
-
-
-struct configcorelist * config_get_core_for(const char * gamepath, unsigned int * count)
-{
-	size_t gameid=find_game(gamepath);
-	if (gameid!=bygame.num)
-	{
-		if (bygame.config[gameid]._forcecore)
+		for (size_t i=0;primary_in[i];i++)
 		{
-			size_t coreid=find_core(bygame.config[gameid]._forcecore);
-			//size_t coreid=find_or_create_core(bygame.config[gameid]._forcecore);
-			if (coreid!=bycore.num)
+			//if we're already primary for this one, we don't need to set anything
+			for (size_t j=0;j<primary_count;j++)
+			{
+				if (!strcmp(primary[j], primary_in[i])) goto nope2;
+			}
+			
+			//someone else has claimed this extension as their primary, throw them out
+			
+			for (size_t j=1;j<this->numbycore;j++)
+			{
+				for (size_t k=0;this->bycore[j].primary[k];k++)
+				{
+					if (!strcmp(this->bycore[j].primary[k], primary_in[i]))
+					{
+						//found it; let's shift the others
+						while (this->bycore[j].primary[k])
+						{
+							this->bycore[j].primary[k]=this->bycore[j].primary[k+1];
+							k++;
+						}
+						break;
+					}
+				}
+			}
+			
+			primary[primary_count]=strdup(primary_in[i]);
+			primary_count++;
+			if (primary_count==primary_buflen)
+			{
+				primary_buflen*=2;
+				primary=realloc(primary, sizeof(char*)*primary_buflen);
+			}
+			
+		nope2: ;
+		}
+	}
+	
+	primary[primary_count]=NULL;
+	free(this->bycore[id].primary);
+	this->bycore[id].primary=primary;
+	
+	sort_and_clean_core_support(&this->bycore[id]);
+}
+
+static const char * get_autoload(struct minirconfig * this_)
+{
+	struct minirconfig_impl * this=(struct minirconfig_impl*)this_;
+	return this->autoload;
+}
+
+static const char * * get_supported_extensions(struct minirconfig * this_)
+{
+	struct minirconfig_impl * this=(struct minirconfig_impl*)this_;
+	
+	unsigned int numret=0;
+	for (unsigned int i=0;i<this->numbycore;i++)
+	{
+		unsigned int j;
+		for (j=0;this->bycore[i].primary[j];j++) {}
+		numret+=j;
+	}
+	
+	const char * * ret=malloc(sizeof(const char*)*(numret+1));
+	ret[numret]=NULL;
+	numret=0;
+	for (int i=0;i<this->numbycore;i++)
+	{
+		unsigned int j;
+		for (j=0;this->bycore[i].primary[j];j++) {}
+		
+		memcpy(ret+numret, this->bycore[i].primary, sizeof(const char*)*j);
+		numret+=j;
+	}
+	return ret;
+}
+
+static struct configcorelist * get_core_for(struct minirconfig * this_, const char * gamepath, unsigned int * count)
+{
+	struct minirconfig_impl * this=(struct minirconfig_impl*)this_;
+	
+	size_t gameid=find_game(this, gamepath);
+	if (gameid!=this->numbygame)
+	{
+		if (this->bygame[gameid]._forcecore)
+		{
+			size_t coreid=find_core(this, this->bygame[gameid]._forcecore);
+			//size_t coreid=find_or_create_core(this->bygame[gameid]._forcecore);
+			if (coreid!=this->numbycore)
 			{
 				struct configcorelist * ret=malloc(sizeof(struct configcorelist)*2);
-				ret[0].path=bygame.config[gameid]._forcecore;
-				ret[0].name=bycore.config[coreid].corename;
-printf("core=%s/%s\n",ret[0].path,ret[0].name);
+				ret[0].path=this->bygame[gameid]._forcecore;
+				ret[0].name=this->bycore[coreid].corename;
 				ret[1].path=NULL;
 				ret[1].name=NULL;
 				if (count) *count=1;
@@ -496,9 +478,8 @@ printf("core=%s/%s\n",ret[0].path,ret[0].name);
 			}
 			else
 			{
-printf("kill=%s\n",bygame.config[gameid]._forcecore);
-				free(bygame.config[gameid]._forcecore);
-				bygame.config[gameid]._forcecore=NULL;
+				free(this->bygame[gameid]._forcecore);
+				this->bygame[gameid]._forcecore=NULL;
 			}
 		}
 	}
@@ -510,32 +491,32 @@ printf("kill=%s\n",bygame.config[gameid]._forcecore);
 	if (extension && !strchr(extension, '/'))
 	{
 		extension++;
-		for (int i=1;i<bycore.num;i++)
+		for (int i=1;i<this->numbycore;i++)
 		{
 			bool thisprimary=false;
-			for (int j=0;bycore.config[i].primary[j];j++)
+			for (int j=0;this->bycore[i].primary[j];j++)
 			{
-				if (!strcmp(extension, bycore.config[i].primary[j]))
+				if (!strcmp(extension, this->bycore[i].primary[j]))
 				{
 					thisprimary=true;
 				}
 			}
-			for (int j=0;bycore.config[i].support[j];j++)
+			for (int j=0;this->bycore[i].support[j];j++)
 			{
-				if (!strcmp(extension, bycore.config[i].support[j]))
+				if (!strcmp(extension, this->bycore[i].support[j]))
 				{
 					if (thisprimary && numret!=0)
 					{
 						//memmove(ret+1, ret, sizeof(struct configcorelist)*(numret-1));
 						ret[numret].path=ret[0].path;
 						ret[numret].name=ret[0].name;
-						ret[0].path=bycore.config[i]._corepath;
-						ret[0].name=bycore.config[i].corename;
+						ret[0].path=this->bycore[i]._corepath;
+						ret[0].name=this->bycore[i].corename;
 					}
 					else
 					{
-						ret[numret].path=bycore.config[i]._corepath;
-						ret[numret].name=bycore.config[i].corename;
+						ret[numret].path=this->bycore[i]._corepath;
+						ret[numret].name=this->bycore[i].corename;
 					}
 					
 					numret++;
@@ -552,6 +533,470 @@ printf("kill=%s\n",bygame.config[gameid]._forcecore);
 	ret[numret].name=NULL;
 	if (count) *count=numret;
 	return ret;
+}
+
+static void data_load(struct minirconfig * this_, struct configdata * config,
+                      bool free_old, const char * corepath, const char * gamepath)
+{
+	struct minirconfig_impl * this=(struct minirconfig_impl*)this_;
+	if (free_old) delete_conf(config);
+	
+	initialize_to_defaults(config);
+	join_config(config, &this->global);
+	
+	if (corepath)
+	{
+		char * truecore=window_get_absolute_path(corepath);
+		unsigned int id=find_or_create_core(this, truecore);
+		free(truecore);
+		config->corename=this->bycore[id].corename;
+		config->_corepath=this->bycore[id]._corepath;
+		config->support=this->bycore[id].support;
+		config->primary=this->bycore[id].primary;
+		join_config(config, &this->bycore[id]);
+	}
+	else
+	{
+		config->corename=NULL;
+		config->support=malloc(sizeof(char*));
+		config->support[0]=NULL;
+		config->primary=malloc(sizeof(char*));
+		config->primary[0]=NULL;
+	}
+	
+	if (gamepath)
+	{
+		char * truegame=window_get_absolute_path(gamepath);
+		unsigned int id=find_or_create_game(this, truegame);
+		free(truegame);
+		join_config(config, &this->bygame[id]);
+		config->gamename=this->bygame[id].gamename;
+		config->_gamepath=this->bygame[id]._gamepath;
+	}
+	else config->gamename=NULL;
+	
+	for (unsigned int i=0;i<count(config->inputs);i++) config->inputs[i]=strdup_s(config->inputs[i]);
+	for (unsigned int i=0;i<count(config->_strings);i++) config->_strings[i]=strdup_s(config->_strings[i]);
+	
+	unsigned int i;
+	for (i=0;config->support[i];i++) {}
+	i++;//for the NULL
+	char * * oldsupport=config->support;
+	config->support=malloc(sizeof(char*)*i);
+	for (i=0;oldsupport[i];i++) config->support[i]=strdup(oldsupport[i]);
+	config->support[i]=NULL;
+	
+	for (i=0;config->primary[i];i++) {}
+	i++;
+	char * * oldprimary=config->primary;
+	config->primary=malloc(sizeof(char*)*i);
+	for (i=0;oldprimary[i];i++) config->primary[i]=strdup(oldprimary[i]);
+	config->primary[i]=NULL;
+	
+	if (config->corename) config->corename=strdup(config->corename);
+	if (config->gamename) config->gamename=strdup(config->gamename);
+	if (config->_corepath) config->_corepath=strdup(config->_corepath);
+	if (config->_gamepath) config->_gamepath=strdup(config->_gamepath);
+	
+	config->firstrun=this->firstrun;
+}
+
+static void data_save(struct minirconfig * this_, struct configdata * config)
+{
+	struct minirconfig_impl * this=(struct minirconfig_impl*)this_;
+	size_t coreid=find_or_create_core(this, config->_corepath);
+	size_t gameid=find_or_create_game(this, config->_gamepath);
+	split_config(config, &this->global, &this->bycore[coreid], &this->bygame[gameid]);
+	
+	if (coreid)
+	{
+		set_support(this, coreid, config->support, config->primary);
+		free(this->bycore[coreid].corename);
+		this->bycore[coreid].corename=strdup(config->corename);
+	}
+	if (gameid)
+	{
+		free(this->bygame[gameid].gamename);
+		this->bygame[gameid].gamename=strdup(config->gamename);
+		//free(this->bygame[gameid]._forcecore);
+		//this->bygame[gameid]._forcecore=strdup(config->_forcecore);
+	}
+}
+
+static void data_free(struct minirconfig * this_, struct configdata * config)
+{
+	delete_conf(config);
+}
+
+static void data_destroy(struct minirconfig * this_, const char * item)
+{
+	struct minirconfig_impl * this=(struct minirconfig_impl*)this_;
+	
+	size_t id=find_core(this, item);
+	if (id!=this->numbycore)
+	{
+		memmove(&this->bycore[id], &this->bycore[id+1], sizeof(struct configdata)*(this->numbycore-id));
+		this->numbycore--;
+	}
+	
+	id=find_game(this, item);
+	if (id!=this->numbygame)
+	{
+		memmove(&this->bygame[id], &this->bygame[id+1], sizeof(struct configdata)*(this->numbygame-id));
+		this->numbygame--;
+	}
+}
+
+
+
+enum {
+	CFGB_END,
+	
+	CFGB_COMMENT,
+	CFGB_LINEBREAK,//Linebreaks that appear only in the root node are in comments.
+	
+	CFGB_GLOBAL,
+	CFGB_ARRAY,
+	CFGB_ARRAY_SHUFFLED,
+	CFGB_ARRAY_SAME,
+	
+	CFGB_INPUT,
+	CFGB_STR,
+	CFGB_INT,
+	CFGB_UINT,
+	CFGB_ENUM,
+	CFGB_BOOL,
+	CFGB_STR_MULTI,
+	CFGB_STR_MAP,
+};
+static const unsigned char config_bytecode_comp[]={
+#define CONFIG_BYTECODE
+#include "obj/generated.c"
+#undef CONFIG_BYTECODE
+};
+static unsigned char config_bytecode[CONFIG_BYTECODE_LEN];
+
+
+static char * outstart;
+static char * outat;
+static char * outend;
+
+static void reserve(unsigned int size)
+{
+	if (outat+size>outend)
+	{
+		int buflen=(outend-outstart)*2;
+		int bufat=outat-outstart;
+		outstart=realloc(outstart, buflen);
+		outat=outstart+bufat;
+		outend=outstart+buflen;
+	}
+}
+
+static void appenddat(const char * str, int len)
+{
+	reserve(len);
+	memcpy(outat, str, len);
+	outat+=len;
+}
+
+static void appendstr(const char * str)
+{
+	appenddat(str, strlen(str));
+}
+
+static void appendlf()
+{
+	appenddat("\n", 1);
+}
+
+static void print_config_file(struct configdata * this, unsigned char minscope, bool fullarrays, bool comments)
+{
+	const unsigned char * thisone=config_bytecode;
+	const unsigned char * arrayshuffle=arrayshuffle;//these ones are initialized by ARRAY and ARRAY_SHUFFLED
+	const char * arraynames=arraynames;             //ARRAY_SAME is impossible unless one of those have happened
+	int arraynamelen=arraynamelen;
+	while (*thisone!=CFGB_END)
+	{
+		const unsigned char * at=thisone;
+		int arraylen=1;
+		int arrayend=1;
+		
+		if (*at==CFGB_LINEBREAK)
+		{
+			if (outat[-2]!='\n') appendlf();
+			thisone=at+1;
+			continue;
+		}
+		if (*at==CFGB_COMMENT)
+		{
+			if (comments)
+			{
+				appenddat((char*)at+2, at[1]);
+			}
+			thisone=at+2+at[1];
+			continue;
+		}
+		
+		if (*at==CFGB_GLOBAL) at++;
+		
+		if (*at==CFGB_ARRAY)
+		{
+			arrayshuffle=NULL;
+			arraynames=(char*)at+4;
+			arraylen=at[1];
+			arraynamelen=at[2];
+			arrayend=at[3];
+			at+=4+at[1]*at[2];
+		}
+		if (*at==CFGB_ARRAY_SHUFFLED)
+		{
+			arrayshuffle=at+4;
+			arraynames=(char*)at+4+at[1];
+			arraylen=at[1];
+			arraynamelen=at[2];
+			arrayend=at[3];
+			at+=4+at[1]+at[1]*at[2];
+		}
+		if (*at==CFGB_ARRAY_SAME)
+		{
+			arraylen=at[1];
+			arrayend=at[3];
+			at+=4;
+		}
+		
+		int baseoffset=((at[1]<<8)|(at[2]));
+		
+		unsigned char itemtype=*at;
+		
+		if(0);
+		else if (*at==CFGB_INPUT) at+=3;
+		else if (*at==CFGB_STR) at+=3;
+		else if (*at==CFGB_INT) at+=11;
+		else if (*at==CFGB_UINT) at+=11;
+		//else if (*at==CFGB_ENUM) at++;
+		else if (*at==CFGB_BOOL) at+=3;
+		else if (*at==CFGB_STR_MULTI) at+=3;
+		else if (*at==CFGB_STR_MAP) at+=3;
+		
+		for (int i=0;i<arraylen;i++)
+		{
+			if (itemtype==CFGB_INPUT && this->_scopes_input[baseoffset+i]<minscope) continue;
+			if (itemtype==CFGB_STR && this->_scopes_str[baseoffset+i]<minscope) continue;
+			if (itemtype==CFGB_INT && this->_scopes_int[baseoffset+i]<minscope) continue;
+			if (itemtype==CFGB_UINT && this->_scopes_uint[baseoffset+i]<minscope) continue;
+			if (itemtype==CFGB_BOOL && this->_scopes_bool[baseoffset+i]<minscope) continue;
+			if (itemtype==CFGB_STR_MULTI && this->_scopes_strlist[baseoffset+i]<minscope) continue;
+			if (itemtype==CFGB_STR_MAP && this->_scopes_strmap[baseoffset+i]<minscope) continue;
+			
+			if (i>=arrayend && !fullarrays)
+			{
+				if (itemtype==CFGB_INPUT && !this->inputs[baseoffset+i]) continue;
+				if (itemtype==CFGB_STR && !this->_strings[baseoffset+i]) continue;
+				if (itemtype==CFGB_INT && !this->_ints[baseoffset+i]) continue;
+				if (itemtype==CFGB_UINT && !this->_uints[baseoffset+i]) continue;
+				if (itemtype==CFGB_BOOL && !this->_bools[baseoffset+i]) continue;
+				if (itemtype==CFGB_STR_MULTI && !this->_strlists[baseoffset+i]) continue;
+				if (itemtype==CFGB_STR_MAP && !this->_strmaps[baseoffset+i]) continue;
+			}
+			
+			char varname[256];
+			unsigned int varnamepos=0;
+			
+			int arrayoffset=0;
+			memcpy(varname+varnamepos, at+1, *at); varnamepos+=*at;
+			if (arraylen!=1)
+			{
+				int dynlen=arraynamelen;
+				while (arraynames[arraynamelen*i + dynlen-1]=='\0') dynlen--;
+				memcpy(varname+varnamepos, arraynames + arraynamelen*i, dynlen); varnamepos+=dynlen;
+				arrayoffset=arrayshuffle?arrayshuffle[i]:i;
+			}
+			int offset=baseoffset+arrayoffset;
+			varname[varnamepos++]='=';
+			if (itemtype!=CFGB_STR_MULTI && itemtype!=CFGB_STR_MAP)
+			{
+				appenddat(varname, varnamepos);
+				if (itemtype==CFGB_INPUT)
+				{
+					appendstr(this->inputs[offset]?this->inputs[offset]:"");
+				}
+				if (itemtype==CFGB_STR)
+				{
+					appendstr(this->_strings[offset]?this->_strings[offset]:"");
+				}
+				if (itemtype==CFGB_INT)
+				{
+					char buf[32];
+					sprintf(buf, "%i", this->_ints[offset]);
+					appendstr(buf);
+				}
+				if (itemtype==CFGB_UINT)
+				{
+					char buf[32];
+					sprintf(buf, "%u", this->_uints[offset]);
+					appendstr(buf);
+				}
+				if (itemtype==CFGB_BOOL)
+				{
+					appendstr(this->_bools[offset]?"true":"false");
+				}
+				appendlf();
+			}
+			else
+			{
+				char** tmp;
+				if (itemtype==CFGB_STR_MULTI)
+				{
+					tmp=this->_strlists[offset];
+				}
+				else
+				{
+					tmp=this->_strmaps[offset];
+					varname[varnamepos-1]='_';
+				}
+				if (!tmp || !*tmp)
+				{
+					appenddat(varname, varnamepos);//set the list to an empty string
+					if (itemtype==CFGB_STR_MAP) appendstr("=");
+					appendlf();
+					continue;
+				}
+				while (*tmp)
+				{
+					appenddat(varname, varnamepos);
+					appendstr(*tmp);
+					appendlf();
+					tmp++;
+				}
+			}
+		}
+		
+		thisone=at+1+at[0];
+	}
+}
+
+static void write(struct minirconfig * this_, const char * path)
+{
+	struct minirconfig_impl * this=(struct minirconfig_impl*)this_;
+	
+	outstart=malloc(8192);
+	outat=outstart;
+	outend=outstart+8192;
+	appendstr("[global]\n");
+	print_config_file(&this->global, (this->global.verbosity>=cfgv_default ? cfgsc_default : cfgsc_global),
+	                  this->global.verbosity>=cfgv_maximum, this->global.verbosity>=cfgv_default);
+	
+	for (unsigned int i=1;i<this->numbycore;i++)
+	{
+		if (outat[-2]!='\n') appendlf();
+		appendstr("[core]\n");
+		if (this->global.verbosity>=cfgv_default && i==1)
+		{
+			appendstr("#minir will only set core-specific entries here by default,"
+			          "but you can copy any setting from [global] if you want to.\n"
+			          "#You will, of course, still be able to change it from within minir.\n"
+			          "#However, you can't change whether something is core-specific from within minir.\n"
+			          "#Anything that starts core-specific stays that way, "
+			              "even if it's set to the same value as the global one.\n"
+			          "#Additionally, you can't copy anything originating from here into other sections; "
+			              "that wouldn't make sense.\n"
+			          );
+		}
+		if (this->bycore[i].corename)
+		{
+			appendstr("name="); appendstr(this->bycore[i].corename); appendlf();
+		}
+		appendstr("path="); appendstr(this->bycore[i]._corepath); appendlf();
+		for (unsigned int j=0;this->bycore[i].primary[j];j++)
+		{
+			appendstr("primary=");
+			appendstr(this->bycore[i].primary[j]);
+			appendlf();
+		}
+		for (unsigned int j=0;this->bycore[i].support[j];j++)
+		{
+			appendstr("support=");
+			appendstr(this->bycore[i].support[j]);
+			appendlf();
+		}
+		
+		//print core options HERE
+		
+		print_config_file(&this->bycore[i], cfgsc_core, false, false);
+	}
+	
+	for (unsigned int i=1;i<this->numbygame;i++)
+	{
+		if (outat[-2]!='\n') appendstr("\n");
+		appendstr("[game]\n");
+		if (this->global.verbosity>=cfgv_default && i==1)
+		{
+			appendstr("#You can copypaste global settings to here too,"
+			          " and they will override the global or core-specific settings.\n"
+			          "#You can also set core=C:/path/to/core_libretro.dll to pick another"
+			          " core for that ROM specifically.\n"
+#ifdef _WIN32
+			          "#Use forward slashes.\n"
+#endif
+			          );
+		}
+		if (this->bygame[i].gamename)
+		{
+			appendstr("name="); appendstr(this->bygame[i].gamename); appendlf();
+		}
+		appendstr("path="); appendstr(this->bygame[i]._gamepath); appendlf();
+		if (this->bygame[i]._forcecore) { appendstr("core="); appendstr(this->bygame[i]._forcecore); appendlf(); }
+		if (this->bygame[i]._autoload) { appendstr("autoload=true\n"); }
+		
+		//print core options HERE if any
+		
+		print_config_file(&this->bygame[i], cfgsc_game, false, false);
+	}
+	
+	if (outat[-2]=='\n') outat--;
+	//and a null terminator
+	reserve(1);
+	*outat='\0';
+	
+#ifdef LINEBREAK_CRLF
+	size_t len=0;
+	for (char * outlen=outstart;*outlen;outlen++)
+	{
+		if (*outlen=='\n') len++;
+		len++;
+	}
+	char * newout=malloc(len+1);
+	char * newoutat=newout;
+	for (char * inat=outstart;*inat;inat++)
+	{
+		if (*inat=='\n') *(newoutat++)='\r';
+		*(newoutat++)=*inat;
+	}
+	*newoutat='\0';
+	free(outstart);
+	outstart=newout;
+#else
+	size_t len=outat-outstart;
+#endif
+	
+	if (!this->originalconfig || strcmp(outstart, this->originalconfig))
+	{
+		file_write(path, outstart, len);
+	}
+	free(outstart);
+}
+
+
+
+static void free_(struct minirconfig * this_)
+{
+	struct minirconfig_impl * this=(struct minirconfig_impl*)this_;
+	delete_conf(&this->global);
+	for (size_t i=0;i<this->numbycore;i++) delete_conf(&this->bycore[i]);
+	for (size_t i=0;i<this->numbygame;i++) delete_conf(&this->bygame[i]);
+	free(this->originalconfig);
+	free(this);
 }
 
 
@@ -631,31 +1076,6 @@ static bool load_var_input(const char * str, char* * out)
 //	return;
 //}
 
-enum {
-	CFGB_END,
-	
-	CFGB_COMMENT,
-	CFGB_LINEBREAK,//Linebreaks that appear only in the root node are in comments.
-	
-	CFGB_GLOBAL,
-	CFGB_ARRAY,
-	CFGB_ARRAY_SHUFFLED,
-	CFGB_ARRAY_SAME,
-	
-	CFGB_INPUT,
-	CFGB_STR,
-	CFGB_INT,
-	CFGB_UINT,
-	CFGB_ENUM,
-	CFGB_BOOL,
-};
-const unsigned char config_bytecode_comp[]={
-#define CONFIG_BYTECODE
-#include "obj/generated.c"
-#undef CONFIG_BYTECODE
-};
-unsigned char config_bytecode[CONFIG_BYTECODE_LEN];
-
 static void load_var_from_file(const char * name, const char * value, struct configdata * thisconf, unsigned char scope)
 {
 	const unsigned char * thisone=config_bytecode;
@@ -677,12 +1097,17 @@ static void load_var_from_file(const char * name, const char * value, struct con
 		}
 		
 		bool array=false;
+		bool global=false;
 		
-		if (*at==CFGB_GLOBAL) at++;
+		if (*at==CFGB_GLOBAL)
+		{
+			at++;
+			global=true;
+		}
 		
 		if (*at==CFGB_ARRAY)
 		{
-			//we can't put this inside the memcmp, as the memcmp'd code doesn't always run, and we could hit CFGB_ARRAY_SAME
+			//we can't put this inside the memcmp, as the memcmp'd code doesn't always run, and we could hit CFGB_ARRAY_SAME after that
 			array=true;
 			arrayshuffle=NULL;
 			arraynames=(char*)at+4;
@@ -701,25 +1126,25 @@ static void load_var_from_file(const char * name, const char * value, struct con
 			at+=4;
 		}
 		
+		unsigned char type=*at;
 		if(0);
-		else if (*at==CFGB_INPUT) at+=3;
-		else if (*at==CFGB_STR) at+=3;
-		else if (*at==CFGB_INT) at+=11;
-		else if (*at==CFGB_UINT) at+=11;
-		//else if (*at==CFGB_ENUM) at++;
-		else if (*at==CFGB_BOOL) at+=3;
+		else if (type==CFGB_INPUT) at+=3;
+		else if (type==CFGB_STR) at+=3;
+		else if (type==CFGB_INT) at+=11;
+		else if (type==CFGB_UINT) at+=11;
+		//else if (type==CFGB_ENUM) at++;
+		else if (type==CFGB_BOOL) at+=3;
+		else if (type==CFGB_STR_MULTI) at+=3;
+		else if (type==CFGB_STR_MAP) at+=3;
 		
 		int namelen=*at;
 		
-		if (!memcmp(name, (char*)at+1, namelen) && (array || name[namelen]=='\0'))
+		if (!memcmp(name, (char*)at+1, namelen) && (array || name[namelen]=='\0' || (name[namelen]=='_' && type==CFGB_STR_MAP)))
 		{
+			if (global && scope!=cfgsc_global) goto cont;
 			const unsigned char * at2=thisone;
 			
-			if (*at2==CFGB_GLOBAL)
-			{
-				at2++;
-				if (!global) goto cont;
-			}
+			if (*at2==CFGB_GLOBAL) at2++;
 			
 			int arrayoffset=0;
 			
@@ -781,39 +1206,54 @@ static void load_var_from_file(const char * name, const char * value, struct con
 			{
 				if (load_var_bool(value, &thisconf->_bools[offset])) thisconf->_scopes_bool[offset]=scope;
 			}
+			if (*at2==CFGB_STR_MULTI)
+			{
+				//if (load_var_bool(value, &thisconf->_bools[offset])) thisconf->_scopes_bool[offset]=scope;
+			}
+			if (*at2==CFGB_STR_MAP)
+			{
+				//if (load_var_bool(value, &thisconf->_bools[offset])) thisconf->_scopes_bool[offset]=scope;
+			}
 		}
 	cont:
 		thisone=at+1+namelen;
 	}
 }
 
-void config_read(const char * path)
+struct minirconfig * config_create(const char * path)
 {
+	struct minirconfig_impl * this=malloc(sizeof(struct minirconfig_impl));
+	memset(this, 0, sizeof(*this));
+	this->i.get_autoload=get_autoload;
+	this->i.get_supported_extensions=get_supported_extensions;
+	this->i.get_core_for=get_core_for;
+	this->i.data_load=data_load;
+	this->i.data_save=data_save;
+	this->i.data_free=data_free;
+	this->i.data_destroy=data_destroy;
+	this->i.write=write;
+	this->i.free=free_;
+	
 	tinfl_decompress_mem_to_mem(config_bytecode, CONFIG_BYTECODE_LEN, config_bytecode_comp, sizeof(config_bytecode_comp), 0);
 	
-	bycore.num=1;
-	bycore.buflen=1;
-	bycore.config=malloc(sizeof(struct configdata));
-	initialize_to_parent(&bycore.config[0]);
-	bycore.this=0;
+	this->numbycore=1;
+	this->bycore=malloc(sizeof(struct configdata));
+	initialize_to_parent(&this->bycore[0]);
 	
-	bygame.num=1;
-	bygame.buflen=1;
-	bygame.config=malloc(sizeof(struct configdata));
-	initialize_to_parent(&bygame.config[0]);
-	bygame.this=0;
+	this->numbygame=1;
+	this->bygame=malloc(sizeof(struct configdata));
+	initialize_to_parent(&this->bygame[0]);
 	
 	struct configdata * thisconf=NULL;
 	
-	global=malloc(sizeof(struct configdata));
-	initialize_to_parent(global);
+	initialize_to_defaults(&this->global);
 	
 	char * rawconfig;
-	firstrun=true;
-	if (!file_read(path, &rawconfig, NULL)) return;
-	firstrun=false;
+	this->firstrun=true;
+	if (!file_read(path, &rawconfig, NULL)) goto done;
+	this->firstrun=false;
 	
-	originalconfig=strdup(rawconfig);
+	this->originalconfig=strdup(rawconfig);
 	
 	unsigned char thisscope=cfgsc_global;
 	
@@ -832,19 +1272,19 @@ void config_read(const char * path)
 				if (thisscope==cfgsc_core && !thisconf->_corepath) \
 				{ \
 					delete_conf(thisconf); \
-					bycore.num--; \
+					this->numbycore--; \
 				} \
 				else if (thisscope==cfgsc_game && !thisconf->_gamepath) \
 				{ \
 					delete_conf(thisconf); \
-					bygame.num--; \
+					this->numbygame--; \
 				} \
 				else \
 				{ \
 					if (thisconf->_autoload) \
 					{ \
-						if (autoload) thisconf->_autoload=false; \
-						else autoload=strdup(thisconf->_gamepath); \
+						if (this->autoload) thisconf->_autoload=false; \
+						else this->autoload=strdup(thisconf->_gamepath); \
 					} \
 					if (support) \
 					{ \
@@ -880,11 +1320,11 @@ void config_read(const char * path)
 		{
 			finishsection();
 			if(0);
-			else if (!strcmp(thisline, "[global]")) { thisconf=global; thisscope=cfgsc_global; }
+			else if (!strcmp(thisline, "[global]")) { thisconf=&this->global; thisscope=cfgsc_global; }
 			else if (!strcmp(thisline, "[core]"))
 			{
-				size_t id=create_core();
-				thisconf=&bycore.config[id];
+				size_t id=create_core(this);
+				thisconf=&this->bycore[id];
 				thisscope=cfgsc_core;
 				
 				support_buflen=2;
@@ -892,7 +1332,7 @@ void config_read(const char * path)
 				primary_buflen=2;
 				primary=malloc(sizeof(char*)*primary_buflen);
 			}
-			else if (!strcmp(thisline, "[game]")) { size_t id=create_game(); thisconf=&bygame.config[id]; thisscope=cfgsc_game; }
+			else if (!strcmp(thisline, "[game]")) { size_t id=create_game(this); thisconf=&this->bygame[id]; thisscope=cfgsc_game; }
 			else thisconf=NULL;
 		}
 		
@@ -967,7 +1407,6 @@ void config_read(const char * path)
 			{
 				free(thisconf->_forcecore);
 				thisconf->_forcecore=strdup(value);
-printf("%lu:%p %p\n",bygame.num,thisconf->_forcecore,thisconf);
 			}
 			load_var_from_file(thisline, value, thisconf, thisscope);
 		}
@@ -978,640 +1417,41 @@ printf("%lu:%p %p\n",bygame.num,thisconf->_forcecore,thisconf);
 	finishsection();
 	
 	//find support without corresponding primary
-	for (unsigned int i=1;i<bycore.num;i++)
+	for (unsigned int i=1;i<this->numbycore;i++)
 	{
 		//unsigned int supportcount;
-		//for (supportcount=0;bycore.config[i].support[supportcount];supportcount++) {}
+		//for (supportcount=0;this->bycore[i].support[supportcount];supportcount++) {}
 		unsigned int primarycount;
-		//if (bycore.config[i].primary)
+		//if (this->bycore[i].primary)
 		//{
-			for (primarycount=0;bycore.config[i].primary[primarycount];primarycount++) {}
+			for (primarycount=0;this->bycore[i].primary[primarycount];primarycount++) {}
 		//}
 		//else primarycount=0;
-		for (unsigned int j=0;bycore.config[i].support[j];j++)
+		for (unsigned int j=0;this->bycore[i].support[j];j++)
 		{
 			for (unsigned int l=0;l<primarycount;l++)
 			{
-				if (!strcmp(bycore.config[i].support[j], bycore.config[i].primary[l])) goto foundit;
+				if (!strcmp(this->bycore[i].support[j], this->bycore[i].primary[l])) goto foundit;
 			}
-			for (unsigned int k=1;k<bycore.num;k++)
+			for (unsigned int k=1;k<this->numbycore;k++)
 			{
 				if (k==i) continue;
-				for (unsigned int l=0;bycore.config[k].primary[l];l++)
+				for (unsigned int l=0;this->bycore[k].primary[l];l++)
 				{
-					if (!strcmp(bycore.config[i].support[j], bycore.config[k].primary[l])) goto foundit;
+					if (!strcmp(this->bycore[i].support[j], this->bycore[k].primary[l])) goto foundit;
 				}
 			}
 			//this has poor complexity, but shouldn't be run often
-			bycore.config[i].primary=realloc(bycore.config[i].primary, sizeof(char*)*(primarycount+2));
-			bycore.config[i].primary[primarycount]=strdup(bycore.config[i].support[j]);
-			bycore.config[i].primary[primarycount+1]=NULL;
+			this->bycore[i].primary=realloc(this->bycore[i].primary, sizeof(char*)*(primarycount+2));
+			this->bycore[i].primary[primarycount]=strdup(this->bycore[i].support[j]);
+			this->bycore[i].primary[primarycount+1]=NULL;
 			primarycount++;
 		foundit:;
 		}
 	}
 	
 	free(rawconfig);
-}
-
-
-
-static char * outstart;
-static char * outat;
-static char * outend;
-
-static void reserve(unsigned int size)
-{
-	if (outat+size>outend)
-	{
-		int buflen=(outend-outstart)*2;
-		int bufat=outat-outstart;
-		outstart=realloc(outstart, buflen);
-		outat=outstart+bufat;
-		outend=outstart+buflen;
-	}
-}
-
-static void appenddat(const char * str, int len)
-{
-	reserve(len);
-	memcpy(outat, str, len);
-	outat+=len;
-}
-
-static void appendstr(const char * str)
-{
-	appenddat(str, strlen(str));
-}
-
-static void appendlf()
-{
-	appenddat("\n", 1);
-}
-
-static void print_config_file(struct configdata * this, unsigned char minscope)
-{
-	const unsigned char * thisone=config_bytecode;
-	const unsigned char * arrayshuffle=arrayshuffle;//these ones are initialized by ARRAY and ARRAY_SHUFFLED
-	const char * arraynames=arraynames;             //ARRAY_SAME is impossible unless one of those have happened
-	int arraynamelen=arraynamelen;
-	char buf[32];
-	while (*thisone!=CFGB_END)
-	{
-		const unsigned char * at=thisone;
-		int arraylen=1;
-		int arrayend=1;
-		
-		if (*at==CFGB_LINEBREAK)
-		{
-			if (outat[-2]!='\n') appendlf();
-			thisone=at+1;
-			continue;
-		}
-		if (*at==CFGB_COMMENT)
-		{
-			if (global->verbosity>=cfgv_default)
-			{
-				appenddat((char*)at+2, at[1]);
-			}
-			thisone=at+2+at[1];
-			continue;
-		}
-		
-		if (*at==CFGB_GLOBAL) at++;
-		
-		if (*at==CFGB_ARRAY)
-		{
-			arrayshuffle=NULL;
-			arraynames=(char*)at+4;
-			arraylen=at[1];
-			arraynamelen=at[2];
-			arrayend=at[3];
-			at+=4+at[1]*at[2];
-		}
-		if (*at==CFGB_ARRAY_SHUFFLED)
-		{
-			arrayshuffle=at+4;
-			arraynames=(char*)at+4+at[1];
-			arraylen=at[1];
-			arraynamelen=at[2];
-			arrayend=at[3];
-			at+=4+at[1]+at[1]*at[2];
-		}
-		if (*at==CFGB_ARRAY_SAME)
-		{
-			arraylen=at[1];
-			arrayend=at[3];
-			at+=4;
-		}
-		
-		int baseoffset=((at[1]<<8)|(at[2]));
-		
-		unsigned char itemtype=*at;
-		
-		     if (*at==CFGB_INPUT) at+=3;
-		else if (*at==CFGB_STR) at+=3;
-		else if (*at==CFGB_INT) at+=11;
-		else if (*at==CFGB_UINT) at+=11;
-		//else if (*at==CFGB_ENUM) at++;
-		else if (*at==CFGB_BOOL) at+=3;
-		
-		for (int i=0;i<arraylen;i++)
-		{
-			if (itemtype==CFGB_INPUT && this->_scopes_input[baseoffset+i]<minscope) continue;
-			if (itemtype==CFGB_STR && this->_scopes_str[baseoffset+i]<minscope) continue;
-			if (itemtype==CFGB_INT && this->_scopes_int[baseoffset+i]<minscope) continue;
-			if (itemtype==CFGB_UINT && this->_scopes_uint[baseoffset+i]<minscope) continue;
-			if (itemtype==CFGB_BOOL && this->_scopes_bool[baseoffset+i]<minscope) continue;
-			
-			if (i>=arrayend)
-			{
-				if (itemtype==CFGB_INPUT && !this->inputs[baseoffset+i]) continue;
-				if (itemtype==CFGB_STR && !this->_strings[baseoffset+i]) continue;
-				if (itemtype==CFGB_INT && !this->_ints[baseoffset+i]) continue;
-				if (itemtype==CFGB_UINT && !this->_uints[baseoffset+i]) continue;
-				if (itemtype==CFGB_BOOL && !this->_bools[baseoffset+i]) continue;
-			}
-			
-			int arrayoffset=0;
-			appenddat((char*)at+1, *at);
-			if (arraylen!=1)
-			{
-				int dynlen=arraynamelen;
-				while (arraynames[arraynamelen*i + dynlen-1]=='\0') dynlen--;
-				appenddat((char*)arraynames+arraynamelen*i, dynlen);
-				arrayoffset=arrayshuffle?arrayshuffle[i]:i;
-			}
-			int offset=baseoffset+arrayoffset;
-			appendstr("=");
-			if (itemtype==CFGB_INPUT)
-			{
-				if (this->_scopes_input[offset]>=minscope)
-				{
-					appendstr(this->inputs[offset]?this->inputs[offset]:"");
-				}
-			}
-			if (itemtype==CFGB_STR)
-			{
-				if (this->_scopes_str[offset]>=minscope)
-				{
-					appendstr(this->_strings[offset]?this->_strings[offset]:"");
-				}
-			}
-			if (itemtype==CFGB_INT)
-			{
-				if (this->_scopes_int[offset]>=minscope)
-				{
-					sprintf(buf, "%i", this->_ints[offset]);
-					appendstr(buf);
-				}
-			}
-			if (itemtype==CFGB_UINT)
-			{
-				if (this->_scopes_uint[offset]>=minscope)
-				{
-					sprintf(buf, "%u", this->_uints[offset]);
-					appendstr(buf);
-				}
-			}
-			if (itemtype==CFGB_BOOL)
-			{
-				if (this->_scopes_bool[offset]>=minscope)
-				{
-					appendstr(this->_bools[offset]?"true":"false");
-				}
-			}
-			appendlf();
-		}
-		
-		thisone=at+1+at[0];
-	}
-}
-
-void config_write(const char * path)
-{
-	//split_config(&g_config, global, &bycore.config[bycore.this], &bygame.config[bygame.this]);
 	
-	outstart=malloc(8192);
-	outat=outstart;
-	outend=outstart+8192;
-	appendstr("[global]\n");
-	print_config_file(global, (global->verbosity>=cfgv_default ? cfgsc_default : cfgsc_global));
-	
-	for (unsigned int i=1;i<bycore.num;i++)
-	{
-		if (outat[-2]!='\n') appendlf();
-		appendstr("[core]\n");
-		if (global->verbosity>=cfgv_default && i==1)
-		{
-			appendstr("#minir will only set core-specific entries here by default,"
-			          "but you can copy any setting from [global] if you want to.\n"
-			          "#You will, of course, still be able to change it from within minir.\n"
-			          "#However, you can't change whether something is core-specific from within minir.\n"
-			          "#Anything that starts core-specific stays that way, "
-			              "even if it's set to the same value as the global one.\n"
-			          "#Additionally, you can't copy anything originating from here into other sections; "
-			              "that wouldn't make sense.\n"
-			          );
-		}
-		if (bycore.config[i].corename)
-		{
-			appendstr("name="); appendstr(bycore.config[i].corename); appendlf();
-		}
-		appendstr("path="); appendstr(bycore.config[i]._corepath); appendlf();
-		for (unsigned int j=0;bycore.config[i].primary[j];j++)
-		{
-			appendstr("primary=");
-			appendstr(bycore.config[i].primary[j]);
-			appendlf();
-		}
-		for (unsigned int j=0;bycore.config[i].support[j];j++)
-		{
-			appendstr("support=");
-			appendstr(bycore.config[i].support[j]);
-			appendlf();
-		}
-		
-		//print core options HERE
-		
-		print_config_file(&bycore.config[i], cfgsc_core);
-	}
-	
-	for (unsigned int i=1;i<bygame.num;i++)
-	{
-		if (outat[-2]!='\n') appendstr("\n");
-		appendstr("[game]\n");
-		if (global->verbosity>=cfgv_default && i==1)
-		{
-			appendstr("#You can copypaste global settings to here too,"
-			          " and they will override the global or core-specific settings.\n"
-			          "#You can also set core=C:/path/to/core_libretro.dll to pick another"
-			          " core for that ROM specifically.\n"
-#ifdef _WIN32
-			          "#Use forward slashes.\n"
-#endif
-			          );
-		}
-		if (bygame.config[i].gamename)
-		{
-			appendstr("name="); appendstr(bygame.config[i].gamename); appendlf();
-		}
-		appendstr("path="); appendstr(bygame.config[i]._gamepath); appendlf();
-printf("%i:%p %p\n",i,bygame.config[i]._forcecore,&bygame.config[i]);
-		if (bygame.config[i]._forcecore) { appendstr("core="); appendstr(bygame.config[i]._forcecore); appendlf(); }
-		if (bygame.config[i]._autoload) { appendstr("autoload=true\n"); }
-		
-		//print core options HERE if any
-		
-		print_config_file(&bygame.config[i], cfgsc_game);
-	}
-	
-	if (outat[-2]=='\n') outat--;
-	//and a null terminator
-	reserve(1);
-	*outat='\0';
-	
-#ifdef LINEBREAK_CRLF
-	size_t len=0;
-	for (char * outlen=outstart;*outlen;outlen++)
-	{
-		if (*outlen=='\n') len++;
-		len++;
-	}
-	char * newout=malloc(len+1);
-	char * newoutat=newout;
-	for (char * inat=outstart;*inat;inat++)
-	{
-		if (*inat=='\n') *(newoutat++)='\r';
-		*(newoutat++)=*inat;
-	}
-	*newoutat='\0';
-	free(outstart);
-	outstart=newout;
-#else
-	size_t len=outat-outstart;
-#endif
-	
-	if (!originalconfig || strcmp(outstart, originalconfig))
-	{
-(void)len;
-		//file_write(path, outstart, len);
-	}
-	free(outstart);
-}
-
-
-
-
-
-//Reads the config from disk.
-void config_read(const char * path);
-
-//Tells which game to autoload. Can be NULL if none. Don't free it.
-const char * config_get_autoload();
-
-//Returns { "smc", "sfc", NULL } for all possible values. Free it when you're done, but don't free the pointers inside.
-const char * * config_get_supported_extensions();
-
-//Tells which cores support this game. Send it to free() when you're done; however, the pointers
-// inside should not be freed. If a game specifies it should be opened with one specific core, only that is returned.
-//count can be NULL if you don't care. Alternatively, it's terminated with a { NULL, NULL }.
-struct configcorelist * config_get_core_for(const char * gamepath, unsigned int * count);
-
-//Populates struct config with the core- or game-specific options for this. Will memorize all changed config.
-//NULL is valid for either or both of them. It is not an error if a given entry doesn't exist.
-//If the given game demands a specific core, the given core will be ignored. The game will always be honored unless it's NULL.
-void config_load(const char * corepath, const char * gamepath);
-
-bool config_core_supports(const char * core, const char * extension);
-void config_create_core(const char * core, bool override_existing, const char * name, const char * const * supported_extensions);
-void config_create_game(const char * game, bool override_existing, const char * name);
-void config_set_primary_core(const char * core, const char * extension);
-void config_delete_core(const char * core);
-void config_delete_game(const char * game);
-
-//Writes the changes back to the file, if there are any changes.
-void config_write(const char * path);
-
-struct minirconfig_impl {
-	struct minirconfig i;
-	
-	struct configdata global;//we can be reasonably sure that this one does not have an unaligned size
-	
-	struct configdata * bycore;
-	struct configdata * bygame;
-	unsigned int numbycore;
-	unsigned int numbygame;
-	
-	const char * autoload;
-	
-	char * originalconfig;
-};
-
-static const char * get_autoload(struct minirconfig * this_);
-static const char * * get_supported_extensions(struct minirconfig * this_);
-static struct configcorelist * get_core_for(struct minirconfig * this_, const char * gamepath, unsigned int * count);
-static void data_load(struct minirconfig * this_, struct configdata * config,
-                      bool free_old, const char * corepath, const char * gamepath);
-static void data_save(struct minirconfig * this_, struct configdata * config);
-static void data_free(struct minirconfig * this_, struct configdata * config);
-static void data_destroy(struct minirconfig * this_, const char * item);
-static void write(struct minirconfig * this_, const char * path);
-static void free_(struct minirconfig * this_);
-
-static const char * get_autoload(struct minirconfig * this_)
-{
-	return config_get_autoload();
-}
-
-static const char * * get_supported_extensions(struct minirconfig * this_)
-{
-	return config_get_supported_extensions();
-}
-
-static struct configcorelist * get_core_for(struct minirconfig * this_, const char * gamepath, unsigned int * count)
-{
-	return config_get_core_for(gamepath, count);
-}
-
-static void data_load(struct minirconfig * this_, struct configdata * config,
-                      bool free_old, const char * corepath, const char * gamepath)
-{
-	if (free_old) data_free(this_, config);
-	
-	initialize_to_defaults(&g_config);
-	config_load(corepath, gamepath);
-	memcpy(config, &g_config, sizeof(*config));
-	
-	for (unsigned int i=0;i<count(config->inputs);i++) config->inputs[i]=strdup_s(config->inputs[i]);
-	for (unsigned int i=0;i<count(config->_strings);i++) config->_strings[i]=strdup_s(config->_strings[i]);
-	
-	unsigned int i;
-	//this loop also calculates the buffer size
-	for (i=0;g_config.support[i];i++) {}
- //printf("%i: %p->",i,g_config.support[i]),
-//g_config.support[i]=strdup(g_config.support[i]),
-//printf("%p [%p]\n",g_config.support[i],g_config.support);
-	i++;//for the NULL
-	config->support=malloc(sizeof(char*)*i);
-	for (i=0;g_config.support[i];i++) config->support[i]=strdup(g_config.support[i]);
-	config->support[i]=NULL;
-	//memcpy(config->support, g_config.support, sizeof(char*)*i);
-	
-	for (i=0;g_config.primary[i];i++) {}//g_config.primary[i]=strdup(g_config.primary[i]);
-	i++;
-	config->primary=malloc(sizeof(char*)*i);
-	memcpy(config->primary, g_config.primary, sizeof(char*)*i);
-	for (i=0;g_config.primary[i];i++) config->primary[i]=strdup(g_config.primary[i]);
-	config->primary[i]=NULL;
-	
-	if (config->corename) config->corename=strdup(config->corename);
-	if (config->gamename) config->gamename=strdup(config->gamename);
-	if (config->_corepath) config->_corepath=strdup(config->_corepath);
-	if (config->_gamepath) config->_gamepath=strdup(config->_gamepath);
-	
-	config->firstrun=firstrun;
-	
-	//delete_conf(&g_config);
-	memset(&g_config, 0, sizeof(*config));
-}
-
-static void set_support(struct minirconfig_impl * this, unsigned int id, char * * support_in, char * * primary_in)
-{
-	//check if the support list is unchanged (it should be unless this core is fresh)
-	if (support_in)
-	{
-		for (unsigned int i=0;true;i++)
-		{
-			if (!bycore.config[id].support[i] && !support_in[i])
-			{
-				support_in=NULL;
-				break;
-			}
-			if (!bycore.config[id].support[i] || !support_in[i] || strcmp(bycore.config[id].support[i], support_in[i])) break;
-		}
-	}
-	//same for primary
-	if (primary_in)
-	{
-		for (unsigned int i=0;true;i++)
-		{
-			if (!bycore.config[id].primary[i] && !primary_in[i])
-			{
-				primary_in=NULL;
-				break;
-			}
-			if (!bycore.config[id].primary[i] || !primary_in[i] || strcmp(bycore.config[id].primary[i], primary_in[i])) break;
-		}
-	}
-	
-	if (!support_in && !primary_in) return;
-	
-	for (unsigned int i=0;bycore.config[id].primary[i];i++) free(bycore.config[id].primary[i]);
-	bycore.config[id].primary[0]=NULL;
-	
-	size_t primary_buflen=2;
-	char* * primary=malloc(sizeof(char*)*primary_buflen);
-	size_t primary_count=0;
-	
-	if (support_in)
-	{
-		for (unsigned int i=0;bycore.config[id].support[i];i++) free(bycore.config[id].support[i]);
-		bycore.config[id].support[0]=NULL;
-		
-		size_t support_buflen=2;
-		char* * support=malloc(sizeof(char*)*support_buflen);
-		size_t support_count=0;
-		
-		for (size_t i=0;support_in[i];i++)
-		{
-			//check if it's already known by this core; if it is, discard it
-			for (size_t j=0;j<support_count;j++)
-			{
-				if (!strcmp(support[j], support_in[i])) goto nope;
-			}
-			
-			support[support_count]=strdup(support_in[i]);
-			support_count++;
-			if (support_count==support_buflen)
-			{
-				support_buflen*=2;
-				support=realloc(support, sizeof(char*)*support_buflen);
-			}
-			
-			//check if it's known by other cores; if it is, do not set it as primary
-			for (size_t j=1;j<bycore.num;j++)
-			{
-				for (size_t k=0;bycore.config[j].primary[k];k++)
-				{
-					if (!strcmp(bycore.config[j].primary[k], support_in[i])) goto nope;
-				}
-			}
-			
-			primary[primary_count]=strdup(support_in[i]);
-			primary_count++;
-			if (primary_count==primary_buflen)
-			{
-				primary_buflen*=2;
-				primary=realloc(primary, sizeof(char*)*primary_buflen);
-			}
-		nope: ;
-		}
-		
-		support[support_count]=NULL;
-		free(bycore.config[id].support);
-		bycore.config[id].support=support;
-	}
-	
-	if (primary_in)
-	{
-		for (size_t i=0;primary_in[i];i++)
-		{
-			//if we're already primary for this one, we don't need to set anything
-			for (size_t j=0;j<primary_count;j++)
-			{
-				if (!strcmp(primary[j], primary_in[i])) goto nope2;
-			}
-			
-			//someone else has claimed this extension as their primary, throw them out
-			
-			for (size_t j=1;j<bycore.num;j++)
-			{
-				for (size_t k=0;bycore.config[j].primary[k];k++)
-				{
-					if (!strcmp(bycore.config[j].primary[k], primary_in[i]))
-					{
-						//found it; let's shift the others
-						while (bycore.config[j].primary[k])
-						{
-							bycore.config[j].primary[k]=bycore.config[j].primary[k+1];
-							k++;
-						}
-						break;
-					}
-				}
-			}
-			
-			primary[primary_count]=strdup(primary_in[i]);
-			primary_count++;
-			if (primary_count==primary_buflen)
-			{
-				primary_buflen*=2;
-				primary=realloc(primary, sizeof(char*)*primary_buflen);
-			}
-			
-		nope2: ;
-		}
-	}
-	
-	primary[primary_count]=NULL;
-	free(bycore.config[id].primary);
-	bycore.config[id].primary=primary;
-	
-	sort_and_clean_core_support(&bycore.config[id]);
-}
-
-static void data_save(struct minirconfig * this_, struct configdata * config)
-{
-	struct minirconfig_impl * this=(struct minirconfig_impl*)this_;
-	memcpy(&g_config, config, sizeof(*config));
-	bycore.this=find_or_create_core(config->_corepath);
-	bygame.this=find_or_create_game(config->_gamepath);
-	split_config(&g_config, global, &bycore.config[bycore.this], &bygame.config[bygame.this]);
-	
-	if (bycore.this)
-	{
-		set_support(this, bycore.this, config->support, config->primary);
-		free(bycore.config[bycore.this].corename);
-		bycore.config[bycore.this].corename=strdup(config->corename);
-	}
-	if (bygame.this)
-	{
-		free(bygame.config[bygame.this].gamename);
-		bygame.config[bygame.this].gamename=strdup(config->gamename);
-		//free(bygame.config[bygame.this]._forcecore);
-		//bygame.config[bygame.this]._forcecore=strdup(config->_forcecore);
-	}
-	
-	memset(&g_config, 0, sizeof(*config));
-}
-
-static void data_free(struct minirconfig * this_, struct configdata * config)
-{
-	delete_conf(config);
-}
-
-static void data_destroy(struct minirconfig * this_, const char * item)
-{
-	config_delete_core(item);
-	config_delete_game(item);
-}
-
-static void write(struct minirconfig * this_, const char * path)
-{
-	config_write(path);
-}
-
-static void free_(struct minirconfig * this_)
-{
-	struct minirconfig_impl * this=(struct minirconfig_impl*)this_;
-	free(this);
-}
-
-struct minirconfig * config_create(const char * path)
-{
-	struct minirconfig_impl * this=malloc(sizeof(struct minirconfig_impl));
-	this->i.get_autoload=get_autoload;
-	this->i.get_supported_extensions=get_supported_extensions;
-	this->i.get_core_for=get_core_for;
-	this->i.data_load=data_load;
-	this->i.data_save=data_save;
-	this->i.data_free=data_free;
-	this->i.data_destroy=data_destroy;
-	this->i.write=write;
-	this->i.free=free_;
-	
-	config_read(path);
-	
+done:
 	return (struct minirconfig*)this;
 }
