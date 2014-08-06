@@ -996,7 +996,12 @@ static void free_(struct minirconfig * this_)
 	struct minirconfig_impl * this=(struct minirconfig_impl*)this_;
 	delete_conf(&this->global);
 	for (size_t i=0;i<this->numbycore;i++) delete_conf(&this->bycore[i]);
-	for (size_t i=0;i<this->numbygame;i++) delete_conf(&this->bygame[i]);
+	for (size_t i=0;i<this->numbygame;i++)
+	{
+		free(this->bygame[i]._forcecore);
+		this->bygame[i]._forcecore=NULL;
+		delete_conf(&this->bygame[i]);
+	}
 	free(this->originalconfig);
 	free(this);
 }
