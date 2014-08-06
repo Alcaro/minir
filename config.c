@@ -983,8 +983,10 @@ static void write(struct minirconfig * this_, const char * path)
 	if (!this->originalconfig || strcmp(outstart, this->originalconfig))
 	{
 		file_write(path, outstart, len);
+		free(this->originalconfig);
+		this->originalconfig=outstart;
 	}
-	free(outstart);
+	else free(outstart);
 }
 
 

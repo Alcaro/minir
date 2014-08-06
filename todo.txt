@@ -7,6 +7,10 @@ current:
 other:
 - get gl cores working
 - get shaders working
+- get video recorder working
+ - multiple video backends
+  - ffmpeg
+  - gif
 
 - rewrite main.c (maybe do one part at the time?)
 

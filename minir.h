@@ -968,7 +968,7 @@ struct retro_variable
 
 //Proposed addition (ID and names can be changed):
 
-#define RETRO_ENVIRONMENT_SET_VARIABLES_NEW -1
+#define RETRO_ENVIRONMENT_SET_VARIABLES_NEW -1 | RETRO_ENVIRONMENT_EXPERIMENTAL
                                            // const struct retro_variables_new * --
                                            // Interface to acquire user-defined information from environment
                                            // that cannot feasibly be supported in a multi-system way.
@@ -1006,6 +1006,8 @@ struct retro_variable_new
    enum retro_variable_change change; // When the implementation will acknowledge changes to this variable.
    
    //Called by the frontend every time this variable changes, or NULL to ignore. Can be different for different variables.
-   void (*change_notify)(unsigned int id, void *value);
+   void (*changed_by_front)(unsigned int id, void *value);
+   //This allows the core to change the same variable. Can be different for different variables.
+   void (*changed_by_core)(unsigned int id, void *value);
 };
 */
