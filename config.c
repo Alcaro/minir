@@ -635,6 +635,7 @@ static void data_destroy(struct minirconfig * this_, const char * item)
 	size_t id=find_core(this, item);
 	if (id!=this->numbycore)
 	{
+		delete_conf(&this->bycore[id]);
 		memmove(&this->bycore[id], &this->bycore[id+1], sizeof(struct configdata)*(this->numbycore-id));
 		this->numbycore--;
 	}
@@ -642,6 +643,9 @@ static void data_destroy(struct minirconfig * this_, const char * item)
 	id=find_game(this, item);
 	if (id!=this->numbygame)
 	{
+		free(this->bygame[id]._forcecore);
+		this->bygame[id]._forcecore=NULL;
+		delete_conf(&this->bygame[id]);
 		memmove(&this->bygame[id], &this->bygame[id+1], sizeof(struct configdata)*(this->numbygame-id));
 		this->numbygame--;
 	}
