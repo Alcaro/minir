@@ -1,10 +1,11 @@
 #if 0
 rm ../roms/testcore_libretro.so
-gcc -std=c99 -I.. testcore.c -Os -s -shared -fPIC -fvisibility=hidden -o ../roms/testcore_libretro.so
+gcc -std=c99 -I.. testcore.c -Os -s -shared -fPIC -fvisibility=hidden -lm -o ../roms/testcore_libretro.so
 exit
 
 windows:
-del ..\roms\testcore_libretro.dll & gcc -std=c99 -I.. testcore.c -Os -s -shared -o ../roms/testcore_libretro.dll
+del ..\roms\testcore_libretro.dll
+gcc -std=c99 -I.. testcore.c -Os -s -shared -lm -o ../roms/testcore_libretro.dll
 #endif
 
 // 1. Video output
