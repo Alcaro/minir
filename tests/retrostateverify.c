@@ -10,17 +10,24 @@
 #include <time.h>
 /*
 gcc -I. -std=c99 tests/retrostateverify.c tests/memdebug.c libretro.c dylib.c memory.c -ldl -lrt -DDYLIB_POSIX -DWINDOW_MINIMAL window-none.c -Os -s -o retrostate
-./retrostate roms/gambatte_libretro.so roms/zeldaseasons.gbc 15
+./retrostate roms/testcore_libretro.so - 1
 
 won't work on Windows
 */
 
+//These three will be called for every malloc/etc done in the program.
+//dlopen will send the BSS and DATA segments to the malloc handler. calloc will also call malloc.
 struct memdebug {
 	void (*malloc)(void* ptr, size_t size);
 	void (*realloc)(void* prev, void* ptr, size_t size);
 	void (*free)(void* prev);
 };
 void memdebug_init(struct memdebug * i);
+
+
+char bss[1024*1024];
+char data[1024*1024]={1};
+const char cdata[1024*1024]={1};
 
 const char * context;
 
@@ -58,6 +65,11 @@ int main(int argc, char * argv[])
 	struct memdebug i={ tr_malloc, tr_realloc, tr_free };
 	memdebug_init(&i);
 	context="main";
+//printf("bss=%p-%p data=%p-%p cdata=%p-%p\n",bss,bss+sizeof(bss),data,data+sizeof(data),cdata,cdata+sizeof(cdata));
+//FILE* f=fopen("/proc/self/maps", "rt");
+//fread(data, 1,65536, f);
+//puts(data);
+//return 1;
 	
 	//window_init(&argc, &argv);
 	unsigned int iterations=atoi(argv[3]);
@@ -68,7 +80,9 @@ int main(int argc, char * argv[])
 	{
 		printf("%u/%u\r", i, iterations);
 		fflush(stdout);
-		srand(starttime+i);//this should generate multiple different 
+		
+		srand(starttime);
+		srand(rand()+i);//this should generate multiple different random number streams, but allow me to rewind them
 		
 		context="libretro_create";
 		struct libretro * core=libretro_create(argv[1], NULL, false);

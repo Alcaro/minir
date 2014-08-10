@@ -4,6 +4,7 @@
 #undef malloc
 #undef realloc
 #undef free
+#define _GNU_SOURCE
 #include <dlfcn.h>
 #include <string.h>
 static void* (*malloc_)(size_t);
@@ -72,11 +73,21 @@ void free(void* ptr)
 	free_(ptr);
 }
 
-//void* dlopen(const char * filename, int flag)
-//{
-//	ignore++;
-//	void* ret=dlopen_(filename, flag);
-//	ignore--;
-//	return ret;
-//}
+void* dlopen(const char * filename, int flag)
+{
+	void* ret=dlopen_(filename, flag);
+	if (ret)
+	{
+printf("dl=%s\n",filename);
+		ignore++;
+		char data[1024];
+		ignore--;
+printf("dl=%s\n",filename);
+	}
+	return ret;
+}
+#endif
+
+#ifdef DYLIB_WIN32
+//I don't even think it's possible to override malloc under win32.
 #endif
