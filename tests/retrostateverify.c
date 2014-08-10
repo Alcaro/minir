@@ -1,3 +1,8 @@
+//retrostateverify - a libretro frontend that verifies that a savestate contains all variables that are changed by retro_run
+//usage: retroprofile corepath rompath tries
+//example: ./retroprofile roms/gambatte_libretro.so roms/zeldaseasons.gbc 10
+//NOTE: not finished, doesn't actually verify anything.
+
 #include "minir.h"
 #include "libretro.h"
 #include <stdlib.h>

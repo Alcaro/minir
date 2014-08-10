@@ -1,3 +1,7 @@
+//retroprofile - a headless libretro frontend, for performance testing and PGO compilation
+//usage: retroprofile corepath rompath frames
+//example: ./retroprofile roms/gambatte_libretro.so roms/zeldaseasons.gbc 10000
+
 #include "minir.h"
 #include <stdlib.h>
 #include <stdio.h>

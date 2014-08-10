@@ -72,11 +72,11 @@ void free(void* ptr)
 	free_(ptr);
 }
 
-void* dlopen(const char * filename, int flag)
-{
-	ignore++;
-	void* ret=dlopen_(filename, flag);
-	ignore--;
-	return ret;
-}
+//void* dlopen(const char * filename, int flag)
+//{
+//	ignore++;
+//	void* ret=dlopen_(filename, flag);
+//	ignore--;
+//	return ret;
+//}
 #endif
