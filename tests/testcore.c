@@ -362,7 +362,7 @@ EXPORT void retro_run(void)
 	video_cb(pixels, 320, 240, sizeof(*pixels));
 }
 
-EXPORT size_t retro_serialize_size(void) { return sizeof(state); }
+EXPORT size_t retro_serialize_size(void) { return 16;/*return sizeof(state);*/ }
 EXPORT bool retro_serialize(void *data, size_t size)
 {
 	if (size<sizeof(state)) return false;
@@ -388,7 +388,7 @@ EXPORT bool retro_load_game(const struct retro_game_info *game)
 EXPORT bool retro_load_game_special(unsigned game_type, const struct retro_game_info *info, size_t num_info) { return false; }
 EXPORT void retro_unload_game(void) {}
 EXPORT unsigned retro_get_region(void) { return RETRO_REGION_NTSC; }
-EXPORT void *retro_get_memory_data(unsigned id) { printf("MEMREQ %u\n", id); return NULL; }
+EXPORT void* retro_get_memory_data(unsigned id) { printf("MEMREQ %u\n", id); return NULL; }
 EXPORT size_t retro_get_memory_size(unsigned id) { return 0; }
 
 
