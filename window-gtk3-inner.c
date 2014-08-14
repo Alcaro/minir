@@ -143,7 +143,7 @@ static void button_set_text(struct widget_button * this_, const char * text)
 	gtk_button_set_label(GTK_BUTTON(this->i._base.widget), text);
 }
 
-static void button_onclick(GtkButton *button, gpointer user_data)
+static void button_onclick(GtkButton* button, gpointer user_data)
 {
 	struct widget_button_gtk3 * this=(struct widget_button_gtk3*)user_data;
 	this->onclick((struct widget_button*)this, this->userdata);
@@ -564,7 +564,7 @@ static gboolean viewport_mouse_timeout(gpointer user_data)
 	return G_SOURCE_REMOVE;
 }
 
-static gboolean viewport_mouse_move_handler(GtkWidget *widget, GdkEvent *event, gpointer user_data)
+static gboolean viewport_mouse_move_handler(GtkWidget* widget, GdkEvent* event, gpointer user_data)
 {
 	struct widget_viewport_gtk3 * this=(struct widget_viewport_gtk3*)user_data;
 	
@@ -607,7 +607,7 @@ static void viewport_set_hide_cursor(struct widget_viewport * this_, bool hide)
 void (*keyboard_cb)(struct window * subject, unsigned int keycode, void* userdata);
 void* keyboard_ud;
 
-//static gboolean kb_signal(GtkWidget *widget, GdkEvent *event, gpointer user_data)
+//static gboolean kb_signal(GtkWidget* widget, GdkEvent* event, gpointer user_data)
 //{
 //	struct window_gtk3 * this=(struct window_gtk3*)user_data;
 //	return FALSE;

@@ -98,7 +98,7 @@ struct video_opengl {
 	HDC display;
 	HGLRC wglcontext;
 	
-	int (WINAPI *glSwapInterval)(int);
+	int (WINAPI * glSwapInterval)(int);
 #endif
 	
 	unsigned int screenwidth;
@@ -371,7 +371,7 @@ static void free_(struct video * this_)
 }
 
 #ifdef WNDPROT_X11
-static Bool glx_wait_for_map_notify(Display *d, XEvent *e, char *arg) {
+static Bool glx_wait_for_map_notify(Display* d, XEvent* e, char* arg) {
   return (e->type == MapNotify) && (e->xmap.window == (Window)arg);
 }
 #endif

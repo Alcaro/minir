@@ -470,7 +470,7 @@ static void free_(struct libretro * this_)
 
 
 
-static void log_callback(enum retro_log_level level, const char *fmt, ...)
+static void log_callback(enum retro_log_level level, const char * fmt, ...)
 {
 	if (g_this->message_cb)
 	{
@@ -510,7 +510,7 @@ static void log_callback(enum retro_log_level level, const char *fmt, ...)
 //Nope xx   xxx            xxx xx xx   x    = 13
 //Gone    xx              x                 = 3
 //Detailed information on why the unsupported ones don't exist can be found in this function.
-static bool environment(unsigned cmd, void *data)
+static bool environment(unsigned cmd, void* data)
 {
 	struct libretro_impl * this=g_this;
 	//1 SET_ROTATION, no known supported core uses that. Cores are expected to deal with failures, anyways.
@@ -750,7 +750,7 @@ static bool environment(unsigned cmd, void *data)
 	return false;
 }
 
-static void video_refresh(const void *data, unsigned width, unsigned height, size_t pitch)
+static void video_refresh(const void * data, unsigned width, unsigned height, size_t pitch)
 {
 	g_this->v->draw(g_this->v, width, height, data, pitch);
 }
@@ -766,7 +766,7 @@ static void audio_sample(int16_t left, int16_t right)
 	}
 }
 
-static size_t audio_sample_batch(const int16_t *data, size_t frames)
+static size_t audio_sample_batch(const int16_t * data, size_t frames)
 {
 	g_this->a->render(g_this->a, frames, data);
 	return frames;//what is this one even

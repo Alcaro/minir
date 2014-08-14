@@ -29,7 +29,7 @@ STATIC_ASSERT_GSCOPE_CAN_EVALUATE(((IDirect3D9Ex*)NULL)->lpVtbl->RegisterSoftwar
 //and save. Things should now compile and run properly.
 
 static HMODULE hD3D9=NULL;
-static HRESULT WINAPI (*lpDirect3DCreate9Ex)(UINT SDKVersion, IDirect3D9Ex **ppD3D);
+static HRESULT WINAPI (*lpDirect3DCreate9Ex)(UINT SDKVersion, IDirect3D9Ex* * ppD3D);
 static IDirect3D9* WINAPI (*lpDirect3DCreate9)(UINT SDKVersion);
 
 static bool libLoad();
