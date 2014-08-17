@@ -434,7 +434,7 @@ static const char * * get_supported_extensions(struct minirconfig * this_)
 	struct minirconfig_impl * this=(struct minirconfig_impl*)this_;
 	
 	unsigned int numret=0;
-	for (unsigned int i=0;i<this->numbycore;i++)
+	for (unsigned int i=1;i<this->numbycore;i++)
 	{
 		unsigned int j;
 		for (j=0;this->bycore[i].primary[j];j++) {}
@@ -444,7 +444,7 @@ static const char * * get_supported_extensions(struct minirconfig * this_)
 	const char * * ret=malloc(sizeof(const char*)*(numret+1));
 	ret[numret]=NULL;
 	numret=0;
-	for (int i=0;i<this->numbycore;i++)
+	for (int i=1;i<this->numbycore;i++)
 	{
 		unsigned int j;
 		for (j=0;this->bycore[i].primary[j];j++) {}

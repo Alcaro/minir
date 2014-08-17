@@ -1,5 +1,6 @@
-#include "minir.h"
+#include "image.h"
 #include <stdlib.h>
+#include <stdint.h>
 #include <string.h>
 
 static uint32_t * table_15_32=NULL;

@@ -12,6 +12,9 @@ struct image {
 	unsigned int bpp;
 };
 
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 //Supported bit depths:
 //c=convert, t=table, C=convert but not resize
@@ -39,3 +42,7 @@ int png_encode(const struct image * img, const char * * pngcomments,  void* * pn
 //Valid bpp values: 24, 32, 33
 //If there is transparency, 33 is mandatory.
 int png_decode(const void* pngdata, unsigned int pnglen, struct image * img, unsigned int bpp);
+
+#ifdef __cplusplus
+}
+#endif
