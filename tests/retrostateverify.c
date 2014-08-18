@@ -151,7 +151,7 @@ int main(int argc, char * argv[])
 	noaudio.render=no_audio;
 	
 	static struct libretroinput noinput;
-	noinput.query=rand_input;
+	noinput.query=queue_input;
 	
 	core->attach_interfaces(core, &novideo, &noaudio, &noinput);
 	
@@ -164,19 +164,19 @@ int main(int argc, char * argv[])
 	
 	context="libretro->state_size";
 	size_t statesize=core->state_size(core);
-	void* state=mem.s_malloc(statesize);
+	void* state=i.s_malloc(statesize);
 	
 	for (unsigned int i=0;i<rounds;i++)
 	{
 		context="libretro->run (1)";
 		printf("%i/%i\r", i, rounds); fflush(stdout);
-		for (unsigned int skip=rand_r(betweenround, betweenround*2);skip;skip--)
+		for (unsigned int skip=randr(betweenround, betweenround*2);skip;skip--)
 		{
 			core->run(core);
 		}
-		unsigned int framesthisround=rand_r(perround, perround*2);
+		unsigned int framesthisround=randr(perround, perround*2);
 		uint16_t input_list[framesthisround];
-		for (unsigned int i=0;i<framesthisround;i++) input_list[i]=rand();
+		for (unsigned int i=0;i<framesthisround;i++) input_list[i]=randr(0, 65535);
 		context="libretro->state_save";
 		core->state_save(core, state, statesize);
 		context="libretro->run (2)";

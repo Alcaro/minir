@@ -127,7 +127,7 @@ void* dlopen(const char * filename, int flag)
 		while (!feof(f))
 		{
 			char data[1024];
-			fgets(data, 1024, f);
+			void* shutupgcc=fgets(data, 1024, f); (void)shutupgcc;
 			bool thislib=false;
 			if (strstr(data, filename)) thislib=true;//assume that no libraries with the same name can be loaded
 			
