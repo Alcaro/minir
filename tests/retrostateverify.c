@@ -10,9 +10,11 @@
 #include <time.h>
 /*
 gcc -I. -std=c99 tests/retrostateverify.c tests/memdebug.c libretro.c dylib.c memory.c -ldl -lrt -DDYLIB_POSIX -DWINDOW_MINIMAL window-none.c -Os -s -o retrostate
-./retrostate roms/testcore_libretro.so - 60
+./retrostate roms/testcore_libretro.so - 5 60 30
+//usage: retrostate /path/to/core.so /path/to/rom.gbc frames_per_round frames_between_rounds rounds
+//all framecounts are actually random numbers in the range [given, given*2]
 
-gcc -I. -std=c99 tests/retrostateverify.c tests/memdebug.c libretro.c dylib.c memory.c -ldl -lrt -DDYLIB_POSIX -DWINDOW_MINIMAL window-none.c -Og -g -o retrostate; ./retrostate roms/testcore_libretro.so - 60
+rm retrostate; gcc -I. -std=c99 tests/retrostateverify.c tests/memdebug.c libretro.c dylib.c memory.c -ldl -lrt -DDYLIB_POSIX -DWINDOW_MINIMAL window-none.c -Og -g -o retrostate; ./retrostate roms/testcore_libretro.so - 5 60 30
 
 won't work on Windows
 */
@@ -27,6 +29,7 @@ won't work on Windows
 //load savestate
 //run same number of frames with same input
 //compare all internal variables; if any are different, scream
+//run 5..10 frames with random input
 //end loop
 
 //These three will be called for every malloc/etc done in the program.
@@ -95,12 +98,16 @@ static void tr_realloc(void* prev, void* ptr, size_t size)
 	tr_malloc(ptr, size);
 }
 
+uint16_t input_bits;
 
 void no_video(struct video * this, unsigned int width, unsigned int height, const void * data, unsigned int pitch) {}
 void no_audio(struct audio * this, unsigned int numframes, const int16_t * samples) {}
-int16_t rand_input(struct libretroinput * this, unsigned port, unsigned device, unsigned index, unsigned id)
+int16_t queue_input(struct libretroinput * this, unsigned port, unsigned device, unsigned index, unsigned id)
 {
-	if (device==RETRO_DEVICE_JOYPAD) return rand()&1;
+	if (device==RETRO_DEVICE_JOYPAD)
+	{
+		if (port==0 && index==0) return input_bits>>id & 1;
+	}
 	return 0;
 }
 
@@ -123,7 +130,9 @@ int main(int argc, char * argv[])
 //return 1;
 	
 	//window_init(&argc, &argv);
-	unsigned int frames=atoi(argv[3]);
+	unsigned int perround=atoi(argv[3]);
+	unsigned int betweenround=atoi(argv[4]);
+	unsigned int rounds=atoi(argv[5]);
 	
 	srand(time(NULL));
 	
@@ -153,10 +162,39 @@ int main(int argc, char * argv[])
 		return 1;
 	}
 	
-	context="libretro->run";
-	for (unsigned int i=0;i<frames;i++)
+	context="libretro->state_size";
+	size_t statesize=core->state_size(core);
+	void* state=mem.s_malloc(statesize);
+	
+	for (unsigned int i=0;i<rounds;i++)
 	{
-		core->run(core);
+		context="libretro->run (1)";
+		printf("%i/%i\r", i, rounds); fflush(stdout);
+		for (unsigned int skip=rand_r(betweenround, betweenround*2);skip;skip--)
+		{
+			core->run(core);
+		}
+		unsigned int framesthisround=rand_r(perround, perround*2);
+		uint16_t input_list[framesthisround];
+		for (unsigned int i=0;i<framesthisround;i++) input_list[i]=rand();
+		context="libretro->state_save";
+		core->state_save(core, state, statesize);
+		context="libretro->run (2)";
+		for (unsigned int i=0;i<framesthisround;i++)
+		{
+			input_bits=input_list[i];
+			core->run(core);
+		}
+		//TODO: save everything
+		context="libretro->state_load";
+		core->state_load(core, state, statesize);
+		context="libretro->run (3)";
+		for (unsigned int i=0;i<framesthisround;i++)
+		{
+			input_bits=input_list[i];
+			core->run(core);
+		}
+		//TODO: compare everything
 	}
 	
 	context="libretro->free";
