@@ -27,6 +27,9 @@ struct memdebug {
 static struct memdebug cb;
 static unsigned int ignore;
 
+//cb is chosen as a dummy address for zero-size allocations; we don't want them in the debugger main, could get nasty.
+#define ZERO_SIZE_POINTER ((void*)&cb)
+
 void memdebug_init(struct memdebug * i)
 {
 	ignore=0;
@@ -43,6 +46,7 @@ void memdebug_init(struct memdebug * i)
 
 void* malloc(size_t size)
 {
+	if (!size) return ZERO_SIZE_POINTER;
 	void* ret=malloc_(size);
 	if (!ret) abort();
 	if (ignore==0)
@@ -57,6 +61,7 @@ void* malloc(size_t size)
 void free(void* ptr)
 {
 	if (!ptr) return;
+	if (ptr==ZERO_SIZE_POINTER) return;
 	if (ignore==0)
 	{
 		ignore++;

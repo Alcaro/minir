@@ -164,6 +164,7 @@ int main(int argc, char * argv[])
 	
 	context="libretro->state_size";
 	size_t statesize=core->state_size(core);
+	if (!statesize) abort();
 	void* state=i.s_malloc(statesize);
 	
 	for (unsigned int i=0;i<rounds;i++)
@@ -178,16 +179,17 @@ int main(int argc, char * argv[])
 		uint16_t input_list[framesthisround];
 		for (unsigned int i=0;i<framesthisround;i++) input_list[i]=randr(0, 65535);
 		context="libretro->state_save";
-		core->state_save(core, state, statesize);
+		if (!core->state_save(core, state, statesize)) abort();
 		context="libretro->run (2)";
 		for (unsigned int i=0;i<framesthisround;i++)
 		{
 			input_bits=input_list[i];
 			core->run(core);
 		}
+//uncomment these two for bsnes
 		//TODO: save everything
 		context="libretro->state_load";
-		core->state_load(core, state, statesize);
+		if (!core->state_load(core, state, statesize)) abort();
 		context="libretro->run (3)";
 		for (unsigned int i=0;i<framesthisround;i++)
 		{
