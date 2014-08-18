@@ -2,7 +2,10 @@ struct image {
 	unsigned int width;
 	unsigned int height;
 	void * pixels;
-	unsigned int pitch;//Small, or even large, amounts of padding between each scanline is fine. However, each scanline is packed.
+	
+	//Small, or even large, amounts of padding between each scanline is fine. However, each scanline is packed.
+	//The pitch is in bytes.
+	unsigned int pitch;
 	
 	//Valid values:
 	//33 (ARGB8888), 32 (XRGB8888), 24 (RGB888), 16 (RGB565), 15 (RGB555)

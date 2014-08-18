@@ -12,6 +12,8 @@
 gcc -I. -std=c99 tests/retrostateverify.c tests/memdebug.c libretro.c dylib.c memory.c -ldl -lrt -DDYLIB_POSIX -DWINDOW_MINIMAL window-none.c -Os -s -o retrostate
 ./retrostate roms/testcore_libretro.so - 60
 
+gcc -I. -std=c99 tests/retrostateverify.c tests/memdebug.c libretro.c dylib.c memory.c -ldl -lrt -DDYLIB_POSIX -DWINDOW_MINIMAL window-none.c -Og -g -o retrostate; ./retrostate roms/testcore_libretro.so - 60
+
 won't work on Windows
 */
 
