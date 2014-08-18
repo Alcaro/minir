@@ -17,9 +17,22 @@ gcc -I. -std=c99 tests/retrostateverify.c tests/memdebug.c libretro.c dylib.c me
 won't work on Windows
 */
 
+//plan:
+//run 2..5 frames with random input
+//input is kept in a ring buffer of 256 frames
+//loop:
+//save all core memory; also make a savestate
+//run 2..5 frames with random input
+//randomize all core memory that has changed
+//load savestate
+//run same number of frames with same input
+//compare all internal variables; if any are different, scream
+//end loop
+
 //These three will be called for every malloc/etc done in the program.
-//dlopen will send the DATA and BSS segments to the malloc handler. calloc will also call malloc.
-//realloc is guaranteed to only be done for reallocations. If either 'ptr' or 'size' are NULL/0, malloc or free will be called instead.
+//dlopen will send the DATA and BSS segments to the malloc handler.
+//calloc will also call malloc. Allocating anything larger than size_t is impossible, but that hasn't been possible since the 90s anyways.
+//realloc is guaranteed to only be done for reallocations. If either 'ptr' or 'size' are NULL/0, malloc or free will be called instead, as appropriate.
 //Within these callbacks, further malloc/etc will not recurse.
 //The s_ versions are set by memdebug_init; they act like normal malloc, but do not call the callbacks.
 struct memdebug {
