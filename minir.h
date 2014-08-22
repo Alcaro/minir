@@ -1019,7 +1019,8 @@ enum retro_variable_change
 {
    RETRO_VARIABLE_CHANGE_INSTANT,    // Changes take effect at the next retro_run.
    RETRO_VARIABLE_CHANGE_DELAYED,    // Changes take effect during retro_run, but not instantly; for example, it may be delayed until the next level is loaded.
-   RETRO_VARIABLE_CHANGE_RESET,      // Only used during retro_load_game.
+   RETRO_VARIABLE_CHANGE_RESET,      // Only used during retro_load_game, or possibly retro_reset.
+   RETRO_VARIABLE_CHANGE_WRONG_OPTS, // This variable is not usable now; it is only usable if other options are changed first.
    RETRO_VARIABLE_CHANGE_WRONG_GAME, // This variable is not usable for this game.
 };
 

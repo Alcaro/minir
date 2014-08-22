@@ -189,7 +189,7 @@ static void details_ok(struct widget_button * subject, void* userdata)
 		return;
 	}
 	const char * orgaddr=this->orgaddr;
-	struct cheat newcheat;
+	struct cheat newcheat={};
 	newcheat.addr=(char*)this->addr->get_text(this->addr);
 	newcheat.datsize=this->size->get_state(this->size)+1;
 	newcheat.val=val;
@@ -414,7 +414,7 @@ static void search_add_cheat(struct minircheats_impl * this, int row)
 	{
 		char addr[32];
 		
-		struct cheat thecheat;
+		struct cheat thecheat={};
 		thecheat.addr=addr;
 		thecheat.changetype=cht_const;
 		thecheat.datsize=this->datsize;
@@ -426,7 +426,7 @@ static void search_add_cheat(struct minircheats_impl * this, int row)
 	}
 	else
 	{
-		struct cheat thecheat;
+		struct cheat thecheat={};
 		thecheat.changetype=cht_const;
 		thecheat.datsize=this->datsize;
 		thecheat.issigned=(this->dattype==cht_sign);
@@ -636,7 +636,7 @@ static void list_listbox_activate(struct widget_listbox * subject, size_t row, v
 static void list_add_cheat(struct widget_button * subject, void * userdata)
 {
 	struct minircheats_impl * this=(struct minircheats_impl*)userdata;
-	struct cheat thecheat;
+	struct cheat thecheat={};
 	thecheat.addr=NULL;
 	thecheat.changetype=cht_const;
 	thecheat.datsize=1;

@@ -248,7 +248,7 @@ struct retro_system_info info;
 this->raw.get_system_info(&info);
 if (strstr(info.library_name, "snes") || strstr(info.library_name, "SNES"))
 {
-struct retro_memory_descriptor desc;
+struct retro_memory_descriptor desc={};
 desc.start=0x7E0000;
 desc.len=0x20000;
 desc.ptr=this->raw.get_memory_data(RETRO_MEMORY_SYSTEM_RAM);
