@@ -546,33 +546,15 @@ static void kb_cb(struct inputkb * subject, unsigned int keyboard, int scancode,
 	}
 }
 
-static void set_inputkb(struct inputmapper * this_, struct inputkb * kb)
+static void reset(struct inputmapper_impl * this)
 {
-	struct inputmapper_impl * this=(struct inputmapper_impl*)this_;
-	
-	if (this->kb) this->kb->free(this->kb);
-	
-	this->kb=kb;
-	
-	if (this->kb)
-	{
-		this->kb_nkb=0;
-		this->kb_state=NULL;
-		this->kb_anylastframe=false;
-		this->kb->set_callback(this->kb, kb_cb, this);
-	}
-}
-
-static void free_(struct inputmapper * this_)
-{
-	struct inputmapper_impl * this=(struct inputmapper_impl*)this_;
-	
 	reset_shiftstates(this);
 	
 	if (this->kb) this->kb->free(this->kb);
 	this->kb_nkb=0;
 	free(this->kb_state);
 	this->kb_state=NULL;
+	this->kb_anylastframe=false;
 	
 	if (this->buttonrules)
 	{
@@ -581,7 +563,22 @@ static void free_(struct inputmapper * this_)
 		this->buttonrules=NULL;
 		this->numbuttons=0;
 	}
+}
+
+static void set_inputkb(struct inputmapper * this_, struct inputkb * kb)
+{
+	struct inputmapper_impl * this=(struct inputmapper_impl*)this_;
 	
+	reset(this);
+	
+	this->kb=kb;
+	if (this->kb) this->kb->set_callback(this->kb, kb_cb, this);
+}
+
+static void free_(struct inputmapper * this_)
+{
+	struct inputmapper_impl * this=(struct inputmapper_impl*)this_;
+	reset(this);
 	free(this);
 }
 

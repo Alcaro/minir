@@ -294,6 +294,7 @@ struct inputkb * inputkb_create_udev(uintptr_t windowhandle)
 			if (ent->d_type==DT_DIR) continue;
 			access|=openpath(this, ent->d_name);
 		}
+		closedir(dir);
 		
 		//if anything happened, let's just throw it out and try again because we don't know if we got that file open.
 		char buf[4096];

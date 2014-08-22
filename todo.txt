@@ -1,8 +1,19 @@
 current:
-- rewrite inputraw to inputkb
-- rewrite config handler
-- make config panel
- - tie core options to input sources
+- finish c++ rewrite
+- finish rewriting inputraw to inputkb, then rename it back because we probably don't want mixed input sources
+- rewrite config handler again
+ - it's currently fairly leaky
+ - will need to rewrite minir.cfg.tmpl, in a new format that can be turned into a GUI
+  - still want the union with config.video_scale/etc, though
+   - now that c++ is used, strings (including input) can be turned into some kind of manual layout
+ - get rid of the compressed bytecode, can be optimized later
+  - don't do it
+  - don't do it yet
+ - tie core options to input sources, for layer toggle in snes9x
+
+bugs:
+- starting without rom then opening one screws up window width due to status bar not resizing
+ - can I get rid of the manual layout management there?
 
 other:
 - get gl cores working
