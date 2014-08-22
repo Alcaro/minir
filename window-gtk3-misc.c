@@ -227,7 +227,7 @@ uint64_t window_get_time()
 
 
 
-bool file_read(const char * filename, char* * data, size_t * len)
+bool file_read(const char * filename, void* * data, size_t * len)
 {
 	if (!filename) return false;
 	GFile* file=g_file_new_for_commandline_arg(filename);
@@ -246,7 +246,7 @@ bool file_read(const char * filename, char* * data, size_t * len)
 	return true;
 }
 
-bool file_write(const char * filename, const char * data, size_t len)
+bool file_write(const char * filename, const anyptr data, size_t len)
 {
 	if (!filename) return false;
 	if (!len) return true;
@@ -257,7 +257,7 @@ bool file_write(const char * filename, const char * data, size_t len)
 	return success;
 }
 
-bool file_read_to(const char * filename, char * data, size_t len)
+bool file_read_to(const char * filename, void * data, size_t len)
 {
 	if (!filename) return false;
 	if (!len) return true;

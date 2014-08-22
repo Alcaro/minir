@@ -1,6 +1,6 @@
 #include "minir.h"
 #ifdef VIDEO_D3D9
-//#define CINTERFACE//if we want C++ compat for the COM objects; unlikely to ever happen due to all 'this' running around.
+#define CINTERFACE
 #include <D3D9.h>
 
 #define D3DSWAPEFFECT_FLIPEX ((D3DSWAPEFFECT)5)//lazy compiler. and it's an enum so I can't #ifdef it
@@ -225,12 +225,12 @@ static void draw(struct video * this_, unsigned int width, unsigned int height, 
 			else this->device->lpVtbl->Present(this->device, NULL, NULL, NULL, NULL);
 			return;
 		}
-		if (locked.Pitch==pitch) memcpy(locked.pBits, data, pitch*(height-1)+this->bytes_per_row);
+		if ((unsigned int)locked.Pitch==pitch) memcpy(locked.pBits, data, pitch*(height-1)+this->bytes_per_row);
 		else
 		{
-			for (int i=0;i<height;i++)
+			for (unsigned int i=0;i<height;i++)
 			{
-				memcpy(locked.pBits + i*locked.Pitch, data + i*pitch, this->bytes_per_row);
+				memcpy((uint8_t*)locked.pBits + i*locked.Pitch, (uint8_t*)data + i*pitch, this->bytes_per_row);
 			}
 		}
 		this->texture->lpVtbl->UnlockRect(this->texture, 0);

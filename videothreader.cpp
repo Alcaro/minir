@@ -3,7 +3,7 @@
 #include <string.h>
 
 struct video_thread_frame {
-	char* pixels;
+	uint8_t* pixels;
 	size_t bufsize;
 	unsigned int width;
 	unsigned int height;
@@ -81,7 +81,7 @@ struct video_thread {
 
 static void threadproc(void* userdata)
 {
-	struct video_thread * this=userdata;
+	struct video_thread * this=(struct video_thread*)userdata;
 	this->child=video_create(this->backend, this->windowhandle, this->screen_width, this->screen_height, this->depth, this->fps);
 	
 	if (!this->child)
@@ -180,8 +180,8 @@ static void draw(struct video * this_, unsigned int width, unsigned int height, 
 			this->buf_temp.pixels=malloc(this->buf_temp.bufsize);
 		}
 		
-		const char * srcdat=data;
-		char * dstdat=this->buf_temp.pixels;
+		const uint8_t * srcdat=(const uint8_t*)data;
+		uint8_t * dstdat=this->buf_temp.pixels;
 		for (unsigned int i=0;i<height;i++)
 		{
 			memcpy(dstdat, srcdat, true_pitch);

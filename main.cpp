@@ -853,7 +853,7 @@ const char * get_screenshot_path()
 }
 
 bool create_screenshot()
-{
+{{
 	struct image img;
 	vid->repeat_frame(vid, &img.width, &img.height, (const void**)&img.pixels, &img.pitch, &img.bpp);
 	if (!img.pixels) goto bad;
@@ -883,6 +883,7 @@ bool create_screenshot()
 	
 	set_status_bar("Screenshot saved");
 	return true;
+}
 bad:
 	set_status_bar("Couldn't save screenshot");
 	return false;
@@ -1002,7 +1003,7 @@ void handle_rewind(bool * skip_frame, bool * count_skipped_frame)
 				if (turbo) rewind_timer=config.rewind_granularity_turbo;
 				else rewind_timer=config.rewind_granularity;
 				
-				char* state=rewind->push_begin(rewind);
+				char* state=(char*)rewind->push_begin(rewind);
 				memcpy(state+0, &rewind_timer, sizeof(rewind_timer));
 				if (core->state_save(core, state+sizeof(rewind_timer), state_size))
 				{
@@ -1012,7 +1013,7 @@ void handle_rewind(bool * skip_frame, bool * count_skipped_frame)
 			}
 			else
 			{
-				const char* state=rewind->pull(rewind);
+				const char* state=(const char*)rewind->pull(rewind);
 				if (state)
 				{
 					memcpy(&rewind_timer, state+0, sizeof(rewind_timer));
@@ -1434,7 +1435,7 @@ void update_coreopt_menu(struct windowmenu * parent, unsigned int pos)
 
 void menu_system_core_any(struct windowmenu * subject, unsigned int state, void* userdata)
 {
-	struct configcorelist * cores_for_this=userdata;
+	struct configcorelist * cores_for_this=(struct configcorelist*)userdata;
 	load_core(cores_for_this[state].path, true);
 }
 
@@ -1462,7 +1463,7 @@ struct windowmenu * update_corepicker_menu(struct windowmenu * parent)
 		cores_for_this=configmgr->get_core_for(configmgr, romloaded, &numcores);
 		const char * names[numcores];
 		
-		for (int i=0;i<numcores;i++)
+		for (unsigned int i=0;i<numcores;i++)
 		{
 			if (!cores_for_this[i].name)
 			{

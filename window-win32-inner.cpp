@@ -551,7 +551,7 @@ struct widget_radio * widget_create_radio(const char * text)
 	this->i._base.width+=g_padding*2;
 	
 	this->leader=NULL;
-	this->hwnd=(void*)text;
+	this->hwnd=(HWND)(void*)text;
 	this->onclick=NULL;
 	this->parent=NULL;
 	
@@ -743,7 +743,7 @@ struct widget_viewport_win32 {
 	
 	bool hide_cursor_user;
 	bool hide_cursor_timer;
-	DWORD lastmousepos;
+	LPARAM lastmousepos;
 	
 	void (*on_file_drop)(struct widget_viewport * subject, const char * const * filenames, void* userdata);
 	void* dropuserdata;
@@ -960,7 +960,7 @@ static unsigned int listbox__init(struct widget_base * this_, struct window * pa
 		//measure_text(columns[i], (unsigned int*)&col.cx, NULL);
 		//col.cx+=12;
 		col.pszText=(char*)columns[i];
-		ListView_InsertColumn(this->hwnd, i, &col);
+		(void)ListView_InsertColumn(this->hwnd, i, &col);
 		this->columnwidths[i]=1;
 		//this->i._base.width+=col.cx;
 	}
@@ -986,9 +986,9 @@ static void listbox_resize_column(HWND hwnd, size_t/*TODO: check type*/ col, uns
 	mknrz.mask=LVCF_FMT;
 	mknrz.fmt=LVCFMT_LEFT|LVCFMT_FIXED_WIDTH;
 	
-	ListView_SetColumn(hwnd, col, &mkrz);
-	ListView_SetColumnWidth(hwnd, col, width);
-	ListView_SetColumn(hwnd, col, &mknrz);
+	(void)ListView_SetColumn(hwnd, col, &mkrz);
+	(void)ListView_SetColumnWidth(hwnd, col, width);
+	(void)ListView_SetColumn(hwnd, col, &mknrz);
 }
 
 static void listbox__place(struct widget_base * this_, void* resizeinf,
@@ -1029,7 +1029,7 @@ static void listbox_set_num_rows(struct widget_listbox * this_, size_t rows)
 	if (rows > 100000000) rows=100000000;//Windows "only" supports 100 million (0x05F5E100); more than that and it gets empty.
 	this->rows=rows;
 	ListView_SetItemCountEx(this->hwnd, rows, 0);
-	ListView_RedrawItems(this->hwnd, 0, rows-1);
+	(void)ListView_RedrawItems(this->hwnd, 0, rows-1);
 }
 
 static void listbox_set_contents(struct widget_listbox * this_,
@@ -1049,8 +1049,8 @@ static void listbox_set_contents(struct widget_listbox * this_,
 static void listbox_refresh(struct widget_listbox * this_, size_t row)
 {
 	struct widget_listbox_win32 * this=(struct widget_listbox_win32*)this_;
-	if (row==(size_t)-1) ListView_RedrawItems(this->hwnd, 0, this->rows-1);
-	else ListView_RedrawItems(this->hwnd, row, row);
+	if (row==(size_t)-1) (void)ListView_RedrawItems(this->hwnd, 0, this->rows-1);
+	else (void)ListView_RedrawItems(this->hwnd, row, row);
 }
 
 static void listbox_set_size(struct widget_listbox * this_, unsigned int height, const unsigned int * widths, int expand)
@@ -1078,7 +1078,7 @@ static void listbox_set_size(struct widget_listbox * this_, unsigned int height,
 		LVCOLUMN mkrz;
 		mkrz.mask=LVCF_FMT;
 		mkrz.fmt=LVCFMT_LEFT;
-		ListView_SetColumn(this->hwnd, expand, &mkrz);
+		(void)ListView_SetColumn(this->hwnd, expand, &mkrz);
 	}
 	
 	DWORD widthheight=ListView_ApproximateViewRect(this->hwnd, widthpx, heightpx, height);
@@ -1120,7 +1120,7 @@ static void listbox_add_checkboxes(struct widget_listbox * this_,
                                    void* userdata)
 {
 	struct widget_listbox_win32 * this=(struct widget_listbox_win32*)this_;
-	ListView_SetExtendedListViewStyleEx(this->hwnd, LVS_EX_CHECKBOXES, LVS_EX_CHECKBOXES);
+	(void)ListView_SetExtendedListViewStyleEx(this->hwnd, LVS_EX_CHECKBOXES, LVS_EX_CHECKBOXES);
 	this->ontoggle=ontoggle;
 	this->tg_userdata=userdata;
 	this->checkboxes=true;
@@ -1175,7 +1175,7 @@ static uintptr_t listbox_notify(NMHDR* nmhdr)
 		{
 			const char * str=this->get_cell((struct widget_listbox*)this, row, column, this->virt_userdata);
 			unsigned int len=strlen(str);
-			if (len > info->item.cchTextMax-1) len=info->item.cchTextMax-1;
+			if (len > (unsigned int)info->item.cchTextMax-1) len=info->item.cchTextMax-1;
 			memcpy(info->item.pszText, str, len);
 			info->item.pszText[len]='\0';
 		}
@@ -1219,7 +1219,7 @@ static uintptr_t listbox_notify(NMHDR* nmhdr)
 			if (row!=-1)
 			{
 				if (this->ontoggle) this->ontoggle((struct widget_listbox*)this, row, this->tg_userdata);
-				ListView_RedrawItems(this->hwnd, row, row);
+				(void)ListView_RedrawItems(this->hwnd, row, row);
 			}
 		}
 		if (keydown->wVKey==VK_RETURN)
@@ -1237,7 +1237,7 @@ static uintptr_t listbox_notify(NMHDR* nmhdr)
 		if (row!=-1 && (hitinfo.flags & LVHT_ONITEMSTATEICON))
 		{
 			if (this->ontoggle) this->ontoggle((struct widget_listbox*)this, row, this->tg_userdata);
-			ListView_RedrawItems(this->hwnd, row, row);
+			(void)ListView_RedrawItems(this->hwnd, row, row);
 		}
 	}
 	if (nmhdr->code==NM_DBLCLK)
@@ -1340,7 +1340,7 @@ struct widget_frame * widget_create_frame(const char * text, void* contents)
 
 uintptr_t _window_notify_inner(void* notification)
 {
-	NMHDR* nmhdr=notification;
+	NMHDR* nmhdr=(NMHDR*)notification;
 	switch (nmhdr->idFrom)
 	{
 		case CTID_NONINTERACTIVE: break;
@@ -1414,11 +1414,11 @@ uintptr_t _window_notify_inner(void* notification)
 
 uintptr_t _window_get_widget_color(unsigned int type, void* handle, void* draw, void* parent)
 {
-	switch (GetDlgCtrlID(handle))
+	switch (GetDlgCtrlID((HWND)handle))
 	{
 		case CTID_TEXTBOX:
 		{
-			struct widget_textbox_win32 * this=(struct widget_textbox_win32*)GetWindowLongPtr(handle, GWLP_USERDATA);
+			struct widget_textbox_win32 * this=(struct widget_textbox_win32*)GetWindowLongPtr((HWND)handle, GWLP_USERDATA);
 			if (this->invalid)
 			{
 				SetBkMode((HDC)draw, TRANSPARENT);
@@ -1427,6 +1427,6 @@ uintptr_t _window_get_widget_color(unsigned int type, void* handle, void* draw, 
 			break;
 		}
 	}
-	return DefWindowProcA(parent, type, (WPARAM)draw, (LPARAM)handle);
+	return DefWindowProcA((HWND)parent, (UINT)type, (WPARAM)draw, (LPARAM)handle);
 }
 #endif

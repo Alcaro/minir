@@ -849,7 +849,7 @@ static void search_do_search(struct minircheats_model * this_, enum cheat_compfu
 		while (removebits > 0)
 		{
 			size_t keep;
-			if (removebits >= SIZET_BITS) keep=0;
+			if ((unsigned int)removebits >= SIZET_BITS) keep=0;
 			else keep=(~(size_t)0 >> removebits);
 			
 			unsigned int deleted=popcountS(~keep & mem->show[(mem->len-possub)/SIZET_BITS]);
@@ -1421,7 +1421,7 @@ static bool cheat_set(struct minircheats_model * this_, int pos, const struct ch
 		writemem(this->mem[memid].ptr+offset, newcheat->datsize, this->mem[memid].bigendian, newcheat->val);
 		return true;
 	}
-	if (pos==this->numcheats)
+	if ((unsigned int)pos==this->numcheats)
 	{
 		this->numcheats++;
 		this->cheats=(struct cheat_impl*)realloc(this->cheats, sizeof(struct cheat_impl)*this->numcheats);

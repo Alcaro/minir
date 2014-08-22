@@ -60,7 +60,7 @@ static mz_bool chunk_append(const void* pBuf, int len, void* pUser)
 	return true;
 }
 
-int png_encode(const struct image * img, const char * * pngcomments,  void* * pngdata, unsigned int * pnglen)
+bool png_encode(const struct image * img, const char * * pngcomments,  void* * pngdata, unsigned int * pnglen)
 {
 	*pngdata=NULL;
 	*pnglen=0;

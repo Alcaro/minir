@@ -1,5 +1,6 @@
 #include "minir.h"
 #ifdef AUDIO_DIRECTSOUND
+#define CINTERFACE
 #include <dsound.h>
 
 //this file is heavily based on ruby by byuu

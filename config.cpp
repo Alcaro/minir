@@ -254,27 +254,27 @@ static void sort_and_clean_core_support(struct configdata * core)
 
 
 
-static void split_config(struct configdata * public, struct configdata * global,
+static void split_config(struct configdata * Public, struct configdata * global,
 												 struct configdata * bycore, struct configdata * bygame)
 {
 #define SPLIT(groupname, scopegroupname, deleteold, clone) \
-		for (int i=0;i<count(public->groupname);i++) \
+		for (unsigned int i=0;i<count(Public->groupname);i++) \
 		{ \
 			if(0); \
-			else if (public->scopegroupname[i] >= cfgsc_game) \
+			else if (Public->scopegroupname[i] >= cfgsc_game) \
 			{ \
 				(void)deleteold(bygame->groupname[i]); \
-				bygame->groupname[i]=clone(public->groupname[i]); \
+				bygame->groupname[i]=clone(Public->groupname[i]); \
 			} \
-			else if (public->scopegroupname[i] >= cfgsc_core) \
+			else if (Public->scopegroupname[i] >= cfgsc_core) \
 			{ \
 				(void)deleteold(bygame->groupname[i]); \
-				bycore->groupname[i]=clone(public->groupname[i]); \
+				bycore->groupname[i]=clone(Public->groupname[i]); \
 			} \
 			else \
 			{ \
 				(void)deleteold(global->groupname[i]); \
-				global->groupname[i]=clone(public->groupname[i]); \
+				global->groupname[i]=clone(Public->groupname[i]); \
 			} \
 		}
 	SPLIT(inputs,_scopes_input,free,strdup_s);
@@ -444,7 +444,7 @@ static const char * * get_supported_extensions(struct minirconfig * this_)
 	const char * * ret=malloc(sizeof(const char*)*(numret+1));
 	ret[numret]=NULL;
 	numret=0;
-	for (int i=1;i<this->numbycore;i++)
+	for (unsigned int i=1;i<this->numbycore;i++)
 	{
 		unsigned int j;
 		for (j=0;this->bycore[i].primary[j];j++) {}
@@ -491,7 +491,7 @@ static struct configcorelist * get_core_for(struct minirconfig * this_, const ch
 	if (extension && !strchr(extension, '/'))
 	{
 		extension++;
-		for (int i=1;i<this->numbycore;i++)
+		for (unsigned int i=1;i<this->numbycore;i++)
 		{
 			bool thisprimary=false;
 			for (int j=0;this->bycore[i].primary[j];j++)
@@ -717,9 +717,9 @@ static void appendlf()
 static void print_config_file(struct configdata * this, unsigned char minscope, bool fullarrays, bool comments)
 {
 	const unsigned char * thisone=config_bytecode;
-	const unsigned char * arrayshuffle=arrayshuffle;//these ones are initialized by ARRAY and ARRAY_SHUFFLED
-	const char * arraynames=arraynames;             //ARRAY_SAME is impossible unless one of those have happened
-	int arraynamelen=arraynamelen;
+	const unsigned char * arrayshuffle;
+	const char * arraynames;
+	int arraynamelen;
 	while (*thisone!=CFGB_END)
 	{
 		const unsigned char * at=thisone;
@@ -1090,8 +1090,8 @@ static bool load_var_input(const char * str, char* * out)
 static void load_var_from_file(const char * name, const char * value, struct configdata * thisconf, unsigned char scope)
 {
 	const unsigned char * thisone=config_bytecode;
-	const unsigned char * arrayshuffle=arrayshuffle;//these ones are initialized by ARRAY and ARRAY_SHUFFLED
-	const char * arraynames=arraynames;             //ARRAY_SAME is impossible unless one of those have happened
+	const unsigned char * arrayshuffle;
+	const char * arraynames;
 	while (*thisone!=CFGB_END)
 	{
 		const unsigned char * at=thisone;
@@ -1231,39 +1231,8 @@ static void load_var_from_file(const char * name, const char * value, struct con
 	}
 }
 
-struct minirconfig * config_create(const char * path)
+static void read_from_file(struct minirconfig_impl * this, char * rawconfig)
 {
-	struct minirconfig_impl * this=malloc(sizeof(struct minirconfig_impl));
-	memset(this, 0, sizeof(*this));
-	this->i.get_autoload=get_autoload;
-	this->i.get_supported_extensions=get_supported_extensions;
-	this->i.get_core_for=get_core_for;
-	this->i.data_load=data_load;
-	this->i.data_save=data_save;
-	this->i.data_free=data_free;
-	this->i.data_destroy=data_destroy;
-	this->i.write=write;
-	this->i.free=free_;
-	
-	tinfl_decompress_mem_to_mem(config_bytecode, CONFIG_BYTECODE_LEN, config_bytecode_comp, sizeof(config_bytecode_comp), 0);
-	
-	this->numbycore=1;
-	this->bycore=malloc(sizeof(struct configdata));
-	initialize_to_parent(&this->bycore[0]);
-	
-	this->numbygame=1;
-	this->bygame=malloc(sizeof(struct configdata));
-	initialize_to_parent(&this->bygame[0]);
-	
-	struct configdata * thisconf=NULL;
-	
-	initialize_to_defaults(&this->global);
-	
-	char * rawconfig;
-	this->firstrun=true;
-	if (!file_read(path, &rawconfig, NULL)) goto done;
-	this->firstrun=false;
-	
 	this->originalconfig=strdup(rawconfig);
 	
 	unsigned char thisscope=cfgsc_global;
@@ -1277,6 +1246,8 @@ struct minirconfig * config_create(const char * path)
 	size_t primary_count=0;
 	
 	char * thisline=rawconfig;
+	
+	struct configdata * thisconf=NULL;
 #define finishsection() \
 			if (thisconf) \
 			{ \
@@ -1462,7 +1433,42 @@ struct minirconfig * config_create(const char * path)
 	}
 	
 	free(rawconfig);
+}
+
+struct minirconfig * config_create(const char * path)
+{
+	struct minirconfig_impl * this=malloc(sizeof(struct minirconfig_impl));
+	memset(this, 0, sizeof(*this));
+	this->i.get_autoload=get_autoload;
+	this->i.get_supported_extensions=get_supported_extensions;
+	this->i.get_core_for=get_core_for;
+	this->i.data_load=data_load;
+	this->i.data_save=data_save;
+	this->i.data_free=data_free;
+	this->i.data_destroy=data_destroy;
+	this->i.write=write;
+	this->i.free=free_;
 	
-done:
+	tinfl_decompress_mem_to_mem(config_bytecode, CONFIG_BYTECODE_LEN, config_bytecode_comp, sizeof(config_bytecode_comp), 0);
+	
+	this->numbycore=1;
+	this->bycore=malloc(sizeof(struct configdata));
+	initialize_to_parent(&this->bycore[0]);
+	
+	this->numbygame=1;
+	this->bygame=malloc(sizeof(struct configdata));
+	initialize_to_parent(&this->bygame[0]);
+	
+	initialize_to_defaults(&this->global);
+	
+	char * rawconfig;
+	this->firstrun=true;
+	if (file_read(path, (void**)&rawconfig, NULL))
+	{
+		this->firstrun=false;
+		read_from_file(this, rawconfig);
+		free(rawconfig);
+	}
+	
 	return (struct minirconfig*)this;
 }

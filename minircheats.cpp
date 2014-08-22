@@ -24,7 +24,8 @@ DISABLED
 if(w){
 struct g*h=
 malloc(sizeof(struct g));
-h->b=n.b;n.b=h;h->a=w;
+h->b=n.b;n.b=h;
+h->a=(struct widget_button*)w;
 }else{
 struct g*p=n.b;
 while(p){
@@ -134,7 +135,9 @@ static void set_core(struct minircheats * this_, struct libretro * core, size_t 
 			core->get_memory(core, libretromem_wram, &wramlen, &wram);
 			if (wram)
 			{
-				struct retro_memory_descriptor wramdesc={ .ptr=wram, .len=wramlen };
+				struct retro_memory_descriptor wramdesc;
+				wramdesc.ptr=wram;
+				wramdesc.len=wramlen;
 				this->model->set_memory(this->model, &wramdesc, 1);
 			}
 			else
@@ -186,15 +189,14 @@ static void details_ok(struct widget_button * subject, void* userdata)
 		return;
 	}
 	const char * orgaddr=this->orgaddr;
-	struct cheat newcheat = {
-		.addr=(char*)this->addr->get_text(this->addr),
-		.datsize=this->size->get_state(this->size)+1,
-		.val=val,
-		.issigned=(this->dattype==cht_sign),
-		.changetype=this->allowinc->get_state(this->allowinc) + this->allowdec->get_state(this->allowdec)*2,
-		.enabled=true,
-		.desc=this->desc->get_text(this->desc)
-		};
+	struct cheat newcheat;
+	newcheat.addr=(char*)this->addr->get_text(this->addr);
+	newcheat.datsize=this->size->get_state(this->size)+1;
+	newcheat.val=val;
+	newcheat.issigned=(this->dattype==cht_sign);
+	newcheat.changetype=this->allowinc->get_state(this->allowinc) + this->allowdec->get_state(this->allowdec)*2;
+	newcheat.enabled=true;
+	newcheat.desc=this->desc->get_text(this->desc);
 	if (!this->parent->model->cheat_set(this->parent->model, -1, &newcheat))
 	{
 		this->addr->set_invalid(this->addr, true);
@@ -344,7 +346,7 @@ static void search_set_datsize(struct widget_radio * subject, unsigned int state
 static void search_set_dattype(struct widget_radio * subject, unsigned int state, void* userdata)
 {
 	struct minircheats_impl * this=(struct minircheats_impl*)userdata;
-	this->dattype=state;
+	this->dattype=(enum cheat_dattype)state;
 	this->model->search_set_signed(this->model, (state==cht_sign));
 	search_update(this);
 }
@@ -367,7 +369,7 @@ static void search_dosearch(struct widget_button * subject, void* userdata)
 	struct minircheats_impl * this=(struct minircheats_impl*)userdata;
 	uint32_t compto_val;
 	
-	enum cheat_compto comptowhat=(this->wndsrch_compto_select->get_state(this->wndsrch_compto_select));
+	enum cheat_compto comptowhat=(enum cheat_compto)(this->wndsrch_compto_select->get_state(this->wndsrch_compto_select));
 	bool comptoprev=(comptowhat==cht_prev);
 	if (!comptoprev)
 	{
@@ -390,7 +392,7 @@ static void search_dosearch(struct widget_button * subject, void* userdata)
 		}
 	}
 	
-	this->model->search_do_search(this->model, this->wndsrch_comptype->get_state(this->wndsrch_comptype), comptoprev, compto_val);
+	this->model->search_do_search(this->model, (enum cheat_compfunc)this->wndsrch_comptype->get_state(this->wndsrch_comptype), comptoprev, compto_val);
 	thread_split(this->model->thread_get_count(this->model), search_split, this);
 	this->model->thread_finish_work(this->model);
 	
@@ -412,25 +414,23 @@ static void search_add_cheat(struct minircheats_impl * this, int row)
 	{
 		char addr[32];
 		
-		struct cheat thecheat = {
-			.addr=addr,
-			.changetype=cht_const,
-			.datsize=this->datsize,
-			.issigned=(this->dattype==cht_sign),
-			.enabled=true
-		};
+		struct cheat thecheat;
+		thecheat.addr=addr;
+		thecheat.changetype=cht_const;
+		thecheat.datsize=this->datsize;
+		thecheat.issigned=(this->dattype==cht_sign);
+		thecheat.enabled=true;
 		this->model->search_get_row(this->model, row, thecheat.addr, &thecheat.val, NULL);
 		
 		details_create(this, this->wndsrch, &thecheat, (this->dattype==cht_hex));
 	}
 	else
 	{
-		struct cheat thecheat = {
-			.changetype=cht_const,
-			.datsize=this->datsize,
-			.issigned=(this->dattype==cht_sign),
-			.enabled=true
-		};
+		struct cheat thecheat;
+		thecheat.changetype=cht_const;
+		thecheat.datsize=this->datsize;
+		thecheat.issigned=(this->dattype==cht_sign);
+		thecheat.enabled=true;
 		details_create(this, this->wndsrch, &thecheat, (this->dattype==cht_hex));
 	}
 }
@@ -636,13 +636,12 @@ static void list_listbox_activate(struct widget_listbox * subject, size_t row, v
 static void list_add_cheat(struct widget_button * subject, void * userdata)
 {
 	struct minircheats_impl * this=(struct minircheats_impl*)userdata;
-	struct cheat thecheat = {
-		.addr=NULL,
-		.changetype=cht_const,
-		.datsize=1,
-		.issigned=false,
-		.enabled=true
-	};
+	struct cheat thecheat;
+	thecheat.addr=NULL;
+	thecheat.changetype=cht_const;
+	thecheat.datsize=1;
+	thecheat.issigned=false;
+	thecheat.enabled=true;
 	details_create(this, this->wndlist, &thecheat, false);
 }
 

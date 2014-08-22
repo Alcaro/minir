@@ -36,7 +36,7 @@
 
 struct {
 	uint16_t libretro;
-	uint8_t virtual;
+	uint8_t vkey;
 } const map_raw[]={
 	//I have a feeling half of those are bogus. A whole pile of keys don't map to virtual keys for
 	//me, and some of them are mapped to idiocy - numpad numbers are mapped to arrows and stuff.
@@ -110,9 +110,9 @@ void inputkb_translate_init()
 	
 	for (unsigned int i=0;i<sizeof(map_raw)/sizeof(*map_raw);i++)
 	{
-		vk_to_libretro[map_raw[i].virtual]=map_raw[i].libretro;
+		vk_to_libretro[map_raw[i].vkey]=map_raw[i].libretro;
 		
-		int scancode=MapVirtualKey(map_raw[i].virtual, MAPVK_VK_TO_VSC);
+		int scancode=MapVirtualKey(map_raw[i].vkey, MAPVK_VK_TO_VSC);
 		//Ex gives me different answers for RETROK_PAUSE, RETROK_KP_DIVIDE, RETROK_RCTRL, RETROK_RALT, RETROK_POWER.
 		//Of those, RETROK_PAUSE is the only one that doesn't just add 0xE0, and I am unsure on how to poll them.
 		//It's not worth it.

@@ -61,7 +61,7 @@ static LRESULT CALLBACK window_proc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM l
 			{
 				unsigned int size=0;
 				GetRawInputDeviceInfo(input->header.hDevice, RIDI_DEVICENAME, NULL, &size);
-				char * newname=malloc(size)+1;
+				char * newname=malloc(size+1);
 				GetRawInputDeviceInfo(input->header.hDevice, RIDI_DEVICENAME, newname, &size);
 				newname[size]='\0';
 //when adding item 'A' to list:

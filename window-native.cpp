@@ -14,7 +14,7 @@ const char * window_get_proc_path()
 {
 	//we could lstat it, but apparently that just returns zero on /proc on Linux.
 	
-	size_t bufsize=64;
+	ssize_t bufsize=64;
 	static char * linkname=NULL;
 	if (linkname) return linkname;
 	

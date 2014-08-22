@@ -61,6 +61,6 @@ EXTRAOBJ =
 #opengl32 - video.opengl - FIXME
 #dsound - audio.directsound - FIXME
 
-echo "...whatever, it probably is. Configuration is done."
+echo "...whatever, they all are. Configuration is done."
 echo "Enabled optional modules: $enabled"
 echo "Disabled optional modules: $disabled"

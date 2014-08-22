@@ -3,6 +3,7 @@
 #define _GNU_SOURCE //strdup, realpath, asprintf
 #endif
 #define _strdup strdup //and windows is being windows as usual
+#define __STDC_LIMIT_MACROS
 #include <stdbool.h>
 #include <stdint.h>
 #include <stddef.h>
@@ -13,41 +14,63 @@
 #include <stdio.h>
 #endif
 
-#ifndef NO_ANON_UNION_STRUCT//For crappy compilers.
+//#ifndef NO_ANON_UNION_STRUCT//For crappy compilers.
+//Mandatory because there's a pile of unions in struct config.
 #define UNION_BEGIN union {
 #define UNION_END };
 #define STRUCT_BEGIN struct {
 #define STRUCT_END };
-#else
-#define UNION_BEGIN
-#define UNION_END
-#define STRUCT_BEGIN
-#define STRUCT_END
-#endif
+//#else
+//#define UNION_BEGIN
+//#define UNION_END
+//#define STRUCT_BEGIN
+//#define STRUCT_END
+//#endif
 
 #ifdef __cplusplus
-
-template<bool cond> class static_assertion { private: enum { val=0 }; };
-template<> class static_assertion<true> { public: enum { val=1 }; };
-#define STATIC_ASSERT(cond, name) (void)(static_assertion<(cond)>::val)
-#define STATIC_ASSERT_GSCOPE(cond, name) extern static_assertion<static_assertion<(cond)>::val> name
-
+ template<bool cond> class static_assertion { private: enum { val=0 }; };
+ template<> class static_assertion<true> { public: enum { val=1 }; };
+ #define STATIC_ASSERT(cond, name) (void)(static_assertion<(cond)>::val)
+ #define STATIC_ASSERT_GSCOPE(cond, name) extern static_assertion<static_assertion<(cond)>::val> name
 #else
-
-#define STATIC_ASSERT(cond, name) (void)(sizeof(struct { int:-!(cond); }))
-#define STATIC_ASSERT_GSCOPE(cond, name) extern char name[(cond)?1:-1]
-
+ #define STATIC_ASSERT(cond, name) (void)(sizeof(struct { int:-!(cond); }))
+ #define STATIC_ASSERT_GSCOPE(cond, name) extern char name[(cond)?1:-1]
 #endif
-
 #define STATIC_ASSERT_CAN_EVALUATE(cond, name) STATIC_ASSERT(sizeof(cond), name)
 #define STATIC_ASSERT_GSCOPE_CAN_EVALUATE(cond, name) STATIC_ASSERT_GSCOPE(sizeof(cond), name)
 
-void* malloc_check(size_t size);
-void* try_malloc(size_t size);
+
+#ifdef __cplusplus
+class anyptr {
+void* data;
+public:
+template<typename T> anyptr(T* data_) { data=(void*)data_; }
+template<typename T> operator T*() { return (T*)data; }
+template<typename T> operator const T*() const { return (const T*)data; }
+};
+#else
+typedef void* anyptr;
+#endif
+
+#ifdef __cplusplus
+#define this This
+#define delete Delete
+#define new New
+//#define public Public
+//#define private Private
+//#define protected Protected
+extern "C" {
+#endif
+
+
+#include <stdlib.h> // needed because otherwise I get errors from anyptr malloc() != void* malloc().
+anyptr malloc_check(size_t size);
+anyptr try_malloc(size_t size);
 #define malloc malloc_check
-void* realloc_check(void* ptr, size_t size);
-void* try_realloc(void* ptr, size_t size);
+anyptr realloc_check(anyptr ptr, size_t size);
+anyptr try_realloc(anyptr ptr, size_t size);
 #define realloc realloc_check
+
 
 #include "window.h"
 
@@ -921,6 +944,9 @@ struct inputraw * _inputraw_create_directinput(uintptr_t windowhandle);
 void _inputraw_windows_keyboard_create_shared(struct inputraw * this);
 unsigned int _inputraw_translate_key(unsigned int keycode);
 
+#ifdef __cplusplus
+}
+#endif
 
 
 /*
@@ -973,15 +999,17 @@ struct retro_variable
                                            // Interface to acquire user-defined information from environment
                                            // that cannot feasibly be supported in a multi-system way.
                                            // 
-                                           // If the frontend acknowledges this, an implementation may not use RETRO_ENVIRONMENT_SET_VARIABLES.
-                                           // However, RETRO_ENVIRONMENT_GET_VARIABLE and RETRO_ENVIRONMENT_GET_VARIABLE_UPDATE will still work.
+                                           // The first call must be from retro_set_environment or retro_init.
+                                           // If the frontend acknowledges this, an implementation may not use RETRO_ENVIRONMENT_SET_VARIABLES or RETRO_ENVIRONMENT_GET_VARIABLE_UPDATE. 
+                                           // However, RETRO_ENVIRONMENT_GET_VARIABLE will still work.
+                                           // Additionally, the core may call RETRO_ENVIRONMENT_SET_VARIABLES_NEW again during retro_run and retro_load_game, and may have changed some of the entries.
+                                           // However, 'name' and 'values' must be the same as for the initial call.
                                            // 
 
 enum retro_variable_type
 {
    RETRO_VARIABLE_TYPE_TERMINATOR, // Tells that the variable list has ended.
-   RETRO_VARIABLE_TYPE_SEPARATOR,  // A separator in the list. Use for smaller groups.
-   RETRO_VARIABLE_TYPE_GROUP,      // Puts the listed items in a submenu. 'values' is a const struct retro_variable_new *. Use for larger groups.
+   RETRO_VARIABLE_TYPE_SEPARATOR,  // A separator in the list. Use to group them together. All other members are ignored for items of this type.
    RETRO_VARIABLE_TYPE_ENUM,       // Enumeration. 'values' is const char *, with each entry separated by \n. The first value is the default. change_notify gets an unsigned int * containing the index of the relevant string.
    RETRO_VARIABLE_TYPE_INT,        // Integer. 'values' is const int *; the first entry is the lowest valid value, the second is the highest valid value, and the third is the default value.
    RETRO_VARIABLE_TYPE_FLOAT,      // Floating point. 'values' is const float *; same format as RETRO_VARIABLE_INT.
@@ -989,25 +1017,23 @@ enum retro_variable_type
 
 enum retro_variable_change
 {
-   RETRO_VARIABLE_CHANGE_INSTANT, // Changes take effect at the next retro_run.
-   RETRO_VARIABLE_CHANGE_DELAYED, // Changes take effect during retro_run, but takes a few frames; for example, it may be delayed until the next level is loaded.
-   RETRO_VARIABLE_CHANGE_RESET,   // Only used during retro_load_game and retro_reset.
-   RETRO_VARIABLE_CHANGE_RELOAD,  // Only used during retro_load_game.
+   RETRO_VARIABLE_CHANGE_INSTANT,    // Changes take effect at the next retro_run.
+   RETRO_VARIABLE_CHANGE_DELAYED,    // Changes take effect during retro_run, but not instantly; for example, it may be delayed until the next level is loaded.
+   RETRO_VARIABLE_CHANGE_RESET,      // Only used during retro_load_game.
+   RETRO_VARIABLE_CHANGE_WRONG_GAME, // This variable is not usable for this game.
 };
 
 struct retro_variable_new
 {
+   enum retro_variable_type type;     // Variable type. See above.
+   enum retro_variable_change change; // When the implementation will acknowledge changes to this variable.
+
    const char *name;                  // Variable name, to be used internally. Suitable for saving to configuration files. Example: gb_colorize
    const char *pub_name;              // Variable name, to show the user. Suitable for GUIs. Example: Game Boy colorization
    const char *description;           // Variable description. Suitable as a second line in GUIs. Example: Emulate fake colors on black&white games.
-   enum retro_variable_type type;     // Variable type. See above.
    void *values;                      // Possible values. See enum retro_variable_type for what type it has. Example: "Enabled\nDisabled"
    
-   enum retro_variable_change change; // When the implementation will acknowledge changes to this variable.
-   
-   //Called by the frontend every time this variable changes, or NULL to ignore. Can be different for different variables.
-   void (*changed_by_front)(unsigned int id, void *value);
-   //This allows the core to change the same variable. Can be different for different variables.
-   void (*changed_by_core)(unsigned int id, void *value);
+   //Called by the frontend every time this variable changes, or NULL to ignore. Can be different for different variables. ID is the index to the array given to RETRO_ENVIRONMENT_SET_VARIABLES_NEW; separators have IDs.
+   void (*change_notify)(unsigned int id, void *value);
 };
 */

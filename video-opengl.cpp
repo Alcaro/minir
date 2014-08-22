@@ -390,7 +390,7 @@ struct video * video_create_opengl(uintptr_t windowhandle, unsigned int screen_w
 	this->gltexture=0;
 	
 #ifdef WNDPROT_X11
-	this->display = window_x11_get_display()->display;
+	this->display = (Display*)window_x11_get_display()->display;
 	this->screen = window_x11_get_display()->screen;
 	
 	int version_major=0;
@@ -401,8 +401,11 @@ struct video * video_create_opengl(uintptr_t windowhandle, unsigned int screen_w
 	
 	//let GLX determine the best Visual to use for GL output; provide a few hints
 	//note: some video drivers will override double buffering attribute
-	int attributelist[] = { GLX_RGBA, GLX_DOUBLEBUFFER, None };
-	XVisualInfo* vi = glXChooseVisual(this->display, this->screen, attributelist);
+	XVisualInfo* vi;
+	{
+		int attributelist[] = { GLX_RGBA, GLX_DOUBLEBUFFER, None };
+		vi = glXChooseVisual(this->display, this->screen, attributelist);
+	}
 	
 	//Window windowhandle has already been realized, most likely with DefaultVisual.
 	//GLX requires that the GL output window has the same Visual as the GLX context.
@@ -427,9 +430,11 @@ struct video * video_create_opengl(uintptr_t windowhandle, unsigned int screen_w
 	glXMakeCurrent(this->display, this->xwindow, this->glxcontext);
 	
 	//read attributes of frame buffer for later use, as requested attributes from above are not always granted
-	int value = 0;
-	glXGetConfig(this->display, vi, GLX_DOUBLEBUFFER, &value);
-	this->doublebuffer = value;
+	{
+		int value = 0;
+		glXGetConfig(this->display, vi, GLX_DOUBLEBUFFER, &value);
+		this->doublebuffer = value;
+	}
 	
 	XFree(vi);
 	

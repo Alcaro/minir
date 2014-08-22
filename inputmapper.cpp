@@ -60,7 +60,7 @@ static const char * id_to_str(unsigned int id)
 
 static uint32_t * parse_descriptor(const char * descriptor, const char ** descriptor_end)
 {
-	uint32_t * rules=rules;
+	uint32_t * rules;
 	
 	if (descriptor[0]=='K' && descriptor[1]=='B' && isdigit(descriptor[2]))
 	{
@@ -330,7 +330,7 @@ static bool map_key(struct inputmapper * this_, const char * descriptor, unsigne
 	if (id>=this->numbuttons)
 	{
 		this->buttonrules=realloc(this->buttonrules, sizeof(uint32_t**)*(id+1));
-		for (int i=this->numbuttons;i<id;i++)//not initializing the last one; we'll set it to non-NULL soon enough
+		for (unsigned int i=this->numbuttons;i<id;i++)//not initializing the last one; we'll set it to non-NULL soon enough
 		{
 			this->buttonrules[i]=NULL;
 		}
@@ -394,7 +394,7 @@ static bool button_shiftstates(struct inputmapper * this_, unsigned int id, bool
 	
 	this->shiftstates_for=malloc(sizeof(uint32_t*)*0x800*this->kb_nkb);
 	memset(this->shiftstates_for, 0, sizeof(uint32_t*)*0x800*this->kb_nkb);
-	for (int i=0;i<this->numbuttons;i++)
+	for (unsigned int i=0;i<this->numbuttons;i++)
 	{
 		uint32_t ** buttonrulechain=this->buttonrules[i];
 		if (!buttonrulechain) continue;
@@ -576,7 +576,7 @@ static void free_(struct inputmapper * this_)
 	
 	if (this->buttonrules)
 	{
-		for (int i=0;i<this->numbuttons;i++) delete_chain_rule(this->buttonrules[i]);
+		for (unsigned int i=0;i<this->numbuttons;i++) delete_chain_rule(this->buttonrules[i]);
 		free(this->buttonrules);
 		this->buttonrules=NULL;
 		this->numbuttons=0;

@@ -248,17 +248,15 @@ struct retro_system_info info;
 this->raw.get_system_info(&info);
 if (strstr(info.library_name, "snes") || strstr(info.library_name, "SNES"))
 {
-struct retro_memory_descriptor desc[]={
-{ .start=0x7E0000, .len=0x20000 },
-{ .select=0x40E000, .len=0x2000 },
-};
-desc[0].ptr=this->raw.get_memory_data(RETRO_MEMORY_SYSTEM_RAM);
-desc[1].ptr=desc[0].ptr;
-if (desc[0].ptr)
+struct retro_memory_descriptor desc;
+desc.start=0x7E0000;
+desc.len=0x20000;
+desc.ptr=this->raw.get_memory_data(RETRO_MEMORY_SYSTEM_RAM);
+if (desc.ptr)
 {
-this->memdesc=malloc(sizeof(struct retro_memory_descriptor)*2);
-memcpy(this->memdesc,desc,sizeof(struct retro_memory_descriptor)*2);
-this->nummemdesc=2;
+this->memdesc=malloc(sizeof(struct retro_memory_descriptor)*1);
+memcpy(this->memdesc,&desc,sizeof(struct retro_memory_descriptor)*1);
+this->nummemdesc=1;
 }
 }
 }
@@ -296,7 +294,7 @@ static bool load_rom(struct libretro * this_, const char * data, size_t datalen,
 			game.data=data;
 			game.size=datalen;
 		}
-		else file_read(filename, (char**)&game.data, &game.size);
+		else file_read(filename, (void**)&game.data, &game.size);
 		bool ret=this->raw.load_game(&game);
 		free((char*)game.data);
 add_snes_mmap(this);

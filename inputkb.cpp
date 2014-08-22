@@ -60,10 +60,10 @@ static void ikbc_poll(struct inputkb * this_)
 struct inputkb_compat * this=(struct inputkb_compat*)this_;
 	unsigned char newstate[1024];
 	memset(newstate, 0, sizeof(newstate));
-	for (int i=0;i<this->ir->keyboard_num_keyboards(this->ir);i++)
+	for (unsigned int i=0;i<this->ir->keyboard_num_keyboards(this->ir);i++)
 	{
 		if (!this->ir->keyboard_poll(this->ir, i, newstate)) memset(newstate, 0, sizeof(newstate));
-		for (int j=0;j<1024;j++)
+		for (unsigned int j=0;j<1024;j++)
 		{
 			if (newstate[j]!=this->state[i][j])
 			{

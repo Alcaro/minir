@@ -286,7 +286,7 @@ static char * menu_transform_name(const char * name)
 	if (useaccel) name++;
 	unsigned int accelpos=0;
 	unsigned int len=0;
-	for (int i=0;name[i];i++)
+	for (unsigned int i=0;name[i];i++)
 	{
 		if (name[i]=='&') len++;
 		if (!accelpos && name[i]=='_') accelpos=i;
@@ -294,7 +294,7 @@ static char * menu_transform_name(const char * name)
 	}
 	char * ret=malloc(len+2);//NUL, extra &
 	char * at=ret;
-	for (int i=0;name[i];i++)
+	for (unsigned int i=0;name[i];i++)
 	{
 		if (name[i]=='&') *(at++)='&';
 		if (useaccel && i==accelpos) *(at++)='&';
@@ -519,8 +519,12 @@ static struct windowmenu * windowmenu_create_submenu_shared(uint8_t type, const 
 	this->childmenu=(type==menu_topmenu ? CreateMenu() : CreatePopupMenu());
 	this->text=text;
 	menu_connect(this, numchildren, (struct windowmenu_win32**)children);
-	MENUINFO menuinf={ .cbSize=sizeof(menuinf), .fMask=MIM_STYLE|MIM_MENUDATA, .dwStyle=MNS_NOTIFYBYPOS/*|MNS_MODELESS*/, .dwMenuData=(DWORD_PTR)this };
-	//MODELESS makes the window border flash in stupid ways when switching between the menues.
+	//MENUINFO menuinf={ .cbSize=sizeof(menuinf), .fMask=MIM_STYLE|MIM_MENUDATA, .dwStyle=MNS_NOTIFYBYPOS/*|MNS_MODELESS*/, .dwMenuData=(DWORD_PTR)this };
+	MENUINFO menuinf;
+	menuinf.cbSize=sizeof(menuinf);
+	menuinf.fMask=MIM_STYLE|MIM_MENUDATA;
+	menuinf.dwStyle=MNS_NOTIFYBYPOS/*|MNS_MODELESS*/; //MODELESS makes the window border flash in stupid ways when switching between the menues.
+	menuinf.dwMenuData=(DWORD_PTR)this;
 	SetMenuInfo(this->childmenu, &menuinf);
 	return (struct windowmenu*)this;
 }
@@ -758,8 +762,8 @@ static void reflow_force(struct window_win32 * this)
 	
 	this->contents->measure(this->contents);
 	
-	bool badx=(this->contents->width  > size.right  || (!this->resizable && this->contents->width  != size.right));
-	bool bady=(this->contents->height > size.bottom || (!this->resizable && this->contents->height != size.bottom));
+	bool badx=(this->contents->width  > (unsigned int)size.right  || (!this->resizable && this->contents->width  != (unsigned int)size.right));
+	bool bady=(this->contents->height > (unsigned int)size.bottom || (!this->resizable && this->contents->height != (unsigned int)size.bottom));
 	
 //printf("want=%u,%u have=%u,%u",this->contents->_width,this->contents->_height,size.right,size.bottom);
 	if (badx) size.right=this->contents->width;

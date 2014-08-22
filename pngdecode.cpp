@@ -15,29 +15,30 @@
 #define read32r(source) (((source)[0]<<24)|((source)[1]<<16)|((source)[2]<<8)|((source)[3]<<0))
 #define read32(target) do { target=read32r(chunkdata); chunkdata+=4; } while(0)
 
-int png_decode(const void * pngdata, unsigned int pnglen, struct image * img, unsigned int bpp)
+bool png_decode(const void * pngdata, unsigned int pnglen, struct image * img, unsigned int bpp)
 {
 	memset(img, 0, sizeof(struct image));
 	if (bpp!=24 && bpp!=32 && bpp!=33) return false;
 	
 	if (pnglen<8) return false;
-	const unsigned char * data=pngdata;
-	if (!!memcmp(data, "\x89\x50\x4E\x47\x0D\x0A\x1A\x0A", 8)) return false;
-	const unsigned char * dataend=pngdata+pnglen;
+	const uint8_t * data=(const uint8_t*)pngdata;
+	if (memcmp(data, "\x89\x50\x4E\x47\x0D\x0A\x1A\x0A", 8)) return false;
+	const uint8_t * dataend=data+pnglen;
 	data+=8;
 	
-	unsigned int width=width;
-	unsigned int height=height;
-	unsigned char * pixels=NULL;
-	unsigned char * pixelsat=pixelsat;
-	unsigned char * pixelsend=pixelsend;
+	unsigned int width;
+	unsigned int height;
+	uint8_t * pixels=NULL;
+	uint8_t * pixelsat;
+	uint8_t * pixelsend;
 	
-	int bitsperchannel=bitsperchannel;
-	int colortype=colortype;//chop off some warnings... they're all initialized in IHDR
-	int compressiontype=compressiontype;
-	int filtertype=filtertype;
-	int interlacetype=interlacetype;
-	int bpl=bpl;
+	//chop off some warnings... these are all initialized in IHDR
+	unsigned int bitsperchannel;
+	unsigned int colortype;
+	unsigned int compressiontype;
+	unsigned int filtertype;
+	unsigned int interlacetype;
+	unsigned int bpl;
 	
 	unsigned int palette[256];
 	memset(palette, 0, sizeof(palette));//not gonna catch palette overflows
@@ -54,7 +55,7 @@ int png_decode(const void * pngdata, unsigned int pnglen, struct image * img, un
 		if (chunklen>=0x80000000) goto bad;
 		if (data+4+chunklen+4>dataend) goto bad;
 		unsigned int chunkchecksum=mz_crc32(mz_crc32(0, NULL, 0), (uint8_t*)data+4, 4+chunklen);
-		const unsigned char * chunkdata=data+4+4;
+		const uint8_t * chunkdata=data+4+4;
 		unsigned int actualchunkchecksum=read32r(data+4+4+chunklen);
 		if (actualchunkchecksum!=chunkchecksum) goto bad;
 		
@@ -92,7 +93,7 @@ int png_decode(const void * pngdata, unsigned int pnglen, struct image * img, un
 				if (colortype==2) bpl=3*width;
 				if (colortype==3) bpl=(width*bitsperchannel + bitsperchannel-1)/8;
 				if (colortype==6) bpl=4*width;
-				pixels=malloc((bpl+1)*height); if (!pixels) goto bad;
+				pixels=(uint8_t*)malloc((bpl+1)*height); if (!pixels) goto bad;
 				pixelsat=pixels;
 				pixelsend=pixels+(bpl+1)*height;
 			}
@@ -148,24 +149,24 @@ goto bad;
 				if (status<TINFL_STATUS_DONE) goto bad;
 				if (status>TINFL_STATUS_DONE) goto bad;
 				if (pixelsat!=pixelsend) goto bad;//too little data (can't be too much because we didn't give it that buffer size)
-				unsigned char * out=malloc(bpp/8*width*height);
+				uint8_t * out=(uint8_t*)malloc(bpp/8*width*height);
 				
 				//TODO: deinterlace at random point
 				
 				//run filters
-				int bpppacked=((colortype==2)?3:(colortype==6)?4:1);
-				unsigned char * prevout=out+(4*width*1);
+				unsigned int bpppacked=((colortype==2)?3:(colortype==6)?4:1);
+				uint8_t * prevout=out+(4*width*1);
 				if (height==1)
 				{
 					prevout=out;
 					//this will blow up if a 1px high image is filtered with Paeth, but who the hell would do that?
 				}
 				memset(prevout, 0, 4*width*1);//not using bpp here because we only need a chunk of black anyways
-				unsigned char * filteredline=pixels;
+				uint8_t * filteredline=pixels;
 				
-				for (int y=0;y<height;y++)
+				for (unsigned int y=0;y<height;y++)
 				{
-					unsigned char * thisout=out+(bpl*y);
+					uint8_t * thisout=out+(bpl*y);
 					switch (*(filteredline++))
 					{
 					case 0:
@@ -173,25 +174,25 @@ goto bad;
 						break;
 					case 1:
 						memcpy(thisout, filteredline, bpppacked);
-						for (int x=bpppacked;x<bpl;x++)
+						for (unsigned int x=bpppacked;x<bpl;x++)
 						{
 							thisout[x]=thisout[x-bpppacked]+filteredline[x];
 						}
 						break;
 					case 2:
-						for (int x=0;x<bpl;x++)
+						for (unsigned int x=0;x<bpl;x++)
 						{
 							thisout[x]=prevout[x]+filteredline[x];
 						}
 						break;
 					case 3:
-						for (int x=0;x<bpppacked;x++)
+						for (unsigned int x=0;x<bpppacked;x++)
 						{
 							int a=0;
 							int b=prevout[x];
 							thisout[x]=(a+b)/2+filteredline[x];
 						}
-						for (int x=bpppacked;x<bpl;x++)
+						for (unsigned int x=bpppacked;x<bpl;x++)
 						{
 							int a=thisout[x-bpppacked];
 							int b=prevout[x];
@@ -199,7 +200,7 @@ goto bad;
 						}
 						break;
 					case 4:
-						for (int x=0;x<bpppacked;x++)
+						for (unsigned int x=0;x<bpppacked;x++)
 						{
 							int prediction;
 							
@@ -218,7 +219,7 @@ goto bad;
 							
 							thisout[x]=filteredline[x]+prediction;
 						}
-						for (int x=bpppacked;x<bpl;x++)
+						for (unsigned int x=bpppacked;x<bpl;x++)
 						{
 							int prediction;
 							
@@ -255,7 +256,7 @@ goto bad;
 						int y=height;
 						uint8_t * outp=out+3*width*height;
 						do {
-							unsigned char * inp=out+y*bpl;
+							uint8_t * inp=out+y*bpl;
 							
 							int x=(width+7)/8;
 							do {
@@ -322,7 +323,7 @@ goto bad;
 					break;
 					case 8:
 					{
-						unsigned char * inp=out+width*height;
+						uint8_t * inp=out+width*height;
 						uint8_t * outp=out+3*width*height;
 						int i=width*height;
 						do {
@@ -341,7 +342,7 @@ goto bad;
 				//unpack to 32bpp if requested
 				if (bpp==32)
 				{
-					unsigned char * inp=out+width*height*3;
+					uint8_t * inp=out+width*height*3;
 					uint32_t * outp=((uint32_t*)out)+width*height;
 					int i=width*height;
 					do {

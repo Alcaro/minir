@@ -245,13 +245,13 @@ struct widget_layout * widget_create_layout_l(unsigned int numchildren, void * *
 	bool posused[totheight*totwidth];
 	memset(posused, 0, sizeof(posused));
 	unsigned int firstempty=0;
-	for (int i=0;i<numchildren;i++)
+	for (unsigned int i=0;i<numchildren;i++)
 	{
 		while (posused[firstempty]) firstempty++;
 		this->startpos[0][i]=firstempty%this->totsize[0];
 		this->startpos[1][i]=firstempty/this->totsize[0];
-		for (int x=0;x<this->extent[0][i];x++)
-		for (int y=0;y<this->extent[1][i];y++)
+		for (unsigned int x=0;x<this->extent[0][i];x++)
+		for (unsigned int y=0;y<this->extent[1][i];y++)
 		{
 			posused[firstempty + y*this->totsize[0] + x]=true;
 		}

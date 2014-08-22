@@ -22,7 +22,7 @@
 //Level 1: LVCFMT_FIXED_WIDTH on the listbox is ignored before Vista
 //Danger list (likely to hit):
 //Level 4: printf dislikes z (size_t) size specifiers; they must be behind #ifdef DEBUG, or turned into "I" via #define
-//Level 5: 64-bit programs dislike XP
+//Level 5: 64-bit programs dislike XP (there are 32bit Vista/7/8, but Vista is practically dead, as is 32bit 7+)
 
 //static LARGE_INTEGER timer_freq;
 
@@ -167,27 +167,28 @@ uint64_t window_get_time()
 
 
 
-bool file_read(const char * filename, char* * data, size_t * len)
+bool file_read(const char * filename, void* * data, size_t * len)
 {
 	if (!filename) return false;
 	HANDLE file=CreateFile(filename, GENERIC_READ, FILE_SHARE_READ, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
 	if (file==INVALID_HANDLE_VALUE) return false;
 	DWORD readlen=GetFileSize(file, NULL);
 	DWORD truelen;
-	*data=malloc(readlen+1);
-	(*data)[readlen]='\0';
-	ReadFile(file, *data, readlen, &truelen, NULL);
+	char* truedata=malloc(readlen+1);
+	ReadFile(file, truedata, readlen, &truelen, NULL);
+	truedata[readlen]='\0';
+	*data=truedata;
 	CloseHandle(file);
 	if (truelen!=readlen)
 	{
-		free(data);
+		free(truedata);
 		return false;
 	}
 	if (len) *len=truelen;
 	return true;
 }
 
-bool file_write(const char * filename, const char * data, size_t len)
+bool file_write(const char * filename, const anyptr data, size_t len)
 {
 	if (!filename) return false;
 	if (!len) return true;
@@ -199,7 +200,7 @@ bool file_write(const char * filename, const char * data, size_t len)
 	return (truelen==len);
 }
 
-bool file_read_to(const char * filename, char * data, size_t len)
+bool file_read_to(const char * filename, anyptr data, size_t len)
 {
 	if (!filename) return false;
 	if (!len) return true;
@@ -249,7 +250,7 @@ void* file_find_create(const char * path)
 bool file_find_next(void* find_, char * * path, bool * isdir)
 {
 	if (!find_) return false;
-	struct finddata * find=find_;
+	struct finddata * find=(struct finddata*)find_;
 nextfile:;
 	bool ok=true;
 	if (find->first) find->first=false;
@@ -265,7 +266,7 @@ nextfile:;
 void file_find_close(void* find_)
 {
 	if (!find_) return;
-	struct finddata * find=find_;
+	struct finddata * find=(struct finddata*)find_;
 	FindClose(find->h);
 	free(find);
 }

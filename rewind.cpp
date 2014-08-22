@@ -33,6 +33,7 @@
 #define PADDING sizeof(size_t)
 #endif
 
+//TODO: replace all char* with uint16_t* or uint8_t*.
 struct rewindstack_impl {
 	struct rewindstack i;
 	
@@ -55,21 +56,25 @@ static void reset(struct rewindstack * this_, size_t blocksize, size_t capacity)
 {
 	struct rewindstack_impl * this=(struct rewindstack_impl*)this_;
 	
-	int newblocksize=((blocksize-1)|(sizeof(uint16_t)-1))+1;
+	size_t newblocksize=((blocksize-1)|(sizeof(uint16_t)-1))+1;
 	if (this->blocksize!=newblocksize)
 	{
 		this->blocksize=newblocksize;
 		
-		const int maxcblkcover=UINT16_MAX*sizeof(uint16_t);
-		const int maxcblks=(this->blocksize+maxcblkcover-1)/maxcblkcover;
+		size_t maxcblkcover=UINT16_MAX*sizeof(uint16_t);
+		size_t maxcblks=(this->blocksize+maxcblkcover-1)/maxcblkcover;
 		this->maxcompsize=this->blocksize + maxcblks*sizeof(uint16_t)*2 + sizeof(uint16_t)+sizeof(uint32_t) + sizeof(size_t)*2;
 		
 		free(this->thisblock);
 		free(this->nextblock);
-		this->thisblock=calloc(this->blocksize+sizeof(uint16_t)*4+PADDING, 1);
-		this->nextblock=calloc(this->blocksize+sizeof(uint16_t)*4+PADDING, 1);
+		
+		size_t nbytes=this->blocksize+sizeof(uint16_t)*4+PADDING;
+		this->thisblock=malloc(nbytes);
+		this->nextblock=malloc(nbytes);
+		memset(this->thisblock, 0, nbytes);
+		memset(this->nextblock, 0, nbytes);
 		//Force in a different byte at the end, so we don't need to check bounds in the innermost loop (it's expensive).
-		//There is also a large amount of data that's the same, to stop the other scan
+		//There is also a large amount of data that's the same, to stop the other scan.
 		//There is also some padding at the end. This is so we don't read outside the buffer end if we're reading in large blocks;
 		// it doesn't make any difference to us, but sacrificing 16 bytes to get Valgrind happy is worth it.
 		*(uint16_t*)(this->thisblock+this->blocksize+sizeof(uint16_t)*3)=0xFFFF;
@@ -291,7 +296,7 @@ static void push_end(struct rewindstack * this_)
 			if (changed>UINT16_MAX) changed=UINT16_MAX;
 			*(compressed16++)=changed;
 			*(compressed16++)=skip;
-			for (int i=0;i<changed;i++) compressed16[i]=old16[i];
+			for (unsigned int i=0;i<changed;i++) compressed16[i]=old16[i];
 			old16+=changed;
 			new16+=changed;
 			compressed16+=changed;

@@ -14,7 +14,7 @@ static void create_tbl_15_32(void* location)
 		return;
 	}
 	
-	uint32_t * table=location;
+	uint32_t * table=(uint32_t*)location;
 	
 	for (int r=0;r<32;r++)
 	for (int g=0;g<32;g++)
@@ -36,7 +36,7 @@ static void create_tbl_16_32(void* location)
 		return;
 	}
 	
-	uint32_t * table=location;
+	uint32_t * table=(uint32_t*)location;
 	
 	for (int r=0;r<32;r++)
 	for (int g=0;g<64;g++)
@@ -53,10 +53,10 @@ static void create_tbl_16_32(void* location)
 
 static void convert_1516_32(const struct image * src, struct image * dst)
 {
-	const uint32_t * conv=image_get_convert_table(src->bpp, 32);
+	const uint32_t * conv=(const uint32_t*)image_get_convert_table(src->bpp, 32);
 	
-	uint16_t * in=src->pixels;
-	uint32_t * out=dst->pixels;
+	uint16_t * in=(uint16_t*)src->pixels;
+	uint32_t * out=(uint32_t*)dst->pixels;
 	for (unsigned int y=0;y<src->height;y++)
 	{
 		for (unsigned int x=0;x<src->width;x++)
@@ -72,10 +72,10 @@ static void convert_1516_32(const struct image * src, struct image * dst)
 
 static void convert_1516_24(const struct image * src, struct image * dst)
 {
-	const uint32_t * conv=image_get_convert_table(src->bpp, 32);
+	const uint32_t * conv=(const uint32_t*)image_get_convert_table(src->bpp, 32);
 	
-	uint16_t * in=src->pixels;
-	uint8_t * out=dst->pixels;
+	uint16_t * in=(uint16_t*)src->pixels;
+	uint8_t * out=(uint8_t*)dst->pixels;
 	for (unsigned int y=0;y<src->height;y++)
 	{
 		for (unsigned int x=0;x<src->width;x++)
@@ -111,7 +111,7 @@ const void * image_get_convert_table(unsigned int srcbpp, unsigned int dstbpp)
 			{ \
 				void * tmp=malloc(size); \
 				create_tbl_##src##_##dst(tmp); \
-				table_##src##_##dst=tmp; \
+				table_##src##_##dst=(uint32_t*)tmp; \
 			} \
 			return table_##src##_##dst;
 	
@@ -135,8 +135,8 @@ void image_convert(const struct image * src, struct image * dst)
 			unsigned int pixelsize=((src->bpp)<=16?2: (src->bpp)==24?3: 4);
 			unsigned int linelen=pixelsize*src->width;
 			
-			char * srcdata=src->pixels;
-			char * dstdata=dst->pixels;
+			uint8_t * srcdata=(uint8_t*)src->pixels;
+			uint8_t * dstdata=(uint8_t*)dst->pixels;
 			unsigned int srcpitch=src->pitch;
 			unsigned int dstpitch=dst->pitch;
 			
@@ -185,7 +185,7 @@ void convert_resize_1516_self(const struct image * src, struct image * dst)
 
 void convert_resize_1516_32(const struct image * src, struct image * dst)
 {
-	const uint32_t * conv=image_get_convert_table(src->bpp, 32);
+	const uint32_t * conv=(const uint32_t*)image_get_convert_table(src->bpp, 32);
 	float xstep=(float)src->width/dst->width;
 	float ystep=(float)src->height/dst->height;
 	for (unsigned int y=0;y<dst->height;y++)

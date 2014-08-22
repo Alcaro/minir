@@ -40,11 +40,11 @@ void image_convert_resize(const struct image * src, struct image * dst);
 
 //Valid bpp values: 32, 24, 16, 15
 //pngcomments are { "key", "value", "key", "value", NULL }, or a toplevel NULL
-int png_encode(const struct image * img, const char * * pngcomments,  void* * pngdata, unsigned int * pnglen);
+bool png_encode(const struct image * img, const char * * pngcomments,  void* * pngdata, unsigned int * pnglen);
 
 //Valid bpp values: 24, 32, 33
 //If there is transparency, 33 is mandatory.
-int png_decode(const void* pngdata, unsigned int pnglen, struct image * img, unsigned int bpp);
+bool png_decode(const void* pngdata, unsigned int pnglen, struct image * img, unsigned int bpp);
 
 #ifdef __cplusplus
 }
