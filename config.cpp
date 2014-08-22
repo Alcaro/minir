@@ -1431,8 +1431,6 @@ static void read_from_file(struct minirconfig_impl * this, char * rawconfig)
 		foundit:;
 		}
 	}
-	
-	free(rawconfig);
 }
 
 struct minirconfig * config_create(const char * path)
