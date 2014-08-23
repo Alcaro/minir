@@ -1,7 +1,54 @@
-//retrostateverify - a libretro frontend that verifies that a savestate contains all variables that are changed by retro_run
-//usage: retroprofile corepath rompath tries
-//example: ./retroprofile roms/gambatte_libretro.so roms/zeldaseasons.gbc 10
-//NOTE: not finished, doesn't actually verify anything.
+/*
+retrostateverify - a specialized libretro frontend that verifies that a savestate contains all variables that are changed by retro_run
+
+Compile with:
+g++ -I. -std=c99 tests/retrostateverify.cpp tests/memdebug.cpp libretro.cpp dylib.cpp memory.cpp -ldl -lrt -DDYLIB_POSIX -DWINDOW_MINIMAL window-none.cpp -Os -s -o retrostate
+The program runs only on Linux. You will not have any success on Windows, unless you're willing to write about 200 lines of ugly code.
+
+Run with:
+gdb --args retrostate /path/to/core.so /path/to/rom.bin frames_per_round frames_between_rounds rounds
+example: gdb --args ./retrostate roms/testcore_libretro.so - 5 60 30
+All framecounts are actually random numbers in the range [given, given*2].
+
+If a problem is found, the relevant address will be printed, and execution will be stopped. For best results, use gdb.
+
+If the address is in the DATA or BSS section, tracking it down is easy:
+ info symbol <address> (example: 'info symbol 0x7fff12345678')
+ (Try this first. If it doesn't work, it's heap.)
+If it's on the heap, you'll have to do more:
+ breakpoint tr_malloc
+ run (if the program is still running, say Yes to restarting)
+ continue <id>
+ bt
+where <id> is the number after the # in the failure report.
+
+Failure report format:
+FAILURE (<type>) at <addr> [<addrbase> + <offset>/<size>, #<id>]: <expected>!=<actual>
+<type> is 'root' or 'cascaded'. There is only one of the types for any given run.
+ 'root' means a variable that had wrong value after loading the savestate, and continued being wrong.
+ 'cascaded' is an address that has the wrong value, but was right when the savestate was loaded.
+  This usually means that the problem source was wrong too, but fixed itself.
+  Run the program again and it will use another input sequence, hopefully showing the real cause.
+  If that doesn't work, tweak the frame counters.
+<addr> is the faulting address.
+<addrbase> is the start of the allocation containing the faulting address.
+ Note that the DATA and BSS sections count as only one allocation each.
+<offset> is the difference between <addr> and <addrbase>.
+<size> is how big the relevant allocation is.
+ DATA and BSS sections are large, and multiples of 4096 bytes; other allocations are usually, but not always, small.
+ (A large non-DATA/BSS allocation would be the framebuffer. However, it is possible for it to be on both stack and BSS.)
+<id> is the sequential number of the relevant malloc()/free().
+<expected> and <actual> are what the relevant byte are, and what they should be, respectively.
+You usually only need <type>, <addr> and <id>.
+
+False positives have been observed:
+- _GLOBAL_OFFSET_TABLE_ has given weird results for unknown reasons.
+- Failures have been observed cascading back into volatile arrays (e.g. framebuffer). This makes them show up as guilty.
+
+rm retrostate; g++ -I. tests/retrostateverify.cpp tests/memdebug.cpp libretro.cpp dylib.cpp memory.cpp -ldl -lrt -DDYLIB_POSIX -DWINDOW_MINIMAL window-none.cpp -Og -g -o retrostate; gdb --args ./retrostate roms/snes9x_libretro.so ~/smw.smc 5 60 30
+
+won't work on Windows
+*/
 
 #include "minir.h"
 #include "libretro.h"
@@ -9,16 +56,6 @@
 #include <stdio.h>
 #include <time.h>
 #include <signal.h>
-/*
-g++ -I. -std=c99 tests/retrostateverify.cpp tests/memdebug.cpp libretro.cpp dylib.cpp memory.cpp -ldl -lrt -DDYLIB_POSIX -DWINDOW_MINIMAL window-none.cpp -Os -s -o retrostate
-gdb --args ./retrostate roms/testcore_libretro.so - 5 60 30
-//usage: retrostate /path/to/core.so /path/to/rom.gbc frames_per_round frames_between_rounds rounds
-//all framecounts are actually random numbers in the range [given, given*2]
-
-rm retrostate; g++ -I. tests/retrostateverify.cpp tests/memdebug.cpp libretro.cpp dylib.cpp memory.cpp -ldl -lrt -DDYLIB_POSIX -DWINDOW_MINIMAL -DVERBOSE window-none.cpp -Og -g -o retrostate; gdb --args ./retrostate roms/testcore_libretro.so - 5 60 30
-
-won't work on Windows
-*/
 
 //plan:
 //run 2..5 frames with random input
@@ -197,23 +234,19 @@ int main(int argc, char * argv[])
 	if (!statesize) die("Core must support savestates.");
 	void* state=i.s_malloc(statesize);
 	
-	printf("You should be running this program from gdb.\n");
-	printf("For addresses in the DATA or BSS sections:\n info symbol <address>\n (example: 'info symbol 0x7fff12345678'\n");
-	printf("For addresses on the heap:\n breakpoint tr_malloc\n run\n yes\n continue <count>\n bt\n where <count> is the number after the # in the failure report.\n");
-	
 	printf("Savestate size is: %lu.\n", statesize);
 	printf("Total core memory used is: %lu.\n", totsize);
+	printf("Seed used: %u.\n", seed);
 	
-	
-	for (unsigned int i=0;i<rounds;i++)
+	unsigned int thisround=0;
+	while (true)
 	{
 		//run a few frames at random
 		context="libretro->run (1)";
-		printf("%i/%i\r", i, rounds); fflush(stdout);
+		printf("%i/%i\r", thisround, rounds); fflush(stdout);
 		for (unsigned int skip=randr(betweenround, betweenround*2);skip;skip--)
 		{
-			//input_bits=randr(0, 65535);
-			input_bits=0;
+			input_bits=randr(0, 65535);
 			core->run(core);
 		}
 		
@@ -243,8 +276,7 @@ int main(int argc, char * argv[])
 		context="libretro->run (2)";
 		for (unsigned int i=0;i<framesthisround;i++)
 		{
-			//input_bits=input_list[i];
-			input_bits=0;
+			input_bits=input_list[i];
 			core->run(core);
 		}
 		
@@ -260,8 +292,7 @@ int main(int argc, char * argv[])
 		context="libretro->run (3)";
 		for (unsigned int i=0;i<framesthisround;i++)
 		{
-			//input_bits=input_list[i];
-			input_bits=0;
+			input_bits=input_list[i];
 			core->run(core);
 		}
 		
@@ -292,24 +323,23 @@ int main(int argc, char * argv[])
 				{
 					for (size_t i=0;i<item->size;i++)
 					{
-						if (item->expected[i]!=item->ptr[i])
+						if (item->expected[i]!=item->ptr[i] && (item->init[i]!=0 || !anyseeds))
 						{
-							if (item->init[i]!=0 || !anyseeds)
-							{
-								printf("FAILURE at %p [%p + %lu/%lu, #%lu]: %.2X!=%.2X\n", item->ptr+i, item->ptr, i, item->size, item->alloc_id, item->expected[i], item->ptr[i]);
-							}
-							//break;
+							printf("FAILURE (%s) at %p, iter %u/%u [%p + %lu/%lu, #%lu]: %.2X!=%.2X\n", anyseeds ? "root" : "cascaded",
+							       item->ptr+i, thisround, rounds, item->ptr, i, item->size, item->alloc_id, item->expected[i], item->ptr[i]);
 						}
 					}
 					item = item->next;
 				}
+				raise(SIGTRAP);//break while the .so is still loaded
 				break;
 			}
 		}
-		//save state EXPECTED_POST
-		//handle_mem(^=, expected);
 		
-		//compare stuff
+		thisround++;
+		if (thisround==rounds)
+		{
+			puts("No problems found.");
+		}
 	}
-	raise(SIGTRAP);
 }
