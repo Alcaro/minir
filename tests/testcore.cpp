@@ -1,11 +1,11 @@
 #if 0
 rm ../roms/testcore_libretro.so
-gcc -std=c99 -I.. testcore.c -Os -s -shared -fPIC -fvisibility=hidden -lm -o ../roms/testcore_libretro.so
+g++ -I.. testcore.cpp -Os -s -shared -fPIC -fvisibility=hidden -lm -o ../roms/testcore_libretro.so
 exit
 
 windows:
 del ..\roms\testcore_libretro.dll
-gcc -std=c99 -I.. testcore.c -Os -s -shared -lm -o ../roms/testcore_libretro.dll
+g++ -I.. testcore.cpp -Os -s -shared -lm -o ../roms/testcore_libretro.dll
 #endif
 
 // 1. Video output
@@ -25,13 +25,13 @@ int groupsizes[]={5,2,1};
 #define init_grp 1
 #define init_sub 'c'
 
-//Also tests the following Libretro env callbacks:
+//Also tests the following libretro env callbacks:
 //RETRO_ENVIRONMENT_SET_PIXEL_FORMAT 10
 //RETRO_ENVIRONMENT_SET_SUPPORT_NO_GAME 18
 
-//#define PIXFMT 0//0RGB1555
-//#define PIXFMT 1//XRGB8888
-#define PIXFMT 2//RGB565
+//#define PIXFMT RETRO_PIXEL_FORMAT_0RGB1555//0
+//#define PIXFMT RETRO_PIXEL_FORMAT_XRGB8888//1
+#define PIXFMT RETRO_PIXEL_FORMAT_RGB565//2
 //For XRGB8888, 1a will set the Xs to 0, while 1b will set them to 1.
 //Note that test 3a will give different colors for each of the pixel formats. Therefore, for any comparison to be meaningful, the pixel format must be the same.
 
@@ -81,7 +81,7 @@ retro_input_state_t input_state_cb = NULL;
 
 
 
-struct {
+static struct {
 	int testgroup;
 	int testsub;
 	
@@ -195,7 +195,7 @@ void test3a()
 		state.test3a[27*3+2]=inpstate[1];
 	}
 	
-	uint16_t color=(~crc32_calc((void*)state.test3a, 6*28, ~0U))&p_dark;
+	uint16_t color=(~crc32_calc((unsigned char*)state.test3a, 6*28, ~0U))&p_dark;
 	for (int i=0;i<320*240;i++) pixels[i]=color;
 	
 	for (int i=0;i<28;i++)
@@ -362,7 +362,7 @@ EXPORT void retro_run(void)
 	video_cb(pixels, 320, 240, sizeof(*pixels));
 }
 
-EXPORT size_t retro_serialize_size(void) { return 16;/*return sizeof(state);*/ }
+EXPORT size_t retro_serialize_size(void) { return sizeof(state); }
 EXPORT bool retro_serialize(void *data, size_t size)
 {
 	if (size<sizeof(state)) return false;
@@ -373,6 +373,7 @@ EXPORT bool retro_unserialize(const void *data, size_t size)
 {
 	if (size<sizeof(state)) return false;
 	memcpy(&state, data, sizeof(state));
+	state.frame--;
 	return true;
 }
 

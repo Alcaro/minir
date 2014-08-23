@@ -32,6 +32,11 @@ static unsigned int ignore;
 //cb is chosen as a dummy address for zero-size allocations; we don't want them in the debugger main, could get nasty.
 #define ZERO_SIZE_POINTER ((void*)&cb)
 
+static void ignore_all()
+{
+	ignore++;
+}
+
 void memdebug_init(struct memdebug * i)
 {
 	ignore=0;
@@ -40,10 +45,14 @@ void memdebug_init(struct memdebug * i)
 	realloc_ = (void*(*)(void*,size_t))dlsym(RTLD_NEXT, "realloc");
 	dlopen_ = (void*(*)(const char*,int))dlsym(RTLD_NEXT, "dlopen");
 	dlclose_ = (int(*)(void*))dlsym(RTLD_NEXT, "dlclose");
-	memcpy(&cb, i, sizeof(struct memdebug));
+	cb.malloc=i->malloc;
+	cb.free=i->free;
+	cb.realloc=i->realloc;
 	i->s_malloc=malloc_;
 	i->s_free=free_;
 	i->s_realloc=realloc_;
+	
+	atexit(ignore_all);
 }
 
 void* malloc(size_t size)
