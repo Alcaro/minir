@@ -550,7 +550,9 @@ static void set_menu(struct window * this_, struct windowmenu * menu_)
 
 static void menu_activate(HMENU menu, DWORD pos)
 {
-	MENUINFO menuinf={ .cbSize=sizeof(menuinf), .fMask=MIM_MENUDATA };
+	MENUINFO menuinf;
+	menuinf.cbSize=sizeof(menuinf);
+	menuinf.fMask=MIM_MENUDATA;
 	GetMenuInfo(menu, &menuinf);
 	struct windowmenu_win32 * this=(struct windowmenu_win32*)menuinf.dwMenuData;
 	//we could do a binary search, but binary search on a list as small as this is just a waste of time.

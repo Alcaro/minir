@@ -61,10 +61,10 @@ struct inputraw * _inputraw_create_directinput(uintptr_t windowhandle)
 	this->context=NULL;
 	this->keyboard=NULL;
 	
-	lpDirectInput8Create(GetModuleHandle(NULL), 0x0800, IID_IDirectInput8, (void**)&this->context, 0);
+	lpDirectInput8Create(GetModuleHandle(NULL), 0x0800, &IID_IDirectInput8, (void**)&this->context, 0);
 	if (!this->context) goto cancel;
 	
-	this->context->lpVtbl->CreateDevice(this->context, GUID_SysKeyboard, &this->keyboard, 0);
+	this->context->lpVtbl->CreateDevice(this->context, &GUID_SysKeyboard, &this->keyboard, 0);
 	if (!this->keyboard) goto cancel;
 	
 	if (FAILED(this->keyboard->lpVtbl->SetDataFormat(this->keyboard, &c_dfDIKeyboard))) goto cancel;

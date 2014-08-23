@@ -17,6 +17,37 @@
 //TODO: http://molecularmusings.wordpress.com/2011/09/05/properly-handling-keyboard-input/
 //TODO: GetKeyNameText may be useful for debugging
 
+//guess whether the mingw headers include these
+//I don't use all of them, but no reason not to include them.
+#ifndef MAPVK_VK_TO_VSC
+#define MAPVK_VK_TO_VSC 0
+#endif
+#ifndef MAPVK_VSC_TO_VK
+#define MAPVK_VSC_TO_VK 1
+#endif
+#ifndef MAPVK_VK_TO_CHAR
+#define MAPVK_VK_TO_CHAR 2
+#endif
+#ifndef MAPVK_VSC_TO_VK_EX
+#define MAPVK_VSC_TO_VK_EX 3
+#endif
+#ifndef MAPVK_VK_TO_VSC_EX
+#define MAPVK_VK_TO_VSC_EX 4
+#endif
+
+#ifndef VK_OEM_PLUS
+#define VK_OEM_PLUS 0xBB
+#endif
+#ifndef VK_OEM_COMMA
+#define VK_OEM_COMMA 0xBC
+#endif
+#ifndef VK_OEM_MINUS
+#define VK_OEM_MINUS 0xBD
+#endif
+#ifndef VK_OEM_PERIOD
+#define VK_OEM_PERIOD 0xBE
+#endif
+
 #ifdef INPUT_DIRECTINPUT
 #undef _WIN32_WINNT
 #define _WIN32_WINNT 0x0501
