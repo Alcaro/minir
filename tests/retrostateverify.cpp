@@ -37,9 +37,12 @@ won't work on Windows
 //after saving EXPECTED_POST:
 //check for differences between EXPECTED and EXPECTED_POST
 // if there are any, check same address in INITIAL and INITIAL_POST
-//  if different, loudly explain that this address is broken
-//  we can't just compare INITIAL with INITIAL_POST because e.g. framebuffer is probably not in the savestate; differences there are discarded on the next RETRO_RUN
-// if there are no matching differences in INITIAL and INITIAL_POST, print the differences in EXPECTED/POST
+//  if different there too, loudly explain that this address is broken
+//   we can't just compare INITIAL with INITIAL_POST because some things are recalculated each frame (e.g. framebuffer)
+//   on the other hand, we don't want to compare only EXPECTED/POST; differences that matter in INITIAL/POST will spread to everywhere
+//  if same, ignore it for now
+// if there are no matching differences in INITIAL/POST, print the differences in EXPECTED/POST
+//stack is ignored because it is recreated each frame; libco threads are malloc'd and therefore analyzed
 
 //These three will be called for every malloc/etc done in the program.
 //dlopen will send the DATA and BSS segments to the malloc handler.
@@ -62,14 +65,15 @@ void memdebug_init(struct memdebug * i);
 struct meminf {
 	struct meminf * next;
 	uint8_t * ptr;
-	uint8_t * last;
-	uint8_t * changing;
+	uint8_t * init;
+	uint8_t * expected;
 	size_t size;
 	size_t alloc_id;
 };
 static struct meminf mem;
 static struct meminf * tail;
 static size_t alloc_id=0;
+static size_t totsize=0;
 
 static const char * context;
 
@@ -80,10 +84,11 @@ printf("al %lu from %s -> %p\n", size, context, ptr);
 	tail=tail->next;
 	tail->next=NULL;
 	tail->ptr=(uint8_t*)ptr;
-	tail->last=(uint8_t*)malloc(size);
-	tail->changing=(uint8_t*)calloc(size,1);
+	tail->init=(uint8_t*)malloc(size);
+	tail->expected=(uint8_t*)malloc(size);
 	tail->size=size;
 	tail->alloc_id=alloc_id++;
+	totsize+=size;
 }
 
 static void tr_free(void* prev)
@@ -96,15 +101,10 @@ printf("fr %p from %s\n", prev, context);
 	if (tail==infnext) tail=inf;
 	inf=infnext;
 	
-	free(tail->last);
-	free(tail->changing);
-	free(infnext);
-}
-
-static void tr_realloc(void* prev, void* ptr, size_t size)
-{
-	tr_free(prev);
-	tr_malloc(ptr, size);
+	totsize-=inf->size;
+	free(inf->init);
+	free(inf->expected);
+	free(inf);
 }
 
 uint16_t input_bits;
@@ -115,7 +115,7 @@ int16_t queue_input(struct libretroinput * this, unsigned port, unsigned device,
 {
 	if (device==RETRO_DEVICE_JOYPAD)
 	{
-		if (port==0 && index==0) return input_bits>>id & 1;
+		if (port==0 && index==0) return input_bits>>id & 1;//I don't know in which order this ends up. But it doesn't matter either.
 	}
 	return 0;
 }
@@ -126,9 +126,19 @@ int randr(int lower, int upper)
 	return lower + rand()%range;
 }
 
+void copy_mem()
+{
+	
+}
+
+void xor_mem()
+{
+	
+}
+
 int main(int argc, char * argv[])
 {
-	struct memdebug i={ tr_malloc, tr_free, tr_realloc };
+	struct memdebug i={ tr_malloc, tr_free };
 	memdebug_init(&i);
 	context="main";
 	tail=&mem;
@@ -143,7 +153,8 @@ int main(int argc, char * argv[])
 	unsigned int betweenround=atoi(argv[4]);
 	unsigned int rounds=atoi(argv[5]);
 	
-	srand(time(NULL));
+	unsigned int seed=(argv[6] ? atoi(argv[6]) : time(NULL));
+	srand(seed);
 	
 	context="libretro_create";
 	struct libretro * core=libretro_create(argv[1], NULL, NULL);
@@ -176,36 +187,89 @@ int main(int argc, char * argv[])
 	if (!statesize) abort();
 	void* state=i.s_malloc(statesize);
 	
+	printf("Savestate size is: %lu.\n", statesize);
+	printf("Total core memory used is: %lu.\n", totsize);
+	
 	for (unsigned int i=0;i<rounds;i++)
 	{
+		//run a few frames at random
 		context="libretro->run (1)";
 		printf("%i/%i\r", i, rounds); fflush(stdout);
 		for (unsigned int skip=randr(betweenround, betweenround*2);skip;skip--)
 		{
+			//input_bits=randr(0, 65535);
+			input_bits=0;
 			core->run(core);
 		}
+		
+		//prepare input, save state
 		unsigned int framesthisround=randr(perround, perround*2);
 		uint16_t input_list[framesthisround];
 		for (unsigned int i=0;i<framesthisround;i++) input_list[i]=randr(0, 65535);
 		context="libretro->state_save";
 		if (!core->state_save(core, state, statesize)) abort();
+		
+#define handle_mem(oper, to) \
+		{ \
+			struct meminf * item=mem.next; \
+			while (item) \
+			{ \
+				for (size_t i=0;i<item->size;i++) \
+				{ \
+					item->to[i] oper item->ptr[i]; \
+				} \
+				item = item->next; \
+			} \
+		}
+		//save state INITIAL
+		handle_mem(=, init);
+		
+		//run for a few frames
 		context="libretro->run (2)";
 		for (unsigned int i=0;i<framesthisround;i++)
 		{
-			input_bits=input_list[i];
+			//input_bits=input_list[i];
+			input_bits=0;
 			core->run(core);
 		}
-//uncomment these two for bsnes
-		//TODO: save everything
+		
+		//save state EXPECTED
+		handle_mem(=, expected);
+		
 		context="libretro->state_load";
 		if (!core->state_load(core, state, statesize)) abort();
+		
+		//save state INITIAL_POST
+		handle_mem(^=, init);
+		
 		context="libretro->run (3)";
 		for (unsigned int i=0;i<framesthisround;i++)
 		{
-			input_bits=input_list[i];
+			//input_bits=input_list[i];
+			input_bits=0;
 			core->run(core);
 		}
-		//TODO: compare everything
+		
+		//we could save state EXPECTED_POST here, but let's just compare it instead. It's good enough.
+		{
+			struct meminf * item=mem.next;
+			while (item)
+			{
+				for (size_t i=0;i<item->size;i++)
+				{
+					if (item->expected[i]!=item->ptr[i])
+					{
+						printf("%p+%lu[%lu]: %.2X!=%.2X\n", item->ptr, i, item->size, item->expected[i], item->ptr[i]);
+						//break;
+					}
+				}
+				item = item->next;
+			}
+		}
+		//save state EXPECTED_POST
+		//handle_mem(^=, expected);
+		
+		//compare stuff
 	}
 	
 	context="libretro->free";

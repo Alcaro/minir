@@ -37,6 +37,12 @@ static void ignore_all()
 	ignore++;
 }
 
+static void realloc_as_free_malloc(void* prev, void* ptr, size_t size)
+{
+	cb.free(prev);
+	cb.malloc(ptr, size);
+}
+
 void memdebug_init(struct memdebug * i)
 {
 	ignore=0;
@@ -47,7 +53,8 @@ void memdebug_init(struct memdebug * i)
 	dlclose_ = (int(*)(void*))dlsym(RTLD_NEXT, "dlclose");
 	cb.malloc=i->malloc;
 	cb.free=i->free;
-	cb.realloc=i->realloc;
+	if (i->realloc) cb.realloc=i->realloc;
+	else cb.realloc=realloc_as_free_malloc;
 	i->s_malloc=malloc_;
 	i->s_free=free_;
 	i->s_realloc=realloc_;
