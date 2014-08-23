@@ -67,6 +67,7 @@ void* malloc(size_t size)
 	if (!size) return ZERO_SIZE_POINTER;
 	void* ret=malloc_(size);
 	if (!ret) abort();
+	memset(ret, 0, size);
 	if (ignore==0)
 	{
 		ignore++;

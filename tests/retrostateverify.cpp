@@ -54,6 +54,7 @@ won't work on Windows
 #include <stdlib.h>
 #include <stdio.h>
 #include <time.h>
+#include <string.h>
 #include <signal.h>
 
 //plan:
@@ -104,6 +105,9 @@ struct meminf {
 	uint8_t * ptr;
 	uint8_t * init;
 	uint8_t * expected;
+	uint8_t * flags;
+#define FL_BAD_CASCADE 1
+#define FL_BAD_ROOT 2
 	size_t size;
 	size_t alloc_id;
 };
@@ -126,6 +130,8 @@ printf("al %lu from %s -> %p\n", size, context, ptr);
 	tail->ptr=(uint8_t*)ptr;
 	tail->init=(uint8_t*)malloc(size);
 	tail->expected=(uint8_t*)malloc(size);
+	tail->flags=(uint8_t*)malloc(size);
+	memset(tail->flags, 0, size);
 	tail->size=size;
 	tail->alloc_id=++alloc_id;
 	totsize+=size;
@@ -146,6 +152,7 @@ printf("fr %p from %s\n", prev, context);
 	totsize-=inf->size;
 	free(inf->init);
 	free(inf->expected);
+	free(inf->flags);
 	free(inf);
 }
 
@@ -237,8 +244,9 @@ int main(int argc, char * argv[])
 	printf("Total core memory used is: %lu.\n", totsize);
 	printf("Seed used: %u.\n", seed);
 	
-	unsigned int thisround=0;
-	while (true)
+	bool anyroots=false;
+	bool anyfailures=false;
+	for (unsigned int thisround=0;thisround<rounds;thisround++)
 	{
 		//run a few frames at random
 		context="libretro->run (1)";
@@ -297,9 +305,6 @@ int main(int argc, char * argv[])
 		
 		//we could save state EXPECTED_POST here, but let's compare it instead because we need to do that anyways.
 		{
-			bool anyfailures=false;
-			bool anyseeds=false;
-			
 			struct meminf * item=mem.next;
 			while (item)
 			{
@@ -307,38 +312,51 @@ int main(int argc, char * argv[])
 				{
 					if (item->expected[i]!=item->ptr[i])
 					{
-						if (item->init[i]!=0) anyseeds=true;
+						if (item->init[i]!=0)
+						{
+							item->flags[i]|=FL_BAD_ROOT;
+							anyroots=true;
+						}
+						item->flags[i]|=FL_BAD_CASCADE;
 						anyfailures=true;
-						//break;
 					}
 				}
 				item = item->next;
 			}
-			
-			if (anyfailures)
-			{
-				item=mem.next;
-				while (item)
-				{
-					for (size_t i=0;i<item->size;i++)
-					{
-						if (item->expected[i]!=item->ptr[i] && (item->init[i]!=0 || !anyseeds))
-						{
-							printf("FAILURE (%s) at %p, iter %u/%u [%p + %lu/%lu, #%lu]: %.2X!=%.2X\n", anyseeds ? "root" : "cascaded",
-							       item->ptr+i, thisround, rounds, item->ptr, i, item->size, item->alloc_id, item->expected[i], item->ptr[i]);
-						}
-					}
-					item = item->next;
-				}
-				raise(SIGTRAP);//break while the .so is still loaded
-				break;
-			}
-		}
-		
-		thisround++;
-		if (thisround==rounds)
-		{
-			puts("No problems found.");
 		}
 	}
+	
+	if (anyfailures)
+	{
+		uint8_t flags_min = (anyroots ? FL_BAD_ROOT : FL_BAD_CASCADE);
+		struct meminf * item=mem.next;
+		while (item)
+		{
+			for (size_t i=0;i<item->size;i++)
+			{
+				if (item->flags[i] & flags_min)
+				{
+					size_t badstart=i;
+					while (i<item->size && item->flags[i] & flags_min) i++;
+					i--;
+					if (i==badstart)
+					{
+						printf("FAILURE (%s) at %p, #%lu [%p + %lu/%lu]\n", anyroots ? "root" : "cascaded",
+						       item->ptr+i, item->alloc_id, item->ptr, i, item->size);
+					}
+					else
+					{
+						printf("FAILURE (%s) at %p-%p, #%lu [%p + %lu-%lu/%lu]\n", anyroots ? "root" : "cascaded",
+						       item->ptr+badstart, item->ptr+i, item->alloc_id, item->ptr, badstart, i, item->size);
+					}
+				}
+			}
+			item = item->next;
+		}
+		raise(SIGTRAP);//break while the .so is still loaded
+	}
+	else puts("No problems found.");
+	
+	context="exit";
+	_Exit(0);
 }
