@@ -22,7 +22,7 @@ int main(int argc, char * argv[])
 	unsigned int frames=atoi(argv[3]);
 	
 	uint64_t t_init=window_get_time();
-	struct libretro * core=libretro_create(argv[1], NULL, false);
+	struct libretro * core=libretro_create(argv[1], NULL, NULL);
 	if (!core)
 	{
 		puts("Couldn't load core.");

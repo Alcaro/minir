@@ -12,7 +12,7 @@ uint64_t window_get_time()
 	return ts.tv_sec*1000000 + ts.tv_nsec/1000;
 }
 
-bool file_read(const char * filename, char* * data, size_t * len)
+bool file_read(const char * filename, void* * data, size_t * len)
 {
 	FILE * file=fopen(filename, "rb");
 	if (!file) return false;

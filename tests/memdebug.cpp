@@ -4,7 +4,9 @@
 #undef malloc
 #undef realloc
 #undef free
+#ifndef _GNU_SOURCE
 #define _GNU_SOURCE
+#endif
 #include <dlfcn.h>
 #include <string.h>
 #include <stdio.h>
@@ -33,11 +35,11 @@ static unsigned int ignore;
 void memdebug_init(struct memdebug * i)
 {
 	ignore=0;
-	malloc_ = dlsym(RTLD_NEXT, "malloc");
-	free_ = dlsym(RTLD_NEXT, "free");
-	realloc_ = dlsym(RTLD_NEXT, "realloc");
-	dlopen_ = dlsym(RTLD_NEXT, "dlopen");
-	dlclose_ = dlsym(RTLD_NEXT, "dlclose");
+	malloc_ = (void*(*)(size_t))dlsym(RTLD_NEXT, "malloc");
+	free_ = (void(*)(void*))dlsym(RTLD_NEXT, "free");
+	realloc_ = (void*(*)(void*,size_t))dlsym(RTLD_NEXT, "realloc");
+	dlopen_ = (void*(*)(const char*,int))dlsym(RTLD_NEXT, "dlopen");
+	dlclose_ = (int(*)(void*))dlsym(RTLD_NEXT, "dlclose");
 	memcpy(&cb, i, sizeof(struct memdebug));
 	i->s_malloc=malloc_;
 	i->s_free=free_;
@@ -119,10 +121,10 @@ void* dlopen(const char * filename, int flag)
 	void* ret=dlopen_(filename, flag);
 	if (ret)
 	{
-		dl_tail->next=malloc(sizeof(struct dl_list));
+		dl_tail->next=(dl_list*)malloc(sizeof(struct dl_list));
 		dl_tail=dl_tail->next;
 		dl_tail->handle=ret;
-		dl_tail->maps=malloc(sizeof(struct dl_map));
+		dl_tail->maps=(dl_map*)malloc(sizeof(struct dl_map));
 		struct dl_map * map=dl_tail->maps;
 		map->next=NULL;
 		
@@ -144,7 +146,7 @@ void* dlopen(const char * filename, int flag)
 			{
 				cb.malloc(start, end-start);
 				
-				map->next=malloc(sizeof(struct dl_map));
+				map->next=(dl_map*)malloc(sizeof(struct dl_map));
 				map=map->next;
 				map->next=NULL;
 				map->ptr=start;

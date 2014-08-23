@@ -9,12 +9,12 @@
 #include <stdio.h>
 #include <time.h>
 /*
-gcc -I. -std=c99 tests/retrostateverify.c tests/memdebug.c libretro.c dylib.c memory.c -ldl -lrt -DDYLIB_POSIX -DWINDOW_MINIMAL window-none.c -Os -s -o retrostate
+g++ -I. -std=c99 tests/retrostateverify.cpp tests/memdebug.cpp libretro.cpp dylib.cpp memory.cpp -ldl -lrt -DDYLIB_POSIX -DWINDOW_MINIMAL window-none.cpp -Os -s -o retrostate
 ./retrostate roms/testcore_libretro.so - 5 60 30
 //usage: retrostate /path/to/core.so /path/to/rom.gbc frames_per_round frames_between_rounds rounds
 //all framecounts are actually random numbers in the range [given, given*2]
 
-rm retrostate; gcc -I. -std=c99 tests/retrostateverify.c tests/memdebug.c libretro.c dylib.c memory.c -ldl -lrt -DDYLIB_POSIX -DWINDOW_MINIMAL window-none.c -Og -g -o retrostate; ./retrostate roms/testcore_libretro.so - 5 60 30
+rm retrostate; g++ -I. tests/retrostateverify.cpp tests/memdebug.cpp libretro.cpp dylib.cpp memory.cpp -ldl -lrt -DDYLIB_POSIX -DWINDOW_MINIMAL window-none.cpp -Og -g -o retrostate; ./retrostate roms/testcore_libretro.so - 5 60 30
 
 won't work on Windows
 */
@@ -23,14 +23,23 @@ won't work on Windows
 //run 2..5 frames with random input
 //input is kept in a ring buffer of 256 frames
 //loop:
-//save all core memory; also make a savestate
+//save all core memory to INITIAL; also make a savestate
 //run 2..5 frames with random input
-//randomize all core memory that has changed
+//save all core memory to EXPECTED
 //load savestate
+//save all core memory to INITIAL_POST
 //run same number of frames with same input
-//compare all internal variables; if any are different, scream
+//save all core memory to EXPECTED_POST
+//compare stuff, see next comment
 //run 5..10 frames with random input
 //end loop
+
+//after saving EXPECTED_POST:
+//check for differences between EXPECTED and EXPECTED_POST
+// if there are any, check same address in INITIAL and INITIAL_POST
+//  if different, loudly explain that this address is broken
+//  we can't just compare INITIAL with INITIAL_POST because e.g. framebuffer is probably not in the savestate; differences there are discarded on the next RETRO_RUN
+// if there are no matching differences in INITIAL and INITIAL_POST, print the differences in EXPECTED/POST
 
 //These three will be called for every malloc/etc done in the program.
 //dlopen will send the DATA and BSS segments to the malloc handler.
@@ -53,8 +62,8 @@ void memdebug_init(struct memdebug * i);
 struct meminf {
 	struct meminf * next;
 	uint8_t * ptr;
+	uint8_t * last;
 	uint8_t * changing;
-	uint8_t * laststate;
 	size_t size;
 	size_t alloc_id;
 };
@@ -70,9 +79,9 @@ printf("al %lu from %s -> %p\n", size, context, ptr);
 	tail->next=malloc(sizeof(struct meminf));
 	tail=tail->next;
 	tail->next=NULL;
-	tail->ptr=ptr;
-	tail->changing=calloc(size,1);
-	tail->laststate=malloc(size);
+	tail->ptr=(uint8_t*)ptr;
+	tail->last=(uint8_t*)malloc(size);
+	tail->changing=(uint8_t*)calloc(size,1);
 	tail->size=size;
 	tail->alloc_id=alloc_id++;
 }
@@ -87,8 +96,8 @@ printf("fr %p from %s\n", prev, context);
 	if (tail==infnext) tail=inf;
 	inf=infnext;
 	
-	free(infnext->changing);
-	free(infnext->laststate);
+	free(tail->last);
+	free(tail->changing);
 	free(infnext);
 }
 
@@ -137,7 +146,7 @@ int main(int argc, char * argv[])
 	srand(time(NULL));
 	
 	context="libretro_create";
-	struct libretro * core=libretro_create(argv[1], NULL, false);
+	struct libretro * core=libretro_create(argv[1], NULL, NULL);
 	if (!core)
 	{
 		puts("Couldn't load core.");
