@@ -1,6 +1,6 @@
 #if 0
 rm ../roms/testcore_libretro.so
-g++ -I.. testcore.cpp -Os -s -shared -fPIC -fvisibility=hidden -lm -o ../roms/testcore_libretro.so
+g++ -I.. testcore.cpp -g -shared -fPIC -fvisibility=hidden -lm -o ../roms/testcore_libretro.so
 exit
 
 windows:
@@ -373,7 +373,7 @@ EXPORT bool retro_unserialize(const void *data, size_t size)
 {
 	if (size<sizeof(state)) return false;
 	memcpy(&state, data, sizeof(state));
-	state.test3a[0]++;
+	state.frame++;
 	return true;
 }
 

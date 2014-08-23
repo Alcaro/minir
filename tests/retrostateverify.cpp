@@ -8,13 +8,14 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <time.h>
+#include <signal.h>
 /*
 g++ -I. -std=c99 tests/retrostateverify.cpp tests/memdebug.cpp libretro.cpp dylib.cpp memory.cpp -ldl -lrt -DDYLIB_POSIX -DWINDOW_MINIMAL window-none.cpp -Os -s -o retrostate
-./retrostate roms/testcore_libretro.so - 5 60 30
+gdb --args ./retrostate roms/testcore_libretro.so - 5 60 30
 //usage: retrostate /path/to/core.so /path/to/rom.gbc frames_per_round frames_between_rounds rounds
 //all framecounts are actually random numbers in the range [given, given*2]
 
-rm retrostate; g++ -I. tests/retrostateverify.cpp tests/memdebug.cpp libretro.cpp dylib.cpp memory.cpp -ldl -lrt -DDYLIB_POSIX -DWINDOW_MINIMAL window-none.cpp -Og -g -o retrostate; ./retrostate roms/testcore_libretro.so - 5 60 30
+rm retrostate; g++ -I. tests/retrostateverify.cpp tests/memdebug.cpp libretro.cpp dylib.cpp memory.cpp -ldl -lrt -DDYLIB_POSIX -DWINDOW_MINIMAL -DVERBOSE window-none.cpp -Og -g -o retrostate; gdb --args ./retrostate roms/testcore_libretro.so - 5 60 30
 
 won't work on Windows
 */
@@ -79,7 +80,10 @@ static const char * context;
 
 static void tr_malloc(void* ptr, size_t size)
 {
+	if (!ptr) return;
+#ifdef VERBOSE
 printf("al %lu from %s -> %p\n", size, context, ptr);
+#endif
 	tail->next=malloc(sizeof(struct meminf));
 	tail=tail->next;
 	tail->next=NULL;
@@ -87,13 +91,15 @@ printf("al %lu from %s -> %p\n", size, context, ptr);
 	tail->init=(uint8_t*)malloc(size);
 	tail->expected=(uint8_t*)malloc(size);
 	tail->size=size;
-	tail->alloc_id=alloc_id++;
+	tail->alloc_id=++alloc_id;
 	totsize+=size;
 }
 
 static void tr_free(void* prev)
 {
+#ifdef VERBOSE
 printf("fr %p from %s\n", prev, context);
+#endif
 	struct meminf * inf=&mem;
 	while (inf->next->ptr != prev) inf=inf->next;
 	struct meminf * infnext=inf->next;
@@ -107,10 +113,24 @@ printf("fr %p from %s\n", prev, context);
 	free(inf);
 }
 
-uint16_t input_bits;
+const uint8_t* vidbuffer=NULL;
+size_t vidbufsize=0;
+void trace_video(struct video * this, unsigned int width, unsigned int height, const void * data, unsigned int pitch)
+{
+	if (!vidbuffer)
+	{
+		vidbuffer=(const uint8_t*)data;
+		vidbufsize=pitch*height;
+	}
+	else if (vidbuffer!=(const uint8_t*)data || vidbufsize!=height*pitch)
+	{
+		vidbufsize=0;
+	}
+}
 
-void no_video(struct video * this, unsigned int width, unsigned int height, const void * data, unsigned int pitch) {}
 void no_audio(struct audio * this, unsigned int numframes, const int16_t * samples) {}
+
+uint16_t input_bits;
 int16_t queue_input(struct libretroinput * this, unsigned port, unsigned device, unsigned index, unsigned id)
 {
 	if (device==RETRO_DEVICE_JOYPAD)
@@ -126,18 +146,16 @@ int randr(int lower, int upper)
 	return lower + rand()%range;
 }
 
-void copy_mem()
+void die(const char * why)
 {
-	
-}
-
-void xor_mem()
-{
-	
+	puts(why);
+	abort();
 }
 
 int main(int argc, char * argv[])
 {
+	tr_malloc(NULL, 0);
+	
 	struct memdebug i={ tr_malloc, tr_free };
 	memdebug_init(&i);
 	context="main";
@@ -158,14 +176,10 @@ int main(int argc, char * argv[])
 	
 	context="libretro_create";
 	struct libretro * core=libretro_create(argv[1], NULL, NULL);
-	if (!core)
-	{
-		puts("Couldn't load core.");
-		return 1;
-	}
+	if (!core) die("Couldn't load core.");
 	
 	static struct video novideo;
-	novideo.draw=no_video;
+	novideo.draw=trace_video;
 	
 	static struct audio noaudio;
 	noaudio.render=no_audio;
@@ -176,19 +190,20 @@ int main(int argc, char * argv[])
 	core->attach_interfaces(core, &novideo, &noaudio, &noinput);
 	
 	context="libretro->load_rom";
-	if (!core->load_rom(core, NULL,0, argv[2]))
-	{
-		puts("Couldn't load ROM.");
-		return 1;
-	}
+	if (!core->load_rom(core, NULL,0, argv[2])) die("Couldn't load ROM.");
 	
 	context="libretro->state_size";
 	size_t statesize=core->state_size(core);
-	if (!statesize) abort();
+	if (!statesize) die("Core must support savestates.");
 	void* state=i.s_malloc(statesize);
+	
+	printf("You should be running this program from gdb.\n");
+	printf("For addresses in the DATA or BSS sections:\n info symbol <address>\n (example: 'info symbol 0x7fff12345678'\n");
+	printf("For addresses on the heap:\n breakpoint tr_malloc\n run\n yes\n continue <count>\n bt\n where <count> is the number after the # in the failure report.\n");
 	
 	printf("Savestate size is: %lu.\n", statesize);
 	printf("Total core memory used is: %lu.\n", totsize);
+	
 	
 	for (unsigned int i=0;i<rounds;i++)
 	{
@@ -207,7 +222,7 @@ int main(int argc, char * argv[])
 		uint16_t input_list[framesthisround];
 		for (unsigned int i=0;i<framesthisround;i++) input_list[i]=randr(0, 65535);
 		context="libretro->state_save";
-		if (!core->state_save(core, state, statesize)) abort();
+		if (!core->state_save(core, state, statesize)) die("Core refuses to save state.");
 		
 #define handle_mem(oper, to) \
 		{ \
@@ -237,7 +252,7 @@ int main(int argc, char * argv[])
 		handle_mem(=, expected);
 		
 		context="libretro->state_load";
-		if (!core->state_load(core, state, statesize)) abort();
+		if (!core->state_load(core, state, statesize)) die("Core refuses to load state.");
 		
 		//save state INITIAL_POST
 		handle_mem(^=, init);
@@ -250,8 +265,11 @@ int main(int argc, char * argv[])
 			core->run(core);
 		}
 		
-		//we could save state EXPECTED_POST here, but let's just compare it instead. It's good enough.
+		//we could save state EXPECTED_POST here, but let's compare it instead because we need to do that anyways.
 		{
+			bool anyfailures=false;
+			bool anyseeds=false;
+			
 			struct meminf * item=mem.next;
 			while (item)
 			{
@@ -259,11 +277,33 @@ int main(int argc, char * argv[])
 				{
 					if (item->expected[i]!=item->ptr[i])
 					{
-						printf("%p+%lu[%lu]: %.2X!=%.2X\n", item->ptr, i, item->size, item->expected[i], item->ptr[i]);
+						if (item->init[i]!=0) anyseeds=true;
+						anyfailures=true;
 						//break;
 					}
 				}
 				item = item->next;
+			}
+			
+			if (anyfailures)
+			{
+				item=mem.next;
+				while (item)
+				{
+					for (size_t i=0;i<item->size;i++)
+					{
+						if (item->expected[i]!=item->ptr[i])
+						{
+							if (item->init[i]!=0 || !anyseeds)
+							{
+								printf("FAILURE at %p [%p + %lu/%lu, #%lu]: %.2X!=%.2X\n", item->ptr+i, item->ptr, i, item->size, item->alloc_id, item->expected[i], item->ptr[i]);
+							}
+							//break;
+						}
+					}
+					item = item->next;
+				}
+				break;
 			}
 		}
 		//save state EXPECTED_POST
@@ -271,7 +311,5 @@ int main(int argc, char * argv[])
 		
 		//compare stuff
 	}
-	
-	context="libretro->free";
-	core->free(core);
+	raise(SIGTRAP);
 }
