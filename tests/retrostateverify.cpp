@@ -28,8 +28,7 @@ FAILURE (<type>) at <addr> [<addrbase> + <offset>/<size>, #<id>]: <expected>!=<a
  'root' means a variable that had wrong value after loading the savestate, and continued being wrong.
  'cascaded' is an address that has the wrong value, but was right when the savestate was loaded.
   This usually means that the problem source was wrong too, but fixed itself.
-  Run the program again and it will use another input sequence, hopefully showing the real cause.
-  If that doesn't work, tweak the frame counters.
+  Run the program again and it will use another number of frames, hopefully showing the real cause.
 <addr> is the faulting address.
 <addrbase> is the start of the allocation containing the faulting address.
  Note that the DATA and BSS sections count as only one allocation each.
