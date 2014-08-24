@@ -203,16 +203,8 @@ public:
 	struct impl;
 	impl * m;
 };
-/*
-struct widget_padding {
-	struct widget_base _base;
-	//can't disable this
-};
-struct widget_padding * widget_create_padding_horz();
-struct widget_padding * widget_create_padding_vert();
-*/
-#define widget_create_padding_horz() new widget_padding(horz)
-#define widget_create_padding_vert() new widget_padding(vert)
+#define widget_create_padding_horz() (new widget_padding(horz))
+#define widget_create_padding_vert() (new widget_padding(vert))
 
 
 class widget_label : private widget_base {
@@ -240,7 +232,7 @@ public:
 	struct impl;
 	impl * m;
 };
-#define widget_create_label(text) new widget_label(text)
+#define widget_create_label(text) (new widget_label(text))
 //struct widget_label * widget_create_label(const char * text);
 
 
@@ -264,6 +256,32 @@ public:
 	struct impl;
 	impl * m;
 };
+#define widget_create_button(text) (new widget_button(text))
+
+
+class widget_checkbox : public widget_base {
+#ifdef NEED_MANUAL_LAYOUT
+	unsigned int init(struct window * parent, uintptr_t parenthandle) = 0;
+	void measure();
+	void place(void* resizeinf, unsigned int x, unsigned int y, unsigned int width, unsigned int height);
+#endif
+	
+public:
+	widget_checkbox();
+	widget_checkbox(const char * text);
+	~widget_checkbox();
+	
+	widget_checkbox* set_enabled(bool enable);
+	widget_checkbox* set_text(const char * text);
+	bool get_state();
+	widget_checkbox* set_state(bool checked);
+	widget_checkbox* set_onclick(void (*onclick)(struct widget_checkbox * subject, bool checked, void* userdata), void* userdata);
+	
+public:
+	struct impl;
+	impl * m;
+};
+#define widget_create_checkbox(text) (new widget_checkbox(text))
 
 
 /*
