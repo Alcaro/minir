@@ -443,7 +443,7 @@ bool load_core(const char * path, bool keep_rom)
 bool select_cores(const char * wanted_extension)
 {
 	const char * extension[2]={ dylib_ext(), NULL };
-	const char * const * cores=window_file_picker(wndw, "Select Libretro cores", extension, "Libretro cores", true, true);
+	const char * const * cores=window_file_picker(wndw, "Select libretro cores", extension, "libretro cores", true, true);
 	if (cores) handle_cli_args(cores, true);
 	return (bool)cores;
 }
@@ -490,7 +490,7 @@ bool load_rom(const char * rom)
 		}
 		if (!newcores[0].path)
 		{
-			//MBOX:No Libretro core found for this file type. Do you wish to look for one?
+			//MBOX:No libretro core found for this file type. Do you wish to look for one?
 			free(newcores);
 			if (!select_cores(rom)) return false;
 			newcores=configmgr->get_core_for(configmgr, rom, NULL);
