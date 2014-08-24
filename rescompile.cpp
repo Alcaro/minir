@@ -4,6 +4,7 @@
 #include <ctype.h>
 #include <stdbool.h>
 #include <stdlib.h>
+#include <stdint.h>
 
 #define MINIZ_HEADER_FILE_ONLY
 #include "miniz.c"
@@ -57,7 +58,7 @@ struct mem {
 
 static mz_bool mem_append(const void* pBuf, int len, void* pUser)
 {
-	struct mem * m=pUser;
+	struct mem * m=(struct mem*)pUser;
 	if (m->len + len > m->buflen)
 	{
 		while (m->len + len > m->buflen) m->buflen*=2;
@@ -68,7 +69,7 @@ static mz_bool mem_append(const void* pBuf, int len, void* pUser)
 	return true;
 }
 
-static void* compress(void* data, size_t inlen, size_t * outlen)
+static uint8_t* compress(void* data, size_t inlen, size_t * outlen)
 {
 	struct mem m;
 	m.buflen=1024;
@@ -80,7 +81,7 @@ static void* compress(void* data, size_t inlen, size_t * outlen)
 	tdefl_compress_buffer(&d, data, inlen, TDEFL_FINISH);
 	
 	*outlen=m.len;
-	return m.ptr;
+	return (uint8_t*)m.ptr;
 }
 
 
@@ -784,7 +785,7 @@ void compileconfig(FILE * output)
 	emit_to(p_bytecode, "#ifdef CONFIG_BYTECODE\n");
 	emit_to(p_bytecode, "#define CONFIG_BYTECODE_LEN %i\n", bytecodepos);
 	size_t complen;
-	unsigned char * comp=compress(bytecode, bytecodepos, &complen);
+	uint8_t * comp=compress(bytecode, bytecodepos, &complen);
 	for (int i=0;i<complen;i++)
 	{
 		emit_to(p_bytecode, "0x%.2X,", comp[i]);
@@ -872,7 +873,7 @@ void compilekeynames(FILE * out)
 	if (keynameslenr > 4096) error("Resize this buffer.");
 	
 	size_t keynameslenc;
-	unsigned char * keynamesc=compress(keynamesr, keynameslenr, &keynameslenc);
+	uint8_t * keynamesc=compress(keynamesr, keynameslenr, &keynameslenc);
 	//size_t keynameslenc=keynameslenr;
 	//unsigned char * keynamesc=keynamesr;
 	
@@ -891,7 +892,7 @@ void compilekeynames(FILE * out)
 
 int main()
 {
-	FILE * out=fopen("obj/generated.c", "wt");
+	FILE * out=fopen("obj/generated.cpp", "wt");
 	compileconfig(out);
 	compilekeynames(out);
 	fclose(out);

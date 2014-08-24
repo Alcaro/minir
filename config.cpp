@@ -36,7 +36,7 @@ static void initialize_to_defaults(struct configdata * this)
 	memset(this, 0, sizeof(struct configdata));
 	for (unsigned int i=0;i<count(this->_scopes);i++) this->_scopes[i]=cfgsc_default;
 #define CONFIG_CLEAR_DEFAULTS
-#include "obj/generated.c"
+#include "obj/generated.cpp"
 #undef CONFIG_CLEAR_DEFAULTS
 }
 
@@ -675,7 +675,7 @@ enum {
 };
 static const unsigned char config_bytecode_comp[]={
 #define CONFIG_BYTECODE
-#include "obj/generated.c"
+#include "obj/generated.cpp"
 #undef CONFIG_BYTECODE
 };
 static unsigned char config_bytecode[CONFIG_BYTECODE_LEN];

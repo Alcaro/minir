@@ -12,7 +12,7 @@
 //See rescompile.c for the actual key names.
 static const unsigned char keynames_comp[]={
 #define KEYNAMES_COMP
-#include "obj/generated.c"
+#include "obj/generated.cpp"
 #undef KEYNAMES_COMP
 };
 static char keynames_decomp[KEYNAMES_DECOMP_LEN];

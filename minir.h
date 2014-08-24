@@ -693,7 +693,7 @@ struct configdata {
 	
 #define CONFIG_HEADER
 //this also defines CONFIG_ENUM_INPUT
-#include "obj/generated.c"
+#include "obj/generated.cpp"
 #undef CONFIG_HEADER
 	
 	//these are at the end for packing reasons

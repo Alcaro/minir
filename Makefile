@@ -37,8 +37,7 @@ OUTNAME = minir$(EXESUFFIX)
 TESTSRC = memory.c
 TESTSEPSRC = test-*.c window-*.c
 
-OBJS = $(patsubst %.c,obj/%$(OBJSUFFIX)1.o,$(wildcard *.c)) $(EXTRAOBJ)
-OBJS += $(patsubst %.cpp,obj/%$(OBJSUFFIX)2.o,$(wildcard *.cpp))
+OBJS = $(patsubst %.cpp,obj/%$(OBJSUFFIX).o,$(wildcard *.cpp)) $(EXTRAOBJ) obj/miniz$(OBJSUFFIX).o
 TESTOBJS = $(patsubst %.c,obj/%.o,$(wildcard $(TESTSRC))) $(patsubst %.c,obj/%-test.o,$(wildcard $(TESTSEPSRC))) $(EXTRAOBJ)
 
 #Do not use c99; it'll throw an infinity of errors for strdup and strcasecmp on Windows.
@@ -60,23 +59,21 @@ clean:
 obj:
 	mkdir obj
 
-obj/config$(OBJSUFFIX)1.o: config.c obj/generated.c | obj
-obj/main$(OBJSUFFIX)1.o: main.c obj/generated.c minir.h | obj
-obj/%$(OBJSUFFIX)1.o: %.c | obj obj/generated.c
+obj/miniz$(OBJSUFFIX).o: miniz.c | obj
 	$(CC) $(TRUE_CFLAGS) -c $< -o $@
 
-obj/config$(OBJSUFFIX)2.o: config.cpp obj/generated.c | obj
-obj/main$(OBJSUFFIX)2.o: main.cpp obj/generated.c minir.h | obj
-obj/%$(OBJSUFFIX)2.o: %.cpp | obj obj/generated.c
+obj/config$(OBJSUFFIX).o: config.cpp obj/generated.cpp | obj
+obj/main$(OBJSUFFIX).o: main.cpp obj/generated.cpp minir.h | obj
+obj/%$(OBJSUFFIX).o: %.cpp | obj obj/generated.cpp
 	$(CXX) $(TRUE_CXXFLAGS) -c $< -o $@
 
 obj/%-test.o: %.c | obj obj/config.c
 	$(CC) $(TRUE_CFLAGS) -c $< -o $@ -DTEST -DNO_ICON
 
-obj/generated.c: obj/rescompile$(EXESUFFIX) minir.cfg.tmpl
+obj/generated.cpp: obj/rescompile$(EXESUFFIX) minir.cfg.tmpl
 	obj/rescompile$(EXESUFFIX)
-obj/rescompile$(EXESUFFIX): rescompile.c miniz.c | obj
-	$(NATCC) $(NATCFLAGS) $(NATLFLAGS) -DRESCOMPILE rescompile.c miniz.c -o obj/rescompile$(EXESUFFIX)
+obj/rescompile$(EXESUFFIX): rescompile.cpp miniz.c | obj
+	$(NATCXX) $(NATCXXFLAGS) $(NATLFLAGS) -DRESCOMPILE rescompile.cpp miniz.c -o obj/rescompile$(EXESUFFIX)
 
 $(OUTNAME): $(OBJS)
 	$(LD) $+ $(TRUE_LFLAGS) -o $@ -lm
