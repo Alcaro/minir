@@ -94,11 +94,11 @@ const char * const * window_file_picker(struct window * parent,
 	static char * * ret=NULL;
 	if (ret)
 	{
-		char * * delete=ret;
-		while (*delete)
+		char * * del=ret;
+		while (*del)
 		{
-			free(*delete);
-			delete++;
+			free(*del);
+			del++;
 		}
 		free(ret);
 		ret=NULL;

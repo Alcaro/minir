@@ -34,11 +34,11 @@ obj/resource$(OBJSUFFIX).o: ico/*
 
 OUTNAME = minir$(EXESUFFIX)
 
-TESTSRC = memory.c
-TESTSEPSRC = test-*.c window-*.c
+TESTSRC = memory.cpp
+TESTSEPSRC = test-*.cpp window-gtk3-inner.cpp window-gtk3-shell.cpp window-gtk3-misc.cpp
 
 OBJS = $(patsubst %.cpp,obj/%$(OBJSUFFIX).o,$(wildcard *.cpp)) $(EXTRAOBJ) obj/miniz$(OBJSUFFIX).o
-TESTOBJS = $(patsubst %.c,obj/%.o,$(wildcard $(TESTSRC))) $(patsubst %.c,obj/%-test.o,$(wildcard $(TESTSEPSRC))) $(EXTRAOBJ)
+TESTOBJS = $(patsubst %.cpp,obj/%.o,$(wildcard $(TESTSRC))) $(patsubst %.cpp,obj/%-test.o,$(wildcard $(TESTSEPSRC))) $(EXTRAOBJ)
 
 #Do not use c99; it'll throw an infinity of errors for strdup and strcasecmp on Windows.
 TRUE_CFLAGS += -std=gnu99
@@ -67,8 +67,8 @@ obj/main$(OBJSUFFIX).o: main.cpp obj/generated.cpp minir.h | obj
 obj/%$(OBJSUFFIX).o: %.cpp | obj obj/generated.cpp
 	$(CXX) $(TRUE_CXXFLAGS) -c $< -o $@
 
-obj/%-test.o: %.c | obj obj/config.c
-	$(CC) $(TRUE_CFLAGS) -c $< -o $@ -DTEST -DNO_ICON
+obj/%-test.o: %.cpp | obj obj/generated.cpp
+	$(CXX) $(TRUE_CXXFLAGS) -c $< -o $@ -DTEST -DNO_ICON
 
 obj/generated.cpp: obj/rescompile$(EXESUFFIX) minir.cfg.tmpl
 	obj/rescompile$(EXESUFFIX)

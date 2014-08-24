@@ -155,7 +155,8 @@ struct windowmenu * windowmenu_create_topmenu_l(unsigned int numchildren, struct
 //It is undefined behaviour to set a callback twice.
 //It is undefined behaviour to interact with any widget, except by putting it inside another widget, before it's placed inside a window.
 //Any pointers given during widget creation must be valid until the widget is placed inside a window.
-struct widget_base {
+class widget_base : nocopy {
+public:
 #ifdef NEED_MANUAL_LAYOUT
 	//measure() returns no value, but sets the width and height. The sizes are undefined if the last
 	// function call on the widget was not measure(); widgets may choose to update their sizes in
@@ -166,11 +167,11 @@ struct widget_base {
 	// unless the widget wants the events. (For example, a button will want mouse events, but not file drop events.)
 	//The window handles passed around are implementation defined.
 	//The return value from _init() is the number of windows involved, from the window manager's point of view.
-	unsigned int (*init)(struct widget_base * this, struct window * parent, uintptr_t parenthandle);
-	void (*measure)(struct widget_base * this);
+	virtual unsigned int init(struct window * parent, uintptr_t parenthandle) = 0;
+	virtual void measure() = 0;
 	unsigned int width;
 	unsigned int height;
-	void (*place)(struct widget_base * this, void* resizeinf, unsigned int x, unsigned int y, unsigned int width, unsigned int height);
+	virtual void place(void* resizeinf, unsigned int x, unsigned int y, unsigned int width, unsigned int height) = 0;
 #else
 	void * widget;
 #endif
@@ -182,42 +183,90 @@ struct widget_base {
 	//4 - Widget is ordered to be resizable. (Canvas, viewport)
 	unsigned char widthprio;
 	unsigned char heightprio;
-	void (*free)(struct widget_base * this);
+	virtual ~widget_base() {};
 };
 
 
+enum { horz=false, vert=true };
+class widget_padding : private widget_base {
+#ifdef NEED_MANUAL_LAYOUT
+	unsigned int init(struct window * parent, uintptr_t parenthandle) = 0;
+	void measure();
+	void place(void* resizeinf, unsigned int x, unsigned int y, unsigned int width, unsigned int height);
+#endif
+	
+public:
+	widget_padding(bool vertical);
+	~widget_padding();
+	
+public:
+	struct impl;
+	impl * m;
+};
+/*
 struct widget_padding {
 	struct widget_base _base;
 	//can't disable this
 };
 struct widget_padding * widget_create_padding_horz();
 struct widget_padding * widget_create_padding_vert();
+*/
+#define widget_create_padding_horz() new widget_padding(horz)
+#define widget_create_padding_vert() new widget_padding(vert)
 
 
-struct widget_label {
-	struct widget_base _base;
+class widget_label : private widget_base {
+#ifdef NEED_MANUAL_LAYOUT
+	unsigned int init(struct window * parent, uintptr_t parenthandle) = 0;
+	void measure();
+	void place(void* resizeinf, unsigned int x, unsigned int y, unsigned int width, unsigned int height);
+#endif
+	
+public:
+	widget_label();
+	widget_label(const char * text);
+	~widget_label();
+	
 	//Disabling a label does nothing, but may change how it looks.
 	//Useful it if it's attached to another widget, and this widget is disabled.
-	void (*set_enabled)(struct widget_label * this, bool enable);
+	widget_label* set_enabled(bool enable);
 	
-	void (*set_text)(struct widget_label * this, const char * text);
-	void (*set_ellipsize)(struct widget_label * this, bool ellipsize);//Defaults to false.
+	widget_label* set_text(const char * text);
+	widget_label* set_ellipsize(bool ellipsize);//Defaults to false.
 	//Alignment 0 means touch the left side, 1 means centered, 2 means touch the right side. Defaults to left.
-	void (*set_alignment)(struct widget_label * this, int align);
-};
-struct widget_label * widget_create_label(const char * text);
-
-
-struct widget_button {
-	struct widget_base _base;
-	void (*set_enabled)(struct widget_button * this, bool enable);
+	widget_label* set_alignment(int align);
 	
-	void (*set_text)(struct widget_button * this, const char * text);
-	void (*set_onclick)(struct widget_button * this, void (*onclick)(struct widget_button * subject, void* userdata), void* userdata);
+public:
+	struct impl;
+	impl * m;
 };
-struct widget_button * widget_create_button(const char * text);
+#define widget_create_label(text) new widget_label(text)
+//struct widget_label * widget_create_label(const char * text);
 
 
+class widget_button : private widget_base {
+#ifdef NEED_MANUAL_LAYOUT
+	unsigned int init(struct window * parent, uintptr_t parenthandle) = 0;
+	void measure();
+	void place(void* resizeinf, unsigned int x, unsigned int y, unsigned int width, unsigned int height);
+#endif
+	
+public:
+	widget_button();
+	widget_button(const char * text);
+	~widget_button();
+	
+	widget_button* set_enabled(bool enable);
+	widget_button* set_text(const char * text);
+	widget_button* set_onclick(void (*onclick)(struct widget_button * subject, void* userdata), void* userdata);
+	
+public:
+	struct impl;
+	impl * m;
+};
+
+
+/*
 struct widget_checkbox {
 	struct widget_base _base;
 	void (*set_enabled)(struct widget_checkbox * this, bool enable);
@@ -425,6 +474,7 @@ struct widget_layout * widget_create_layout_v(unsigned int totwidth,   unsigned 
 struct widget_layout * widget_create_layout_l(unsigned int numchildren, void * * children,
                                               unsigned int totwidth,  unsigned int * widths,  bool uniformwidths,
                                               unsigned int totheight, unsigned int * heights, bool uniformheights);
+*/
 
 
 

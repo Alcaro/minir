@@ -54,12 +54,11 @@ typedef void* anyptr;
 
 #ifdef __cplusplus
 #define this This
-#define delete Delete
-#define new New
+//#define delete Delete
+//#define new New
 //#define public Public
 //#define private Private
 //#define protected Protected
-extern "C" {
 #endif
 
 
@@ -70,6 +69,16 @@ anyptr try_malloc(size_t size);
 anyptr realloc_check(anyptr ptr, size_t size);
 anyptr try_realloc(anyptr ptr, size_t size);
 #define realloc realloc_check
+
+
+class nocopy {
+protected:
+	nocopy() {}
+	~nocopy() {}
+private:
+	nocopy(const nocopy&);
+	const nocopy& operator=(const nocopy&);
+};
 
 
 #include "window.h"
@@ -944,9 +953,6 @@ struct inputraw * _inputraw_create_directinput(uintptr_t windowhandle);
 void _inputraw_windows_keyboard_create_shared(struct inputraw * this);
 unsigned int _inputraw_translate_key(unsigned int keycode);
 
-#ifdef __cplusplus
-}
-#endif
 
 
 /*

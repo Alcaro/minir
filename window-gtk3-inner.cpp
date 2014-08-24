@@ -6,8 +6,9 @@
 #ifdef WNDPROT_X11
 #include <gdk/gdkx.h>
 #endif
+#undef this
 
-static bool in_callback=false;
+//static bool in_callback=false;
 static GtkCssProvider* cssprovider;
 
 void _window_init_inner()
@@ -22,101 +23,94 @@ void _window_init_inner()
 
 
 
-struct widget_padding_gtk3 {
-	struct widget_padding i;
+widget_padding::widget_padding(bool vertical)
+{
+	widget=GTK_DRAWING_AREA(gtk_drawing_area_new());
+	widthprio=(vertical ? 0 : 2);
+	heightprio=(vertical ? 2 : 0);
+}
+
+widget_padding::~widget_padding() {}
+
+
+
+widget_label::widget_label()
+{
+	widget=gtk_label_new("");
+	widthprio=1;
+	heightprio=1;
+}
+
+widget_label::~widget_label() {}
+
+widget_label::widget_label(const char * text)
+{
+	widget=gtk_label_new(text);
+	widthprio=1;
+	heightprio=1;
+}
+
+widget_label* widget_label::set_alignment(int alignment)
+{
+	gtk_misc_set_alignment(GTK_MISC(widget), ((float)alignment)/2, 0.5);
+	return this;
+}
+
+
+
+struct widget_button::impl {
+	void (*onclick)(struct widget_button * button, void* userdata);
+	void* userdata;
 };
 
-static void padding__free(struct widget_base * this_)
+widget_button::widget_button() : m(new impl)
 {
-	struct widget_padding_gtk3 * this=(struct widget_padding_gtk3*)this_;
-	//gtk_widget_destroy(GTK_WIDGET(this->i._base.widget));
-	free(this);
+	widget=gtk_button_new_with_label("");
+	widthprio=1;
+	heightprio=1;
 }
 
-struct widget_padding * widget_create_padding_horz()
+widget_button::widget_button(const char * text) : m(new impl)
 {
-	struct widget_padding_gtk3 * this=malloc(sizeof(struct widget_padding_gtk3));
-	this->i._base.widget=GTK_DRAWING_AREA(gtk_drawing_area_new());
-	this->i._base.widthprio=2;
-	this->i._base.heightprio=0;
-	this->i._base.free=padding__free;
-	
-	return (struct widget_padding*)this;
+	widget=gtk_button_new_with_label(text);
+	widthprio=1;
+	heightprio=1;
 }
 
-struct widget_padding * widget_create_padding_vert()
+widget_button::~widget_button()
 {
-	struct widget_padding_gtk3 * this=malloc(sizeof(struct widget_padding_gtk3));
-	this->i._base.widget=GTK_DRAWING_AREA(gtk_drawing_area_new());
-	this->i._base.widthprio=0;
-	this->i._base.heightprio=2;
-	this->i._base.free=padding__free;
-	
-	return (struct widget_padding*)this;
+	delete m;
 }
 
-
-
-struct widget_label_gtk3 {
-	struct widget_label i;
-};
-
-static void label__free(struct widget_base * this_)
+widget_button* widget_button::set_enabled(bool enable)
 {
-	struct widget_label_gtk3 * this=(struct widget_label_gtk3*)this_;
-	free(this);
+	gtk_widget_set_sensitive(GTK_WIDGET(widget), enable);
+	return this;
 }
 
-static void label_set_enabled(struct widget_label * this_, bool enable)
+widget_button* widget_button::set_text(const char * text)
 {
-	struct widget_label_gtk3 * this=(struct widget_label_gtk3*)this_;
-	gtk_widget_set_sensitive(GTK_WIDGET(this->i._base.widget), enable);
+	gtk_button_set_label(GTK_BUTTON(widget), text);
+	return this;
 }
 
-static void label_set_text(struct widget_label * this_, const char * text)
+static void widget_button_onclick(GtkButton* button, gpointer user_data)
 {
-	struct widget_label_gtk3 * this=(struct widget_label_gtk3*)this_;
-	gtk_label_set_text(GTK_LABEL(this->i._base.widget), text);
+	widget_button * obj=(widget_button*)user_data;
+	obj->m->onclick(obj, obj->m->userdata);
 }
 
-static void label_set_ellipsize(struct widget_label * this_, bool ellipsize)
+widget_button* widget_button::set_onclick(void (*onclick)(struct widget_button * subject, void* userdata), void* userdata)
 {
-	struct widget_label_gtk3 * this=(struct widget_label_gtk3*)this_;
-	if (ellipsize)
-	{
-		gtk_label_set_ellipsize(GTK_LABEL(this->i._base.widget), PANGO_ELLIPSIZE_END);
-		gtk_label_set_max_width_chars(GTK_LABEL(this->i._base.widget), 1);//why does this work
-	}
-	else
-	{
-		gtk_label_set_ellipsize(GTK_LABEL(this->i._base.widget), PANGO_ELLIPSIZE_NONE);
-		gtk_label_set_max_width_chars(GTK_LABEL(this->i._base.widget), -1);
-	}
-}
-
-static void label_set_alignment(struct widget_label * this_, int alignment)
-{
-	struct widget_label_gtk3 * this=(struct widget_label_gtk3*)this_;
-	gtk_misc_set_alignment(GTK_MISC(this->i._base.widget), ((float)alignment)/2, 0.5);
-}
-
-struct widget_label * widget_create_label(const char * text)
-{
-	struct widget_label_gtk3 * this=malloc(sizeof(struct widget_label_gtk3));
-	this->i._base.widget=GTK_LABEL(gtk_label_new(text));
-	this->i._base.widthprio=1;
-	this->i._base.heightprio=1;
-	this->i._base.free=label__free;
-	this->i.set_enabled=label_set_enabled;
-	this->i.set_text=label_set_text;
-	this->i.set_ellipsize=label_set_ellipsize;
-	this->i.set_alignment=label_set_alignment;
-	
-	return (struct widget_label*)this;
+	g_signal_connect(widget, "clicked", G_CALLBACK(widget_button_onclick), this);
+	m->onclick=onclick;
+	m->userdata=userdata;
+	return this;
 }
 
 
 
+#if 0
 struct widget_button_gtk3 {
 	struct widget_button i;
 	
@@ -815,4 +809,5 @@ struct widget_layout * widget_create_layout_l(unsigned int numchildren, void * *
 	
 	return (struct widget_layout*)this;
 }
+#endif
 #endif

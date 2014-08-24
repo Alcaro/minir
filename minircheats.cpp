@@ -690,7 +690,7 @@ static void show_list(struct minircheats * this_)
 	if (!this->wndlist)
 	{
 		struct widget_button * add;
-		struct widget_button * delete;
+		struct widget_button * remove;
 		struct widget_button * edit;
 		struct widget_button * clear;
 		struct widget_button * sort;
@@ -701,7 +701,7 @@ static void show_list(struct minircheats * this_)
 					this->wndlist_listbox=widget_create_listbox("Address", "Value", "Description", NULL),
 					widget_create_layout_vert(
 						add=widget_create_button("Add"),
-						delete=widget_create_button("Delete"),
+						remove=widget_create_button("Delete"),
 						edit=widget_create_button("Edit"),
 						clear=widget_create_button("Clear"),
 						sort=widget_create_button("Sort"),
@@ -727,7 +727,7 @@ static void show_list(struct minircheats * this_)
 			);
 		
 		add->set_onclick(add, list_add_cheat, this);
-		delete->set_onclick(delete, list_delete_cheat, this);
+		remove->set_onclick(remove, list_delete_cheat, this);
 		edit->set_onclick(edit, list_edit_cheat, this);
 		clear->set_onclick(clear, list_clear_cheat, this);
 		sort->set_onclick(sort, list_sort_cheat, this);

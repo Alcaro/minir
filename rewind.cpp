@@ -257,13 +257,13 @@ static void push_end(struct rewindstack * this_)
 			goto recheckcapacity;
 		}
 		
-		const char* old=this->thisblock;
-		const char* new=this->nextblock;
+		const char* olddat=this->thisblock;
+		const char* newdat=this->nextblock;
 		char* compressed=this->head+sizeof(size_t);
 		
 		//Begin compression code; 'compressed' will point to the end of the compressed data (excluding the prev pointer).
-		const uint16_t * old16=(const uint16_t*)old;
-		const uint16_t * new16=(const uint16_t*)new;
+		const uint16_t * old16=(const uint16_t*)olddat;
+		const uint16_t * new16=(const uint16_t*)newdat;
 		uint16_t * compressed16=(uint16_t*)compressed;
 		size_t num16s=this->blocksize/sizeof(uint16_t);
 		while (num16s)

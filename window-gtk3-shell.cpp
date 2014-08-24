@@ -518,7 +518,7 @@ static void replace_contents(struct window * this_, void * contents)
 {
 	struct window_gtk3 * this=(struct window_gtk3*)this_;
 	gtk_widget_destroy(GTK_WIDGET(this->contents->widget));
-	this->contents->free(this->contents);
+	delete this->contents;
 	gtk_grid_attach(this->grid, GTK_WIDGET(this->contents->widget), 0,1, 1,1);
 	this->contents=(struct widget_base*)contents;
 }
@@ -573,7 +573,7 @@ static void free_(struct window * this_)
 		this->delayfree=2;
 		return;
 	}
-	this->contents->free(this->contents);
+	delete this->contents;
 	
 	if (this->menu) menu_delete(this->menu);
 	gtk_widget_destroy(GTK_WIDGET(this->wndw));

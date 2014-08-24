@@ -173,7 +173,7 @@ static unsigned int bitround(unsigned int in)
 	return in;
 }
 
-static int find_place(char* * start, int len, char* new)
+static int find_place(char* * start, int len, char* newitem)
 {
 	int jumpsize=bitround(len+1)/2;
 	int pos=0;
@@ -181,13 +181,13 @@ static int find_place(char* * start, int len, char* new)
 	{
 		if (pos<0) pos+=jumpsize;
 		else if (pos>=len) pos-=jumpsize;
-		else if (strcmp(start[pos], new)<0) pos+=jumpsize;
+		else if (strcmp(start[pos], newitem)<0) pos+=jumpsize;
 		else pos-=jumpsize;
 		jumpsize/=2;
 	}
 	if (pos<0) pos+=1;
 	else if (pos>=len) pos-=0;
-	else if (strcmp(start[pos], new)<0) pos+=1;
+	else if (strcmp(start[pos], newitem)<0) pos+=1;
 	else pos-=0;
 	
 	return pos;
