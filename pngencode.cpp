@@ -8,22 +8,23 @@
 
 #include "image.h"
 
+#define this This
 struct buffer {
 	char* ptr;
 	size_t at;
 	size_t len;
 };
-#define buf_create(buf, size) do { struct buffer * this=(buf); this->len=(size); this->ptr=malloc(this->len); this->at=0; } while(0)
+#define buf_create(buf, size) do { struct buffer * this=(buf); this->len=(size); this->ptr=(char*)malloc(this->len); this->at=0; } while(0)
 #define buf_reserve(buf, size) do { \
-			struct buffer * this=(buf); \
+			struct buffer * this=(struct buffer*)(buf); \
 			if (this->at+size > this->len) \
 			{ \
 				while (this->at+size > this->len) this->len*=2; \
-				this->ptr=realloc(this->ptr, this->len); \
+				this->ptr=(char*)realloc(this->ptr, this->len); \
 			} \
 		} while(0)
 #define buf_append_direct(buf, data, size) do { \
-			struct buffer * this=(buf); \
+			struct buffer * this=(struct buffer*)(buf); \
 			memcpy(this->ptr+this->at, (data), (size)); \
 			this->at+=(size); \
 		} while(0)
@@ -75,23 +76,23 @@ bool png_encode(const struct image * img, const char * * pngcomments,  void* * p
 	int palette[256];
 	int palettelen=0;
 	
-	static int * upconv=NULL;
+	static uint32_t * upconv=NULL;
 	
-	unsigned char * thislineraw=img->pixels;
+	uint8_t * thislineraw=(uint8_t*)img->pixels;
 	
 	if (img->bpp==15 || img->bpp==16)
 	{
-		if (!upconv) upconv=malloc(sizeof(int)*65536);
+		if (!upconv) upconv=(uint32_t*)malloc(sizeof(uint32_t)*65536);
 		
-		for (int i=0;i<65536;i++) upconv[i]=0xFFFFFFFF;
-		for (int y=0;y<height;y++)
+		for (unsigned int i=0;i<65536;i++) upconv[i]=0xFFFFFFFF;
+		for (unsigned int y=0;y<height;y++)
 		{
-			for (int x=0;x<width;x++)
+			for (unsigned int x=0;x<width;x++)
 			{
 				int col16=((uint16_t*)thislineraw)[x];
 				if (upconv[col16]==0xFFFFFFFF)
 				{
-					if (palettelen==256) goto nopal_1516bpp;
+					if (palettelen>=256) goto nopal_1516bpp;
 					upconv[col16]=palettelen;
 					if (img->bpp==15)
 					{
@@ -121,9 +122,9 @@ bool png_encode(const struct image * img, const char * * pngcomments,  void* * p
 	}
 	else if (img->bpp==24)
 	{
-		for (int y=0;y<height;y++)
+		for (unsigned int y=0;y<height;y++)
 		{
-			for (int x=0;x<width;x++)
+			for (unsigned int x=0;x<width;x++)
 			{
 				int col32=thislineraw[x*3+0]<<16|
 				          thislineraw[x*3+1]<<8|
@@ -135,7 +136,7 @@ bool png_encode(const struct image * img, const char * * pngcomments,  void* * p
 				}
 				if (i==palettelen)
 				{
-					if (palettelen==256) goto nopal_2432bpp;
+					if (palettelen>=256) goto nopal_2432bpp;
 					palette[i]=col32;
 					palettelen++;
 				}
@@ -145,9 +146,9 @@ bool png_encode(const struct image * img, const char * * pngcomments,  void* * p
 	}
 	else if (img->bpp==32)
 	{
-		for (int y=0;y<height;y++)
+		for (unsigned int y=0;y<height;y++)
 		{
-			for (int x=0;x<width;x++)
+			for (unsigned int x=0;x<width;x++)
 			{
 				int col32=((uint32_t*)thislineraw)[x]&0x00FFFFFF;
 				int i;
@@ -171,7 +172,7 @@ bool png_encode(const struct image * img, const char * * pngcomments,  void* * p
 		}
 	}
 	
-	unsigned char bits_per_channel=8;
+	uint8_t bits_per_channel=8;
 	if (palettelen<=256) bits_per_channel=8;
 	if (palettelen<=16) bits_per_channel=4;
 	if (palettelen<=4) bits_per_channel=2;
@@ -209,9 +210,9 @@ bool png_encode(const struct image * img, const char * * pngcomments,  void* * p
 		
 		uint8_t padding[3];
 	} IHDR = {
-			{ width >>24, width >>16, width >>8, width >>0 },
-			{ height>>24, height>>16, height>>8, height>>0 },
-			bits_per_channel, palettelen?3:2, 0, 0, 0
+			{ (uint8_t)(width >>24), (uint8_t)(width >>16), (uint8_t)(width >>8), (uint8_t)(width >>0) },
+			{ (uint8_t)(height>>24), (uint8_t)(height>>16), (uint8_t)(height>>8), (uint8_t)(height>>0) },
+			bits_per_channel, (uint8_t)(palettelen?3:2), 0, 0, 0
 		};
 	if (sizeof(IHDR)!=16) { return false; }
 	CHUNK("IHDR", &IHDR, 13);
@@ -222,7 +223,7 @@ bool png_encode(const struct image * img, const char * * pngcomments,  void* * p
 		{
 			unsigned int len1=strlen(pngcomments[0]);
 			unsigned int len2=strlen(pngcomments[1]);
-			char * data=malloc(len1+1+len2);
+			char * data=(char*)malloc(len1+1+len2);
 			strcpy(data, pngcomments[0]);
 			memcpy(data+len1+1, pngcomments[1], len2);
 			CHUNK("tEXt", data, len1+1+len2);
@@ -250,7 +251,7 @@ bool png_encode(const struct image * img, const char * * pngcomments,  void* * p
 	//memset(&d,0,sizeof(d));
 	tdefl_init(&d, chunk_append, &chunkbuf, TDEFL_DEFAULT_MAX_PROBES|TDEFL_WRITE_ZLIB_HEADER);
 	
-	thislineraw=img->pixels;
+	thislineraw=(uint8_t*)img->pixels;
 	
 	size_t bpp=(palettelen?1:3);
 	size_t bpl_unpacked=bpp*width;
@@ -271,14 +272,14 @@ bool png_encode(const struct image * img, const char * * pngcomments,  void* * p
 			switch (img->bpp)
 			{
 			case 15: case 16:
-				for (int x=0;x<width;x++)
+				for (unsigned int x=0;x<width;x++)
 				{
 					int col=upconv[((uint16_t*)thislineraw)[x]];
 					thisline[x]=col;
 				}
 				break;
 			case 24:
-				for (int x=0;x<width;x++)
+				for (unsigned int x=0;x<width;x++)
 				{
 					int col32=thislineraw[x*3+0]<<16|
 					          thislineraw[x*3+1]<<8|
@@ -296,7 +297,7 @@ bool png_encode(const struct image * img, const char * * pngcomments,  void* * p
 				}
 				break;
 			case 32:
-				for (int x=0;x<width;x++)
+				for (unsigned int x=0;x<width;x++)
 				{
 					int col32=((uint32_t*)thislineraw)[x];
 					int i=0;
@@ -315,7 +316,7 @@ bool png_encode(const struct image * img, const char * * pngcomments,  void* * p
 			switch (bits_per_channel)
 			{
 				case 1:
-				for (int x=0;x<=width/8;x++)
+				for (unsigned int x=0;x<=width/8;x++)
 				{
 					int out=0;
 					for (int p=0;p<8;p++)
@@ -326,7 +327,7 @@ bool png_encode(const struct image * img, const char * * pngcomments,  void* * p
 				}
 				break;
 				case 2:
-				for (int x=0;x<=width/4;x++)
+				for (unsigned int x=0;x<=width/4;x++)
 				{
 					int col1=thisline[x*4+0];
 					int col2=thisline[x*4+1];
@@ -336,7 +337,7 @@ bool png_encode(const struct image * img, const char * * pngcomments,  void* * p
 				}
 				break;
 				case 4:
-				for (int x=0;x<=width/2;x++)
+				for (unsigned int x=0;x<=width/2;x++)
 				{
 					int col1=thisline[x*2+0];
 					int col2=thisline[x*2+1];
@@ -351,7 +352,7 @@ bool png_encode(const struct image * img, const char * * pngcomments,  void* * p
 			switch (img->bpp)
 			{
 			case 15: case 16:
-				for (int x=0;x<width;x++)
+				for (unsigned int x=0;x<width;x++)
 				{
 					int col=upconv[((uint16_t*)thislineraw)[x]];
 					thisline[x*3+0]=(col>>16)&0xFF;
@@ -363,7 +364,7 @@ bool png_encode(const struct image * img, const char * * pngcomments,  void* * p
 				memcpy(thisline, thislineraw, bpl);
 				break;
 			case 32:
-				for (int x=0;x<width;x++)
+				for (unsigned int x=0;x<width;x++)
 				{
 					int col=((uint32_t*)thislineraw)[x];
 					thisline[x*3+0]=col>>16;
@@ -383,25 +384,25 @@ bool png_encode(const struct image * img, const char * * pngcomments,  void* * p
 			memcpy(filteredlines[0], thisline, bpl);
 			
 			//1 - Sub
-			for (int x=0;x<bpl;x++)
+			for (unsigned int x=0;x<bpl;x++)
 			{
 				filteredlines[1][x]=thisline[x]-thisline[x-bpp];
 			}
 			
 			//2 - Up
-			for (int x=0;x<bpl;x++)
+			for (unsigned int x=0;x<bpl;x++)
 			{
 				filteredlines[2][x]=thisline[x]-prevline[x];
 			}
 			
 			//3 - Average
-			for (int x=0;x<bpl;x++)
+			for (unsigned int x=0;x<bpl;x++)
 			{
 				filteredlines[3][x]=thisline[x]-(thisline[x-bpp]+prevline[x])/2;
 			}
 			
 			//4 - Paeth
-			for (int x=0;x<bpl;x++)
+			for (unsigned int x=0;x<bpl;x++)
 			{
 				int prediction;
 				
@@ -432,10 +433,10 @@ bool png_encode(const struct image * img, const char * * pngcomments,  void* * p
 			memset(differences, 0, sizeof(differences));
 			
 			filterid=0;
-			for (int f=0;f<5;f++)
+			for (unsigned int f=0;f<5;f++)
 			{
 				distinct[f][f]=true;
-				for (int x=0;x<bpl;x++)
+				for (unsigned int x=0;x<bpl;x++)
 				{
 					if (!distinct[f][filteredlines[f][x]]) numdistinct[f]++;
 					distinct[f][filteredlines[f][x]]=true;

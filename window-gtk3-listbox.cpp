@@ -38,7 +38,7 @@ struct VirtualListClass
 static GtkTreeModelFlags virtual_list_get_flags(GtkTreeModel* tree_model)
 {
 	g_return_val_if_fail(M_IS_VIRTUAL_LIST(tree_model), (GtkTreeModelFlags)0);
-	return (GTK_TREE_MODEL_LIST_ONLY|GTK_TREE_MODEL_ITERS_PERSIST);
+	return (GtkTreeModelFlags)(GTK_TREE_MODEL_LIST_ONLY|GTK_TREE_MODEL_ITERS_PERSIST);
 }
 
 static gint virtual_list_get_n_columns(GtkTreeModel* tree_model)
@@ -50,7 +50,7 @@ static gint virtual_list_get_n_columns(GtkTreeModel* tree_model)
 static GType virtual_list_get_column_type(GtkTreeModel* tree_model, gint index)
 {
 	g_return_val_if_fail(M_IS_VIRTUAL_LIST(tree_model), G_TYPE_INVALID);
-	g_return_val_if_fail(index>=0 && index<M_VIRTUAL_LIST(tree_model)->columns, G_TYPE_INVALID);
+	g_return_val_if_fail(index>=0 && (unsigned int)index<M_VIRTUAL_LIST(tree_model)->columns, G_TYPE_INVALID);
 	
 	return G_TYPE_STRING;
 }
@@ -89,13 +89,16 @@ static void virtual_list_get_value(GtkTreeModel* tree_model, GtkTreeIter* iter, 
 {
 	g_return_if_fail(M_IS_VIRTUAL_LIST(tree_model));
 	g_return_if_fail(iter!=NULL);
+	g_return_if_fail(column>=0);
 	
 	struct VirtualList* virtual_list=M_VIRTUAL_LIST(tree_model);
 	uintptr_t row=(uintptr_t)iter->user_data;
 	
+	unsigned int ucolumn=column;
+	
 	if (row == MAX_ROWS)
 	{
-		if (column == virtual_list->columns)
+		if (ucolumn == virtual_list->columns)
 		{
 			g_value_init(value, G_TYPE_BOOLEAN);
 			g_value_set_boolean(value, false);
@@ -116,20 +119,20 @@ static void virtual_list_get_value(GtkTreeModel* tree_model, GtkTreeIter* iter, 
 		return;
 	}
 	
-	if (column == virtual_list->columns)
+	if (ucolumn == virtual_list->columns)
 	{
 		g_value_init(value, G_TYPE_BOOLEAN);
 		g_value_set_boolean(value, virtual_list->get_cell(virtual_list->subject, row, -1, virtual_list->get_userdata) ? true : false);
 		return;
 	}
 	
-	g_return_if_fail(column<virtual_list->columns);
+	g_return_if_fail(ucolumn<virtual_list->columns);
 	
 	
 	if (row>=virtual_list->rows) g_return_if_reached();
 	
 	g_value_init(value, G_TYPE_STRING);
-	const char * ret=virtual_list->get_cell(virtual_list->subject, row, column, virtual_list->get_userdata);
+	const char * ret=virtual_list->get_cell(virtual_list->subject, row, ucolumn, virtual_list->get_userdata);
 	g_value_set_string(value, ret);
 }
 
@@ -187,7 +190,8 @@ static gboolean virtual_list_iter_nth_child(GtkTreeModel* tree_model, GtkTreeIte
 	struct VirtualList* virtual_list=M_VIRTUAL_LIST(tree_model);
 	
 	if (parent) return FALSE;
-	if (n>=virtual_list->rows) return FALSE;
+	if (n<0) return FALSE;
+	if ((unsigned int)n>=virtual_list->rows) return FALSE;
 	
 	iter->stamp=0;
 	iter->user_data=(void*)(uintptr_t)n;
@@ -323,7 +327,7 @@ static size_t listbox_get_active_row(struct widget_listbox * this_)
 	struct widget_listbox_gtk3 * this=(struct widget_listbox_gtk3*)this_;
 	GList* list=gtk_tree_selection_get_selected_rows(gtk_tree_view_get_selection(this->tree), NULL);
 	size_t ret;
-	if (list) ret=gtk_tree_path_get_indices(list->data)[0];
+	if (list) ret=gtk_tree_path_get_indices((GtkTreePath*)list->data)[0];
 	else ret=(size_t)-1;
 	if (ret==MAX_ROWS) ret=(size_t)-1;
 	g_list_free_full(list, (GDestroyNotify)gtk_tree_path_free);
@@ -404,7 +408,7 @@ static void listbox_set_size(struct widget_listbox * this_, unsigned int height,
 	{
 		for (unsigned int i=0;i<this->vlist->columns;i++)
 		{
-			gtk_tree_view_column_set_expand(gtk_tree_view_get_column(this->tree, i), (i==expand));
+			gtk_tree_view_column_set_expand(gtk_tree_view_get_column(this->tree, i), (i==(unsigned int)expand));
 			//gtk_tree_view_column_set_expand(gtk_tree_view_get_column(this->tree, i), 1);
 		}
 	}
@@ -438,9 +442,9 @@ static void listbox_add_checkboxes(struct widget_listbox * this_,
 	g_signal_connect(render, "toggled", G_CALLBACK(listbox_checkbox_toggle), this);
 	
 	GtkRequisition size;
-	gtk_widget_show_all(this->i._base.widget);
+	gtk_widget_show_all(GTK_WIDGET(this->i._base.widget));
 	gtk_widget_get_preferred_size(GTK_WIDGET(this->tree), &size, NULL);
-	gtk_widget_set_size_request(this->i._base.widget, size.width, -1);
+	gtk_widget_set_size_request(GTK_WIDGET(this->i._base.widget), size.width, -1);
 }
 
 struct widget_listbox * widget_create_listbox_l(unsigned int numcolumns, const char * * columns)
@@ -451,7 +455,7 @@ struct widget_listbox * widget_create_listbox_l(unsigned int numcolumns, const c
 	this->i._base.heightprio=3;
 	this->i._base.free=listbox__free;
 	
-	gtk_scrolled_window_set_policy(this->i._base.widget, GTK_POLICY_NEVER, GTK_POLICY_AUTOMATIC);
+	gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(this->i._base.widget), GTK_POLICY_NEVER, GTK_POLICY_AUTOMATIC);
 	this->tree=GTK_TREE_VIEW(gtk_tree_view_new());
 	gtk_container_add(GTK_CONTAINER(this->i._base.widget), GTK_WIDGET(this->tree));
 	
@@ -466,7 +470,7 @@ struct widget_listbox * widget_create_listbox_l(unsigned int numcolumns, const c
 	this->i.add_checkboxes=listbox_add_checkboxes;
 	
 	virtual_list_register_type();
-	this->vlist=g_object_new(M_VIRTUAL_TYPE, NULL);
+	this->vlist=(VirtualList*)g_object_new(M_VIRTUAL_TYPE, NULL);
 	this->vlist->subject=(struct widget_listbox*)this;
 	
 	this->vlist->columns=numcolumns;

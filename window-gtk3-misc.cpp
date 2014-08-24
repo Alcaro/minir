@@ -42,7 +42,7 @@ void window_init(int * argc, char * * argv[])
 {
 //struct rlimit core_limits;core_limits.rlim_cur=core_limits.rlim_max=64*1024*1024;setrlimit(RLIMIT_CORE,&core_limits);
 #ifdef DEBUG
-g_log_set_always_fatal(G_LOG_LEVEL_CRITICAL|G_LOG_LEVEL_WARNING);
+g_log_set_always_fatal((GLogLevelFlags)(G_LOG_LEVEL_CRITICAL|G_LOG_LEVEL_WARNING));
 #endif
 #ifdef WNDPROT_X11
 	XInitThreads();
@@ -53,8 +53,8 @@ g_log_set_always_fatal(G_LOG_LEVEL_CRITICAL|G_LOG_LEVEL_WARNING);
 #ifndef NO_ICON
 	struct image img;
 	png_decode(icon_minir_64x64_png,sizeof(icon_minir_64x64_png), &img, 33);
-	//we could tell it how to free this, but the default icon will exist until replaced, and it won't be replaced.
-	gtk_window_set_default_icon(gdk_pixbuf_new_from_data(img.pixels, GDK_COLORSPACE_RGB, true, 8, 64,64, 64*4, NULL, NULL));
+	//we could tell it how to free this, but it will be used until replaced, and it won't be replaced.
+	gtk_window_set_default_icon(gdk_pixbuf_new_from_data((guchar*)img.pixels, GDK_COLORSPACE_RGB, true, 8, 64,64, 64*4, NULL, NULL));
 #endif
 }
 
@@ -107,7 +107,7 @@ const char * const * window_file_picker(struct window * parent,
 	GtkFileChooser* dialog=GTK_FILE_CHOOSER(
 	                         gtk_file_chooser_dialog_new(
 	                           title,
-	                           (parent?(void*)parent->_get_handle(parent):NULL),
+	                           GTK_WINDOW(parent?(void*)parent->_get_handle(parent):NULL),
 	                           GTK_FILE_CHOOSER_ACTION_OPEN,
 	                           "_Cancel",
 	                           GTK_RESPONSE_CANCEL,
@@ -160,7 +160,7 @@ const char * const * window_file_picker(struct window * parent,
 	GSList * listcopy=list;
 	while (listcopy)
 	{
-		*retcopy=window_get_absolute_path(listcopy->data);
+		*retcopy=window_get_absolute_path((char*)listcopy->data);
 		g_free(listcopy->data);
 		retcopy++;
 		listcopy=listcopy->next;
@@ -207,7 +207,7 @@ char * window_get_absolute_path(const char * path)
 	else ret=g_file_get_uri(file);
 	g_object_unref(file);
 	if (!ret) return NULL;
-	return mem_from_g_alloc(ret, 0);
+	return (char*)mem_from_g_alloc(ret, 0);
 }
 
 char * window_get_native_path(const char * path)
@@ -217,7 +217,7 @@ char * window_get_native_path(const char * path)
 	gchar * ret=g_file_get_path(file);
 	g_object_unref(file);
 	if (!ret) return NULL;
-	return mem_from_g_alloc(ret, 0);
+	return (char*)mem_from_g_alloc(ret, 0);
 }
 
 uint64_t window_get_time()
@@ -257,7 +257,7 @@ bool file_write(const char * filename, const anyptr data, size_t len)
 	return success;
 }
 
-bool file_read_to(const char * filename, void * data, size_t len)
+bool file_read_to(const char * filename, anyptr data, size_t len)
 {
 	if (!filename) return false;
 	if (!len) return true;
