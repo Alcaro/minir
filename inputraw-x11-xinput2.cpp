@@ -26,8 +26,8 @@ struct inputraw_xinput2 {
 	GdkDisplay* gdkdisplay;
 #endif
 	
-	int numdevices;
-	int numvaliddevices;
+	unsigned int numdevices;
+	unsigned int numvaliddevices;
 	int* deviceids;
 	XDevice* * devices;
 };
@@ -38,14 +38,14 @@ static unsigned int keyboard_num_keyboards(struct inputraw * this_)
 {
 	struct inputraw_xinput2 * this=(struct inputraw_xinput2*)this_;
 	unsigned char state[256];
-	for (int i=this->numvaliddevices;i<this->numdevices;i++)
+	for (unsigned int i=this->numvaliddevices;i<this->numdevices;i++)
 	{
 		if (!keyboard_poll(this_, i, state)) continue;
-		for (int j=0;j<256;j++)
+		for (unsigned int j=0;j<256;j++)
 		{
 			if (state[j])
 			{
-				int deviceid=this->deviceids[this->numvaliddevices];
+				unsigned int deviceid=this->deviceids[this->numvaliddevices];
 				XDevice* device=this->devices[this->numvaliddevices];
 				this->deviceids[this->numvaliddevices]=this->deviceids[i];
 				this->devices[this->numvaliddevices]=this->devices[i];
@@ -75,9 +75,9 @@ static bool keyboard_poll(struct inputraw * this_, unsigned int kb_id, unsigned 
 	if (!state) return false;
 	
 	XInputClass * cls=state->data;
-	for (int j=0;j<state->num_classes;j++)
+	for (unsigned int j=0;j<(unsigned int)state->num_classes;j++)
 	{
-		if (cls->class==KeyClass)
+		if (cls->c_class==KeyClass)
 		{
 			XKeyState * key_state=(XKeyState*)cls;
 			memset(keys+key_state->num_keys, 0, 256-key_state->num_keys);
@@ -159,7 +159,7 @@ static void add_device_gdk(GdkDeviceManager* object, GdkDevice* device, void * t
 	
 	int deviceid=gdk_x11_device_get_id(device);
 	
-	for (int i=0;i<this->numdevices;i++)
+	for (unsigned int i=0;i<(unsigned int)this->numdevices;i++)
 	{
 		if (this->deviceids[i]==deviceid) return;//dupes not allowed
 	}
@@ -185,7 +185,7 @@ static void remove_device_gdk(GdkDeviceManager* object, GdkDevice* device, void 
 	struct inputraw_xinput2 * this=(struct inputraw_xinput2*)this_;
 	if (gdk_device_get_source(device)!=GDK_SOURCE_KEYBOARD) return;
 	int deviceid=gdk_x11_device_get_id(device);
-	for (int i=0;i<this->numdevices;i++)
+	for (unsigned int i=0;i<this->numdevices;i++)
 	{
 		if (this->deviceids[i]==deviceid)
 		{
@@ -210,8 +210,8 @@ static void free_(struct inputraw * this_)
 	
 #ifdef WINDOW_GTK3
 	GdkDeviceManager* devicemanager=gdk_display_get_device_manager(this->gdkdisplay);
-	g_signal_handlers_disconnect_by_func(devicemanager, add_device_gdk, this);
-	g_signal_handlers_disconnect_by_func(devicemanager, remove_device_gdk, this);
+	g_signal_handlers_disconnect_by_func(devicemanager, (gpointer)add_device_gdk, this);
+	g_signal_handlers_disconnect_by_func(devicemanager, (gpointer)remove_device_gdk, this);
 #endif
 	
 	//we can probably be reasonably sure that devices aren't disconnected at exactly this point, but
@@ -219,7 +219,7 @@ static void free_(struct inputraw * this_)
 #ifdef WINDOW_GTK3
 	gdk_x11_display_error_trap_push(this->gdkdisplay);
 #endif
-	for (int i=0;i<this->numdevices;i++)
+	for (unsigned int i=0;i<this->numdevices;i++)
 	{
 		XCloseDevice(this->display, this->devices[i]);
 	}
@@ -243,7 +243,7 @@ struct inputraw * _inputraw_create_xinput2(uintptr_t windowhandle)
 	//this->i.keyboard_get_map=keyboard_get_map;
 	this->i.free=free_;
 	
-	this->display=(Display*)window_x11_get_display()->display;
+	this->display=window_x11_get_display()->display;
 	this->windowhandle=(Window)windowhandle;
 	this->numdevices=0;
 	this->numvaliddevices=0;
@@ -265,9 +265,9 @@ struct inputraw * _inputraw_create_xinput2(uintptr_t windowhandle)
 	g_signal_connect(devicemanager, "device-added", G_CALLBACK(add_device_gdk), this);
 	g_signal_connect(devicemanager, "device-removed", G_CALLBACK(remove_device_gdk), this);
 	
-	GdkDeviceType types[2]={ GDK_DEVICE_TYPE_SLAVE, GDK_DEVICE_TYPE_FLOATING };
-	for (int i=0;i<2;i++)
+	for (unsigned int i=0;i<2;i++)
 	{
+		GdkDeviceType types[2]={ GDK_DEVICE_TYPE_SLAVE, GDK_DEVICE_TYPE_FLOATING };
 		GList* devices=gdk_device_manager_list_devices(devicemanager, types[i]);
 		GList* list=devices;
 		while (list)

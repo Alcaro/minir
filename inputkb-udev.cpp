@@ -283,7 +283,7 @@ struct inputkb * inputkb_create_udev(uintptr_t windowhandle)
 	this->fd[0].state=2;
 	inotify_add_watch(inotify, udevpath, IN_CREATE);
 	
-	bool access=false;
+	bool access; access=false;
 	while (true)
 	{
 		DIR* dir=opendir(udevpath);

@@ -484,8 +484,10 @@ uint64_t window_get_time();
 //Returns the display and screen we should use.
 //The concept of screens only exists on X11, so this should not be used elsewhere.
 //Only I/O drivers should have any reason to use this.
+struct _XDisplay;
+typedef struct _XDisplay Display;
 struct window_x11_display {
-	void* display; //The real type is Display*.
+	Display* display; //The real type is Display*.
 	unsigned long screen; //The real type is Window aka XID.
 };
 const struct window_x11_display * window_x11_get_display();

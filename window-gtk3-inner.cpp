@@ -391,7 +391,7 @@ static void textbox_set_enabled(struct widget_textbox * this_, bool enable)
 static void textbox_focus(struct widget_textbox * this_)
 {
 	struct widget_textbox_gtk3 * this=(struct widget_textbox_gtk3*)this_;
-		gtk_widget_grab_focus(this->i._base.widget);
+	gtk_widget_grab_focus(GTK_WIDGET(this->i._base.widget));
 }
 
 static void textbox_set_text(struct widget_textbox * this_, const char * text)
@@ -417,14 +417,14 @@ static void textbox_set_invalid(struct widget_textbox * this_, bool invalid)
 	struct widget_textbox_gtk3 * this=(struct widget_textbox_gtk3*)this_;
 	if (invalid)
 	{
-		GtkStyleContext* context=gtk_widget_get_style_context(this->i._base.widget);
+		GtkStyleContext* context=gtk_widget_get_style_context(GTK_WIDGET(this->i._base.widget));
 		gtk_style_context_add_provider(context, GTK_STYLE_PROVIDER(cssprovider), GTK_STYLE_PROVIDER_PRIORITY_APPLICATION);
-		gtk_widget_set_name(this->i._base.widget, "invalid");
-		gtk_widget_grab_focus(this->i._base.widget);
+		gtk_widget_set_name(GTK_WIDGET(this->i._base.widget), "invalid");
+		gtk_widget_grab_focus(GTK_WIDGET(this->i._base.widget));
 	}
 	else
 	{
-		gtk_widget_set_name(this->i._base.widget, "x");
+		gtk_widget_set_name(GTK_WIDGET(this->i._base.widget), "x");
 	}
 }
 
@@ -437,7 +437,7 @@ static const char * textbox_get_text(struct widget_textbox * this_)
 static void textbox_onchange(GtkEntry* entry, gpointer user_data)
 {
 	struct widget_textbox_gtk3 * this=(struct widget_textbox_gtk3*)user_data;
-	gtk_widget_set_name(this->i._base.widget, "x");
+	gtk_widget_set_name(GTK_WIDGET(this->i._base.widget), "x");
 	if (this->onchange)
 	{
 		this->onchange((struct widget_textbox*)this, gtk_entry_get_text(GTK_ENTRY(this->i._base.widget)), this->ch_userdata);
@@ -741,7 +741,7 @@ struct widget_frame * widget_create_frame(const char * text, void* contents)
 	this->i._base.heightprio=child->heightprio;
 	this->i._base.free=frame__free;
 	this->i.set_text=frame_set_text;
-	this->child=contents;
+	this->child=(widget_base*)contents;
 	gtk_container_add(GTK_CONTAINER(this->i._base.widget), GTK_WIDGET(child->widget));
 	
 	return (struct widget_frame*)this;
@@ -793,12 +793,12 @@ struct widget_layout * widget_create_layout_l(unsigned int numchildren, void * *
 		unsigned int width=(widths ? widths[i] : 1);
 		unsigned int height=(heights ? heights[i] : 1);
 		
-		gtk_grid_attach(grid, this->children[i]->widget,
+		gtk_grid_attach(grid, GTK_WIDGET(this->children[i]->widget),
 		                firstempty%totwidth, firstempty/totwidth,
 		                width, height);
 		
-		for (int x=0;x<width ;x++)
-		for (int y=0;y<height;y++)
+		for (unsigned int x=0;x<width ;x++)
+		for (unsigned int y=0;y<height;y++)
 		{
 			posused[firstempty + y*totwidth + x]=true;
 		}
@@ -809,8 +809,8 @@ struct widget_layout * widget_create_layout_l(unsigned int numchildren, void * *
 	
 	for (unsigned int i=0;i<numchildren;i++)
 	{
-		gtk_widget_set_hexpand(this->children[i]->widget, (this->children[i]->widthprio  == this->i._base.widthprio));
-		gtk_widget_set_vexpand(this->children[i]->widget, (this->children[i]->heightprio == this->i._base.heightprio));
+		gtk_widget_set_hexpand(GTK_WIDGET(this->children[i]->widget), (this->children[i]->widthprio  == this->i._base.widthprio));
+		gtk_widget_set_vexpand(GTK_WIDGET(this->children[i]->widget), (this->children[i]->heightprio == this->i._base.heightprio));
 	}
 	
 	return (struct widget_layout*)this;

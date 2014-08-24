@@ -1,4 +1,4 @@
-top_dummy: all
+all: minir_dummy
 
 CC = gcc
 CFLAGS =
@@ -81,4 +81,4 @@ obj/rescompile$(EXESUFFIX): rescompile.c miniz.c | obj
 $(OUTNAME): $(OBJS)
 	$(LD) $+ $(TRUE_LFLAGS) -o $@ -lm
 
-all: $(OUTNAME)
+minir_dummy: $(OUTNAME)

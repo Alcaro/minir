@@ -15,7 +15,7 @@ struct threaddata_pthread {
 };
 static void * threadproc(void * userdata)
 {
-	struct threaddata_pthread * thdat=userdata;
+	struct threaddata_pthread * thdat=(struct threaddata_pthread*)userdata;
 	thdat->startpos(thdat->userdata);
 	free(thdat);
 	return NULL;
