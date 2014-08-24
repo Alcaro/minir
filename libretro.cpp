@@ -498,15 +498,15 @@ static void log_callback(enum retro_log_level level, const char * fmt, ...)
 	}
 }
 
-//"Supported core" means a Libretro core for a supported console (NES, SNES, GB, GBC, GBA).
+//"Supported core" means a libretro core for a supported console (NES, SNES, GB, GBC, GBA).
 //"Known supported core" means a supported core that has been tested somewhat.
 //Brief status on support of each environ command:
 //              1         2         3
-//     12345678901234567890123456789012345
-//Done   x     xx    xxxxx    x  x  x       = 11
-//Todo           xxxx                xx xx  = 8
-//Nope xx   xxx            xxx xx xx   x    = 13
-//Gone    xx              x                 = 3
+//     123456789012345678901234567890123456789
+//Done   x     xx    xxxxx    x  x  x     x     = 12
+//Todo           xxxx                xx xx xx   = 10
+//Nope xx   xxx            xxx xx xx   x     x  = 14
+//Gone    xx              x                     = 3
 //Detailed information on why the unsupported ones don't exist can be found in this function.
 static bool environment(unsigned cmd, void* data)
 {
@@ -699,6 +699,8 @@ static bool environment(unsigned cmd, void* data)
 		return true;
 	}
 	//37 SET_GEOMETRY, should be added.
+	//38 GET_USERNAME, not until I get netplay working.
+	//39 GET_LANGUAGE, I don't support localization.
 	
 	const char * const names[]={
 		"(invalid)",
@@ -739,6 +741,8 @@ static bool environment(unsigned cmd, void* data)
 		"SET_CONTROLLER_INFO",
 		"SET_MEMORY_MAPS",
 		"SET_GEOMETRY",
+		"GET_USERNAME",
+		"GET_LANGUAGE",
 	};
 	if ((cmd&~RETRO_ENVIRONMENT_EXPERIMENTAL) < sizeof(names)/sizeof(*names))
 	{
