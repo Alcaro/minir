@@ -82,7 +82,7 @@ widget_button* widget_button::set_text(const char * text)
 
 static void widget_button_onclick(GtkButton* button, gpointer user_data)
 {
-	widget_button * obj=(widget_button*)user_data;
+	widget_button* obj=(widget_button*)user_data;
 	obj->m->onclick(obj, obj->m->userdata);
 }
 
@@ -141,7 +141,7 @@ widget_checkbox* widget_checkbox::set_state(bool checked)
 static void widget_checkbox_onclick(GtkButton* button, gpointer user_data)
 {
 	if (in_callback) return;
-	widget_checkbox * obj=(widget_checkbox*)user_data;
+	widget_checkbox* obj=(widget_checkbox*)user_data;
 	obj->m->onclick(obj, gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(obj->widget)), obj->m->userdata);
 }
 
@@ -243,7 +243,7 @@ widget_radio* widget_radio::set_state(unsigned int state)
 static void widget_radio_onclick(GtkToggleButton* togglebutton, gpointer user_data)
 {
 	if (in_callback) return;
-	widget_radio * obj=(widget_radio*)user_data;
+	widget_radio* obj=(widget_radio*)user_data;
 	if (!gtk_toggle_button_get_active(togglebutton)) return;
 	obj->m->parent->m->onclick(obj, obj->m->id, obj->m->parent->m->userdata);
 }
@@ -335,7 +335,7 @@ const char * widget_textbox::get_text()
 
 static void widget_textbox_onchange(GtkEntry* entry, gpointer user_data)
 {
-	widget_textbox * obj=(widget_textbox*)user_data;
+	widget_textbox* obj=(widget_textbox*)user_data;
 	gtk_widget_set_name(GTK_WIDGET(obj->widget), "x");
 	if (obj->m->onchange)
 	{
@@ -353,7 +353,7 @@ widget_textbox* widget_textbox::set_onchange(void (*onchange)(struct widget_text
 
 static void widget_textbox_onactivate(GtkEntry* entry, gpointer user_data)
 {
-	widget_textbox * obj=(widget_textbox*)user_data;
+	widget_textbox* obj=(widget_textbox*)user_data;
 	obj->m->onactivate(obj, gtk_entry_get_text(GTK_ENTRY(obj->widget)), obj->m->ac_userdata);
 }
 
@@ -372,10 +372,7 @@ class widget_canvas;
 
 
 
-#if 0
-struct widget_viewport_gtk3 {
-	struct widget_viewport i;
-	
+struct widget_viewport::impl {
 	bool hide_mouse;
 	bool hide_mouse_timer_active;
 	
@@ -386,49 +383,56 @@ struct widget_viewport_gtk3 {
 	void* dropuserdata;
 };
 
-static void viewport__free(struct widget_base * this_)
+widget_viewport::widget_viewport(unsigned int width, unsigned int height) : m(new impl)
 {
-	struct widget_viewport_gtk3 * this=(struct widget_viewport_gtk3*)this_;
-	if (this->hidden_cursor) g_object_unref(this->hidden_cursor);
-	free(this);
+	widget=gtk_drawing_area_new();
+	widthprio=0;
+	heightprio=0;
+	
+	m->hide_mouse_at=0;
+	m->hidden_cursor=NULL;
+	gtk_widget_set_size_request(GTK_WIDGET(widget), width, height);
 }
 
-static void viewport_resize(struct widget_viewport * this_, unsigned int width, unsigned int height)
+widget_viewport::~widget_viewport()
 {
-	struct widget_viewport_gtk3 * this=(struct widget_viewport_gtk3*)this_;
-	
-	gtk_widget_set_size_request(GTK_WIDGET(this->i._base.widget), width, height);
+	if (m->hidden_cursor) g_object_unref(m->hidden_cursor);
+	delete m;
 }
 
-static uintptr_t viewport_get_window_handle(struct widget_viewport * this_)
+widget_viewport* widget_viewport::resize(unsigned int width, unsigned int height)
 {
-	struct widget_viewport_gtk3 * this=(struct widget_viewport_gtk3*)this_;
-	
+	gtk_widget_set_size_request(GTK_WIDGET(widget), width, height);
+	return this;
+}
+
+uintptr_t widget_viewport::get_window_handle()
+{
 	//this won't work on anything except X11, but should be trivial to create an equivalent for.
-	uintptr_t tmp=GDK_WINDOW_XID(gtk_widget_get_window(GTK_WIDGET(this->i._base.widget)));
+	uintptr_t tmp=GDK_WINDOW_XID(gtk_widget_get_window(GTK_WIDGET(widget)));
 	return tmp;
 }
 
-static void viewport_set_hide_cursor_now(struct widget_viewport_gtk3 * this, bool hide)
+static void viewport_set_hide_cursor_now(widget_viewport* obj, bool hide)
 {
-	GdkWindow* gdkwindow=gtk_widget_get_window(GTK_WIDGET(this->i._base.widget));
-	if (gdkwindow) gdk_window_set_cursor(gdkwindow, hide ? this->hidden_cursor : NULL);
+	GdkWindow* gdkwindow=gtk_widget_get_window(GTK_WIDGET(obj->widget));
+	if (gdkwindow) gdk_window_set_cursor(gdkwindow, hide ? obj->m->hidden_cursor : NULL);
 }
 
 static gboolean viewport_mouse_timeout(gpointer user_data)
 {
-	struct widget_viewport_gtk3 * this=(struct widget_viewport_gtk3*)user_data;
+	widget_viewport* obj=(widget_viewport*)user_data;
 	
 	guint32 now=g_get_monotonic_time()/1000;
-	if (now >= this->hide_mouse_at)
+	if (now >= obj->m->hide_mouse_at)
 	{
-		this->hide_mouse_timer_active=false;
-		viewport_set_hide_cursor_now(this, this->hide_mouse);
+		obj->m->hide_mouse_timer_active=false;
+		viewport_set_hide_cursor_now(obj, obj->m->hide_mouse);
 	}
 	else
 	{
-		guint32 remaining=this->hide_mouse_at-now+10;
-		g_timeout_add(remaining, viewport_mouse_timeout, this);
+		guint32 remaining=obj->m->hide_mouse_at-now+10;
+		g_timeout_add(remaining, viewport_mouse_timeout, obj);
 	}
 	
 	return G_SOURCE_REMOVE;
@@ -436,41 +440,41 @@ static gboolean viewport_mouse_timeout(gpointer user_data)
 
 static gboolean viewport_mouse_move_handler(GtkWidget* widget, GdkEvent* event, gpointer user_data)
 {
-	struct widget_viewport_gtk3 * this=(struct widget_viewport_gtk3*)user_data;
+	widget_viewport* obj=(widget_viewport*)user_data;
 	
-	this->hide_mouse_at=g_get_monotonic_time()/1000 + 990;
-	if (!this->hide_mouse_timer_active)
+	obj->m->hide_mouse_at=g_get_monotonic_time()/1000 + 990;
+	if (!obj->m->hide_mouse_timer_active)
 	{
-		this->hide_mouse_timer_active=true;
-		g_timeout_add(1000, viewport_mouse_timeout, this);
-		viewport_set_hide_cursor_now(this, false);
+		obj->m->hide_mouse_timer_active=true;
+		g_timeout_add(1000, viewport_mouse_timeout, obj);
+		viewport_set_hide_cursor_now(obj, false);
 	}
 	
 	return G_SOURCE_CONTINUE;
 }
 
-static void viewport_set_hide_cursor(struct widget_viewport * this_, bool hide)
+widget_viewport* widget_viewport::set_hide_cursor(bool hide)
 {
-	struct widget_viewport_gtk3 * this=(struct widget_viewport_gtk3*)this_;
-	
-	if (this->hide_mouse_at && g_get_monotonic_time()/1000 >= this->hide_mouse_at)
+	if (m->hide_mouse_at && g_get_monotonic_time()/1000 >= m->hide_mouse_at)
 	{
 		viewport_set_hide_cursor_now(this, hide);
 	}
 	
-	this->hide_mouse=hide;
-	if (!hide || this->hide_mouse_at) return;
+	m->hide_mouse=hide;
+	if (!hide || m->hide_mouse_at) return this;
 	
-	if (!this->hidden_cursor) this->hidden_cursor=gdk_cursor_new(GDK_BLANK_CURSOR);
+	if (!m->hidden_cursor) m->hidden_cursor=gdk_cursor_new(GDK_BLANK_CURSOR);
 	
-	gtk_widget_add_events(GTK_WIDGET(this->i._base.widget), GDK_POINTER_MOTION_MASK);
-	g_signal_connect(this->i._base.widget, "motion-notify-event", G_CALLBACK(viewport_mouse_move_handler), this);
+	gtk_widget_add_events(GTK_WIDGET(widget), GDK_POINTER_MOTION_MASK);
+	g_signal_connect(widget, "motion-notify-event", G_CALLBACK(viewport_mouse_move_handler), this);
 	
 	//seems to not exist in gtk+ 3.8
 	//gdk_window_set_event_compression(gtk_widget_get_window(this->i._base.widget), false);
 	
-	this->hide_mouse_timer_active=false;
+	m->hide_mouse_timer_active=false;
 	viewport_mouse_move_handler(NULL, NULL, this);
+	
+	return this;
 }
 
 /*
@@ -497,7 +501,7 @@ static void set_kb_callback(struct window * this_,
 static void viewport_drop_handler(GtkWidget* widget, GdkDragContext* drag_context, gint x, gint y,
                                   GtkSelectionData* selection_data, guint info, guint time, gpointer user_data)
 {
-	struct widget_viewport_gtk3 * this=(struct widget_viewport_gtk3*)user_data;
+	widget_viewport* obj=(widget_viewport*)user_data;
 	if (!selection_data || !gtk_selection_data_get_length(selection_data))
 	{
 		gtk_drag_finish(drag_context, FALSE, FALSE, time);
@@ -512,7 +516,7 @@ static void viewport_drop_handler(GtkWidget* widget, GdkDragContext* drag_contex
 	}
 	
 	char* datacopy=strdup(data);
-	const char** strings=malloc(sizeof(char*)*(numstr+1));
+	char** strings=malloc(sizeof(char*)*(numstr+1));
 	char* last=datacopy;
 	int strnum=0;
 	for (int i=0;datacopy[i];i++)
@@ -529,54 +533,34 @@ static void viewport_drop_handler(GtkWidget* widget, GdkDragContext* drag_contex
 	strings[numstr]=NULL;
 	free(datacopy);
 	
-	this->on_file_drop((struct widget_viewport*)this, strings, this->dropuserdata);
+	obj->m->on_file_drop(obj, strings, obj->m->dropuserdata);
 	
-	for (int i=0;strings[i];i++) free((void*)strings[i]);
+	for (int i=0;strings[i];i++) free(strings[i]);
 	free(strings);
 	gtk_drag_finish(drag_context, TRUE, FALSE, time);
 }
 
-static void viewport_set_support_drop(struct widget_viewport * this_,
+widget_viewport* widget_viewport::set_support_drop(
                              void (*on_file_drop)(struct widget_viewport * subject, const char * const * filenames, void* userdata),
                              void* userdata)
 {
-	struct widget_viewport_gtk3 * this=(struct widget_viewport_gtk3*)this_;
-	
 	GtkTargetList* list=gtk_target_list_new(NULL, 0);
 	gtk_target_list_add_uri_targets(list, 0);
 	
 	int n_targets;
 	GtkTargetEntry* targets=gtk_target_table_new_from_list(list, &n_targets);
 	//GTK_DEST_DEFAULT_MOTION|GTK_DEST_DEFAULT_DROP
-	gtk_drag_dest_set(GTK_WIDGET(this->i._base.widget), GTK_DEST_DEFAULT_ALL, targets,n_targets, GDK_ACTION_COPY);
+	gtk_drag_dest_set(GTK_WIDGET(widget), GTK_DEST_DEFAULT_ALL, targets,n_targets, GDK_ACTION_COPY);
 	
 	gtk_target_table_free(targets, n_targets);
 	gtk_target_list_unref(list);
 	
-	g_signal_connect(this->i._base.widget, "drag-data-received", G_CALLBACK(viewport_drop_handler), this);
-	this->on_file_drop=on_file_drop;
-	this->dropuserdata=userdata;
-}
-
-struct widget_viewport * widget_create_viewport(unsigned int width, unsigned int height)
-{
-	struct widget_viewport_gtk3 * this=malloc(sizeof(struct widget_viewport_gtk3));
-	this->i._base.widget=gtk_drawing_area_new();
-	this->i._base.widthprio=0;
-	this->i._base.heightprio=0;
-	this->i._base.free=viewport__free;
-	this->i.resize=viewport_resize;
-	this->i.get_window_handle=viewport_get_window_handle;
-	this->i.set_hide_cursor=viewport_set_hide_cursor;
-	this->i.set_support_drop=viewport_set_support_drop;
+	g_signal_connect(widget, "drag-data-received", G_CALLBACK(viewport_drop_handler), this);
+	m->on_file_drop=on_file_drop;
+	m->dropuserdata=userdata;
 	
-	this->hide_mouse_at=0;
-	this->hidden_cursor=NULL;
-	gtk_widget_set_size_request(GTK_WIDGET(this->i._base.widget), width, height);
-	
-	return (struct widget_viewport*)this;
+	return this;
 }
-#endif
 
 
 

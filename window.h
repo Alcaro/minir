@@ -477,12 +477,10 @@ public:
 	// click and Enter are likely. It is guaranteed to be possible.
 	//Returns (size_t)-1 if no row is active.
 	size_t get_active_row();
-	widget_listbox* set_on_focus_change(
-	                            void (*onchange)(struct widget_listbox * subject, size_t row, void * userdata),
-	                            void* userdata);
-	widget_listbox* set_onactivate(
-	                       void (*onactivate)(struct widget_listbox * subject, size_t row, void * userdata),
-	                       void* userdata);
+	widget_listbox* set_on_focus_change(void (*onchange)(struct widget_listbox * subject, size_t row, void * userdata),
+	                                    void* userdata);
+	widget_listbox* set_onactivate(void (*onactivate)(struct widget_listbox * subject, size_t row, void * userdata),
+	                               void* userdata);
 	
 	//This is the size on the screen. The height is how many items show up; the widths are how many
 	// instances of the letter 'X' must fit in the column.
@@ -494,16 +492,13 @@ public:
 	// first column, on a column of their own, or something weirder. The position relative to the
 	// other columns is not guaranteed.
 	//The toggle callback does not contain the current nor former state; the user is expected to keep track of that.
-	widget_listbox* add_checkboxes(
-	                       void (*ontoggle)(struct widget_listbox * subject, size_t row, void * userdata),
-	                       void * userdata);
+	widget_listbox* add_checkboxes(void (*ontoggle)(struct widget_listbox * subject, size_t row, void * userdata),
+	                               void * userdata);
 	
 public:
 	struct impl;
 	impl * m;
 };
-//struct widget_listbox * widget_create_listbox_l(unsigned int numcolumns, const char * * columns);
-//struct widget_listbox * widget_create_listbox(const char * firstcol, ...);
 
 
 //A decorative frame around a widget, to group them together. The widget can be a layout (and probably should, otherwise you're adding a box to a single widget).

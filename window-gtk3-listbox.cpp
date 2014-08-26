@@ -371,7 +371,7 @@ size_t widget_listbox::get_active_row()
 
 static void listbox_on_focus_change(GtkTreeView* tree_view, gpointer user_data)
 {
-	struct widget_listbox * obj=(widget_listbox*)user_data;
+	widget_listbox* obj=(widget_listbox*)user_data;
 	GtkTreePath* path;
 	gtk_tree_view_get_cursor(obj->m->tree, &path, NULL);
 	size_t item=(size_t)-1;
@@ -393,7 +393,7 @@ widget_listbox* widget_listbox::set_on_focus_change(
 
 static void listbox_onactivate(GtkTreeView* tree_view, GtkTreePath* path, GtkTreeViewColumn* column, gpointer user_data)
 {
-	widget_listbox * obj=(widget_listbox*)user_data;
+	widget_listbox* obj=(widget_listbox*)user_data;
 	int item=gtk_tree_path_get_indices(path)[0];
 	if (item!=MAX_ROWS)
 	{
@@ -447,7 +447,7 @@ widget_listbox* widget_listbox::set_size(unsigned int height, const unsigned int
 
 static void widget_listbox_checkbox_toggle(GtkCellRendererToggle* cell_renderer, gchar* path, gpointer user_data)
 {
-	widget_listbox * obj=(widget_listbox*)user_data;
+	widget_listbox* obj=(widget_listbox*)user_data;
 	unsigned int row=atoi(path);
 	if (obj->m->ontoggle) obj->m->ontoggle(obj, row, obj->m->toggle_userdata);
 	widget_listbox_refresh_row(obj, row);
