@@ -394,7 +394,7 @@ struct widget_layout * widget_create_radio_group(bool vertical, widget_radio* le
 	
 	items[0]->group(numitems, items);
 	
-	return widget_create_layout_l(numitems, (widget_base**)items, vertical?1:numitems, NULL, false, vertical?numitems:1, NULL, false);
+	return new widget_layout(numitems, (widget_base**)items, vertical?1:numitems, NULL, false, vertical?numitems:1, NULL, false);
 }
 
 /*
@@ -420,7 +420,7 @@ struct widget_listbox * widget_create_listbox(const char * firstcol, ...)
 }
 */
 
-struct widget_layout * widget_create_layout(bool vertical, bool uniform, widget_base * firstchild, ...)
+widget_layout::widget_layout(bool vertical, bool uniform, widget_base * firstchild, ...)
 {
 	unsigned int numchildren=1;
 	
@@ -438,29 +438,11 @@ struct widget_layout * widget_create_layout(bool vertical, bool uniform, widget_
 	}
 	va_end(args);
 	
-	return widget_create_layout_l(numchildren, (widget_base**)children, vertical?1:numchildren, NULL, false, vertical?numchildren:1, NULL, false);
+	construct(numchildren, (widget_base**)children, vertical?1:numchildren, NULL, uniform, vertical?numchildren:1, NULL, uniform);
 }
 
-widget_layout * widget_create_layout_grid(unsigned int width, unsigned int height, bool uniformsizes,
-                                          widget_base * firstchild, ...)
-{
-	va_list args;
-	widget_base* children[width*height];
-	children[0]=firstchild;
-	va_start(args, firstchild);
-	for (unsigned int i=1;i<width*height;i++)
-	{
-		children[i]=va_arg(args, widget_base*);
-	}
-	va_end(args);
-	
-	return widget_create_layout_l(width*height, children,  width, NULL, uniformsizes,  height, NULL, uniformsizes);
-}
-
-widget_layout * widget_create_layout_v(unsigned int totwidth,   unsigned int totheight,
-                                       bool uniformwidths,      bool uniformheights,
-                                       unsigned int firstwidth, unsigned int firstheight,
-                                       widget_base * firstchild, ...)
+widget_layout::widget_layout(unsigned int totwidth,   unsigned int totheight,   bool uniformwidths, bool uniformheights,
+                             unsigned int firstwidth, unsigned int firstheight, widget_base * firstchild, ...)
 {
 	unsigned int numchildren=1;
 	unsigned int boxesleft=totwidth*totheight;
@@ -492,5 +474,21 @@ widget_layout * widget_create_layout_v(unsigned int totwidth,   unsigned int tot
 	}
 	va_end(args);
 	
-	return widget_create_layout_l(numchildren, children,  totwidth, widths, uniformwidths,  totheight, heights, uniformheights);
+	construct(numchildren, children,  totwidth, widths, uniformwidths,  totheight, heights, uniformheights);
+}
+
+widget_layout_grid::widget_layout_grid(unsigned int width, unsigned int height, bool uniformsizes,
+                                       widget_base * firstchild, ...)
+{
+	va_list args;
+	widget_base* children[width*height];
+	children[0]=firstchild;
+	va_start(args, firstchild);
+	for (unsigned int i=1;i<width*height;i++)
+	{
+		children[i]=va_arg(args, widget_base*);
+	}
+	va_end(args);
+	
+	construct(width*height, children,  width, NULL, uniformsizes,  height, NULL, uniformsizes);
 }

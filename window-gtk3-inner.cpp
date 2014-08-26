@@ -616,10 +616,12 @@ struct widget_layout::impl {
 	unsigned int numchildren;
 };
 
-widget_layout::widget_layout(unsigned int numchildren, widget_base * * children,
+void widget_layout::construct(unsigned int numchildren, widget_base * * children,
                              unsigned int totwidth,  unsigned int * widths,  bool uniformwidths,
-                             unsigned int totheight, unsigned int * heights, bool uniformheights) : m(new impl)
+                             unsigned int totheight, unsigned int * heights, bool uniformheights)
 {
+	m=new impl;
+	
 	GtkGrid* grid=GTK_GRID(gtk_grid_new());
 	widget=grid;
 	

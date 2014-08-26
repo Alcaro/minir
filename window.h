@@ -188,7 +188,7 @@ public:
 
 
 enum { horz=false, vert=true };
-class widget_padding : private widget_base {
+class widget_padding : public widget_base {
 #ifdef NEED_MANUAL_LAYOUT
 	unsigned int init(struct window * parent, uintptr_t parenthandle) = 0;
 	void measure();
@@ -207,7 +207,7 @@ public:
 #define widget_create_padding_vert() (new widget_padding(vert))
 
 
-class widget_label : private widget_base {
+class widget_label : public widget_base {
 #ifdef NEED_MANUAL_LAYOUT
 	unsigned int init(struct window * parent, uintptr_t parenthandle) = 0;
 	void measure();
@@ -503,17 +503,37 @@ class widget_layout : public widget_base {
 	void measure();
 	void place(void* resizeinf, unsigned int x, unsigned int y, unsigned int width, unsigned int height);
 #endif
-	
-public:
-	widget_layout(unsigned int numchildren, widget_base * * children,
+protected:
+	void construct(unsigned int numchildren, widget_base * * children,
 	              unsigned int totwidth,  unsigned int * widths,  bool uniformwidths,
 	              unsigned int totheight, unsigned int * heights, bool uniformheights);
+	widget_layout() {}
+	
+public:
+	widget_layout(bool vertical, bool uniform, widget_base * firstchild, ...);
+	widget_layout(unsigned int totwidth,   unsigned int totheight,   bool uniformwidths, bool uniformheights,
+                unsigned int firstwidth, unsigned int firstheight, widget_base * firstchild, ...);
+	widget_layout(unsigned int numchildren, widget_base * * children,
+	              unsigned int totwidth,  unsigned int * widths,  bool uniformwidths,
+	              unsigned int totheight, unsigned int * heights, bool uniformheights)
+	{
+		construct(numchildren, children, totwidth, widths, uniformwidths, totheight, heights, uniformheights);
+	}
 	~widget_layout();
 	
 public:
 	struct impl;
 	impl * m;
 };
+#define widget_layout_horz(...) widget_layout(false, false, __VA_ARGS__)
+#define widget_layout_vert(...) widget_layout(true,  false, __VA_ARGS__)
+
+class widget_layout_grid : public widget_layout {
+public:
+	widget_layout_grid(unsigned int width, unsigned int height, bool uniformsizes,
+	                   widget_base * firstchild, ...);
+};
+/*
 //The lists are terminated with a NULL. It shouldn't be empty.
 #define widget_create_layout_horz(...) widget_create_layout(false, false, __VA_ARGS__)
 #define widget_create_layout_vert(...) widget_create_layout(true, false, __VA_ARGS__)
@@ -530,6 +550,7 @@ widget_layout * widget_create_layout_v(unsigned int totwidth,   unsigned int tot
                                        unsigned int firstwidth, unsigned int firstheight, widget_layout * firstchild, ...);
 //The widths/heights arrays can be NULL, which is treated as being filled with 1s.
 #define widget_create_layout_l(a,b,c,d,e,f,g,h) (new widget_layout(a,b,c,d,e,f,g,h))
+*/
 
 
 
