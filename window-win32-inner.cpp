@@ -131,32 +131,33 @@ static void place_window(HWND hwnd, void* resizeinf, unsigned int x, unsigned in
 
 
 struct widget_label::impl {
-	struct widget_label i;
-	
 	struct window * parent;
 	HWND hwnd;
+	uint8_t state;
+	//char padding[7];
 };
 
 widget_label::widget_label(const char * text) : m(new impl)
 {
-puts("1");
 	this->widthprio=1;
 	this->heightprio=1;
 	
 	m->hwnd=(HWND)strdup(text);
 	measure_text(text, &this->width, &this->height);
 	this->width+=g_padding*2; this->height+=g_padding*2;
+	m->state=0;
 }
 
 unsigned int widget_label::init(struct window * parent, uintptr_t parenthandle)
 {
-puts("2");
 	m->parent=parent;
 	char* text=(char*)m->hwnd;
 	m->hwnd=CreateWindow(WC_STATIC, text, WS_CHILD|WS_VISIBLE|SS_NOPREFIX,
-	                        0, 0, 16, 16, // just some random sizes, we'll resize it in _place()
-	                        (HWND)parenthandle, NULL, GetModuleHandle(NULL), NULL);
+	                     0, 0, 16, 16, // just some random sizes, we'll resize it in _place()
+	                     (HWND)parenthandle, NULL, GetModuleHandle(NULL), NULL);
 	free(text);
+	if (m->state==1) EnableWindow(m->hwnd, false);
+	m->state=2;
 	SendMessage(m->hwnd, WM_SETFONT, (WPARAM)dlgfont, FALSE);
 	return 1;
 }
@@ -165,21 +166,19 @@ void widget_label::measure() {}
 
 void widget_label::place(void* resizeinf, unsigned int x, unsigned int y, unsigned int width, unsigned int height)
 {
-puts("3");
-	x+=g_padding; y+=g_padding; width-=g_padding*2; height-=g_padding*2;
-printf("pl %i,%i,%i,%i",x,y,width,height);
+	x+=g_padding; y+=g_padding; width-=g_padding*2; /*height-=g_padding*2;*/
 	place_window(m->hwnd, resizeinf, x,y+(height-this->height)/2, width,this->height);
 }
 
 widget_label::~widget_label()
 {
-	free(m);
+	delete m;
 }
 
 widget_label* widget_label::set_enabled(bool enable)
 {
-puts("4");
-	EnableWindow(m->hwnd, enable);
+	if (m->state==2) EnableWindow(m->hwnd, enable);
+	else m->state=!enable;
 	return this;
 }
 
@@ -205,93 +204,81 @@ widget_label* widget_label::set_alignment(int alignment)
 
 
 
-#if 0
-struct widget_button_win32 {
-	struct widget_button i;
-	
+struct widget_button::impl {
 	//struct window * parent;
 	HWND hwnd;
 	
 	void (*onclick)(struct widget_button * subject, void* userdata);
 	void* userdata;
+	
+	uint8_t state;
+	//char padding[7];
 };
 
-static unsigned int button__init(struct widget_base * this_, struct window * parent, uintptr_t parenthandle)
+widget_button::widget_button(const char * text) : m(new impl)
 {
-	struct widget_button_win32 * this=(struct widget_button_win32*)this_;
-	//this->parent=parent;
-	this->hwnd=CreateWindow(WC_BUTTON, (char*)this->hwnd, WS_CHILD|WS_VISIBLE|WS_TABSTOP, 0, 0, 16, 16,
+	this->widthprio=1;
+	this->heightprio=1;
+	
+	this->width=btn_width+g_padding*2;
+	this->height=btn_height+g_padding*2;
+	
+	m->onclick=NULL;
+	m->state=0;
+	m->hwnd=(HWND)strdup(text);
+}
+
+unsigned int widget_button::init(struct window * parent, uintptr_t parenthandle)
+{
+	char* text=(char*)m->hwnd;
+	m->hwnd=CreateWindow(WC_BUTTON, text, WS_CHILD|WS_VISIBLE|WS_TABSTOP, 0, 0, 16, 16,
 	                        (HWND)parenthandle, (HMENU)CTID_BUTTON, GetModuleHandle(NULL), NULL);
-	SetWindowLongPtr(this->hwnd, GWLP_USERDATA, (LONG_PTR)this);
-	SendMessage(this->hwnd, WM_SETFONT, (WPARAM)dlgfont, FALSE);
+	free(text);
+	if (m->state==1) EnableWindow(m->hwnd, false);
+	m->state=2;
+	SetWindowLongPtr(m->hwnd, GWLP_USERDATA, (LONG_PTR)this);
+	SendMessage(m->hwnd, WM_SETFONT, (WPARAM)dlgfont, FALSE);
 	return 1;
 }
 
-static void button__measure(struct widget_base * this_) {}
+void widget_button::measure() {}
 
-static void button__place(struct widget_base * this_, void* resizeinf,
-                          unsigned int x, unsigned int y, unsigned int width, unsigned int height)
+void widget_button::place(void* resizeinf, unsigned int x, unsigned int y, unsigned int width, unsigned int height)
 {
 	x+=g_padding; y+=g_padding; width-=g_padding*2; height-=g_padding*2;
-	struct widget_button_win32 * this=(struct widget_button_win32*)this_;
-	place_window(this->hwnd, resizeinf, x, y, width, height);
+	place_window(m->hwnd, resizeinf, x, y, width, height);
 }
 
-static void button__free(struct widget_base * this_)
+widget_button::~widget_button()
 {
-	struct widget_button_win32 * this=(struct widget_button_win32*)this_;
-	free(this);
+	delete m;
 }
 
-static void button_set_enabled(struct widget_button * this_, bool enable)
+widget_button* widget_button::set_enabled(bool enable)
 {
-	struct widget_button_win32 * this=(struct widget_button_win32*)this_;
-	EnableWindow(this->hwnd, enable);
+	if (m->state&2) EnableWindow(m->hwnd, enable);
+	else m->state=!enable;
+	return this;
 }
 
-static void button_set_text(struct widget_button * this_, const char * text)
+widget_button* widget_button::set_text(const char * text)
 {
-	struct widget_button_win32 * this=(struct widget_button_win32*)this_;
-	SetWindowText(this->hwnd, text);
+	SetWindowText(m->hwnd, text);
+	return this;
 }
 
-static void button_set_onclick(struct widget_button * this_,
-                               void (*onclick)(struct widget_button * subject, void* userdata),
-                               void* userdata)
+widget_button* widget_button::set_onclick(void (*onclick)(struct widget_button * subject, void* userdata), void* userdata)
 {
-	struct widget_button_win32 * this=(struct widget_button_win32*)this_;
-	this->onclick=onclick;
-	this->userdata=userdata;
-}
-
-struct widget_button * widget_create_button(const char * text)
-{
-	struct widget_button_win32 * this=malloc(sizeof(struct widget_button_win32));
-	this->i._base.init=button__init;
-	this->i._base.measure=button__measure;
-	this->i._base.widthprio=1;
-	this->i._base.heightprio=1;
-	this->i._base.place=button__place;
-	this->i._base.free=button__free;
-	
-	this->i.set_enabled=button_set_enabled;
-	this->i.set_text=button_set_text;
-	this->i.set_onclick=button_set_onclick;
-	
-	this->i._base.width=btn_width+g_padding*2;
-	this->i._base.height=btn_height+g_padding*2;
-	
-	this->onclick=NULL;
-	
-	this->hwnd=(HWND)text;
-	
-	return (struct widget_button*)this;
+	m->onclick=onclick;
+	m->userdata=userdata;
+	return this;
 }
 
 
 
+#if 0
 struct widget_checkbox_win32 {
-	struct widget_checkbox i;
+	//struct widget_checkbox i;
 	
 	struct window * parent;
 	HWND hwnd;
@@ -395,7 +382,7 @@ struct widget_checkbox * widget_create_checkbox(const char * text)
 
 
 struct widget_radio_win32 {
-	struct widget_radio i;
+	//struct widget_radio i;
 	
 	struct window * parent;
 	HWND hwnd;
@@ -550,7 +537,7 @@ struct widget_radio * widget_create_radio(const char * text)
 
 
 struct widget_textbox_win32 {
-	struct widget_textbox i;
+	//struct widget_textbox i;
 	
 	struct window * parent;
 	HWND hwnd;
@@ -725,7 +712,7 @@ struct widget_canvas_win32;
 
 
 struct widget_viewport_win32 {
-	struct widget_viewport i;
+	//struct widget_viewport i;
 	
 	struct window * parent;
 	HWND hwnd;
@@ -904,7 +891,7 @@ static LRESULT CALLBACK viewport_WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam,
 #endif
 
 struct widget_listbox_win32 {
-	struct widget_listbox i;
+	//struct widget_listbox i;
 	
 	struct window * parent;
 	HWND hwnd;
@@ -1254,7 +1241,7 @@ static uintptr_t listbox_notify(NMHDR* nmhdr)
 
 
 struct widget_frame_win32 {
-	struct widget_frame i;
+	//struct widget_frame i;
 	
 	//struct window * parent;
 	HWND hwnd;
@@ -1334,20 +1321,20 @@ uintptr_t _window_notify_inner(void* notification)
 	switch (nmhdr->idFrom)
 	{
 		case CTID_NONINTERACTIVE: break;
-/*
 		case CTID_BUTTON:
 		case CTID_DEFBUTTON:
 		{
 			if (nmhdr->code==BN_CLICKED)
 			{
-				struct widget_button_win32 * this=(struct widget_button_win32*)GetWindowLongPtr(nmhdr->hwndFrom, GWLP_USERDATA);
-				if (this->onclick)
+				widget_button* obj=(widget_button*)GetWindowLongPtr(nmhdr->hwndFrom, GWLP_USERDATA);
+				if (obj->m->onclick)
 				{
-					this->onclick((struct widget_button*)this, this->userdata);
+					obj->m->onclick(obj, obj->m->userdata);
 				}
 			}
 			break;
 		}
+/*
 		case CTID_CHECK:
 		{
 			if (nmhdr->code==BN_CLICKED)
