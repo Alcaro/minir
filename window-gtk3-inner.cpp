@@ -169,7 +169,6 @@ struct widget_radio::impl {
 };
 
 static void widget_radio_onclick(GtkToggleButton* togglebutton, gpointer user_data);
-
 widget_radio::widget_radio(const char * text) : m(new impl)
 {
 	widget=gtk_radio_button_new(NULL);
@@ -257,143 +256,123 @@ widget_radio* widget_radio::set_onclick(void (*onclick)(widget_radio * subject, 
 }
 
 
-#if 0
-struct widget_textbox_gtk3 {
-	struct widget_textbox i;
-	
+
+struct widget_textbox::impl {
 	void (*onchange)(struct widget_textbox * subject, const char * text, void* userdata);
 	void* ch_userdata;
 	void (*onactivate)(struct widget_textbox * subject, const char * text, void* userdata);
 	void* ac_userdata;
 };
 
-static void textbox__free(struct widget_base * this_)
+static void widget_textbox_onchange(GtkEntry* entry, gpointer user_data);
+widget_textbox::widget_textbox() : m(new impl)
 {
-	struct widget_textbox_gtk3 * this=(struct widget_textbox_gtk3*)this_;
-	free(this);
+	widget=gtk_entry_new();
+	widthprio=3;
+	heightprio=1;
+	
+	gtk_entry_set_width_chars(GTK_ENTRY(widget), 5);
+	
+	g_signal_connect(widget, "changed", G_CALLBACK(widget_textbox_onchange), this);
+	m->onchange=NULL;
 }
 
-static void textbox_set_enabled(struct widget_textbox * this_, bool enable)
+widget_textbox::~widget_textbox()
 {
-	struct widget_textbox_gtk3 * this=(struct widget_textbox_gtk3*)this_;
-	gtk_widget_set_sensitive(GTK_WIDGET(this->i._base.widget), enable);
+	delete m;
 }
 
-static void textbox_focus(struct widget_textbox * this_)
+widget_textbox* widget_textbox::set_enabled(bool enable)
 {
-	struct widget_textbox_gtk3 * this=(struct widget_textbox_gtk3*)this_;
-	gtk_widget_grab_focus(GTK_WIDGET(this->i._base.widget));
+	gtk_widget_set_sensitive(GTK_WIDGET(widget), enable);
+	return this;
 }
 
-static void textbox_set_text(struct widget_textbox * this_, const char * text)
+widget_textbox* widget_textbox::focus()
 {
-	struct widget_textbox_gtk3 * this=(struct widget_textbox_gtk3*)this_;
-	gtk_entry_set_text(GTK_ENTRY(this->i._base.widget), text);
+	gtk_widget_grab_focus(GTK_WIDGET(widget));
+	return this;
 }
 
-static void textbox_set_length(struct widget_textbox * this_, unsigned int maxlen)
+widget_textbox* widget_textbox::set_text(const char * text)
 {
-	struct widget_textbox_gtk3 * this=(struct widget_textbox_gtk3*)this_;
-	gtk_entry_set_max_length(GTK_ENTRY(this->i._base.widget), maxlen);
+	gtk_entry_set_text(GTK_ENTRY(widget), text);
+	return this;
 }
 
-static void textbox_set_width(struct widget_textbox * this_, unsigned int xs)
+widget_textbox* widget_textbox::set_length(unsigned int maxlen)
 {
-	struct widget_textbox_gtk3 * this=(struct widget_textbox_gtk3*)this_;
-	gtk_entry_set_width_chars(GTK_ENTRY(this->i._base.widget), xs);
+	gtk_entry_set_max_length(GTK_ENTRY(widget), maxlen);
+	return this;
 }
 
-static void textbox_set_invalid(struct widget_textbox * this_, bool invalid)
+widget_textbox* widget_textbox::set_width(unsigned int xs)
 {
-	struct widget_textbox_gtk3 * this=(struct widget_textbox_gtk3*)this_;
+	gtk_entry_set_width_chars(GTK_ENTRY(widget), xs);
+	return this;
+}
+
+widget_textbox* widget_textbox::set_invalid(bool invalid)
+{
 	if (invalid)
 	{
-		GtkStyleContext* context=gtk_widget_get_style_context(GTK_WIDGET(this->i._base.widget));
+		GtkStyleContext* context=gtk_widget_get_style_context(GTK_WIDGET(widget));
 		gtk_style_context_add_provider(context, GTK_STYLE_PROVIDER(cssprovider), GTK_STYLE_PROVIDER_PRIORITY_APPLICATION);
-		gtk_widget_set_name(GTK_WIDGET(this->i._base.widget), "invalid");
-		gtk_widget_grab_focus(GTK_WIDGET(this->i._base.widget));
+		gtk_widget_set_name(GTK_WIDGET(widget), "invalid");
+		gtk_widget_grab_focus(GTK_WIDGET(widget));
 	}
 	else
 	{
-		gtk_widget_set_name(GTK_WIDGET(this->i._base.widget), "x");
+		gtk_widget_set_name(GTK_WIDGET(widget), "x");
 	}
+	return this;
 }
 
-static const char * textbox_get_text(struct widget_textbox * this_)
+const char * widget_textbox::get_text()
 {
-	struct widget_textbox_gtk3 * this=(struct widget_textbox_gtk3*)this_;
-	return gtk_entry_get_text(GTK_ENTRY(this->i._base.widget));
+	return gtk_entry_get_text(GTK_ENTRY(widget));
 }
 
-static void textbox_onchange(GtkEntry* entry, gpointer user_data)
+static void widget_textbox_onchange(GtkEntry* entry, gpointer user_data)
 {
-	struct widget_textbox_gtk3 * this=(struct widget_textbox_gtk3*)user_data;
-	gtk_widget_set_name(GTK_WIDGET(this->i._base.widget), "x");
-	if (this->onchange)
+	widget_textbox * obj=(widget_textbox*)user_data;
+	gtk_widget_set_name(GTK_WIDGET(obj->widget), "x");
+	if (obj->m->onchange)
 	{
-		this->onchange((struct widget_textbox*)this, gtk_entry_get_text(GTK_ENTRY(this->i._base.widget)), this->ch_userdata);
+		obj->m->onchange(obj, gtk_entry_get_text(GTK_ENTRY(obj->widget)), obj->m->ch_userdata);
 	}
 }
 
-static void textbox_set_onchange(struct widget_textbox * this_,
-                                 void (*onchange)(struct widget_textbox * subject, const char * text, void* userdata),
-                                 void* userdata)
+widget_textbox* widget_textbox::set_onchange(void (*onchange)(struct widget_textbox * subject, const char * text, void* userdata),
+                                             void* userdata)
 {
-	struct widget_textbox_gtk3 * this=(struct widget_textbox_gtk3*)this_;
-	
-	this->onchange=onchange;
-	this->ch_userdata=userdata;
+	m->onchange=onchange;
+	m->ch_userdata=userdata;
+	return this;
 }
 
-static void textbox_onactivate(GtkEntry* entry, gpointer user_data)
+static void widget_textbox_onactivate(GtkEntry* entry, gpointer user_data)
 {
-	struct widget_textbox_gtk3 * this=(struct widget_textbox_gtk3*)user_data;
-	this->onactivate((struct widget_textbox*)this, gtk_entry_get_text(GTK_ENTRY(this->i._base.widget)), this->ac_userdata);
+	widget_textbox * obj=(widget_textbox*)user_data;
+	obj->m->onactivate(obj, gtk_entry_get_text(GTK_ENTRY(obj->widget)), obj->m->ac_userdata);
 }
 
-static void textbox_set_onactivate(struct widget_textbox * this_,
-                                   void (*onactivate)(struct widget_textbox * subject, const char * text, void* userdata),
-                                   void* userdata)
+widget_textbox* widget_textbox::set_onactivate(void (*onactivate)(struct widget_textbox * subject, const char * text, void* userdata),
+                                               void* userdata)
 {
-	struct widget_textbox_gtk3 * this=(struct widget_textbox_gtk3*)this_;
-	
-	g_signal_connect(this->i._base.widget, "activate", G_CALLBACK(textbox_onactivate), this);
-	this->onactivate=onactivate;
-	this->ac_userdata=userdata;
-}
-
-struct widget_textbox * widget_create_textbox()
-{
-	struct widget_textbox_gtk3 * this=malloc(sizeof(struct widget_textbox_gtk3));
-	this->i._base.widget=gtk_entry_new();
-	this->i._base.widthprio=3;
-	this->i._base.heightprio=1;
-	this->i._base.free=textbox__free;
-	
-	this->i.set_enabled=textbox_set_enabled;
-	this->i.focus=textbox_focus;
-	this->i.get_text=textbox_get_text;
-	this->i.set_text=textbox_set_text;
-	this->i.set_length=textbox_set_length;
-	this->i.set_width=textbox_set_width;
-	this->i.set_invalid=textbox_set_invalid;
-	this->i.set_onchange=textbox_set_onchange;
-	this->i.set_onactivate=textbox_set_onactivate;
-	
-	gtk_entry_set_width_chars(GTK_ENTRY(this->i._base.widget), 5);
-	
-	g_signal_connect(this->i._base.widget, "changed", G_CALLBACK(textbox_onchange), this);
-	this->onchange=NULL;
-	
-	return (struct widget_textbox*)this;
+	g_signal_connect(widget, "activate", G_CALLBACK(widget_textbox_onactivate), this);
+	m->onactivate=onactivate;
+	m->ac_userdata=userdata;
+	return this;
 }
 
 
 
-struct widget_canvas_gtk3;
+class widget_canvas;
 
 
 
+#if 0
 struct widget_viewport_gtk3 {
 	struct widget_viewport i;
 	

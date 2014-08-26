@@ -322,41 +322,52 @@ public:
 widget_layout * widget_create_radio_group(bool vertical, widget_radio * leader, ...);
 
 
-/*
-struct widget_textbox {
-	struct widget_base _base;
-	void (*set_enabled)(struct widget_textbox * this, bool enable);
-	void (*focus)(struct widget_textbox * this);
+class widget_textbox : public widget_base {
+#ifdef NEED_MANUAL_LAYOUT
+	unsigned int init(struct window * parent, uintptr_t parenthandle) = 0;
+	void measure();
+	void place(void* resizeinf, unsigned int x, unsigned int y, unsigned int width, unsigned int height);
+#endif
+	
+public:
+	widget_textbox();
+	~widget_textbox();
+	
+	widget_textbox* set_enabled(bool enable);
+	widget_textbox* focus();
 	
 	//The return value is guaranteed valid until the next call to any function
 	// on this object, or the next window_run[_iter], whichever comes first.
-	const char * (*get_text)(struct widget_textbox * this);
-	void (*set_text)(struct widget_textbox * this, const char * text);
+	const char * get_text();
+	widget_textbox* set_text(const char * text);
 	//If the length is 0, it's unlimited.
-	void (*set_length)(struct widget_textbox * this, unsigned int maxlen);
+	widget_textbox* set_length(unsigned int maxlen);
 	//How many instances of the letter 'X' should fit in the textbox without scrolling. Defaults to 5.
-	void (*set_width)(struct widget_textbox * this, unsigned int xs);
+	widget_textbox* set_width(unsigned int xs);
 	
 	//Highlights the widget as containing invalid data. Can paint the background red, focus it, and various other stuff.
 	//The invalidity highlight is removed as soon as the contents are changed, but may be restored on the onchange event.
 	//Making a widget invalid and disabled simultaneously is undefined behaviour.
-	void (*set_invalid)(struct widget_textbox * this, bool invalid);
+	widget_textbox* set_invalid(bool invalid);
 	
 	//Called whenever the text changes.
 	//Note that it is not guaranteed to fire only if the text has changed; it may, for example,
 	// fire if the user selects an E and types another E on top. Or for no reason at all.
 	//Also note that 'text' is invalidated under the same conditions as get_text is.
-	void (*set_onchange)(struct widget_textbox * this,
-	                     void (*onchange)(struct widget_textbox * subject, const char * text, void * userdata),
-	                     void * userdata);
+	widget_textbox* set_onchange(void (*onchange)(struct widget_textbox * subject, const char * text, void * userdata),
+	                             void * userdata);
 	//Called if the user hits Enter while this widget is focused. [TODO: Doesn't that activate the default button instead?]
-	void (*set_onactivate)(struct widget_textbox * this,
-	                       void (*onactivate)(struct widget_textbox * subject, const char * text, void * userdata),
-	                       void * userdata);
+	widget_textbox* set_onactivate(void (*onactivate)(struct widget_textbox * subject, const char * text, void * userdata),
+	                               void * userdata);
+	
+public:
+	struct impl;
+	impl * m;
 };
-struct widget_textbox * widget_create_textbox();
+#define widget_create_textbox() (new widget_textbox())
 
 
+/*
 //A canvas is a simple image. It's easy to work with, but performance is poor and it can't vsync, so it shouldn't be used for video.
 struct widget_canvas {
 	struct widget_base _base;
