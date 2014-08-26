@@ -2,100 +2,122 @@
 #include <stdlib.h>
 #include <stdarg.h>
 #include <string.h>
+#undef this
 
 #ifdef NEED_MANUAL_LAYOUT
 //This is in practice only used on Windows, but it's theoretically usable on other operating systems too. Maybe I'll need it on OSX.
-struct widget_padding_impl {
-	struct widget_padding i;
-};
-
-static unsigned int padding__init(struct widget_base * this_, struct window * parent, uintptr_t parenthandle) { return 0; }
-static void padding__measure(struct widget_base * this_) {}
-static void padding__place(struct widget_base * this_, void* resizeinf, unsigned int x, unsigned int y, unsigned int width, unsigned int height) {}
-static void padding__free(struct widget_base * this_) { free(this_); }
-
-struct widget_padding * widget_create_padding_horz()
+widget_padding::widget_padding(bool vertical)
 {
-	struct widget_padding_impl * this=malloc(sizeof(struct widget_padding_impl));
-	this->i._base.init=padding__init;
-	this->i._base.measure=padding__measure;
-	this->i._base.place=padding__place;
-	this->i._base.free=padding__free;
-	
-	this->i._base.width=0;
-	this->i._base.height=0;
-	this->i._base.widthprio=2;
-	this->i._base.heightprio=0;
-	
-	return (struct widget_padding*)this;
+	widthprio=(vertical ? 0 : 2);
+	heightprio=(vertical ? 2 : 0);
 }
 
-struct widget_padding * widget_create_padding_vert()
-{
-	struct widget_padding_impl * this=malloc(sizeof(struct widget_padding_impl));
-	this->i._base.init=padding__init;
-	this->i._base.measure=padding__measure;
-	this->i._base.place=padding__place;
-	this->i._base.free=padding__free;
-	
-	this->i._base.width=0;
-	this->i._base.height=0;
-	this->i._base.widthprio=0;
-	this->i._base.heightprio=2;
-	
-	return (struct widget_padding*)this;
-}
+widget_padding::~widget_padding() {}
 
 
 
-struct widget_layout_impl {
-	struct widget_layout i;
-	
+struct widget_layout::impl {
 	unsigned int numchildren;
 	bool uniform[2];
 	//char padding[2];
 	
 	unsigned int totsize[2];
 	
-	struct widget_base * * children;
+	widget_base* * children;
 	unsigned int * startpos[2];
 	unsigned int * extent[2];
 };
 
-static unsigned int grid__init(struct widget_base * this_, struct window * parent, uintptr_t parenthandle)
+void widget_layout::construct(unsigned int numchildren, widget_base* * children,
+                              unsigned int totwidth,  unsigned int * widths,  bool uniformwidths,
+                              unsigned int totheight, unsigned int * heights, bool uniformheights)
 {
-	struct widget_layout_impl * this=(struct widget_layout_impl*)this_;
-	unsigned int ret=0;
-	for (unsigned int i=0;i<this->numchildren;i++)
+	m=new impl;
+	
+	m->numchildren=numchildren;
+	m->uniform[0]=uniformwidths;
+	m->uniform[1]=uniformheights;
+	m->totsize[0]=totwidth;
+	m->totsize[1]=totheight;
+	
+	m->children=malloc(sizeof(struct widget_base*)*numchildren);
+	memcpy(m->children, children, sizeof(struct widget_base*)*numchildren);
+	
+	for (unsigned int dir=0;dir<2;dir++)
 	{
-		ret+=this->children[i]->init(this->children[i], parent, parenthandle);
+		m->extent[dir]=malloc(sizeof(unsigned int)*numchildren);
+		unsigned int * sizes=(dir==0 ? widths : heights);
+		if (sizes)
+		{
+			memcpy(m->extent[dir], sizes, sizeof(unsigned int)*numchildren);
+		}
+		else
+		{
+			for (unsigned int i=0;i<numchildren;i++) m->extent[dir][i]=1;
+		}
+	}
+	
+	m->startpos[0]=malloc(sizeof(unsigned int)*numchildren);
+	m->startpos[1]=malloc(sizeof(unsigned int)*numchildren);
+	bool posused[totheight*totwidth];
+	memset(posused, 0, sizeof(posused));
+	unsigned int firstempty=0;
+	for (unsigned int i=0;i<numchildren;i++)
+	{
+		while (posused[firstempty]) firstempty++;
+		m->startpos[0][i]=firstempty%m->totsize[0];
+		m->startpos[1][i]=firstempty/m->totsize[0];
+		for (unsigned int x=0;x<m->extent[0][i];x++)
+		for (unsigned int y=0;y<m->extent[1][i];y++)
+		{
+			posused[firstempty + y*m->totsize[0] + x]=true;
+		}
+	}
+}
+
+widget_layout::~widget_layout()
+{
+	free(m->children);
+	free(m->extent[0]);
+	free(m->extent[1]);
+	free(m->startpos[0]);
+	free(m->startpos[1]);
+	delete m;
+}
+
+unsigned int widget_layout::init(struct window * parent, uintptr_t parenthandle)
+{
+	unsigned int ret=0;
+	for (unsigned int i=0;i<m->numchildren;i++)
+	{
+		ret+=m->children[i]->init(parent, parenthandle);
 	}
 	return ret;
 }
 
-static void grid_calc_size(struct widget_layout_impl * this, unsigned int * widths, unsigned int * heights)
+static void widget_layout_calc_size(widget_layout* obj, unsigned int * widths, unsigned int * heights)
 {
 	for (unsigned int dir=0;dir<2;dir++)
 	{
 		unsigned int * sizes=(dir==0 ? widths : heights);
-		if (this->uniform[dir])
+		if (obj->m->uniform[dir])
 		{
 			unsigned int maxsize=0;
-			for (unsigned int i=0;i<this->numchildren;i++)
+			for (unsigned int i=0;i<obj->m->numchildren;i++)
 			{
-				unsigned int thissizepx=(dir==0 ? this->children[i]->width : this->children[i]->height);
-				unsigned int thissize=((thissizepx+this->extent[dir][i]-1)/this->extent[dir][i]);
+				unsigned int thissizepx=(dir==0 ? obj->m->children[i]->width : obj->m->children[i]->height);
+				unsigned int thissize=((thissizepx+obj->m->extent[dir][i]-1)/obj->m->extent[dir][i]);
 				if (thissize>maxsize) maxsize=thissize;
 			}
-			for (unsigned int i=0;i<this->totsize[dir];i++) sizes[i]=maxsize;
+			for (unsigned int i=0;i<obj->m->totsize[dir];i++) sizes[i]=maxsize;
 		}
 		else
 		{
-			memset(sizes, 0, sizeof(unsigned int)*this->totsize[dir]);
-			for (unsigned int i=0;i<this->numchildren;i++)
+			memset(sizes, 0, sizeof(unsigned int)*obj->m->totsize[dir]);
+			for (unsigned int i=0;i<obj->m->numchildren;i++)
 			{
-				unsigned int thissize=(dir==0 ? this->children[i]->width : this->children[i]->height);
-				if (this->extent[dir][i]==1 && thissize > sizes[this->startpos[dir][i]]) sizes[this->startpos[dir][i]]=thissize;
+				unsigned int thissize=(dir==0 ? obj->m->children[i]->width : obj->m->children[i]->height);
+				if (obj->m->extent[dir][i]==1 && thissize > sizes[obj->m->startpos[dir][i]]) sizes[obj->m->startpos[dir][i]]=thissize;
 			}
 			//TODO: This does not grant the desired size to elements covering more than one tile.
 			//GTK+ does something highly weird, so it'll need to be tested everywhere anyways. I can do whatever I want.
@@ -103,68 +125,65 @@ static void grid_calc_size(struct widget_layout_impl * this, unsigned int * widt
 	}
 }
 
-static void grid__measure(struct widget_base * this_)
+void widget_layout::measure()
 {
-	struct widget_layout_impl * this=(struct widget_layout_impl*)this_;
-	for (unsigned int i=0;i<this->numchildren;i++)
+	for (unsigned int i=0;i<m->numchildren;i++)
 	{
-		this->children[i]->measure(this->children[i]);
+		m->children[i]->measure();
 	}
-	unsigned int cellwidths[this->totsize[0]];
-	unsigned int cellheights[this->totsize[1]];
-	grid_calc_size(this, cellwidths, cellheights);
+	unsigned int cellwidths[m->totsize[0]];
+	unsigned int cellheights[m->totsize[1]];
+	widget_layout_calc_size(this, cellwidths, cellheights);
 	unsigned int width=0;
-	for (unsigned int i=0;i<this->totsize[0];i++) width+=cellwidths[i];
-	this->i._base.width=width;
+	for (unsigned int i=0;i<m->totsize[0];i++) width+=cellwidths[i];
+	this->width=width;
 	unsigned int height=0;
-	for (unsigned int i=0;i<this->totsize[1];i++) height+=cellheights[i];
-	this->i._base.height=height;
+	for (unsigned int i=0;i<m->totsize[1];i++) height+=cellheights[i];
+	this->height=height;
 	
-	this->i._base.widthprio=0;
-	this->i._base.heightprio=0;
-	for (unsigned int i=0;i<this->numchildren;i++)
+	widthprio=0;
+	heightprio=0;
+	for (unsigned int i=0;i<m->numchildren;i++)
 	{
-		if (this->children[i]->widthprio  > this->i._base.widthprio)  this->i._base.widthprio =this->children[i]->widthprio;
-		if (this->children[i]->heightprio > this->i._base.heightprio) this->i._base.heightprio=this->children[i]->heightprio;
+		if (m->children[i]->widthprio  > this->widthprio)  this->widthprio =m->children[i]->widthprio;
+		if (m->children[i]->heightprio > this->heightprio) this->heightprio=m->children[i]->heightprio;
 	}
 }
 
-static void grid__place(struct widget_base * this_, void* resizeinf, unsigned int x, unsigned int y, unsigned int width, unsigned int height)
+void widget_layout::place(void* resizeinf, unsigned int x, unsigned int y, unsigned int width, unsigned int height)
 {
-	struct widget_layout_impl * this=(struct widget_layout_impl*)this_;
-	
-	unsigned int cellwidths[this->totsize[0]];
-	unsigned int cellheights[this->totsize[1]];
-	grid_calc_size(this, cellwidths, cellheights);
+	unsigned int cellwidths[m->totsize[0]];
+	unsigned int cellheights[m->totsize[1]];
+	widget_layout_calc_size(this, cellwidths, cellheights);
 	
 	for (int dir=0;dir<2;dir++)
 	{
-		uint32_t expand[this->totsize[dir]];
-		memset(expand, 0, sizeof(uint32_t)*this->totsize[dir]);
+		uint32_t expand[m->totsize[dir]];
+		memset(expand, 0, sizeof(uint32_t)*m->totsize[dir]);
 		unsigned int extrasize_pix;
-		if (dir==0) extrasize_pix = width  - this->i._base.width;
-		else        extrasize_pix = height - this->i._base.height;
+		if (dir==0) extrasize_pix = width  - this->width;
+		else        extrasize_pix = height - this->height;
 		unsigned int extrasize_frac=0;
 		unsigned int extrasize_split=0;
 		unsigned int extrasize_max=0;
-		for (unsigned int i=0;i<this->numchildren;i++)
+		for (unsigned int i=0;i<m->numchildren;i++)
 		{
-			if ((dir==0 && this->children[i]->widthprio ==this->i._base.widthprio) ||
-			    (dir==1 && this->children[i]->heightprio==this->i._base.heightprio))
+			if ((dir==0 && m->children[i]->widthprio ==this->widthprio) ||
+			    (dir==1 && m->children[i]->heightprio==this->heightprio))
 			{
-				for (unsigned int j=0;j<this->extent[dir][i];j++)
+				for (unsigned int j=0;j<m->extent[dir][i];j++)
 				{
-					expand[this->startpos[dir][i]+j]++;
-					if (expand[this->startpos[dir][i]+j] == extrasize_max) extrasize_split++;
-					if (expand[this->startpos[dir][i]+j] >  extrasize_max)
+					expand[m->startpos[dir][i]+j]++;
+					if (expand[m->startpos[dir][i]+j] == extrasize_max) extrasize_split++;
+					if (expand[m->startpos[dir][i]+j] >  extrasize_max)
 					{
 						extrasize_split=1;
-						extrasize_max=expand[this->startpos[dir][i]+j];
+						extrasize_max=expand[m->startpos[dir][i]+j];
 					}
 				}
 			}
 		}
-		for (unsigned int i=0;i<this->totsize[dir];i++)
+		for (unsigned int i=0;i<m->totsize[dir];i++)
 		{
 			if (expand[i]==extrasize_max)
 			{
@@ -176,88 +195,24 @@ static void grid__place(struct widget_base * this_, void* resizeinf, unsigned in
 		}
 	}
 	
-	unsigned int cellstartx[this->totsize[0]+1];
+	unsigned int cellstartx[m->totsize[0]+1];
 	cellstartx[0]=0;
-	for (unsigned int i=0;i<this->totsize[0];i++) cellstartx[i+1]=cellstartx[i]+cellwidths[i];
-	unsigned int cellstarty[this->totsize[1]+1];
+	for (unsigned int i=0;i<m->totsize[0];i++) cellstartx[i+1]=cellstartx[i]+cellwidths[i];
+	unsigned int cellstarty[m->totsize[1]+1];
 	cellstarty[0]=0;
-	for (unsigned int i=0;i<this->totsize[1];i++) cellstarty[i+1]=cellstarty[i]+cellheights[i];
+	for (unsigned int i=0;i<m->totsize[1];i++) cellstarty[i+1]=cellstarty[i]+cellheights[i];
 	
-	for (unsigned int i=0;i<this->numchildren;i++)
+	for (unsigned int i=0;i<m->numchildren;i++)
 	{
 //printf("pl %u at %u,%u %u,%u\n",i,
-//x+cellstartx[this->startpos[0][i]], y+cellstarty[this->startpos[1][i]],
-//cellstartx[this->startpos[0][i]+this->extent[0][i]]-cellstartx[this->startpos[0][i]],
-//cellstarty[this->startpos[1][i]+this->extent[1][i]]-cellstarty[this->startpos[1][i]]);
-		this->children[i]->place(this->children[i], resizeinf,
-		                         x+cellstartx[this->startpos[0][i]], y+cellstarty[this->startpos[1][i]],
-		                         cellstartx[this->startpos[0][i]+this->extent[0][i]]-cellstartx[this->startpos[0][i]],
-		                         cellstarty[this->startpos[1][i]+this->extent[1][i]]-cellstarty[this->startpos[1][i]]);
+//x+cellstartx[m->startpos[0][i]], y+cellstarty[m->startpos[1][i]],
+//cellstartx[m->startpos[0][i]+m->extent[0][i]]-cellstartx[m->startpos[0][i]],
+//cellstarty[m->startpos[1][i]+m->extent[1][i]]-cellstarty[m->startpos[1][i]]);
+		m->children[i]->place(resizeinf,
+		                         x+cellstartx[m->startpos[0][i]], y+cellstarty[m->startpos[1][i]],
+		                         cellstartx[m->startpos[0][i]+m->extent[0][i]]-cellstartx[m->startpos[0][i]],
+		                         cellstarty[m->startpos[1][i]+m->extent[1][i]]-cellstarty[m->startpos[1][i]]);
 	}
-}
-
-static void grid__free(struct widget_base * this_)
-{
-	struct widget_layout_impl * this=(struct widget_layout_impl*)this_;
-	free(this->children);
-	free(this->extent[0]);
-	free(this->extent[1]);
-	free(this->startpos[0]);
-	free(this->startpos[1]);
-	free(this);
-}
-
-struct widget_layout * widget_create_layout_l(unsigned int numchildren, void * * children,
-                                              unsigned int totwidth,  unsigned int * widths,  bool uniformwidths,
-                                              unsigned int totheight, unsigned int * heights, bool uniformheights)
-{
-	struct widget_layout_impl * this=malloc(sizeof(struct widget_layout_impl));
-	this->i._base.init=grid__init;
-	this->i._base.measure=grid__measure;
-	this->i._base.place=grid__place;
-	this->i._base.free=grid__free;
-	
-	this->numchildren=numchildren;
-	this->uniform[0]=uniformwidths;
-	this->uniform[1]=uniformheights;
-	this->totsize[0]=totwidth;
-	this->totsize[1]=totheight;
-	
-	this->children=malloc(sizeof(struct widget_base*)*numchildren);
-	memcpy(this->children, children, sizeof(struct widget_base*)*numchildren);
-	
-	for (unsigned int dir=0;dir<2;dir++)
-	{
-		this->extent[dir]=malloc(sizeof(unsigned int)*numchildren);
-		unsigned int * sizes=(dir==0 ? widths : heights);
-		if (sizes)
-		{
-			memcpy(this->extent[dir], sizes, sizeof(unsigned int)*numchildren);
-		}
-		else
-		{
-			for (unsigned int i=0;i<numchildren;i++) this->extent[dir][i]=1;
-		}
-	}
-	
-	this->startpos[0]=malloc(sizeof(unsigned int)*numchildren);
-	this->startpos[1]=malloc(sizeof(unsigned int)*numchildren);
-	bool posused[totheight*totwidth];
-	memset(posused, 0, sizeof(posused));
-	unsigned int firstempty=0;
-	for (unsigned int i=0;i<numchildren;i++)
-	{
-		while (posused[firstempty]) firstempty++;
-		this->startpos[0][i]=firstempty%this->totsize[0];
-		this->startpos[1][i]=firstempty/this->totsize[0];
-		for (unsigned int x=0;x<this->extent[0][i];x++)
-		for (unsigned int y=0;y<this->extent[1][i];y++)
-		{
-			posused[firstempty + y*this->totsize[0] + x]=true;
-		}
-	}
-	
-	return (struct widget_layout*)this;
 }
 #endif
 
@@ -442,7 +397,7 @@ widget_listbox::widget_listbox(const char * firstcol, ...)
 	construct(numcols, columns);
 }
 
-widget_layout::widget_layout(bool vertical, bool uniform, widget_base * firstchild, ...)
+widget_layout::widget_layout(bool vertical, bool uniform, widget_base* firstchild, ...)
 {
 	unsigned int numchildren=1;
 	
@@ -464,7 +419,7 @@ widget_layout::widget_layout(bool vertical, bool uniform, widget_base * firstchi
 }
 
 widget_layout::widget_layout(unsigned int totwidth,   unsigned int totheight,   bool uniformwidths, bool uniformheights,
-                             unsigned int firstwidth, unsigned int firstheight, widget_base * firstchild, ...)
+                             unsigned int firstwidth, unsigned int firstheight, widget_base* firstchild, ...)
 {
 	unsigned int numchildren=1;
 	unsigned int boxesleft=totwidth*totheight;
@@ -499,8 +454,7 @@ widget_layout::widget_layout(unsigned int totwidth,   unsigned int totheight,   
 	construct(numchildren, children,  totwidth, widths, uniformwidths,  totheight, heights, uniformheights);
 }
 
-widget_layout_grid::widget_layout_grid(unsigned int width, unsigned int height, bool uniformsizes,
-                                       widget_base * firstchild, ...)
+widget_layout_grid::widget_layout_grid(unsigned int width, unsigned int height, bool uniformsizes, widget_base* firstchild, ...)
 {
 	va_list args;
 	widget_base* children[width*height];
