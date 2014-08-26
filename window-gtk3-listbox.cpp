@@ -6,10 +6,10 @@
 //return tv.tv_sec*(uint64_t)1000000000 + tv.tv_nsec;}
 #include "minir.h"
 #ifdef WINDOW_GTK3
-#if 0
 #include <gtk/gtk.h>
 #include <stdlib.h>
 #include <string.h>
+#undef this
 
 #define MAX_ROWS 100000 // GtkTreeView seems to be at least O(n log n) for creating a long list. Let's just add a hard cap.
 
@@ -240,9 +240,7 @@ static void virtual_list_register_type()
 
 
 
-struct widget_listbox_gtk3 {
-	struct widget_listbox i;
-	
+struct widget_listbox::impl {
 	GtkTreeView* tree;
 	gint borderheight;
 	gint cellheight;
@@ -259,74 +257,110 @@ struct widget_listbox_gtk3 {
 	void* activate_userdata;
 };
 
-static void listbox_refresh_row(struct widget_listbox_gtk3 * this, size_t row)
+void widget_listbox::construct(unsigned int numcolumns, const char * * columns)
+{
+	m=new impl;
+	
+	widget=gtk_scrolled_window_new(NULL, NULL);
+	widthprio=3;
+	heightprio=3;
+	
+	gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(widget), GTK_POLICY_NEVER, GTK_POLICY_AUTOMATIC);
+	m->tree=GTK_TREE_VIEW(gtk_tree_view_new());
+	gtk_container_add(GTK_CONTAINER(widget), GTK_WIDGET(m->tree));
+	
+	virtual_list_register_type();
+	m->vlist=(VirtualList*)g_object_new(M_VIRTUAL_TYPE, NULL);
+	m->vlist->subject=this;
+	
+	m->vlist->columns=numcolumns;
+	m->vlist->rows=0;
+	m->vlist->checkboxes=false;
+	
+	GtkCellRenderer* render=gtk_cell_renderer_text_new();
+	g_object_get(render, "height", &m->cellheight, NULL);
+	for (unsigned int i=0;i<numcolumns;i++)
+	{
+		gtk_tree_view_insert_column_with_attributes(m->tree, -1, columns[i], render, "text", i, NULL);
+		GtkTreeViewColumn* col=gtk_tree_view_get_column(m->tree, i);
+		gtk_tree_view_column_set_expand(col, true);
+		gtk_tree_view_column_set_sizing(col, GTK_TREE_VIEW_COLUMN_FIXED);
+	}
+	
+	//gtk_widget_set_hexpand(this->i._base.widget, true);
+	//gtk_widget_set_vexpand(this->i._base.widget, true);
+	gtk_tree_view_set_fixed_height_mode(m->tree, true);
+	
+	gtk_widget_show_all(GTK_WIDGET(m->tree));
+	GtkRequisition size;
+	gtk_widget_get_preferred_size(GTK_WIDGET(m->tree), NULL, &size);
+	m->borderheight=size.height;
+}
+
+widget_listbox::~widget_listbox()
+{
+	delete m;
+}
+
+static void widget_listbox_refresh_row(widget_listbox* obj, size_t row)
 {
 	GtkTreeIter iter;
-	gtk_tree_model_iter_nth_child(GTK_TREE_MODEL(this->vlist), &iter, NULL, row);
+	gtk_tree_model_iter_nth_child(GTK_TREE_MODEL(obj->m->vlist), &iter, NULL, row);
 	GtkTreePath* path=gtk_tree_path_new_from_indices(row, -1);
-	gtk_tree_model_row_changed(GTK_TREE_MODEL(this->vlist), path, &iter);
+	gtk_tree_model_row_changed(GTK_TREE_MODEL(obj->m->vlist), path, &iter);
 	gtk_tree_path_free(path);
 }
 
-static void listbox__free(struct widget_base * this_)
+widget_listbox* widget_listbox::set_enabled(bool enable)
 {
-	struct widget_listbox_gtk3 * this=(struct widget_listbox_gtk3*)this_;
-	free(this);
+	gtk_widget_set_sensitive(GTK_WIDGET(m->tree), enable);
+	return this;
 }
 
-static void listbox_set_enabled(struct widget_listbox * this_, bool enable)
-{
-	struct widget_listbox_gtk3 * this=(struct widget_listbox_gtk3*)this_;
-	gtk_widget_set_sensitive(GTK_WIDGET(this->tree), enable);
-}
-
-static void listbox_set_contents(struct widget_listbox * this_,
+widget_listbox* widget_listbox::set_contents(
                                  const char * (*get_cell)(struct widget_listbox * subject, size_t row, int column, void * userdata),
                                  size_t (*search)(struct widget_listbox * subject,
                                                   const char * prefix, size_t start, bool up, void * userdata),
                                  void * userdata)
 {
-	struct widget_listbox_gtk3 * this=(struct widget_listbox_gtk3*)this_;
-	
 	//we ignore the search function, there is no valid way for gtk+ to use it
-	this->vlist->get_cell=get_cell;
-	this->vlist->get_userdata=userdata;
+	m->vlist->get_cell=get_cell;
+	m->vlist->get_userdata=userdata;
+	return this;
 }
 
-static void listbox_set_num_rows(struct widget_listbox * this_, size_t rows)
+widget_listbox* widget_listbox::set_num_rows(size_t rows)
 {
-	struct widget_listbox_gtk3 * this=(struct widget_listbox_gtk3*)this_;
-	
 	if (rows > MAX_ROWS) rows=MAX_ROWS+1;
 	
-	GtkAdjustment* adj=gtk_scrollable_get_vadjustment(GTK_SCROLLABLE(this->tree));
-	double scrollfrac=gtk_adjustment_get_value(adj) / this->vlist->rows;
+	GtkAdjustment* adj=gtk_scrollable_get_vadjustment(GTK_SCROLLABLE(m->tree));
+	double scrollfrac=gtk_adjustment_get_value(adj) / m->vlist->rows;
 	
 	//this is piss slow for some reason I can't figure out
-	gtk_tree_view_set_model(this->tree, GTK_TREE_MODEL(NULL));
-	this->vlist->rows=rows;
-	gtk_tree_view_set_model(this->tree, GTK_TREE_MODEL(this->vlist));
+	gtk_tree_view_set_model(m->tree, GTK_TREE_MODEL(NULL));
+	m->vlist->rows=rows;
+	gtk_tree_view_set_model(m->tree, GTK_TREE_MODEL(m->vlist));
 	
 	if (scrollfrac==scrollfrac)
 	{
-		gtk_adjustment_set_upper(adj, scrollfrac * this->vlist->rows + gtk_adjustment_get_page_size(adj));
+		gtk_adjustment_set_upper(adj, scrollfrac * m->vlist->rows + gtk_adjustment_get_page_size(adj));
 		gtk_adjustment_changed(adj);
-		gtk_adjustment_set_value(adj, scrollfrac * this->vlist->rows);
+		gtk_adjustment_set_value(adj, scrollfrac * m->vlist->rows);
 		gtk_adjustment_value_changed(adj);//shouldn't it do this by itself?
 	}
+	return this;
 }
 
-static void listbox_refresh(struct widget_listbox * this_, size_t row)
+widget_listbox* widget_listbox::refresh(size_t row)
 {
-	struct widget_listbox_gtk3 * this=(struct widget_listbox_gtk3*)this_;
-	if (row==(size_t)-1) gtk_widget_queue_draw(GTK_WIDGET(this->tree));
-	else listbox_refresh_row(this, row);
+	if (row==(size_t)-1) gtk_widget_queue_draw(GTK_WIDGET(m->tree));
+	else widget_listbox_refresh_row(this, row);
+	return this;
 }
 
-static size_t listbox_get_active_row(struct widget_listbox * this_)
+size_t widget_listbox::get_active_row()
 {
-	struct widget_listbox_gtk3 * this=(struct widget_listbox_gtk3*)this_;
-	GList* list=gtk_tree_selection_get_selected_rows(gtk_tree_view_get_selection(this->tree), NULL);
+	GList* list=gtk_tree_selection_get_selected_rows(gtk_tree_view_get_selection(m->tree), NULL);
 	size_t ret;
 	if (list) ret=gtk_tree_path_get_indices((GtkTreePath*)list->data)[0];
 	else ret=(size_t)-1;
@@ -337,63 +371,58 @@ static size_t listbox_get_active_row(struct widget_listbox * this_)
 
 static void listbox_on_focus_change(GtkTreeView* tree_view, gpointer user_data)
 {
-	struct widget_listbox_gtk3 * this=(struct widget_listbox_gtk3*)user_data;
-	if (this->onfocus)
-	{
-		GtkTreePath* path;
-		gtk_tree_view_get_cursor(this->tree, &path, NULL);
-		size_t item=(size_t)-1;
-		if (path) item=gtk_tree_path_get_indices(path)[0];
-		if (item==MAX_ROWS) item=(size_t)-1;
-		this->onfocus((struct widget_listbox*)this, item, this->focus_userdata);
-		if (path) gtk_tree_path_free(path);
-	}
+	struct widget_listbox * obj=(widget_listbox*)user_data;
+	GtkTreePath* path;
+	gtk_tree_view_get_cursor(obj->m->tree, &path, NULL);
+	size_t item=(size_t)-1;
+	if (path) item=gtk_tree_path_get_indices(path)[0];
+	if (item==MAX_ROWS) item=(size_t)-1;
+	obj->m->onfocus(obj, item, obj->m->focus_userdata);
+	if (path) gtk_tree_path_free(path);
 }
 
-static void listbox_set_on_focus_change(struct widget_listbox * this_,
+widget_listbox* widget_listbox::set_on_focus_change(
                                         void (*onchange)(struct widget_listbox * subject, size_t row, void * userdata),
                                         void* userdata)
 {
-	struct widget_listbox_gtk3 * this=(struct widget_listbox_gtk3*)this_;
-	this->onfocus=onchange;
-	this->focus_userdata=userdata;
+	m->onfocus=onchange;
+	m->focus_userdata=userdata;
+	g_signal_connect(m->tree, "cursor-changed", G_CALLBACK(listbox_on_focus_change), this);
+	return this;
 }
 
 static void listbox_onactivate(GtkTreeView* tree_view, GtkTreePath* path, GtkTreeViewColumn* column, gpointer user_data)
 {
-	struct widget_listbox_gtk3 * this=(struct widget_listbox_gtk3*)user_data;
-	if (this->onactivate)
+	widget_listbox * obj=(widget_listbox*)user_data;
+	int item=gtk_tree_path_get_indices(path)[0];
+	if (item!=MAX_ROWS)
 	{
-		int item=gtk_tree_path_get_indices(path)[0];
-		if (item!=MAX_ROWS)
-		{
-			this->onactivate((struct widget_listbox*)this, item, this->activate_userdata);
-		}
+		obj->m->onactivate(obj, item, obj->m->activate_userdata);
 	}
 }
 
-static void listbox_set_onactivate(struct widget_listbox * this_,
+widget_listbox* widget_listbox::set_onactivate(
                                    void (*onactivate)(struct widget_listbox * subject, size_t row, void * userdata),
                                    void* userdata)
 {
-	struct widget_listbox_gtk3 * this=(struct widget_listbox_gtk3*)this_;
-	this->onactivate=onactivate;
-	this->activate_userdata=userdata;
+	m->onactivate=onactivate;
+	m->activate_userdata=userdata;
+	g_signal_connect(m->tree, "row-activated", G_CALLBACK(listbox_onactivate), this);
+	return this;
 }
 
-static void listbox_set_size(struct widget_listbox * this_, unsigned int height, const unsigned int * widths, int expand)
+widget_listbox* widget_listbox::set_size(unsigned int height, const unsigned int * widths, int expand)
 {
-	struct widget_listbox_gtk3 * this=(struct widget_listbox_gtk3*)this_;
 	if (widths)
 	{
-		PangoLayout* layout=pango_layout_new(gtk_widget_get_pango_context(GTK_WIDGET(this->tree)));
-		for (unsigned int i=0;i<this->vlist->columns;i++)
+		PangoLayout* layout=pango_layout_new(gtk_widget_get_pango_context(GTK_WIDGET(m->tree)));
+		for (unsigned int i=0;i<m->vlist->columns;i++)
 		{
 			const char xs[]="XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX";
 			pango_layout_set_text(layout, xs, widths[i]);
 			int width;
 			pango_layout_get_pixel_size(layout, &width, NULL);
-			GtkTreeViewColumn* col=gtk_tree_view_get_column(this->tree, i);
+			GtkTreeViewColumn* col=gtk_tree_view_get_column(m->tree, i);
 			//if (i==expand) width=-1;
 			gtk_tree_view_column_set_fixed_width(col, width + 10);
 		}
@@ -407,102 +436,44 @@ static void listbox_set_size(struct widget_listbox * this_, unsigned int height,
 	//TODO: figure out height
 	if (expand!=-1)
 	{
-		for (unsigned int i=0;i<this->vlist->columns;i++)
+		for (unsigned int i=0;i<m->vlist->columns;i++)
 		{
-			gtk_tree_view_column_set_expand(gtk_tree_view_get_column(this->tree, i), (i==(unsigned int)expand));
-			//gtk_tree_view_column_set_expand(gtk_tree_view_get_column(this->tree, i), 1);
+			gtk_tree_view_column_set_expand(gtk_tree_view_get_column(m->tree, i), (i==(unsigned int)expand));
+			//gtk_tree_view_column_set_expand(gtk_tree_view_get_column(this->m->tree, i), 1);
 		}
 	}
+	return this;
 }
 
-static void listbox_checkbox_toggle(GtkCellRendererToggle* cell_renderer, gchar* path, gpointer user_data)
+static void widget_listbox_checkbox_toggle(GtkCellRendererToggle* cell_renderer, gchar* path, gpointer user_data)
 {
-	struct widget_listbox_gtk3 * this=(struct widget_listbox_gtk3*)user_data;
+	widget_listbox * obj=(widget_listbox*)user_data;
 	unsigned int row=atoi(path);
-	if (this->ontoggle) this->ontoggle((struct widget_listbox*)this, row, this->toggle_userdata);
-	listbox_refresh_row(this, row);
+	if (obj->m->ontoggle) obj->m->ontoggle(obj, row, obj->m->toggle_userdata);
+	widget_listbox_refresh_row(obj, row);
 }
 
-static void listbox_add_checkboxes(struct widget_listbox * this_,
+widget_listbox* widget_listbox::add_checkboxes(
                                    void (*ontoggle)(struct widget_listbox * subject, size_t id, void * userdata),
                                    void * userdata)
 {
-	struct widget_listbox_gtk3 * this=(struct widget_listbox_gtk3*)this_;
-	
-	this->vlist->checkboxes=true;
+	m->vlist->checkboxes=true;
 	
 	GtkCellRenderer* render=gtk_cell_renderer_toggle_new();
-	gtk_tree_view_insert_column_with_attributes(this->tree, 0, "", render, "active", this->vlist->columns, NULL);
+	gtk_tree_view_insert_column_with_attributes(m->tree, 0, "", render, "active", m->vlist->columns, NULL);
 	
 	gint checkheight;
 	g_object_get(render, "height", &checkheight, NULL);
-	if (checkheight>this->cellheight) this->cellheight=checkheight;
+	if (checkheight>m->cellheight) m->cellheight=checkheight;
 	
-	this->ontoggle=ontoggle;
-	this->toggle_userdata=userdata;
-	g_signal_connect(render, "toggled", G_CALLBACK(listbox_checkbox_toggle), this);
+	m->ontoggle=ontoggle;
+	m->toggle_userdata=userdata;
+	g_signal_connect(render, "toggled", G_CALLBACK(widget_listbox_checkbox_toggle), this);
 	
 	GtkRequisition size;
-	gtk_widget_show_all(GTK_WIDGET(this->i._base.widget));
-	gtk_widget_get_preferred_size(GTK_WIDGET(this->tree), &size, NULL);
-	gtk_widget_set_size_request(GTK_WIDGET(this->i._base.widget), size.width, -1);
+	gtk_widget_show_all(GTK_WIDGET(widget));
+	gtk_widget_get_preferred_size(GTK_WIDGET(m->tree), &size, NULL);
+	gtk_widget_set_size_request(GTK_WIDGET(widget), size.width, -1);
+	return this;
 }
-
-struct widget_listbox * widget_create_listbox_l(unsigned int numcolumns, const char * * columns)
-{
-	struct widget_listbox_gtk3 * this=malloc(sizeof(struct widget_listbox_gtk3));
-	this->i._base.widget=gtk_scrolled_window_new(NULL, NULL);
-	this->i._base.widthprio=3;
-	this->i._base.heightprio=3;
-	this->i._base.free=listbox__free;
-	
-	gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(this->i._base.widget), GTK_POLICY_NEVER, GTK_POLICY_AUTOMATIC);
-	this->tree=GTK_TREE_VIEW(gtk_tree_view_new());
-	gtk_container_add(GTK_CONTAINER(this->i._base.widget), GTK_WIDGET(this->tree));
-	
-	this->i.set_enabled=listbox_set_enabled;
-	this->i.set_contents=listbox_set_contents;
-	this->i.set_num_rows=listbox_set_num_rows;
-	this->i.refresh=listbox_refresh;
-	this->i.get_active_row=listbox_get_active_row;
-	this->i.set_on_focus_change=listbox_set_on_focus_change;
-	this->i.set_onactivate=listbox_set_onactivate;
-	this->i.set_size=listbox_set_size;
-	this->i.add_checkboxes=listbox_add_checkboxes;
-	
-	virtual_list_register_type();
-	this->vlist=(VirtualList*)g_object_new(M_VIRTUAL_TYPE, NULL);
-	this->vlist->subject=(struct widget_listbox*)this;
-	
-	this->vlist->columns=numcolumns;
-	this->vlist->rows=0;
-	this->vlist->checkboxes=false;
-	
-	g_signal_connect(this->tree, "row-activated", G_CALLBACK(listbox_onactivate), this);
-	this->onactivate=NULL;
-	g_signal_connect(this->tree, "cursor-changed", G_CALLBACK(listbox_on_focus_change), this);
-	this->onfocus=NULL;
-	
-	GtkCellRenderer* render=gtk_cell_renderer_text_new();
-	g_object_get(render, "height", &this->cellheight, NULL);
-	for (unsigned int i=0;i<numcolumns;i++)
-	{
-		gtk_tree_view_insert_column_with_attributes(this->tree, -1, columns[i], render, "text", i, NULL);
-		GtkTreeViewColumn* col=gtk_tree_view_get_column(this->tree, i);
-		gtk_tree_view_column_set_expand(col, true);
-		gtk_tree_view_column_set_sizing(col, GTK_TREE_VIEW_COLUMN_FIXED);
-	}
-	
-	//gtk_widget_set_hexpand(this->i._base.widget, true);
-	//gtk_widget_set_vexpand(this->i._base.widget, true);
-	gtk_tree_view_set_fixed_height_mode(this->tree, true);
-	
-	gtk_widget_show_all(GTK_WIDGET(this->tree));
-	GtkRequisition size;
-	gtk_widget_get_preferred_size(GTK_WIDGET(this->tree), NULL, &size);
-	this->borderheight=size.height;
-	
-	return (struct widget_listbox*)this;
-}
-#endif
 #endif

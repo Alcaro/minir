@@ -456,13 +456,14 @@ public:
 	
 	//Column -1 is the checkboxes, if they exist; NULL for unchecked, non-NULL (though not necessarily a valid pointer) for checked.
 	//The search callback should return the row ID closest to 'start' in the given direction where the first column starts with 'str'.
-	//If 'start' itself starts with 'prefix', it should be returned. If there is none in that direction, loop around, or return (size_t)-1.
+	//If 'start' itself starts with 'prefix', it should be returned.
+	//If there is none in that direction, loop around. If still no match, return (size_t)-1.
 	//It's optional, but recommended for better performance.
 	//(GTK+ is stupid and doesn't let me use it.)
-	widget_listbox* set_contents(
-	                     const char * (*get_cell)(struct widget_listbox * subject, size_t row, int column, void * userdata),
-	                     size_t (*search)(struct widget_listbox * subject, const char * prefix, size_t start, bool up, void * userdata),
-	                     void * userdata);
+	widget_listbox* set_contents(const char * (*get_cell)(struct widget_listbox * subject, size_t row, int column, void * userdata),
+	                             size_t (*search)(struct widget_listbox * subject, const char * prefix,
+	                                              size_t start, bool up, void * userdata),
+	                             void * userdata);
 	
 	//It is allowed for the implementation to cap this to some sensible value. However, at least 16382 items must be supported.
 	//(On Windows, the limit is 100 million; more than that and it gets empty. On GTK+, the limit is 100000 because large lists are slow.)
