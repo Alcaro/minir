@@ -180,13 +180,13 @@ public:
 		void place(void* resizeinf, unsigned int x, unsigned int y, unsigned int width, unsigned int height);
 #else
 	void * widget;
-	#define WIDGET_BASE
+	#define WIDGET_BASE /* */
 #endif
 	//The priorities mean:
 	//0 - Widget has been assigned a certain size; it must get exactly that. (Canvas, viewport)
 	//1 - Widget wants a specific size; will only grudgingly accept more. (Most of them)
 	//2 - Widget has orders to consume extra space if there's any left over and nothing really wants it. (Padding)
-	//3 - Widget will look better if given extra space. (Listbox)
+	//3 - Widget will look better if given extra space. (Textbox, listbox)
 	//4 - Widget is ordered to be resizable. (Canvas, viewport)
 	unsigned char widthprio;
 	unsigned char heightprio;
@@ -242,6 +242,7 @@ public:
 	{
 		construct(numchildren, children, totwidth, widths, uniformwidths, totheight, heights, uniformheights);
 	}
+	
 	~widget_layout();
 	
 public:
@@ -412,61 +413,73 @@ public:
 	struct impl;
 	impl * m;
 };
-struct widget_canvas * widget_create_canvas(unsigned int width, unsigned int height);
 
 
-/*
 //A viewport fills the same purpose as a canvas, but the tradeoffs go the opposite way.
-struct widget_viewport {
-	struct widget_base _base;
-	//can't disable this
+class widget_viewport : public widget_base { WIDGET_BASE
+public:
+	widget_viewport(unsigned int width, unsigned int height);
+	~widget_viewport();
 	
-	void (*resize)(struct widget_viewport * this, unsigned int width, unsigned int height);
-	uintptr_t (*get_window_handle)(struct widget_viewport * this);
+	//can't disable this
+	widget_viewport* resize(unsigned int width, unsigned int height);
+	uintptr_t get_window_handle();
 	
 	//See documentation of canvas for these.
-	void (*set_hide_cursor)(struct widget_viewport * this, bool hide);
-	void (*set_support_drop)(struct widget_viewport * this,
-	                         void (*on_file_drop)(struct widget_viewport * subject, const char * const * filenames, void* userdata),
-	                         void* userdata);
+	widget_viewport* set_hide_cursor(bool hide);
+	widget_viewport* set_support_drop(void (*on_file_drop)(struct widget_viewport * subject,
+	                                                       const char * const * filenames, void* userdata),
+	                                  void* userdata);
 	
 	//Keycodes are from libretro; 0 if unknown. Scancodes are implementation defined, but if there is no libretro translation, then none is returned.
-	//void (*set_kb_callback)(struct widget_viewport * this,
-	//                        void (*keyboard_cb)(struct window * subject, unsigned int keycode, unsigned int scancode, void* userdata), void* userdata);
+	//widget_viewport* set_kb_callback)(void (*keyboard_cb)(struct window * subject, unsigned int keycode,
+	//                                                      unsigned int scancode, void* userdata),
+	//                                  void* userdata);
+	
+public:
+	struct impl;
+	impl * m;
 };
-struct widget_viewport * widget_create_viewport(unsigned int width, unsigned int height);
 
 
-struct widget_listbox {
-	struct widget_base _base;
-	void (*set_enabled)(struct widget_listbox * this, bool enable);
+class widget_listbox : public widget_base { WIDGET_BASE
+protected:
+	void construct(unsigned int numcolumns, const char * * columns);
+	widget_listbox() {}
+	
+public:
+	widget_listbox(unsigned int numcolumns, const char * * columns) { construct(numcolumns, columns); }
+	widget_listbox(const char * firstcol, ...);
+	~widget_listbox();
+	
+	widget_listbox* set_enabled(bool enable);
 	
 	//Column -1 is the checkboxes, if they exist; NULL for unchecked, non-NULL (though not necessarily a valid pointer) for checked.
 	//The search callback should return the row ID closest to 'start' in the given direction where the first column starts with 'str'.
 	//If 'start' itself starts with 'prefix', it should be returned. If there is none in that direction, loop around, or return (size_t)-1.
 	//It's optional, but recommended for better performance.
 	//(GTK+ is stupid and doesn't let me use it.)
-	void (*set_contents)(struct widget_listbox * this,
+	widget_listbox* set_contents(
 	                     const char * (*get_cell)(struct widget_listbox * subject, size_t row, int column, void * userdata),
 	                     size_t (*search)(struct widget_listbox * subject, const char * prefix, size_t start, bool up, void * userdata),
 	                     void * userdata);
 	
 	//It is allowed for the implementation to cap this to some sensible value. However, at least 16382 items must be supported.
 	//(On Windows, the limit is 100 million; more than that and it gets empty. On GTK+, the limit is 100000 because large lists are slow.)
-	void (*set_num_rows)(struct widget_listbox * this, size_t rows);
+	widget_listbox* set_num_rows(size_t rows);
 	
 	//Refreshing row (size_t)-1 refreshes all of them.
-	void (*refresh)(struct widget_listbox * this, size_t row);
+	widget_listbox* refresh(size_t row);
 	
 	//If the active row changes, set_focus_change will fire. However, onactivate will likely not.
 	//The exact conditions under which a listbox entry is activated is platform dependent, but double
 	// click and Enter are likely. It is guaranteed to be possible.
 	//Returns (size_t)-1 if no row is active.
-	size_t (*get_active_row)(struct widget_listbox * this);
-	void (*set_on_focus_change)(struct widget_listbox * this,
+	size_t get_active_row();
+	widget_listbox* set_on_focus_change(
 	                            void (*onchange)(struct widget_listbox * subject, size_t row, void * userdata),
 	                            void* userdata);
-	void (*set_onactivate)(struct widget_listbox * this,
+	widget_listbox* set_onactivate(
 	                       void (*onactivate)(struct widget_listbox * subject, size_t row, void * userdata),
 	                       void* userdata);
 	
@@ -474,19 +487,22 @@ struct widget_listbox {
 	// instances of the letter 'X' must fit in the column.
 	//It is allowed to use 0 (height) or NULL (widths) to mean "keep current or use the default".
 	//'expand' is which column should get all extra size, if the widget is given more space than it asked for. -1 for even distribution.
-	void (*set_size)(struct widget_listbox * this, unsigned int height, const unsigned int * widths, int expand);
+	widget_listbox* set_size(unsigned int height, const unsigned int * widths, int expand);
 	
 	//It is implementation defined how the checkboxes are represented. They can be prepended to the
 	// first column, on a column of their own, or something weirder. The position relative to the
 	// other columns is not guaranteed.
 	//The toggle callback does not contain the current nor former state; the user is expected to keep track of that.
-	void (*add_checkboxes)(struct widget_listbox * this,
+	widget_listbox* add_checkboxes(
 	                       void (*ontoggle)(struct widget_listbox * subject, size_t row, void * userdata),
 	                       void * userdata);
+	
+public:
+	struct impl;
+	impl * m;
 };
-struct widget_listbox * widget_create_listbox_l(unsigned int numcolumns, const char * * columns);
-struct widget_listbox * widget_create_listbox(const char * firstcol, ...);
-*/
+//struct widget_listbox * widget_create_listbox_l(unsigned int numcolumns, const char * * columns);
+//struct widget_listbox * widget_create_listbox(const char * firstcol, ...);
 
 
 //A decorative frame around a widget, to group them together. The widget can be a layout (and probably should, otherwise you're adding a box to a single widget).

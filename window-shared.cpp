@@ -398,7 +398,7 @@ widget_radio_group::widget_radio_group(bool vertical, widget_radio* leader, ...)
 }
 
 /*
-struct widget_listbox * widget_create_listbox(const char * firstcol, ...)
+widget_listbox::widget_listbox(const char * firstcol, ...)
 {
 	unsigned int numcols=1;
 	
@@ -416,7 +416,7 @@ struct widget_listbox * widget_create_listbox(const char * firstcol, ...)
 	}
 	va_end(args);
 	
-	return widget_create_listbox_l(numcols, columns);
+	construct(numcols, columns);
 }
 */
 
