@@ -137,7 +137,7 @@ struct configdata config;
 bool try_create_interface_video(const char * interface, unsigned int videowidth, unsigned int videoheight,
                                                         unsigned int videodepth, double videofps)
 {
-	vid=(config.video_thread ? video_create_thread : video_create)(interface, draw->get_window_handle(draw),
+	vid=(config.video_thread ? video_create_thread : video_create)(interface, draw->get_window_handle(),
 	                   videowidth*config.video_scale, videoheight*config.video_scale, videodepth, videofps);
 //printf("create %s = %p\n",interface,vid);
 	if (vid)
@@ -154,7 +154,7 @@ bool try_create_interface_video(const char * interface, unsigned int videowidth,
 
 bool try_create_interface_audio(const char * interface)
 {
-	aud=audio_create(interface, draw->get_window_handle(draw),
+	aud=audio_create(interface, draw->get_window_handle(),
 	                 (core ? (core->get_sample_rate(core)) : 8000), config.audio_latency);
 	if (aud)
 	{
@@ -170,7 +170,7 @@ bool try_create_interface_audio(const char * interface)
 
 bool try_create_interface_inputkb(const char * interface)
 {
-	struct inputkb * inpkb=inputkb_create(interface, draw->get_window_handle(draw));
+	struct inputkb * inpkb=inputkb_create(interface, draw->get_window_handle());
 	if (inpkb)
 	{
 		if (interface!=config.driver_inputkb)
@@ -237,8 +237,8 @@ void reset_config()
 	
 	if (core) core->get_video_settings(core, &videowidth, &videoheight, &videodepth, &videofps);
 	
-	draw->resize(draw, videowidth*config.video_scale, videoheight*config.video_scale);
-	draw->set_hide_cursor(draw, config.cursor_hide);
+	draw->resize(videowidth*config.video_scale, videoheight*config.video_scale);
+	draw->set_hide_cursor(config.cursor_hide);
 	
 	create_interfaces(videowidth, videoheight, videodepth, videofps);
 printf("Chosen drivers: %s, %s, %s\n", config.driver_video, config.driver_audio, config.driver_inputkb);
@@ -755,13 +755,13 @@ void initialize(int argc, char * argv[])
 	
 	if (core) core->get_video_settings(core, &videowidth, &videoheight, &videodepth, &videofps);
 	
-	draw=widget_create_viewport(videowidth*config.video_scale, videoheight*config.video_scale);
+	draw=new widget_viewport(videowidth*config.video_scale, videoheight*config.video_scale);
 	wndw=window_create(draw);
 	wndw->set_title(wndw, "minir");//in case the previous one didn't work
 	wndw->set_onclose(wndw, closethis, NULL);
 	set_window_title();
 	
-	draw->set_support_drop(draw, drop_handler, NULL);
+	draw->set_support_drop(drop_handler, NULL);
 	
 	const int align[]={0,2};
 	const int divider=180;
@@ -1241,14 +1241,14 @@ if(skip_frame&&!count_skipped_frame)i--;
 			//inp->clear(inp);
 			cheats->update(cheats, true);
 			wndw->statusbar_set(wndw, 1, "Paused");
-			draw->set_hide_cursor(draw, false);
+			draw->set_hide_cursor(false);
 			while (!exit_called && wndw->is_visible(wndw) &&
 			      (!romloaded || !wndw->is_active(wndw)))
 			{
 				window_run_wait();
 			}
 			if (exit_called || !wndw->is_visible(wndw)) break;
-			draw->set_hide_cursor(draw, config.cursor_hide);
+			draw->set_hide_cursor(config.cursor_hide);
 			
 			//get rid of last(), if someone is holding something on focus (they shouldn't, but let's let them anyways.)
 			inp->poll(inp);

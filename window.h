@@ -206,10 +206,12 @@ public:
 };
 
 class widget_padding_horz : public widget_padding {
+public:
 	widget_padding_horz() : widget_padding(false) {}
 };
 
 class widget_padding_vert : public widget_padding {
+public:
 	widget_padding_vert() : widget_padding(true) {}
 };
 
@@ -279,7 +281,7 @@ public:
 };
 
 
-class widget_button : private widget_base { WIDGET_BASE
+class widget_button : public widget_base { WIDGET_BASE
 public:
 	widget_button(const char * text = "");
 	~widget_button();
@@ -340,14 +342,16 @@ public:
 	struct impl;
 	impl * m;
 };
+
 //This one wraps them in a horizontal or vertical layout, and groups them.
 //It's just a convenience; you can create them and group them manually and get the same results.
-widget_layout * widget_create_radio_group(bool vertical, widget_radio * leader, ...);
-
 class widget_radio_group : public widget_layout {
 public:
 	widget_radio_group(bool vertical, widget_radio * leader, ...);
+	widget_radio_group(bool vertical, widget_radio ** leader, const char * firsttext, ...);
 };
+#define widget_radio_group_horz(...) widget_radio_group(false, __VA_ARGS__)
+#define widget_radio_group_vert(...) widget_radio_group(true, __VA_ARGS__)
 
 
 class widget_textbox : public widget_base { WIDGET_BASE
@@ -621,3 +625,16 @@ size_t _widget_listbox_search(struct widget_listbox * subject, size_t rows,
                               const char * (*get_cell)(struct widget_listbox * subject, size_t row, int column,
                                                        void * userdata),
                               const char * prefix, size_t start, bool up, void * userdata);
+
+#define widget_create_button(...) new widget_button(__VA_ARGS__)
+#define widget_create_layout_horz(...) new widget_layout_horz(__VA_ARGS__)
+#define widget_create_layout_vert(...) new widget_layout_vert(__VA_ARGS__)
+#define widget_create_layout_grid(...) new widget_layout_grid(__VA_ARGS__)
+#define widget_create_padding_horz(...) new widget_padding_horz(__VA_ARGS__)
+#define widget_create_padding_vert(...) new widget_padding_vert(__VA_ARGS__)
+#define widget_create_listbox(...) new widget_listbox(__VA_ARGS__)
+#define widget_create_textbox(...) new widget_textbox(__VA_ARGS__)
+#define widget_create_frame(...) new widget_frame(__VA_ARGS__)
+#define widget_create_radio(...) new widget_radio(__VA_ARGS__)
+#define widget_create_checkbox(...) new widget_checkbox(__VA_ARGS__)
+#define widget_create_label(...) new widget_label(__VA_ARGS__)

@@ -43,6 +43,33 @@ widget_label::widget_label(const char * text)
 
 widget_label::~widget_label() {}
 
+widget_label* widget_label::set_enabled(bool enable)
+{
+	gtk_widget_set_sensitive(GTK_WIDGET(widget), enable);
+	return this;
+}
+
+widget_label* widget_label::set_text(const char * text)
+{
+	gtk_label_set_text(GTK_LABEL(widget), text);
+	return this;
+}
+
+widget_label* widget_label::set_ellipsize(bool ellipsize)
+{
+	if (ellipsize)
+	{
+		gtk_label_set_ellipsize(GTK_LABEL(widget), PANGO_ELLIPSIZE_END);
+		gtk_label_set_max_width_chars(GTK_LABEL(widget), 1);//why does this work
+	}
+	else
+	{
+		gtk_label_set_ellipsize(GTK_LABEL(widget), PANGO_ELLIPSIZE_NONE);
+		gtk_label_set_max_width_chars(GTK_LABEL(widget), -1);
+	}
+	return this;
+}
+
 widget_label* widget_label::set_alignment(int alignment)
 {
 	gtk_misc_set_alignment(GTK_MISC(widget), ((float)alignment)/2, 0.5);
@@ -179,6 +206,7 @@ widget_radio::widget_radio(const char * text) : m(new impl)
 	heightprio=1;
 	
 	m->group=NULL;
+	m->id=0;
 }
 
 widget_radio::~widget_radio()

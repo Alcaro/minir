@@ -397,6 +397,29 @@ widget_radio_group::widget_radio_group(bool vertical, widget_radio* leader, ...)
 	construct(numitems, (widget_base**)items, vertical?1:numitems, NULL, false, vertical?numitems:1, NULL, false);
 }
 
+widget_radio_group::widget_radio_group(bool vertical, widget_radio** leader, const char * firsttext, ...)
+{
+	unsigned int numitems=1;
+	
+	va_list args;
+	va_start(args, firsttext);
+	while (va_arg(args, const char*)) numitems++;
+	va_end(args);
+	
+	widget_radio* items[numitems];
+	items[0]=widget_create_radio(firsttext);
+	va_start(args, firsttext);
+	for (unsigned int i=1;i<numitems;i++)
+	{
+		items[i]=widget_create_radio(va_arg(args, const char*));
+	}
+	va_end(args);
+	
+	items[0]->group(numitems, items);
+	
+	construct(numitems, (widget_base**)items, vertical?1:numitems, NULL, false, vertical?numitems:1, NULL, false);
+}
+
 widget_listbox::widget_listbox(const char * firstcol, ...)
 {
 	unsigned int numcols=1;
