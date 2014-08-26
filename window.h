@@ -172,8 +172,15 @@ public:
 	unsigned int width;
 	unsigned int height;
 	virtual void place(void* resizeinf, unsigned int x, unsigned int y, unsigned int width, unsigned int height) = 0;
+	
+	//this one acts roughly like Q_OBJECT
+	#define WIDGET_BASE \
+		unsigned int init(struct window * parent, uintptr_t parenthandle) = 0; \
+		void measure(); \
+		void place(void* resizeinf, unsigned int x, unsigned int y, unsigned int width, unsigned int height);
 #else
 	void * widget;
+	#define WIDGET_BASE
 #endif
 	//The priorities mean:
 	//0 - Widget has been assigned a certain size; it must get exactly that. (Canvas, viewport)
@@ -187,12 +194,27 @@ public:
 };
 
 
-class widget_layout : public widget_base {
-#ifdef NEED_MANUAL_LAYOUT
-	unsigned int init(struct window * parent, uintptr_t parenthandle) = 0;
-	void measure();
-	void place(void* resizeinf, unsigned int x, unsigned int y, unsigned int width, unsigned int height);
-#endif
+enum { horz=false, vert=true };
+class widget_padding : public widget_base { WIDGET_BASE
+public:
+	widget_padding(bool vertical);
+	~widget_padding();
+	
+public:
+	struct impl;
+	impl * m;
+};
+
+class widget_padding_horz : public widget_padding {
+	widget_padding_horz() : widget_padding(false) {}
+};
+
+class widget_padding_vert : public widget_padding {
+	widget_padding_vert() : widget_padding(true) {}
+};
+
+
+class widget_layout : public widget_base { WIDGET_BASE
 protected:
 	void construct(unsigned int numchildren, widget_base * * children,
 	              unsigned int totwidth,  unsigned int * widths,  bool uniformwidths,
@@ -236,39 +258,7 @@ public:
 };
 
 
-enum { horz=false, vert=true };
-class widget_padding : public widget_base {
-#ifdef NEED_MANUAL_LAYOUT
-	unsigned int init(struct window * parent, uintptr_t parenthandle) = 0;
-	void measure();
-	void place(void* resizeinf, unsigned int x, unsigned int y, unsigned int width, unsigned int height);
-#endif
-	
-public:
-	widget_padding(bool vertical);
-	~widget_padding();
-	
-public:
-	struct impl;
-	impl * m;
-};
-
-class widget_padding_horz : public widget_padding {
-	widget_padding_horz() : widget_padding(false) {}
-};
-
-class widget_padding_vert : public widget_padding {
-	widget_padding_vert() : widget_padding(true) {}
-};
-
-
-class widget_label : public widget_base {
-#ifdef NEED_MANUAL_LAYOUT
-	unsigned int init(struct window * parent, uintptr_t parenthandle) = 0;
-	void measure();
-	void place(void* resizeinf, unsigned int x, unsigned int y, unsigned int width, unsigned int height);
-#endif
-	
+class widget_label : public widget_base { WIDGET_BASE
 public:
 	widget_label(const char * text = "");
 	~widget_label();
@@ -288,13 +278,7 @@ public:
 };
 
 
-class widget_button : private widget_base {
-#ifdef NEED_MANUAL_LAYOUT
-	unsigned int init(struct window * parent, uintptr_t parenthandle) = 0;
-	void measure();
-	void place(void* resizeinf, unsigned int x, unsigned int y, unsigned int width, unsigned int height);
-#endif
-	
+class widget_button : private widget_base { WIDGET_BASE
 public:
 	widget_button(const char * text = "");
 	~widget_button();
@@ -309,13 +293,7 @@ public:
 };
 
 
-class widget_checkbox : public widget_base {
-#ifdef NEED_MANUAL_LAYOUT
-	unsigned int init(struct window * parent, uintptr_t parenthandle) = 0;
-	void measure();
-	void place(void* resizeinf, unsigned int x, unsigned int y, unsigned int width, unsigned int height);
-#endif
-	
+class widget_checkbox : public widget_base { WIDGET_BASE
 public:
 	widget_checkbox(const char * text = "");
 	~widget_checkbox();
@@ -332,13 +310,7 @@ public:
 };
 
 
-class widget_radio : public widget_base {
-#ifdef NEED_MANUAL_LAYOUT
-	unsigned int init(struct window * parent, uintptr_t parenthandle) = 0;
-	void measure();
-	void place(void* resizeinf, unsigned int x, unsigned int y, unsigned int width, unsigned int height);
-#endif
-	
+class widget_radio : public widget_base { WIDGET_BASE
 public:
 	widget_radio(const char * text = "");
 	~widget_radio();
@@ -377,13 +349,7 @@ public:
 };
 
 
-class widget_textbox : public widget_base {
-#ifdef NEED_MANUAL_LAYOUT
-	unsigned int init(struct window * parent, uintptr_t parenthandle) = 0;
-	void measure();
-	void place(void* resizeinf, unsigned int x, unsigned int y, unsigned int width, unsigned int height);
-#endif
-	
+class widget_textbox : public widget_base { WIDGET_BASE
 public:
 	widget_textbox();
 	~widget_textbox();
@@ -422,13 +388,7 @@ public:
 
 
 //A canvas is a simple image. It's easy to work with, but performance is poor and it can't vsync, so it shouldn't be used for video.
-class widget_canvas : public widget_base {
-#ifdef NEED_MANUAL_LAYOUT
-	unsigned int init(struct window * parent, uintptr_t parenthandle) = 0;
-	void measure();
-	void place(void* resizeinf, unsigned int x, unsigned int y, unsigned int width, unsigned int height);
-#endif
-	
+class widget_canvas : public widget_base { WIDGET_BASE
 public:
 	widget_canvas(unsigned int width, unsigned int height);
 	~widget_canvas();
@@ -530,13 +490,7 @@ struct widget_listbox * widget_create_listbox(const char * firstcol, ...);
 
 
 //A decorative frame around a widget, to group them together. The widget can be a layout (and probably should, otherwise you're adding a box to a single widget).
-class widget_frame : public widget_base {
-#ifdef NEED_MANUAL_LAYOUT
-	unsigned int init(struct window * parent, uintptr_t parenthandle) = 0;
-	void measure();
-	void place(void* resizeinf, unsigned int x, unsigned int y, unsigned int width, unsigned int height);
-#endif
-	
+class widget_frame : public widget_base { WIDGET_BASE
 public:
 	widget_frame(const char * text, widget_base* contents);
 	~widget_frame();
