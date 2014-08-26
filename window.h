@@ -323,39 +323,6 @@ widget_layout * widget_create_radio_group(bool vertical, widget_radio * leader, 
 
 
 /*
-struct widget_radio {
-	struct widget_base _base;
-	void (*set_enabled)(struct widget_radio * this, bool enable);
-	
-	void (*set_text)(struct widget_radio * this, const char * text);
-	
-	//Radio buttons must be grouped before you're allowed to use them.
-	//The one this function is called on becomes the group leader. The leader must be the first in the group.
-	//It is undefined behaviour to attempt to redefine a group.
-	//It is undefined behaviour to set the onclick handler, or set or get the state, for anything except the group leader.
-	//It is undefined behaviour to do anything with a radio button before grouping them, except put them in a window.
-	//The window may not be shown before grouping them.
-	void (*group)(struct widget_radio * this, unsigned int numitems, struct widget_radio * * group);
-	
-	//Returns which one is active. The group leader is 0.
-	unsigned int (*get_state)(struct widget_radio * this);
-	
-	//State values are the same as get_state().
-	void (*set_state)(struct widget_radio * this, unsigned int state);
-	
-	//Called whenever the state changes. It is allowed to set the state in response to this.
-	//It is undefined whether the callback can fire for the previously active state, for example due to clicking the button twice.
-	void (*set_onclick)(struct widget_radio * this,
-	                    void (*onclick)(struct widget_radio * subject, unsigned int state, void* userdata),
-	                    void* userdata);
-};
-struct widget_radio * widget_create_radio(const char * text);
-//This one automates radio button grouping.
-//It wraps them in a horizontal or vertical layout, and returns the group leader in the out parameter.
-//It's just a convenience; you can create them and group them manually and get the same results.
-struct widget_layout * widget_create_radio_group(struct widget_radio * * leader, bool vertical, const char * firsttext, ...);
-
-
 struct widget_textbox {
 	struct widget_base _base;
 	void (*set_enabled)(struct widget_textbox * this, bool enable);
@@ -493,30 +460,6 @@ struct widget_frame {
 	void (*set_text)(struct widget_frame * this, const char * text);
 };
 struct widget_frame * widget_create_frame(const char * text, void* contents);
-
-
-struct widget_layout {
-	struct widget_base _base;
-	//can't disable this widget - disable its contents instead
-};
-//The lists are terminated with a NULL. It shouldn't be empty.
-#define widget_create_layout_horz(...) widget_create_layout(false, false, __VA_ARGS__)
-#define widget_create_layout_vert(...) widget_create_layout(true, false, __VA_ARGS__)
-struct widget_layout * widget_create_layout(bool vertical, bool uniform, void * firstchild, ...);
-
-//The widgets are stored row by row. There is no NULL terminator, because the size is known from the arguments already.
-//Uniform sizes mean that every row has the same height, and every column has the same width.
-struct widget_layout * widget_create_layout_grid(unsigned int width, unsigned int height, bool uniformsizes,
-                                                 void * firstchild, ...);
-//This one allows some widgets to take up multiple boxes of the grid. They're still stored row by
-// row, except that there is no entry for slots that are already used.
-//It is undefined behaviour if a widget does not fit where it belongs, if it overlaps another widget, or if it's size 0 in either direction.
-struct widget_layout * widget_create_layout_v(unsigned int totwidth,   unsigned int totheight,   bool uniformwidths, bool uniformheights,
-                                              unsigned int firstwidth, unsigned int firstheight, void * firstchild, ...);
-//The widths/heights arrays can be NULL, which is treated as being filled with 1s.
-struct widget_layout * widget_create_layout_l(unsigned int numchildren, void * * children,
-                                              unsigned int totwidth,  unsigned int * widths,  bool uniformwidths,
-                                              unsigned int totheight, unsigned int * heights, bool uniformheights);
 */
 class widget_layout : public widget_base {
 #ifdef NEED_MANUAL_LAYOUT
