@@ -187,6 +187,55 @@ public:
 };
 
 
+class widget_layout : public widget_base {
+#ifdef NEED_MANUAL_LAYOUT
+	unsigned int init(struct window * parent, uintptr_t parenthandle) = 0;
+	void measure();
+	void place(void* resizeinf, unsigned int x, unsigned int y, unsigned int width, unsigned int height);
+#endif
+protected:
+	void construct(unsigned int numchildren, widget_base * * children,
+	              unsigned int totwidth,  unsigned int * widths,  bool uniformwidths,
+	              unsigned int totheight, unsigned int * heights, bool uniformheights);
+	widget_layout() {}
+	
+public:
+//The lists are terminated with a NULL. It shouldn't be empty.
+#define widget_layout_horz(...) widget_layout(false, false, __VA_ARGS__)
+#define widget_layout_vert(...) widget_layout(true,  false, __VA_ARGS__)
+	widget_layout(bool vertical, bool uniform, widget_base * firstchild, ...);
+	
+	//This one allows some widgets to take up multiple boxes of the grid. They're still stored row by
+	// row, except that there is no entry for slots that are already used.
+	//It is undefined behaviour if a widget does not fit where it belongs, if it overlaps another widget,
+	// or if it's size 0 in either direction.
+	widget_layout(unsigned int totwidth,   unsigned int totheight,   bool uniformwidths, bool uniformheights,
+	              unsigned int firstwidth, unsigned int firstheight, widget_base * firstchild, ...);
+	
+	//In this one, the widths/heights arrays can be NULL, which is treated as being filled with 1s.
+	//But if you want that, you should probably use the grid constructor instead. (Though it's useful for the constructors themselves.)
+	widget_layout(unsigned int numchildren, widget_base * * children,
+	              unsigned int totwidth,  unsigned int * widths,  bool uniformwidths,
+	              unsigned int totheight, unsigned int * heights, bool uniformheights)
+	{
+		construct(numchildren, children, totwidth, widths, uniformwidths, totheight, heights, uniformheights);
+	}
+	~widget_layout();
+	
+public:
+	struct impl;
+	impl * m;
+};
+
+class widget_layout_grid : public widget_layout {
+public:
+//The widgets are stored row by row. There is no NULL terminator, because the size is known from the arguments already.
+//Uniform sizes mean that every row has the same height, and every column has the same width.
+	widget_layout_grid(unsigned int width, unsigned int height, bool uniformsizes,
+	                   widget_base * firstchild, ...);
+};
+
+
 enum { horz=false, vert=true };
 class widget_padding : public widget_base {
 #ifdef NEED_MANUAL_LAYOUT
@@ -203,8 +252,14 @@ public:
 	struct impl;
 	impl * m;
 };
-#define widget_create_padding_horz() (new widget_padding(horz))
-#define widget_create_padding_vert() (new widget_padding(vert))
+
+class widget_padding_horz : public widget_padding {
+	widget_padding_horz() : widget_padding(false) {}
+};
+
+class widget_padding_vert : public widget_padding {
+	widget_padding_vert() : widget_padding(true) {}
+};
 
 
 class widget_label : public widget_base {
@@ -231,8 +286,6 @@ public:
 	struct impl;
 	impl * m;
 };
-#define widget_create_label(text) (new widget_label(text))
-//struct widget_label * widget_create_label(const char * text);
 
 
 class widget_button : private widget_base {
@@ -254,7 +307,6 @@ public:
 	struct impl;
 	impl * m;
 };
-#define widget_create_button(text) (new widget_button(text))
 
 
 class widget_checkbox : public widget_base {
@@ -278,7 +330,6 @@ public:
 	struct impl;
 	impl * m;
 };
-#define widget_create_checkbox(text) (new widget_checkbox(text))
 
 
 class widget_radio : public widget_base {
@@ -316,10 +367,14 @@ public:
 	struct impl;
 	impl * m;
 };
-#define widget_create_radio(text) (new widget_radio(text))
 //This one wraps them in a horizontal or vertical layout, and groups them.
 //It's just a convenience; you can create them and group them manually and get the same results.
 widget_layout * widget_create_radio_group(bool vertical, widget_radio * leader, ...);
+
+class widget_radio_group : public widget_layout {
+public:
+	widget_radio_group(bool vertical, widget_radio * leader, ...);
+};
 
 
 class widget_textbox : public widget_base {
@@ -364,7 +419,6 @@ public:
 	struct impl;
 	impl * m;
 };
-#define widget_create_textbox() (new widget_textbox())
 
 
 //A canvas is a simple image. It's easy to work with, but performance is poor and it can't vsync, so it shouldn't be used for video.
@@ -493,56 +547,6 @@ public:
 public:
 	struct impl;
 	impl * m;
-};
-#define widget_create_frame(text, contents) (new widget_frame(text, contents))
-
-
-class widget_layout : public widget_base {
-#ifdef NEED_MANUAL_LAYOUT
-	unsigned int init(struct window * parent, uintptr_t parenthandle) = 0;
-	void measure();
-	void place(void* resizeinf, unsigned int x, unsigned int y, unsigned int width, unsigned int height);
-#endif
-protected:
-	void construct(unsigned int numchildren, widget_base * * children,
-	              unsigned int totwidth,  unsigned int * widths,  bool uniformwidths,
-	              unsigned int totheight, unsigned int * heights, bool uniformheights);
-	widget_layout() {}
-	
-public:
-//The lists are terminated with a NULL. It shouldn't be empty.
-#define widget_layout_horz(...) widget_layout(false, false, __VA_ARGS__)
-#define widget_layout_vert(...) widget_layout(true,  false, __VA_ARGS__)
-	widget_layout(bool vertical, bool uniform, widget_base * firstchild, ...);
-	
-	//This one allows some widgets to take up multiple boxes of the grid. They're still stored row by
-	// row, except that there is no entry for slots that are already used.
-	//It is undefined behaviour if a widget does not fit where it belongs, if it overlaps another widget,
-	// or if it's size 0 in either direction.
-	widget_layout(unsigned int totwidth,   unsigned int totheight,   bool uniformwidths, bool uniformheights,
-	              unsigned int firstwidth, unsigned int firstheight, widget_base * firstchild, ...);
-	
-	//In this one, the widths/heights arrays can be NULL, which is treated as being filled with 1s.
-	//But if you want that, you should probably use the grid constructor instead. (Though it's useful for the constructors themselves.)
-	widget_layout(unsigned int numchildren, widget_base * * children,
-	              unsigned int totwidth,  unsigned int * widths,  bool uniformwidths,
-	              unsigned int totheight, unsigned int * heights, bool uniformheights)
-	{
-		construct(numchildren, children, totwidth, widths, uniformwidths, totheight, heights, uniformheights);
-	}
-	~widget_layout();
-	
-public:
-	struct impl;
-	impl * m;
-};
-
-class widget_layout_grid : public widget_layout {
-public:
-//The widgets are stored row by row. There is no NULL terminator, because the size is known from the arguments already.
-//Uniform sizes mean that every row has the same height, and every column has the same width.
-	widget_layout_grid(unsigned int width, unsigned int height, bool uniformsizes,
-	                   widget_base * firstchild, ...);
 };
 
 
