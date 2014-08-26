@@ -367,30 +367,41 @@ public:
 #define widget_create_textbox() (new widget_textbox())
 
 
-/*
 //A canvas is a simple image. It's easy to work with, but performance is poor and it can't vsync, so it shouldn't be used for video.
-struct widget_canvas {
-	struct widget_base _base;
+class widget_canvas : public widget_base {
+#ifdef NEED_MANUAL_LAYOUT
+	unsigned int init(struct window * parent, uintptr_t parenthandle) = 0;
+	void measure();
+	void place(void* resizeinf, unsigned int x, unsigned int y, unsigned int width, unsigned int height);
+#endif
+	
+public:
+	widget_canvas(unsigned int width, unsigned int height);
+	~widget_canvas();
 	//can't disable this
 	
-	void (*resize)(struct widget_canvas * this, unsigned int width, unsigned int height);
-	unsigned int * (*draw_begin)(struct widget_canvas * this);
-	void (*draw_end)(struct widget_canvas * this);
+	widget_canvas* resize(unsigned int width, unsigned int height);
+	uint32_t * (*draw_begin)();
+	void draw_end();
 	
 	//Whether to hide the cursor while it's on top of this widget.
 	//The mouse won't instantly hide; if it's moving, it will be visible. The exact details are up to the implementation,
 	// but it will be similar to "the mouse is visible if it has moved within the last 1000 milliseconds".
-	void (*set_hide_cursor)(struct widget_canvas * this, bool hide);
+	widget_canvas* set_hide_cursor(bool hide);
 	
 	//This must be called before the window is shown, and only exactly once.
 	//All given filenames are invalidated once the callback returns.
-	void (*set_support_drop)(struct widget_canvas * this,
-	                         void (*on_file_drop)(struct widget_canvas * subject, const char * const * filenames, void* userdata),
-	                         void* userdata);
+	widget_canvas* set_support_drop(void (*on_file_drop)(struct widget_canvas * subject, const char * const * filenames, void* userdata),
+	                                void* userdata);
+	
+public:
+	struct impl;
+	impl * m;
 };
 struct widget_canvas * widget_create_canvas(unsigned int width, unsigned int height);
 
 
+/*
 //A viewport fills the same purpose as a canvas, but the tradeoffs go the opposite way.
 struct widget_viewport {
 	struct widget_base _base;
