@@ -8,9 +8,15 @@
 //This is in practice only used on Windows, but it's theoretically usable on other operating systems too. Maybe I'll need it on OSX.
 widget_padding::widget_padding(bool vertical)
 {
-	widthprio=(vertical ? 0 : 2);
-	heightprio=(vertical ? 2 : 0);
+	this->width=0;
+	this->height=0;
+	this->widthprio=(vertical ? 0 : 2);
+	this->heightprio=(vertical ? 2 : 0);
 }
+
+unsigned int widget_padding::init(struct window * parent, uintptr_t parenthandle) { return 0; }
+void widget_padding::measure() {}
+void widget_padding::place(void* resizeinf, unsigned int x, unsigned int y, unsigned int width, unsigned int height) {}
 
 widget_padding::~widget_padding() {}
 
@@ -329,6 +335,7 @@ struct windowmenu * windowmenu_create_submenu(const char * text, struct windowme
 	return windowmenu_create_submenu_l(text, numitems, items);
 }
 
+/*
 widget_radio_group::widget_radio_group(bool vertical, widget_radio* leader, ...)
 {
 	unsigned int numitems=1;
@@ -396,6 +403,7 @@ widget_listbox::widget_listbox(const char * firstcol, ...)
 	
 	construct(numcols, columns);
 }
+*/
 
 widget_layout::widget_layout(bool vertical, bool uniform, widget_base* firstchild, ...)
 {

@@ -7,6 +7,7 @@
 #include <windowsx.h>
 #include <commctrl.h>
 #include <stdlib.h>
+#undef this
 
 //controls HIG and screenshots of them http://msdn.microsoft.com/en-us/library/aa511482.aspx
 //controls docs http://msdn.microsoft.com/en-us/library/windows/desktop/bb773169%28v=vs.85%29.aspx
@@ -39,7 +40,6 @@
 #define CTID_LISTVIEW 5
 #define CTID_TEXTBOX 6
 
-static LRESULT CALLBACK viewport_WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam);
 static HFONT dlgfont;
 static unsigned int xwidth;
 
@@ -66,6 +66,7 @@ static void measure_text(const char * text, unsigned int * width, unsigned int *
 	if (height) *height=rc.bottom;
 }
 
+//static LRESULT CALLBACK viewport_WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam);
 void _window_init_inner()
 {
 	//HDC hdc=GetDC(NULL);
@@ -98,18 +99,18 @@ void _window_init_inner()
 	//SelectObject(hdc, prevfont);
 	//ReleaseDC(NULL, hdc);
 	
-	WNDCLASS wc;
-	wc.style=0;
-	wc.lpfnWndProc=viewport_WindowProc;
-	wc.cbClsExtra=0;
-	wc.cbWndExtra=0;
-	wc.hInstance=GetModuleHandle(NULL);
-	wc.hIcon=LoadIcon(GetModuleHandle(NULL), MAKEINTRESOURCE(0));
-	wc.hCursor=LoadCursor(NULL, IDC_ARROW);
-	wc.hbrBackground=GetSysColorBrush(COLOR_3DFACE);//(HBRUSH)(COLOR_WINDOW + 1);
-	wc.lpszMenuName=NULL;
-	wc.lpszClassName="minir_viewport";
-	RegisterClass(&wc);
+	//WNDCLASS wc;
+	//wc.style=0;
+	//wc.lpfnWndProc=viewport_WindowProc;
+	//wc.cbClsExtra=0;
+	//wc.cbWndExtra=0;
+	//wc.hInstance=GetModuleHandle(NULL);
+	//wc.hIcon=LoadIcon(GetModuleHandle(NULL), MAKEINTRESOURCE(0));
+	//wc.hCursor=LoadCursor(NULL, IDC_ARROW);
+	//wc.hbrBackground=GetSysColorBrush(COLOR_3DFACE);//(HBRUSH)(COLOR_WINDOW + 1);
+	//wc.lpszMenuName=NULL;
+	//wc.lpszClassName="minir_viewport";
+	//RegisterClass(&wc);
 	
 	measure_text("XXXXXXXXXXXX", &xwidth, NULL);
 	
@@ -129,94 +130,82 @@ static void place_window(HWND hwnd, void* resizeinf, unsigned int x, unsigned in
 
 
 
-struct widget_label_win32 {
+struct widget_label::impl {
 	struct widget_label i;
 	
-	char* text;
 	struct window * parent;
 	HWND hwnd;
 };
 
-static unsigned int label__init(struct widget_base * this_, struct window * parent, uintptr_t parenthandle)
+widget_label::widget_label(const char * text) : m(new impl)
 {
-	struct widget_label_win32 * this=(struct widget_label_win32*)this_;
-	this->parent=parent;
-	char* text=(char*)this->hwnd;
-	this->hwnd=CreateWindow(WC_STATIC, text, WS_CHILD|WS_VISIBLE|SS_NOPREFIX,
+puts("1");
+	this->widthprio=1;
+	this->heightprio=1;
+	
+	m->hwnd=(HWND)strdup(text);
+	measure_text(text, &this->width, &this->height);
+	this->width+=g_padding*2; this->height+=g_padding*2;
+}
+
+unsigned int widget_label::init(struct window * parent, uintptr_t parenthandle)
+{
+puts("2");
+	m->parent=parent;
+	char* text=(char*)m->hwnd;
+	m->hwnd=CreateWindow(WC_STATIC, text, WS_CHILD|WS_VISIBLE|SS_NOPREFIX,
 	                        0, 0, 16, 16, // just some random sizes, we'll resize it in _place()
 	                        (HWND)parenthandle, NULL, GetModuleHandle(NULL), NULL);
 	free(text);
-	SendMessage(this->hwnd, WM_SETFONT, (WPARAM)dlgfont, FALSE);
+	SendMessage(m->hwnd, WM_SETFONT, (WPARAM)dlgfont, FALSE);
 	return 1;
 }
 
-static void label__measure(struct widget_base * this_) {}
+void widget_label::measure() {}
 
-static void label__place(struct widget_base * this_, void* resizeinf,
-                         unsigned int x, unsigned int y, unsigned int width, unsigned int height)
+void widget_label::place(void* resizeinf, unsigned int x, unsigned int y, unsigned int width, unsigned int height)
 {
+puts("3");
 	x+=g_padding; y+=g_padding; width-=g_padding*2; height-=g_padding*2;
-	struct widget_label_win32 * this=(struct widget_label_win32*)this_;
-	place_window(this->hwnd, resizeinf, x,y+(height-this->i._base.height)/2, width,this->i._base.height);
+printf("pl %i,%i,%i,%i",x,y,width,height);
+	place_window(m->hwnd, resizeinf, x,y+(height-this->height)/2, width,this->height);
 }
 
-static void label__free(struct widget_base * this_)
+widget_label::~widget_label()
 {
-	struct widget_label_win32 * this=(struct widget_label_win32*)this_;
-	free(this);
+	free(m);
 }
 
-static void label_set_enabled(struct widget_label * this_, bool enable)
+widget_label* widget_label::set_enabled(bool enable)
 {
-	struct widget_label_win32 * this=(struct widget_label_win32*)this_;
-	EnableWindow(this->hwnd, enable);
+puts("4");
+	EnableWindow(m->hwnd, enable);
+	return this;
 }
 
-static void label_set_text(struct widget_label * this_, const char * text)
+widget_label* widget_label::set_text(const char * text)
 {
-	struct widget_label_win32 * this=(struct widget_label_win32*)this_;
-	SetWindowText(this->hwnd, text);
-	measure_text(text, &this->i._base.width, &this->i._base.height);
-	this->i._base.width+=g_padding*2; this->i._base.height+=g_padding*2;
-	this->parent->_reflow(this->parent);
+	measure_text(text, &this->width, &this->height);
+	this->width+=g_padding*2; this->height+=g_padding*2;
+	m->parent->_reflow(m->parent);
+	return this;
 }
 
-static void label_set_ellipsize(struct widget_label * this_, bool ellipsize)
+widget_label* widget_label::set_ellipsize(bool ellipsize)
 {
-	//struct widget_label_win32 * this=(struct widget_label_win32*)this_;
 //puts("FIXME: label_set_ellipsize");
+	return this;
 }
 
-static void label_set_alignment(struct widget_label * this_, int alignment)
+widget_label* widget_label::set_alignment(int alignment)
 {
-	//struct widget_label_win32 * this=(struct widget_label_win32*)this_;
 //puts("FIXME: label_set_alignment");
-}
-
-struct widget_label * widget_create_label(const char * text)
-{
-	struct widget_label_win32 * this=malloc(sizeof(struct widget_label_win32));
-	this->i._base.init=label__init;
-	this->i._base.measure=label__measure;
-	this->i._base.widthprio=1;
-	this->i._base.heightprio=1;
-	this->i._base.place=label__place;
-	this->i._base.free=label__free;
-	
-	this->i.set_enabled=label_set_enabled;
-	this->i.set_text=label_set_text;
-	this->i.set_ellipsize=label_set_ellipsize;
-	this->i.set_alignment=label_set_alignment;
-	
-	this->hwnd=(HWND)strdup(text);
-	measure_text(text, &this->i._base.width, &this->i._base.height);
-	this->i._base.width+=g_padding*2; this->i._base.height+=g_padding*2;
-	
-	return (struct widget_label*)this;
+	return this;
 }
 
 
 
+#if 0
 struct widget_button_win32 {
 	struct widget_button i;
 	
@@ -1335,6 +1324,7 @@ struct widget_frame * widget_create_frame(const char * text, void* contents)
 	
 	return (struct widget_frame*)this;
 }
+#endif
 
 
 
@@ -1344,6 +1334,7 @@ uintptr_t _window_notify_inner(void* notification)
 	switch (nmhdr->idFrom)
 	{
 		case CTID_NONINTERACTIVE: break;
+/*
 		case CTID_BUTTON:
 		case CTID_DEFBUTTON:
 		{
@@ -1408,6 +1399,7 @@ uintptr_t _window_notify_inner(void* notification)
 			return listbox_notify(nmhdr);
 			break;
 		}
+*/
 	}
 	return 0;
 }
@@ -1416,6 +1408,7 @@ uintptr_t _window_get_widget_color(unsigned int type, void* handle, void* draw, 
 {
 	switch (GetDlgCtrlID((HWND)handle))
 	{
+/*
 		case CTID_TEXTBOX:
 		{
 			struct widget_textbox_win32 * this=(struct widget_textbox_win32*)GetWindowLongPtr((HWND)handle, GWLP_USERDATA);
@@ -1426,6 +1419,7 @@ uintptr_t _window_get_widget_color(unsigned int type, void* handle, void* draw, 
 			}
 			break;
 		}
+*/
 	}
 	return DefWindowProcA((HWND)parent, (UINT)type, (WPARAM)draw, (LPARAM)handle);
 }
