@@ -660,9 +660,9 @@ static void statusbar_set(struct window * this_, int slot, const char * text)
 static void replace_contents(struct window * this_, void * contents)
 {
 	struct window_win32 * this=(struct window_win32*)this_;
-	this->contents->free(this->contents);
+	delete this->contents;
 	this->contents=(struct widget_base*)contents;
-	this->numchildwin=this->contents->init(this->contents, (struct window*)this, (uintptr_t)this->hwnd);
+	this->numchildwin=this->contents->init((struct window*)this, (uintptr_t)this->hwnd);
 	_reflow(this_);
 }
 
@@ -725,7 +725,7 @@ static void free_(struct window * this_)
 		update_modal(this);
 	}
 	
-	this->contents->free(this->contents);
+	delete this->contents;
 	if (this->menu) menu_delete(this->menu);
 	DestroyWindow(this->hwnd);
 	free(this);
@@ -762,7 +762,7 @@ static void reflow_force(struct window_win32 * this)
 		size.bottom-=statsize.bottom;
 	}
 	
-	this->contents->measure(this->contents);
+	this->contents->measure();
 	
 	bool badx=(this->contents->width  > (unsigned int)size.right  || (!this->resizable && this->contents->width  != (unsigned int)size.right));
 	bool bady=(this->contents->height > (unsigned int)size.bottom || (!this->resizable && this->contents->height != (unsigned int)size.bottom));
@@ -788,7 +788,7 @@ static void reflow_force(struct window_win32 * this)
 //puts("");
 	
 	HDWP hdwp=BeginDeferWindowPos(this->numchildwin);
-	this->contents->place(this->contents, &hdwp, 0,0, size.right, size.bottom);
+	this->contents->place(&hdwp, 0,0, size.right, size.bottom);
 	EndDeferWindowPos(hdwp);
 	recursive=false;
 }
@@ -810,13 +810,13 @@ struct window * window_create(void * contents)
 	firstwindow=this;
 	
 	this->contents=(struct widget_base*)contents;
-	this->contents->measure(this->contents);
+	this->contents->measure();
 	//the 6 and 28 are arbitrary; we'll set ourselves to a better size later. Windows' default placement algorithm sucks, anyways.
 	//const char * xpmsg="Do not submit bug reports. Windows XP is unsupported by Microsoft, and unsupported by me.";
 	this->hwnd=CreateWindow("minir", /*isxp?xpmsg:*/"", WS_NONRESIZ, CW_USEDEFAULT, CW_USEDEFAULT,
 	                        this->contents->width+6, this->contents->height+28, NULL, NULL, GetModuleHandle(NULL), NULL);
 	SetWindowLongPtr(this->hwnd, GWLP_USERDATA, (LONG_PTR)this);
-	this->numchildwin=this->contents->init(this->contents, (struct window*)this, (uintptr_t)this->hwnd);
+	this->numchildwin=this->contents->init((struct window*)this, (uintptr_t)this->hwnd);
 	
 	this->status=NULL;
 	this->menu=NULL;
