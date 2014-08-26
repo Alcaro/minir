@@ -34,21 +34,14 @@ widget_padding::~widget_padding() {}
 
 
 
-widget_label::widget_label()
-{
-	widget=gtk_label_new("");
-	widthprio=1;
-	heightprio=1;
-}
-
-widget_label::~widget_label() {}
-
 widget_label::widget_label(const char * text)
 {
 	widget=gtk_label_new(text);
 	widthprio=1;
 	heightprio=1;
 }
+
+widget_label::~widget_label() {}
 
 widget_label* widget_label::set_alignment(int alignment)
 {
@@ -62,13 +55,6 @@ struct widget_button::impl {
 	void (*onclick)(struct widget_button * button, void* userdata);
 	void* userdata;
 };
-
-widget_button::widget_button() : m(new impl)
-{
-	widget=gtk_button_new_with_label("");
-	widthprio=1;
-	heightprio=1;
-}
 
 widget_button::widget_button(const char * text) : m(new impl)
 {
@@ -114,13 +100,6 @@ struct widget_checkbox::impl {
 	void (*onclick)(struct widget_checkbox * button, bool checked, void* userdata);
 	void* userdata;
 };
-
-widget_checkbox::widget_checkbox() : m(new impl)
-{
-	widget=gtk_check_button_new_with_label("");
-	widthprio=1;
-	heightprio=1;
-}
 
 widget_checkbox::widget_checkbox(const char * text) : m(new impl)
 {
@@ -174,6 +153,108 @@ widget_checkbox* widget_checkbox::set_onclick(void (*onclick)(struct widget_chec
 	return this;
 }
 
+
+
+struct widget_radio::impl {
+	GtkLabel* label;
+	
+	unsigned int grouplen;
+	widget_radio * * group;
+	
+	unsigned int id;//if state is set before grouping, this is used as state
+	widget_radio * parent;
+	
+	void (*onclick)(struct widget_radio * subject, unsigned int state, void* userdata);
+	void* userdata;
+};
+
+static void widget_radio_onclick(GtkToggleButton* togglebutton, gpointer user_data);
+
+widget_radio::widget_radio(const char * text) : m(new impl)
+{
+	widget=gtk_radio_button_new(NULL);
+	g_signal_connect(widget, "toggled", G_CALLBACK(widget_radio_onclick), this);
+	m->label=GTK_LABEL(gtk_label_new(text));
+	gtk_container_add(GTK_CONTAINER(widget), GTK_WIDGET(m->label));
+	widthprio=1;
+	heightprio=1;
+	
+	m->group=NULL;
+}
+
+widget_radio::~widget_radio()
+{
+	free(m->group);
+	delete m;
+}
+
+widget_radio* widget_radio::set_enabled(bool enable)
+{
+	gtk_widget_set_sensitive(GTK_WIDGET(widget), enable);
+	return this;
+}
+
+widget_radio* widget_radio::set_text(const char * text)
+{
+	gtk_label_set_text(m->label, text);
+	return this;
+}
+
+widget_radio* widget_radio::group(unsigned int numitems, widget_radio * * group)
+{
+	m->parent=this;
+	for (unsigned int i=1;i<numitems;i++)
+	{
+		group[i]->m->parent=this;
+		group[i]->m->id=i;
+		gtk_radio_button_join_group(GTK_RADIO_BUTTON(group[i]->widget), GTK_RADIO_BUTTON(group[i-1]->widget));
+	}
+	m->group=malloc(sizeof(widget_radio*)*numitems);
+	memcpy(m->group, group, sizeof(widget_radio*)*numitems);
+	m->grouplen=numitems;
+	in_callback=true;
+	gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(group[m->id]->widget), true);
+	m->id=0;
+	in_callback=false;
+	return this;
+}
+
+unsigned int widget_radio::get_state()
+{
+	unsigned int i=0;
+	while (!gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(m->group[i]->widget))) i++;
+	return i;
+}
+
+widget_radio* widget_radio::set_state(unsigned int state)
+{
+	if (m->group)
+	{
+		in_callback=true;
+		gtk_toggle_button_set_active(GTK_TOGGLE_BUTTON(m->group[state]->widget), true);
+		in_callback=false;
+	}
+	else
+	{
+		m->id=state;
+	}
+	return this;
+}
+
+static void widget_radio_onclick(GtkToggleButton* togglebutton, gpointer user_data)
+{
+	if (in_callback) return;
+	widget_radio * obj=(widget_radio*)user_data;
+	if (!gtk_toggle_button_get_active(togglebutton)) return;
+	obj->m->parent->m->onclick(obj, obj->m->id, obj->m->parent->m->userdata);
+}
+
+widget_radio* widget_radio::set_onclick(void (*onclick)(widget_radio * subject, unsigned int state, void* userdata), void* userdata)
+{
+	m->onclick=onclick;
+	m->userdata=userdata;
+	return this;
+}
 
 
 #if 0
@@ -671,9 +752,70 @@ struct widget_frame * widget_create_frame(const char * text, void* contents)
 	
 	return (struct widget_frame*)this;
 }
+#endif
 
 
 
+struct widget_layout::impl {
+	widget_base * * children;
+	unsigned int numchildren;
+};
+
+widget_layout::widget_layout(unsigned int numchildren, widget_base * * children,
+                             unsigned int totwidth,  unsigned int * widths,  bool uniformwidths,
+                             unsigned int totheight, unsigned int * heights, bool uniformheights) : m(new impl)
+{
+	GtkGrid* grid=GTK_GRID(gtk_grid_new());
+	widget=grid;
+	
+	m->numchildren=numchildren;
+	m->children=malloc(sizeof(struct widget_base*)*numchildren);
+	memcpy(m->children, children, sizeof(struct widget_base*)*numchildren);
+	
+	widthprio=0;
+	heightprio=0;
+	
+	bool posused[totheight*totwidth];
+	memset(posused, 0, sizeof(posused));
+	unsigned int firstempty=0;
+	for (unsigned int i=0;i<numchildren;i++)
+	{
+		while (posused[firstempty]) firstempty++;
+		
+		unsigned int width=(widths ? widths[i] : 1);
+		unsigned int height=(heights ? heights[i] : 1);
+		
+		gtk_grid_attach(grid, GTK_WIDGET(children[i]->widget),
+		                firstempty%totwidth, firstempty/totwidth,
+		                width, height);
+		
+		for (unsigned int x=0;x<width ;x++)
+		for (unsigned int y=0;y<height;y++)
+		{
+			posused[firstempty + y*totwidth + x]=true;
+		}
+		
+		if (children[i]->widthprio  > widthprio)  widthprio =children[i]->widthprio;
+		if (children[i]->heightprio > heightprio) heightprio=children[i]->heightprio;
+	}
+	
+	for (unsigned int i=0;i<numchildren;i++)
+	{
+		gtk_widget_set_hexpand(GTK_WIDGET(children[i]->widget), (children[i]->widthprio  == widthprio));
+		gtk_widget_set_vexpand(GTK_WIDGET(children[i]->widget), (children[i]->heightprio == heightprio));
+	}
+}
+
+widget_layout::~widget_layout()
+{
+	for (unsigned int i=0;i<m->numchildren;i++)
+	{
+		delete m->children[i];
+	}
+	free(m->children);
+	delete m;
+}
+#if 0
 struct widget_layout_gtk3 {
 	struct widget_layout i;
 	

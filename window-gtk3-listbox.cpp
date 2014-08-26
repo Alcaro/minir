@@ -6,6 +6,7 @@
 //return tv.tv_sec*(uint64_t)1000000000 + tv.tv_nsec;}
 #include "minir.h"
 #ifdef WINDOW_GTK3
+#if 0
 #include <gtk/gtk.h>
 #include <stdlib.h>
 #include <string.h>
@@ -503,4 +504,5 @@ struct widget_listbox * widget_create_listbox_l(unsigned int numcolumns, const c
 	
 	return (struct widget_listbox*)this;
 }
+#endif
 #endif

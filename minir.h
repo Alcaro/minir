@@ -54,11 +54,6 @@ typedef void* anyptr;
 
 #ifdef __cplusplus
 #define this This
-//#define delete Delete
-//#define new New
-//#define public Public
-//#define private Private
-//#define protected Protected
 #endif
 
 

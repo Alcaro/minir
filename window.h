@@ -215,8 +215,7 @@ class widget_label : private widget_base {
 #endif
 	
 public:
-	widget_label();
-	widget_label(const char * text);
+	widget_label(const char * text = "");
 	~widget_label();
 	
 	//Disabling a label does nothing, but may change how it looks.
@@ -244,8 +243,7 @@ class widget_button : private widget_base {
 #endif
 	
 public:
-	widget_button();
-	widget_button(const char * text);
+	widget_button(const char * text = "");
 	~widget_button();
 	
 	widget_button* set_enabled(bool enable);
@@ -267,8 +265,7 @@ class widget_checkbox : public widget_base {
 #endif
 	
 public:
-	widget_checkbox();
-	widget_checkbox(const char * text);
+	widget_checkbox(const char * text = "");
 	~widget_checkbox();
 	
 	widget_checkbox* set_enabled(bool enable);
@@ -284,20 +281,48 @@ public:
 #define widget_create_checkbox(text) (new widget_checkbox(text))
 
 
-/*
-struct widget_checkbox {
-	struct widget_base _base;
-	void (*set_enabled)(struct widget_checkbox * this, bool enable);
+class widget_radio : public widget_base {
+#ifdef NEED_MANUAL_LAYOUT
+	unsigned int init(struct window * parent, uintptr_t parenthandle) = 0;
+	void measure();
+	void place(void* resizeinf, unsigned int x, unsigned int y, unsigned int width, unsigned int height);
+#endif
 	
-	void (*set_text)(struct widget_checkbox * this, const char * text);
-	bool (*get_state)(struct widget_checkbox * this);
-	void (*set_state)(struct widget_checkbox * this, bool checked);
-	void (*set_onclick)(struct widget_checkbox * this,
-	                    void (*onclick)(struct widget_checkbox * subject, bool checked, void* userdata), void* userdata);
+public:
+	widget_radio(const char * text = "");
+	~widget_radio();
+	
+	widget_radio* set_enabled(bool enable);
+	
+	widget_radio* set_text(const char * text);
+	
+	//The button this function is called on becomes the group leader. The leader must be the first in the group.
+	//It is undefined behaviour to attempt to redefine a group.
+	//It is undefined behaviour to set the onclick handler, or set or get the state, for anything except the group leader.
+	//The window may not be shown before grouping them.
+	widget_radio* group(unsigned int numitems, widget_radio * * group);
+	
+	//Returns which one is active. The group leader is 0.
+	unsigned int get_state();
+	
+	//State values are the same as get_state().
+	widget_radio* set_state(unsigned int state);
+	
+	//Called whenever the state changes. It is allowed to set the state in response to this.
+	//It is undefined whether the callback can fire for the previously active state, for example due to clicking the button twice.
+	widget_radio* set_onclick(void (*onclick)(struct widget_radio * subject, unsigned int state, void* userdata), void* userdata);
+	
+public:
+	struct impl;
+	impl * m;
 };
-struct widget_checkbox * widget_create_checkbox(const char * text);
+#define widget_create_radio(text) (new widget_radio(text))
+//This one wraps them in a horizontal or vertical layout, and groups them.
+//It's just a convenience; you can create them and group them manually and get the same results.
+widget_layout * widget_create_radio_group(bool vertical, widget_radio * leader, ...);
 
 
+/*
 struct widget_radio {
 	struct widget_base _base;
 	void (*set_enabled)(struct widget_radio * this, bool enable);
@@ -493,6 +518,40 @@ struct widget_layout * widget_create_layout_l(unsigned int numchildren, void * *
                                               unsigned int totwidth,  unsigned int * widths,  bool uniformwidths,
                                               unsigned int totheight, unsigned int * heights, bool uniformheights);
 */
+class widget_layout : public widget_base {
+#ifdef NEED_MANUAL_LAYOUT
+	unsigned int init(struct window * parent, uintptr_t parenthandle) = 0;
+	void measure();
+	void place(void* resizeinf, unsigned int x, unsigned int y, unsigned int width, unsigned int height);
+#endif
+	
+public:
+	widget_layout(unsigned int numchildren, widget_base * * children,
+	              unsigned int totwidth,  unsigned int * widths,  bool uniformwidths,
+	              unsigned int totheight, unsigned int * heights, bool uniformheights);
+	
+	~widget_layout();
+	
+public:
+	struct impl;
+	impl * m;
+};
+//The lists are terminated with a NULL. It shouldn't be empty.
+#define widget_create_layout_horz(...) widget_create_layout(false, false, __VA_ARGS__)
+#define widget_create_layout_vert(...) widget_create_layout(true, false, __VA_ARGS__)
+widget_layout * widget_create_layout(bool vertical, bool uniform, widget_layout * firstchild, ...);
+
+//The widgets are stored row by row. There is no NULL terminator, because the size is known from the arguments already.
+//Uniform sizes mean that every row has the same height, and every column has the same width.
+widget_layout * widget_create_layout_grid(unsigned int width, unsigned int height, bool uniformsizes,
+                                          widget_layout * firstchild, ...);
+//This one allows some widgets to take up multiple boxes of the grid. They're still stored row by
+// row, except that there is no entry for slots that are already used.
+//It is undefined behaviour if a widget does not fit where it belongs, if it overlaps another widget, or if it's size 0 in either direction.
+widget_layout * widget_create_layout_v(unsigned int totwidth,   unsigned int totheight,   bool uniformwidths, bool uniformheights,
+                                       unsigned int firstwidth, unsigned int firstheight, widget_layout * firstchild, ...);
+//The widths/heights arrays can be NULL, which is treated as being filled with 1s.
+#define widget_create_layout_l(a,b,c,d,e,f,g,h) (new widget_layout(a,b,c,d,e,f,g,h))
 
 
 
