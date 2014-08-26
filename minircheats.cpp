@@ -494,7 +494,7 @@ static void show_search(struct minircheats * this_)
 						NULL),
 					widget_create_layout_vert(
 						widget_create_frame("Data Size",
-							new widget_radio_group_vert(&this->wndsrch_dattype, "1 byte", "2 bytes", "3 bytes", "4 bytes", NULL)
+							new widget_radio_group_vert(&this->wndsrch_datsize, "1 byte", "2 bytes", "3 bytes", "4 bytes", NULL)
 							),
 						widget_create_padding_vert(),
 						NULL),
@@ -511,7 +511,6 @@ static void show_search(struct minircheats * this_)
 		this->wndsrch->set_parent(this->wndsrch, this->parent);
 		this->wndsrch->set_title(this->wndsrch, "Cheat Search");
 		
-		compto_select[0]->group(3, compto_select);
 		this->wndsrch_compto_select=compto_select[0];
 		this->wndsrch_compto_select_prev=compto_select[cht_prev];
 		search_update_compto_prev(this);

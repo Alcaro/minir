@@ -416,6 +416,7 @@ widget_radio_group::widget_radio_group(bool vertical, widget_radio** leader, con
 	va_end(args);
 	
 	items[0]->group(numitems, items);
+	if (leader) *leader=items[0];
 	
 	construct(numitems, (widget_base**)items, vertical?1:numitems, NULL, false, vertical?numitems:1, NULL, false);
 }

@@ -273,7 +273,7 @@ static void widget_radio_onclick(GtkToggleButton* togglebutton, gpointer user_da
 	if (in_callback) return;
 	widget_radio* obj=(widget_radio*)user_data;
 	if (!gtk_toggle_button_get_active(togglebutton)) return;
-	obj->m->parent->m->onclick(obj, obj->m->id, obj->m->parent->m->userdata);
+	if (obj->m->parent->m->onclick) obj->m->parent->m->onclick(obj, obj->m->id, obj->m->parent->m->userdata);
 }
 
 widget_radio* widget_radio::set_onclick(void (*onclick)(widget_radio * subject, unsigned int state, void* userdata), void* userdata)
