@@ -450,17 +450,31 @@ struct widget_listbox {
 };
 struct widget_listbox * widget_create_listbox_l(unsigned int numcolumns, const char * * columns);
 struct widget_listbox * widget_create_listbox(const char * firstcol, ...);
+*/
 
 
 //A decorative frame around a widget, to group them together. The widget can be a layout (and probably should, otherwise you're adding a box to a single widget).
-struct widget_frame {
-	struct widget_base _base;
-	//can't disable this (well okay, we can, but it's pointless to disable a widget that does nothing)
+class widget_frame : public widget_base {
+#ifdef NEED_MANUAL_LAYOUT
+	unsigned int init(struct window * parent, uintptr_t parenthandle) = 0;
+	void measure();
+	void place(void* resizeinf, unsigned int x, unsigned int y, unsigned int width, unsigned int height);
+#endif
 	
-	void (*set_text)(struct widget_frame * this, const char * text);
+public:
+	widget_frame(const char * text, widget_base* contents);
+	~widget_frame();
+	
+	//can't disable this (well okay, we can, but it's pointless to disable a widget that does nothing)
+	widget_frame* set_text(const char * text);
+	
+public:
+	struct impl;
+	impl * m;
 };
-struct widget_frame * widget_create_frame(const char * text, void* contents);
-*/
+#define widget_create_frame(text, contents) (new widget_frame(text, contents))
+
+
 class widget_layout : public widget_base {
 #ifdef NEED_MANUAL_LAYOUT
 	unsigned int init(struct window * parent, uintptr_t parenthandle) = 0;
@@ -472,7 +486,6 @@ public:
 	widget_layout(unsigned int numchildren, widget_base * * children,
 	              unsigned int totwidth,  unsigned int * widths,  bool uniformwidths,
 	              unsigned int totheight, unsigned int * heights, bool uniformheights);
-	
 	~widget_layout();
 	
 public:

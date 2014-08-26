@@ -597,47 +597,38 @@ struct widget_viewport * widget_create_viewport(unsigned int width, unsigned int
 	
 	return (struct widget_viewport*)this;
 }
+#endif
 
 
 
-struct widget_listbox_gtk3;
+class widget_listbox;
 
 
 
-struct widget_frame_gtk3 {
-	struct widget_frame i;
-	
+struct widget_frame::impl {
 	struct widget_base * child;
 };
 
-static void frame__free(struct widget_base * this_)
+widget_frame::widget_frame(const char * text, widget_base* child) : m(new impl)
 {
-	struct widget_frame_gtk3 * this=(struct widget_frame_gtk3*)this_;
-	this->child->free(this->child);
-	free(this);
+	widget=gtk_frame_new(text);
+	widthprio=child->widthprio;
+	heightprio=child->heightprio;
+	m->child=child;
+	gtk_container_add(GTK_CONTAINER(widget), GTK_WIDGET(child->widget));
 }
 
-static void frame_set_text(struct widget_frame * this_, const char * text)
+widget_frame::~widget_frame()
 {
-	struct widget_frame_gtk3 * this=(struct widget_frame_gtk3*)this_;
-	gtk_frame_set_label(GTK_FRAME(this->i._base.widget), text);
+	delete m->child;
+	delete m;
 }
 
-struct widget_frame * widget_create_frame(const char * text, void* contents)
+widget_frame* widget_frame::set_text(const char * text)
 {
-	struct widget_frame_gtk3 * this=malloc(sizeof(struct widget_frame_gtk3));
-	struct widget_base * child=(struct widget_base*)contents;
-	this->i._base.widget=gtk_frame_new(text);
-	this->i._base.widthprio=child->widthprio;
-	this->i._base.heightprio=child->heightprio;
-	this->i._base.free=frame__free;
-	this->i.set_text=frame_set_text;
-	this->child=(widget_base*)contents;
-	gtk_container_add(GTK_CONTAINER(this->i._base.widget), GTK_WIDGET(child->widget));
-	
-	return (struct widget_frame*)this;
+	gtk_frame_set_label(GTK_FRAME(m->child), text);
+	return this;
 }
-#endif
 
 
 
