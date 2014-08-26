@@ -175,7 +175,7 @@ public:
 	
 	//this one acts roughly like Q_OBJECT
 	#define WIDGET_BASE \
-		unsigned int init(struct window * parent, uintptr_t parenthandle) = 0; \
+		unsigned int init(struct window * parent, uintptr_t parenthandle); \
 		void measure(); \
 		void place(void* resizeinf, unsigned int x, unsigned int y, unsigned int width, unsigned int height);
 #else
@@ -194,7 +194,6 @@ public:
 };
 
 
-enum { horz=false, vert=true };
 class widget_padding : public widget_base { WIDGET_BASE
 public:
 	widget_padding(bool vertical);
@@ -218,7 +217,7 @@ public:
 
 class widget_layout : public widget_base { WIDGET_BASE
 protected:
-	void construct(unsigned int numchildren, widget_base * * children,
+	void construct(unsigned int numchildren, widget_base* * children,
 	              unsigned int totwidth,  unsigned int * widths,  bool uniformwidths,
 	              unsigned int totheight, unsigned int * heights, bool uniformheights);
 	widget_layout() {}
@@ -227,18 +226,18 @@ public:
 //The lists are terminated with a NULL. It shouldn't be empty.
 #define widget_layout_horz(...) widget_layout(false, false, __VA_ARGS__)
 #define widget_layout_vert(...) widget_layout(true,  false, __VA_ARGS__)
-	widget_layout(bool vertical, bool uniform, widget_base * firstchild, ...);
+	widget_layout(bool vertical, bool uniform, widget_base* firstchild, ...);
 	
 	//This one allows some widgets to take up multiple boxes of the grid. They're still stored row by
 	// row, except that there is no entry for slots that are already used.
 	//It is undefined behaviour if a widget does not fit where it belongs, if it overlaps another widget,
 	// or if it's size 0 in either direction.
 	widget_layout(unsigned int totwidth,   unsigned int totheight,   bool uniformwidths, bool uniformheights,
-	              unsigned int firstwidth, unsigned int firstheight, widget_base * firstchild, ...);
+	              unsigned int firstwidth, unsigned int firstheight, widget_base* firstchild, ...);
 	
 	//In this one, the widths/heights arrays can be NULL, which is treated as being filled with 1s.
 	//But if you want that, you should probably use the grid constructor instead. (Though it's useful for the constructors themselves.)
-	widget_layout(unsigned int numchildren, widget_base * * children,
+	widget_layout(unsigned int numchildren, widget_base* * children,
 	              unsigned int totwidth,  unsigned int * widths,  bool uniformwidths,
 	              unsigned int totheight, unsigned int * heights, bool uniformheights)
 	{
@@ -257,7 +256,7 @@ public:
 //The widgets are stored row by row. There is no NULL terminator, because the size is known from the arguments already.
 //Uniform sizes mean that every row has the same height, and every column has the same width.
 	widget_layout_grid(unsigned int width, unsigned int height, bool uniformsizes,
-	                   widget_base * firstchild, ...);
+	                   widget_base* firstchild, ...);
 };
 
 

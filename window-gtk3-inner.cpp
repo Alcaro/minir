@@ -34,6 +34,70 @@ widget_padding::~widget_padding() {}
 
 
 
+struct widget_layout::impl {
+	widget_base* * children;
+	unsigned int numchildren;
+};
+
+void widget_layout::construct(unsigned int numchildren, widget_base* * children,
+                             unsigned int totwidth,  unsigned int * widths,  bool uniformwidths,
+                             unsigned int totheight, unsigned int * heights, bool uniformheights)
+{
+	m=new impl;
+	
+	GtkGrid* grid=GTK_GRID(gtk_grid_new());
+	widget=grid;
+	
+	m->numchildren=numchildren;
+	m->children=malloc(sizeof(struct widget_base*)*numchildren);
+	memcpy(m->children, children, sizeof(struct widget_base*)*numchildren);
+	
+	widthprio=0;
+	heightprio=0;
+	
+	bool posused[totheight*totwidth];
+	memset(posused, 0, sizeof(posused));
+	unsigned int firstempty=0;
+	for (unsigned int i=0;i<numchildren;i++)
+	{
+		while (posused[firstempty]) firstempty++;
+		
+		unsigned int width=(widths ? widths[i] : 1);
+		unsigned int height=(heights ? heights[i] : 1);
+		
+		gtk_grid_attach(grid, GTK_WIDGET(children[i]->widget),
+		                firstempty%totwidth, firstempty/totwidth,
+		                width, height);
+		
+		for (unsigned int x=0;x<width ;x++)
+		for (unsigned int y=0;y<height;y++)
+		{
+			posused[firstempty + y*totwidth + x]=true;
+		}
+		
+		if (children[i]->widthprio  > widthprio)  widthprio =children[i]->widthprio;
+		if (children[i]->heightprio > heightprio) heightprio=children[i]->heightprio;
+	}
+	
+	for (unsigned int i=0;i<numchildren;i++)
+	{
+		gtk_widget_set_hexpand(GTK_WIDGET(children[i]->widget), (children[i]->widthprio  == widthprio));
+		gtk_widget_set_vexpand(GTK_WIDGET(children[i]->widget), (children[i]->heightprio == heightprio));
+	}
+}
+
+widget_layout::~widget_layout()
+{
+	for (unsigned int i=0;i<m->numchildren;i++)
+	{
+		delete m->children[i];
+	}
+	free(m->children);
+	delete m;
+}
+
+
+
 widget_label::widget_label(const char * text)
 {
 	widget=gtk_label_new(text);
@@ -597,7 +661,7 @@ class widget_listbox;
 
 
 struct widget_frame::impl {
-	struct widget_base * child;
+	struct widget_base* child;
 };
 
 widget_frame::widget_frame(const char * text, widget_base* child) : m(new impl)
@@ -619,69 +683,5 @@ widget_frame* widget_frame::set_text(const char * text)
 {
 	gtk_frame_set_label(GTK_FRAME(m->child), text);
 	return this;
-}
-
-
-
-struct widget_layout::impl {
-	widget_base * * children;
-	unsigned int numchildren;
-};
-
-void widget_layout::construct(unsigned int numchildren, widget_base * * children,
-                             unsigned int totwidth,  unsigned int * widths,  bool uniformwidths,
-                             unsigned int totheight, unsigned int * heights, bool uniformheights)
-{
-	m=new impl;
-	
-	GtkGrid* grid=GTK_GRID(gtk_grid_new());
-	widget=grid;
-	
-	m->numchildren=numchildren;
-	m->children=malloc(sizeof(struct widget_base*)*numchildren);
-	memcpy(m->children, children, sizeof(struct widget_base*)*numchildren);
-	
-	widthprio=0;
-	heightprio=0;
-	
-	bool posused[totheight*totwidth];
-	memset(posused, 0, sizeof(posused));
-	unsigned int firstempty=0;
-	for (unsigned int i=0;i<numchildren;i++)
-	{
-		while (posused[firstempty]) firstempty++;
-		
-		unsigned int width=(widths ? widths[i] : 1);
-		unsigned int height=(heights ? heights[i] : 1);
-		
-		gtk_grid_attach(grid, GTK_WIDGET(children[i]->widget),
-		                firstempty%totwidth, firstempty/totwidth,
-		                width, height);
-		
-		for (unsigned int x=0;x<width ;x++)
-		for (unsigned int y=0;y<height;y++)
-		{
-			posused[firstempty + y*totwidth + x]=true;
-		}
-		
-		if (children[i]->widthprio  > widthprio)  widthprio =children[i]->widthprio;
-		if (children[i]->heightprio > heightprio) heightprio=children[i]->heightprio;
-	}
-	
-	for (unsigned int i=0;i<numchildren;i++)
-	{
-		gtk_widget_set_hexpand(GTK_WIDGET(children[i]->widget), (children[i]->widthprio  == widthprio));
-		gtk_widget_set_vexpand(GTK_WIDGET(children[i]->widget), (children[i]->heightprio == heightprio));
-	}
-}
-
-widget_layout::~widget_layout()
-{
-	for (unsigned int i=0;i<m->numchildren;i++)
-	{
-		delete m->children[i];
-	}
-	free(m->children);
-	delete m;
 }
 #endif
