@@ -9,7 +9,7 @@
 #include <stdlib.h>
 #undef this
 
-//controls HIG and screenshots of them http://msdn.microsoft.com/en-us/library/aa511482.aspx
+//controls HIG and screenshots of them http://msdn.microsoft.com/en-us/library/dn742399.aspx
 //controls docs http://msdn.microsoft.com/en-us/library/windows/desktop/bb773169%28v=vs.85%29.aspx
 //alternatively http://msdn.microsoft.com/en-us/library/aa368039%28v=vs.85%29.aspx for some widgets
 
@@ -20,6 +20,12 @@
 
 #define btn_width 75
 #define btn_height 23
+
+#define checkbox_width 17
+#define checkbox_height 17
+
+#define radio_width 17
+#define radio_height 17
 
 #define frame_top 16
 #define frame_left 4
@@ -341,9 +347,9 @@ widget_checkbox* widget_checkbox::set_text(const char * text)
 {
 	if (m->state==1)
 	{
-		measure_text(text, &this->width, &this->height);
-		this->width+=this->height;
-		this->width+=g_padding*2; this->height+=g_padding*2;
+		measure_text(text, &this->width, NULL);
+		this->width+=checkbox_width + g_padding*2;
+		this->height=checkbox_height + g_padding*2;
 		
 		SetWindowText(m->hwnd, text);
 		m->parent->_reflow(m->parent);
@@ -429,6 +435,7 @@ widget_radio::widget_radio(const char * text) : m(new impl)
 	m->onclick=NULL;
 	m->parent=NULL;
 	m->group=NULL;
+	m->active=0;
 	
 	m->initialized=false;
 }
@@ -487,10 +494,13 @@ widget_radio* widget_radio::set_text(const char * text)
 {
 	if (m->initialized)
 	{
+		measure_text(text, &this->width, NULL);
+		this->width+=checkbox_width + g_padding*2;
+		this->height=checkbox_height + g_padding*2;
+		
+		if (m->id==0 || m->last) this->height+=g_padding;
+		
 		SetWindowText(m->hwnd, text);
-		measure_text(text, &this->width, &this->height);
-		this->width+=this->height;
-		this->width+=g_padding*2; this->height+=g_padding*2;
 		m->parent->_reflow(m->parent);
 	}
 	else
