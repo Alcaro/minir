@@ -335,7 +335,7 @@ struct windowmenu * windowmenu_create_submenu(const char * text, struct windowme
 	return windowmenu_create_submenu_l(text, numitems, items);
 }
 
-/*
+///*
 widget_radio_group::widget_radio_group(bool vertical, widget_radio* leader, ...)
 {
 	unsigned int numitems=1;
@@ -403,7 +403,7 @@ widget_listbox::widget_listbox(const char * firstcol, ...)
 	
 	construct(numcols, columns);
 }
-*/
+//*/
 
 widget_layout::widget_layout(bool vertical, bool uniform, widget_base* firstchild, ...)
 {

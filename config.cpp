@@ -612,12 +612,12 @@ static void data_save(struct minirconfig * this_, struct configdata * config)
 	{
 		set_support(this, coreid, config->support, config->primary);
 		free(this->bycore[coreid].corename);
-		this->bycore[coreid].corename=strdup(config->corename);
+		this->bycore[coreid].corename=strdup_s(config->corename);
 	}
 	if (gameid)
 	{
 		free(this->bygame[gameid].gamename);
-		this->bygame[gameid].gamename=strdup(config->gamename);
+		this->bygame[gameid].gamename=strdup_s(config->gamename);
 		//free(this->bygame[gameid]._forcecore);
 		//this->bygame[gameid]._forcecore=strdup(config->_forcecore);
 	}

@@ -35,6 +35,10 @@ int groupsizes[]={5,2,1};
 //For XRGB8888, 1a will set the Xs to 0, while 1b will set them to 1.
 //Note that test 3a will give different colors for each of the pixel formats. Therefore, for any comparison to be meaningful, the pixel format must be the same.
 
+//Enable to lock up for two seconds and repeatedly call retro_input_state for random buttons. Print how many iterations were done.
+//Unix-likes only because I'm too lazy to mess with GetSystemTimeAsFileTime. That, and it's slow.
+#define TEST_INPUT_SPEED
+
 #if PIXFMT==0
 #define pixel_t uint16_t
 #define p_red 0x001F
@@ -271,6 +275,17 @@ EXPORT void retro_reset(void)
 	state.testsub=init_sub;
 }
 
+#ifdef TEST_INPUT_SPEED
+#include <time.h>
+#include <stdlib.h>
+uint64_t window_get_time()
+{
+	struct timespec ts;
+	clock_gettime(CLOCK_MONOTONIC, &ts);
+	return ts.tv_sec*1000000 + ts.tv_nsec/1000;
+}
+#endif
+
 EXPORT void retro_run(void)
 {
 	poller_cb();
@@ -338,6 +353,23 @@ EXPORT void retro_run(void)
 	}
 	
 	state.frame++;
+	
+#ifdef TEST_INPUT_SPEED
+	if (state.frame==60)
+	{
+		uint64_t end=window_get_time()+2000000;
+		uint64_t n=0;
+		while (window_get_time() < end)
+		{
+			for (int i=0;i<32;i++)
+			{
+				input_state_cb(rand()%2, RETRO_DEVICE_JOYPAD, 0, rand()%16);
+				n++;
+			}
+		}
+		printf("Calls in two seconds: %lu\n", n);
+	}
+#endif
 	
 	if (sound_enable)
 	{

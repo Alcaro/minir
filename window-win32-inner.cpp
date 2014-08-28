@@ -394,6 +394,7 @@ struct widget_radio_win32 {
 	struct widget_radio_win32 * * group;
 	
 	UNION_BEGIN
+		//which one is active depends on 'id'; if it's nonzero, 'last' is valid
 		STRUCT_BEGIN
 			void (*onclick)(struct widget_radio * subject, unsigned int state, void* userdata);
 			void* userdata;
