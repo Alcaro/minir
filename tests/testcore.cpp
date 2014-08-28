@@ -202,6 +202,21 @@ void test2b()
 }
 
 
+static void formatnum(char* out, unsigned int in)
+{
+	char tmp[16];
+	sprintf(tmp, "%.10u", in);
+	int pos=0;
+	while (tmp[pos]=='0') pos++;
+	*out++=tmp[pos++];
+	while (tmp[pos])
+	{
+		if (pos%3 == 1) *out++=',';
+		*out++=tmp[pos++];
+	}
+	*out='\0';
+}
+
 void test3a()
 {
 	if (state.test3a_activate==1)
@@ -230,9 +245,12 @@ void test3a()
 	else
 	{
 		char line[128];
-		sprintf(line, "%lu calls per second", state.test3a_last);
+		formatnum(line, state.test3a_last);
+		strcat(line, " calls per second");
 		renderstr(p_blk, line, 8, 8);
-		sprintf(line, "%lu calls per frame", state.test3a_last/60);
+		
+		formatnum(line, state.test3a_last/60);
+		strcat(line, " calls per frame");
 		renderstr(p_blk, line, 8, 16);
 	}
 }
