@@ -1003,7 +1003,7 @@ struct retro_variable
                                            // The first call must be from retro_set_environment or retro_init.
                                            // If the frontend acknowledges this, an implementation may not use RETRO_ENVIRONMENT_SET_VARIABLES or RETRO_ENVIRONMENT_GET_VARIABLE_UPDATE. 
                                            // However, RETRO_ENVIRONMENT_GET_VARIABLE will still work.
-                                           // Additionally, the core may call RETRO_ENVIRONMENT_SET_VARIABLES_NEW again during retro_run and retro_load_game, and may have changed some of the entries.
+                                           // Additionally, the core may call RETRO_ENVIRONMENT_SET_VARIABLES_NEW again during retro_run, retro_load_game, and retro_variable_new::change_notify, and may have changed some of the entries.
                                            // However, 'name' and 'values' must be the same as for the initial call.
                                            // 
 
@@ -1035,7 +1035,7 @@ struct retro_variable_new
    const char *description;           // Variable description. Suitable as a second line in GUIs. Example: Emulate fake colors on black&white games.
    void *values;                      // Possible values. See enum retro_variable_type for what type it has. Example: "Enabled\nDisabled"
    
-   //Called by the frontend every time this variable changes, or NULL to ignore. Can be different for different variables. ID is the index to the array given to RETRO_ENVIRONMENT_SET_VARIABLES_NEW; separators have IDs.
+   //Called by the frontend every time this variable changes, or NULL to ignore. Can be different for different variables. ID is the index to the array given to RETRO_ENVIRONMENT_SET_VARIABLES_NEW. Separators have IDs.
    void (*change_notify)(unsigned int id, void *value);
 };
 */
