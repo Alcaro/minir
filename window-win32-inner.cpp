@@ -1265,81 +1265,70 @@ static uintptr_t listbox_notify(NMHDR* nmhdr)
 	}
 	return 0;
 }
+#endif
+static uintptr_t listbox_notify(NMHDR* nmhdr){return 0;}
 
 
 
-struct widget_frame_win32 {
-	//struct widget_frame i;
-	
-	//struct window * parent;
+struct widget_frame::impl {
+	bool initialized;
+	//char padding[7];
 	HWND hwnd;
-	
-	struct widget_base * child;
-	
-	void (*onclick)(struct widget_frame * frame, void* userdata);
-	void* userdata;
+	widget_base* child;
 };
 
-static unsigned int frame__init(struct widget_base * this_, struct window * parent, uintptr_t parenthandle)
+widget_frame::widget_frame(const char * text, widget_base* contents) : m(new impl)
 {
-	struct widget_frame_win32 * this=(struct widget_frame_win32*)this_;
-	//this->parent=parent;//this one can not be resized
-	this->hwnd=CreateWindow(WC_BUTTON, (char*)this->hwnd, WS_CHILD|WS_VISIBLE|WS_GROUP|WS_DISABLED|BS_GROUPBOX, 0, 0, 16, 16,
-	                        (HWND)parenthandle, (HMENU)CTID_NONINTERACTIVE, GetModuleHandle(NULL), NULL);
-	//SetWindowLongPtr(this->hwnd, GWLP_USERDATA, (LONG_PTR)this);//this one sends no notifications
-	SendMessage(this->hwnd, WM_SETFONT, (WPARAM)dlgfont, FALSE);
-	return 1+this->child->init(this->child, parent, parenthandle);
+	m->initialized=false;
+	m->child=(struct widget_base*)contents;
+	m->hwnd=(HWND)strdup(text);
 }
 
-static void frame__measure(struct widget_base * this_)
+unsigned int widget_frame::init(struct window * parent, uintptr_t parenthandle)
 {
-	struct widget_frame_win32 * this=(struct widget_frame_win32*)this_;
-	this->child->measure(this->child);
-	this->i._base.width=this->child->width + frame_left+frame_right + g_padding*2;
-	this->i._base.height=this->child->height + frame_top+frame_bottom + g_padding*2;
-	this->i._base.widthprio=this->child->widthprio;
-	this->i._base.heightprio=this->child->heightprio;
+	//this->parent=parent;//this one can't do anything that changes its size
+	char * text=(char*)m->hwnd;
+	m->hwnd=CreateWindow(WC_BUTTON, text, WS_CHILD|WS_VISIBLE|WS_GROUP|WS_DISABLED|BS_GROUPBOX, 0, 0, 16, 16,
+	                     (HWND)parenthandle, (HMENU)CTID_NONINTERACTIVE, GetModuleHandle(NULL), NULL);
+	//SetWindowLongPtr(m->hwnd, GWLP_USERDATA, (LONG_PTR)this);//this one sends no notifications
+	SendMessage(m->hwnd, WM_SETFONT, (WPARAM)dlgfont, FALSE);
+	free(text);
+	m->initialized=true;
+	return 1 + m->child->init(parent, parenthandle);
 }
 
-static void frame__place(struct widget_base * this_, void* resizeinf,
-                         unsigned int x, unsigned int y, unsigned int width, unsigned int height)
+void widget_frame::measure()
+{
+	m->child->measure();
+	this->width=m->child->width + frame_left+frame_right + g_padding*2;
+	this->height=m->child->height + frame_top+frame_bottom + g_padding*2;
+	this->widthprio=m->child->widthprio;
+	this->heightprio=m->child->heightprio;
+}
+
+void widget_frame::place(void* resizeinf, unsigned int x, unsigned int y, unsigned int width, unsigned int height)
 {
 	x+=g_padding; y+=g_padding; width-=g_padding*2; height-=g_padding*2;
-	struct widget_frame_win32 * this=(struct widget_frame_win32*)this_;
-	this->child->place(this->child, resizeinf, x+frame_left, y+frame_top,
-	                   width-frame_left-frame_right, height-frame_top-frame_bottom);
-	place_window(this->hwnd, resizeinf, x, y, width, height);
+	m->child->place(resizeinf, x+frame_left, y+frame_top, width-frame_left-frame_right, height-frame_top-frame_bottom);
+	place_window(m->hwnd, resizeinf, x, y, width, height);
 }
 
-static void frame__free(struct widget_base * this_)
+widget_frame::~widget_frame()
 {
-	struct widget_frame_win32 * this=(struct widget_frame_win32*)this_;
-	free(this);
+	delete m->child;
+	delete m;
 }
 
-static void frame_set_text(struct widget_frame * this_, const char * text)
+widget_frame* widget_frame::set_text(const char * text)
 {
-	struct widget_frame_win32 * this=(struct widget_frame_win32*)this_;
-	SetWindowText(this->hwnd, text);
+	if (m->initialized) SetWindowText(m->hwnd, text);
+	else
+	{
+		free((char*)m->hwnd);
+		m->hwnd=(HWND)strdup(text);
+	}
+	return this;
 }
-
-struct widget_frame * widget_create_frame(const char * text, void* contents)
-{
-	struct widget_frame_win32 * this=malloc(sizeof(struct widget_frame_win32));
-	this->i._base.init=frame__init;
-	this->i._base.measure=frame__measure;
-	this->i._base.place=frame__place;
-	this->i._base.free=frame__free;
-	
-	this->i.set_text=frame_set_text;
-	
-	this->child=(struct widget_base*)contents;
-	
-	this->hwnd=(HWND)text;
-	
-	return (struct widget_frame*)this;
-}
-#endif
 
 
 
@@ -1408,13 +1397,11 @@ uintptr_t _window_notify_inner(void* notification)
 			}
 			break;
 		}
-/*
 		case CTID_LISTVIEW:
 		{
 			return listbox_notify(nmhdr);
 			break;
 		}
-*/
 	}
 	return 0;
 }

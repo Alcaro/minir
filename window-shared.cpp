@@ -83,6 +83,10 @@ void widget_layout::construct(unsigned int numchildren, widget_base* * children,
 
 widget_layout::~widget_layout()
 {
+	for (unsigned int i=0;i<m->numchildren;i++)
+	{
+		delete m->children[i];
+	}
 	free(m->children);
 	free(m->extent[0]);
 	free(m->extent[1]);
