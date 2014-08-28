@@ -276,111 +276,93 @@ widget_button* widget_button::set_onclick(void (*onclick)(struct widget_button *
 
 
 
-#if 0
-struct widget_checkbox_win32 {
-	//struct widget_checkbox i;
-	
-	struct window * parent;
+struct widget_checkbox::impl {
+	//struct window * parent;
 	HWND hwnd;
-	
-	bool checked;
-	//char padding[7];
 	
 	void (*onclick)(struct widget_checkbox * subject, bool checked, void* userdata);
 	void* userdata;
+	
+	uint8_t state;
+	//char padding[7];
 };
 
-static unsigned int checkbox__init(struct widget_base * this_, struct window * parent, uintptr_t parenthandle)
+widget_checkbox::widget_checkbox(const char * text) : m(new impl)
 {
-	struct widget_checkbox_win32 * this=(struct widget_checkbox_win32*)this_;
-	this->parent=parent;
-	this->hwnd=CreateWindow(WC_BUTTON, (char*)this->hwnd, WS_CHILD|WS_VISIBLE|WS_TABSTOP|BS_CHECKBOX, 0, 0, 16, 16,
+	this->widthprio=1;
+	this->heightprio=1;
+	
+	this->width=btn_width+g_padding*2;
+	this->height=btn_height+g_padding*2;
+	
+	m->onclick=NULL;
+	m->state=0;
+	m->hwnd=(HWND)strdup(text);
+}
+
+unsigned int widget_checkbox::init(struct window * parent, uintptr_t parenthandle)
+{
+	char* text=(char*)m->hwnd;
+	m->hwnd=CreateWindow(WC_BUTTON, text, WS_CHILD|WS_VISIBLE|WS_TABSTOP|BS_CHECKBOX, 0, 0, 16, 16,
 	                        (HWND)parenthandle, (HMENU)CTID_CHECK, GetModuleHandle(NULL), NULL);
-	SetWindowLongPtr(this->hwnd, GWLP_USERDATA, (LONG_PTR)this);
-	SendMessage(this->hwnd, WM_SETFONT, (WPARAM)dlgfont, FALSE);
+	free(text);
+	if (m->state&2) EnableWindow(m->hwnd, false);
+	if (m->state&4) Button_SetCheck(m->hwnd, BST_CHECKED);
+	m->state=0x01;
+	SetWindowLongPtr(m->hwnd, GWLP_USERDATA, (LONG_PTR)this);
+	SendMessage(m->hwnd, WM_SETFONT, (WPARAM)dlgfont, FALSE);
 	return 1;
 }
 
-static void checkbox__measure(struct widget_base * this_) {}
+void widget_checkbox::measure() {}
 
-static void checkbox__place(struct widget_base * this_, void* resizeinf,
-                          unsigned int x, unsigned int y, unsigned int width, unsigned int height)
+void widget_checkbox::place(void* resizeinf, unsigned int x, unsigned int y, unsigned int width, unsigned int height)
 {
 	x+=g_padding; y+=g_padding; width-=g_padding*2; height-=g_padding*2;
-	struct widget_checkbox_win32 * this=(struct widget_checkbox_win32*)this_;
-	place_window(this->hwnd, resizeinf, x, y, width, height);
+	place_window(m->hwnd, resizeinf, x, y, width, height);
 }
 
-static void checkbox__free(struct widget_base * this_)
+widget_checkbox::~widget_checkbox()
 {
-	struct widget_checkbox_win32 * this=(struct widget_checkbox_win32*)this_;
-	free(this);
+	delete m;
 }
 
-static void checkbox_set_enabled(struct widget_checkbox * this_, bool enable)
+widget_checkbox* widget_checkbox::set_enabled(bool enable)
 {
-	struct widget_checkbox_win32 * this=(struct widget_checkbox_win32*)this_;
-	EnableWindow(this->hwnd, enable);
+	if (m->state==1) EnableWindow(m->hwnd, enable);
+	else m->state=((m->state&0xFD)|(!enable<<1));
+	return this;
 }
 
-static void checkbox_set_text(struct widget_checkbox * this_, const char * text)
+widget_checkbox* widget_checkbox::set_text(const char * text)
 {
-	struct widget_checkbox_win32 * this=(struct widget_checkbox_win32*)this_;
-	measure_text(text, &this->i._base.width, &this->i._base.height);
-	this->i._base.width+=this->i._base.height;
-	this->i._base.width+=g_padding*2; this->i._base.height+=g_padding*2;
-	this->parent->_reflow(this->parent);
+	SetWindowText(m->hwnd, text);
+	return this;
 }
 
-static bool checkbox_get_state(struct widget_checkbox * this_)
+bool widget_checkbox::get_state()
 {
-	struct widget_checkbox_win32 * this=(struct widget_checkbox_win32*)this_;
-	return (Button_GetCheck(this->hwnd)==BST_CHECKED);
+	if (m->state==1) return (Button_GetCheck(m->hwnd)==BST_CHECKED);
+	else return (m->state&2);
 }
 
-static void checkbox_set_state(struct widget_checkbox * this_, bool checked)
+widget_checkbox* widget_checkbox::set_state(bool checked)
 {
-	struct widget_checkbox_win32 * this=(struct widget_checkbox_win32*)this_;
-	Button_SetCheck(this->hwnd, checked ? BST_CHECKED : BST_UNCHECKED);
+	if (m->state==1) Button_SetCheck(m->hwnd, checked ? BST_CHECKED : BST_UNCHECKED);
+	else m->state=((m->state&0xFB)|(checked<<2));
+	return this;
 }
 
-static void checkbox_set_onclick(struct widget_checkbox * this_,
-                               void (*onclick)(struct widget_checkbox * subject, bool checked, void* userdata),
-                               void* userdata)
+widget_checkbox* widget_checkbox::set_onclick(void (*onclick)(struct widget_checkbox * subject, bool checked, void* userdata), void* userdata)
 {
-	struct widget_checkbox_win32 * this=(struct widget_checkbox_win32*)this_;
-	this->onclick=onclick;
-	this->userdata=userdata;
-}
-
-struct widget_checkbox * widget_create_checkbox(const char * text)
-{
-	struct widget_checkbox_win32 * this=malloc(sizeof(struct widget_checkbox_win32));
-	this->i._base.init=checkbox__init;
-	this->i._base.measure=checkbox__measure;
-	this->i._base.widthprio=1;
-	this->i._base.heightprio=1;
-	this->i._base.place=checkbox__place;
-	this->i._base.free=checkbox__free;
-	
-	this->i.set_enabled=checkbox_set_enabled;
-	this->i.set_text=checkbox_set_text;
-	this->i.get_state=checkbox_get_state;
-	this->i.set_state=checkbox_set_state;
-	this->i.set_onclick=checkbox_set_onclick;
-	
-	this->i._base.width=btn_width+g_padding*2;
-	this->i._base.height=btn_height+g_padding*2;
-	
-	this->onclick=NULL;
-	
-	this->hwnd=(HWND)text;
-	
-	return (struct widget_checkbox*)this;
+	m->onclick=onclick;
+	m->userdata=userdata;
+	return this;
 }
 
 
 
+#if 0
 struct widget_radio_win32 {
 	//struct widget_radio i;
 	
@@ -1334,23 +1316,22 @@ uintptr_t _window_notify_inner(void* notification)
 			}
 			break;
 		}
-/*
 		case CTID_CHECK:
 		{
 			if (nmhdr->code==BN_CLICKED)
 			{
-				struct widget_checkbox_win32 * this=(struct widget_checkbox_win32*)GetWindowLongPtr(nmhdr->hwndFrom, GWLP_USERDATA);
-				struct widget_checkbox * this_=(struct widget_checkbox*)this;
-				bool state=checkbox_get_state(this_);
+				widget_checkbox * obj=(widget_checkbox*)GetWindowLongPtr(nmhdr->hwndFrom, GWLP_USERDATA);
+				bool state=obj->get_state();
 				state=!state;
-				checkbox_set_state(this_, state);
-				if (this->onclick)
+				obj->set_state(state);
+				if (obj->m->onclick)
 				{
-					this->onclick((struct widget_checkbox*)this, state, this->userdata);
+					obj->m->onclick(obj, state, obj->m->userdata);
 				}
 			}
 			break;
 		}
+/*
 		case CTID_RADIO:
 		{
 			if (nmhdr->code==BN_CLICKED)
