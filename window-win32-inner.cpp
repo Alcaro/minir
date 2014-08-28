@@ -600,6 +600,7 @@ widget_textbox::widget_textbox() : m(new impl)
 	
 	m->text=NULL;
 	m->onchange=NULL;
+	m->onactivate=NULL;
 	m->invalid=false;
 	
 	measure_text("XXXXXXXXXXXX", NULL, &this->height);
