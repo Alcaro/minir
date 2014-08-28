@@ -561,17 +561,26 @@ widget_radio* widget_radio::set_onclick(void (*onclick)(struct widget_radio * su
 
 
 
-#if 0
-struct widget_textbox_win32 {
-	//struct widget_textbox i;
-	
-	struct window * parent;
-	HWND hwnd;
+struct widget_textbox::impl {
+	UNION_BEGIN
+		STRUCT_BEGIN
+			struct window * parent;
+			HWND hwnd;
+		STRUCT_END
+		STRUCT_BEGIN
+			bool disabled;
+			bool focus;
+			//char padding[10];
+			
+			unsigned int maxchars;
+		STRUCT_END
+	UNION_END
 	
 	char * text;
 	
+	bool initialized;
 	bool invalid;
-	//char padding[7];
+	//char padding[6];
 	
 	void (*onchange)(struct widget_textbox * subject, const char * text, void* userdata);
 	void* ch_userdata;
@@ -579,148 +588,139 @@ struct widget_textbox_win32 {
 	void* ac_userdata;
 };
 
-static LRESULT CALLBACK textbox_SubclassProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam, UINT_PTR uIdSubclass, DWORD_PTR dwRefData);
+static LRESULT CALLBACK textbox_SubclassProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam,
+                                             UINT_PTR uIdSubclass, DWORD_PTR dwRefData);
 
-static unsigned int textbox__init(struct widget_base * this_, struct window * parent, uintptr_t parenthandle)
+widget_textbox::widget_textbox() : m(new impl)
 {
-	struct widget_textbox_win32 * this=(struct widget_textbox_win32*)this_;
-	this->parent=parent;
-	this->hwnd=CreateWindow(WC_EDIT, "", WS_CHILD|WS_VISIBLE|WS_TABSTOP|WS_BORDER|ES_AUTOHSCROLL, 0, 0, 16, 16,
-	                        (HWND)parenthandle, (HMENU)CTID_TEXTBOX, GetModuleHandle(NULL), NULL);
-	SetWindowLongPtr(this->hwnd, GWLP_USERDATA, (LONG_PTR)this);
-	SendMessage(this->hwnd, WM_SETFONT, (WPARAM)dlgfont, FALSE);
-	SetWindowSubclass(this->hwnd, textbox_SubclassProc, 0, 0);
+	m->initialized=false;
+	m->disabled=false;
+	m->focus=false;
+	m->maxchars=0;
+	
+	m->text=NULL;
+	m->onchange=NULL;
+	m->invalid=false;
+	
+	measure_text("XXXXXXXXXXXX", NULL, &this->height);
+	this->width=5*xwidth/12 + 6 + g_padding*2;
+	this->height+=6 + g_padding*2;
+}
+
+unsigned int widget_textbox::init(struct window * parent, uintptr_t parenthandle)
+{
+	HWND hwnd=CreateWindow(WC_EDIT, "", WS_CHILD|WS_VISIBLE|WS_TABSTOP|WS_BORDER|ES_AUTOHSCROLL, 0, 0, 16, 16,
+	                       (HWND)parenthandle, (HMENU)CTID_TEXTBOX, GetModuleHandle(NULL), NULL);
+	SetWindowLongPtr(hwnd, GWLP_USERDATA, (LONG_PTR)this);
+	SendMessage(hwnd, WM_SETFONT, (WPARAM)dlgfont, FALSE);
+	SetWindowSubclass(hwnd, textbox_SubclassProc, 0, 0);
+	if (m->disabled) EnableWindow(hwnd, false);
+	if (m->focus) SetFocus(hwnd);
+	if (m->text) SetWindowText(hwnd, m->text);
+	
+	this->set_length(m->maxchars);
+	this->set_invalid(m->invalid);
+	
+	m->parent=parent;
+	m->hwnd=hwnd;
 	return 1;
 }
 
-static void textbox__measure(struct widget_base * this_) {}
+void widget_textbox::measure() {}
 
-static void textbox__place(struct widget_base * this_, void* resizeinf,
-                           unsigned int x, unsigned int y, unsigned int width, unsigned int height)
+void widget_textbox::place(void* resizeinf, unsigned int x, unsigned int y, unsigned int width, unsigned int height)
 {
 	x+=g_padding; y+=g_padding; width-=g_padding*2; height-=g_padding*2;
-	struct widget_textbox_win32 * this=(struct widget_textbox_win32*)this_;
-	place_window(this->hwnd, resizeinf, x+1,y+1, width-2,height-2);//this math is to get the border to the inside of the widget
+	place_window(m->hwnd, resizeinf, x+1,y+1, width-2,height-2);//this math is to get the border to the inside of the widget
 }
 
-static void textbox__free(struct widget_base * this_)
+widget_textbox::~widget_textbox()
 {
-	struct widget_textbox_win32 * this=(struct widget_textbox_win32*)this_;
-	free(this->text);
-	free(this);
+	free(m->text);
+	delete m;
 }
 
-static void textbox_set_enabled(struct widget_textbox * this_, bool enable)
+widget_textbox* widget_textbox::set_enabled(bool enable)
 {
-	struct widget_textbox_win32 * this=(struct widget_textbox_win32*)this_;
-	EnableWindow(this->hwnd, enable);
+	if (m->initialized) EnableWindow(m->hwnd, enable);
+	else m->disabled=!enable;
+	return this;
 }
 
-static void textbox_focus(struct widget_textbox * this_)
+widget_textbox* widget_textbox::focus()
 {
-	struct widget_textbox_win32 * this=(struct widget_textbox_win32*)this_;
-	SetFocus(this->hwnd);
+	SetFocus(m->hwnd);
+	return this;
 }
 
-static const char * textbox_get_text(struct widget_textbox * this_)
+const char * widget_textbox::get_text()
 {
-	struct widget_textbox_win32 * this=(struct widget_textbox_win32*)this_;
-	free(this->text);
-	unsigned int len=GetWindowTextLength(this->hwnd);
-	this->text=malloc(len+1);
-	GetWindowText(this->hwnd, this->text, len+1);
-	return this->text;
+	free(m->text);
+	unsigned int len=GetWindowTextLength(m->hwnd);
+	m->text=malloc(len+1);
+	GetWindowText(m->hwnd, m->text, len+1);
+	return m->text;
 }
 
-static void textbox_set_text(struct widget_textbox * this_, const char * text)
+widget_textbox* widget_textbox::set_text(const char * text)
 {
-	struct widget_textbox_win32 * this=(struct widget_textbox_win32*)this_;
-	free(this->text);
-	this->text=strdup(text);
-	SetWindowText(this->hwnd, this->text);
+	free(m->text);
+	m->text=strdup(text);
+	if (m->initialized) SetWindowText(m->hwnd, m->text);
+	return this;
 }
 
-static void textbox_set_length(struct widget_textbox * this_, unsigned int maxlen)
+widget_textbox* widget_textbox::set_length(unsigned int maxlen)
 {
-	struct widget_textbox_win32 * this=(struct widget_textbox_win32*)this_;
-	Edit_LimitText(this->hwnd, maxlen);//conveniently, we both chose 0 to mean unlimited
+	Edit_LimitText(m->hwnd, maxlen);//conveniently, we both chose 0 to mean unlimited
+	return this;
 }
 
-static void textbox_set_width(struct widget_textbox * this_, unsigned int xs)
+widget_textbox* widget_textbox::set_width(unsigned int xs)
 {
-	struct widget_textbox_win32 * this=(struct widget_textbox_win32*)this_;
-	this->i._base.width = xs*xwidth/12 + 6 + g_padding*2;
-	this->parent->_reflow(this->parent);
+	this->width = xs*xwidth/12 + 6 + g_padding*2;
+	m->parent->_reflow(m->parent);
+	return this;
 }
 
-static void textbox_set_invalid(struct widget_textbox * this_, bool invalid)
+widget_textbox* widget_textbox::set_invalid(bool invalid)
 {
-	struct widget_textbox_win32 * this=(struct widget_textbox_win32*)this_;
-	this->invalid=invalid;
-	InvalidateRect(this->hwnd, NULL, FALSE);
-	if (invalid) SetFocus(this->hwnd);
+	m->invalid=invalid;
+	if (m->initialized)
+	{
+		InvalidateRect(m->hwnd, NULL, FALSE);
+		if (invalid) SetFocus(m->hwnd);
+	}
+	return this;
 }
 
-static void textbox_set_onchange(struct widget_textbox * this_,
-                                 void (*onchange)(struct widget_textbox * subject, const char * text, void* userdata),
-                                 void* userdata)
+widget_textbox* widget_textbox::set_onchange(void (*onchange)(struct widget_textbox * subject, const char * text, void* userdata),
+                                             void* userdata)
 {
-	struct widget_textbox_win32 * this=(struct widget_textbox_win32*)this_;
-	this->onchange=onchange;
-	this->ch_userdata=userdata;
+	m->onchange=onchange;
+	m->ch_userdata=userdata;
+	return this;
 }
 
-static void textbox_set_onactivate(struct widget_textbox * this_,
-                                   void (*onactivate)(struct widget_textbox * subject, const char * text, void* userdata),
-                                   void* userdata)
+widget_textbox* widget_textbox::set_onactivate(void (*onactivate)(widget_textbox* subject, const char * text, void* userdata),
+                                               void* userdata)
 {
-	struct widget_textbox_win32 * this=(struct widget_textbox_win32*)this_;
-	this->onactivate=onactivate;
-	this->ac_userdata=userdata;
-}
-
-struct widget_textbox * widget_create_textbox()
-{
-	struct widget_textbox_win32 * this=malloc(sizeof(struct widget_textbox_win32));
-	this->i._base.init=textbox__init;
-	this->i._base.measure=textbox__measure;
-	this->i._base.widthprio=3;
-	this->i._base.heightprio=1;
-	this->i._base.place=textbox__place;
-	this->i._base.free=textbox__free;
-	
-	this->i.set_enabled=textbox_set_enabled;
-	this->i.focus=textbox_focus;
-	this->i.get_text=textbox_get_text;
-	this->i.set_text=textbox_set_text;
-	this->i.set_length=textbox_set_length;
-	this->i.set_width=textbox_set_width;
-	this->i.set_invalid=textbox_set_invalid;
-	this->i.set_onchange=textbox_set_onchange;
-	this->i.set_onactivate=textbox_set_onactivate;
-	
-	this->text=NULL;
-	this->onchange=NULL;
-	this->invalid=false;
-	
-	measure_text("XXXXXXXXXXXX", NULL, &this->i._base.height);
-	this->i._base.width=5*xwidth/12 + 6 + g_padding*2;
-	this->i._base.height+=6 + g_padding*2;
-	
-	return (struct widget_textbox*)this;
+	m->onactivate=onactivate;
+	m->ac_userdata=userdata;
+	return this;
 }
 
 
 static LRESULT CALLBACK textbox_SubclassProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam,
                                              UINT_PTR uIdSubclass, DWORD_PTR dwRefData)
 {
-	struct widget_textbox_win32 * this=(struct widget_textbox_win32*)GetWindowLongPtr(hwnd, GWLP_USERDATA);
+	widget_textbox* obj=(widget_textbox*)GetWindowLongPtr(hwnd, GWLP_USERDATA);
 	switch (uMsg)
 	{
 		case WM_KEYDOWN:
-			if (wParam==VK_RETURN && !(lParam & 0x40000000) && this->onactivate)
+			if (wParam==VK_RETURN && !(lParam & 0x40000000) && obj->m->onactivate)
 			{
-				this->onactivate((struct widget_textbox*)this, textbox_get_text((struct widget_textbox*)this), this->ac_userdata);
+				obj->m->onactivate(obj, obj->get_text(), obj->m->ac_userdata);
 				return 0;
 			}
 			break;
@@ -737,6 +737,7 @@ struct widget_canvas_win32;
 
 
 
+#if 0
 struct widget_viewport_win32 {
 	//struct widget_viewport i;
 	
@@ -1375,16 +1376,16 @@ uintptr_t _window_notify_inner(void* notification)
 			}
 			break;
 		}
-/*
 		case CTID_RADIO:
 		{
 			if (nmhdr->code==BN_CLICKED)
 			{
-				struct widget_radio_win32 * this=(struct widget_radio_win32*)GetWindowLongPtr(nmhdr->hwndFrom, GWLP_USERDATA);
-				radio_set_state((struct widget_radio*)this->leader, this->id);
-				if (this->leader->onclick)
+				widget_radio* obj=(widget_radio*)GetWindowLongPtr(nmhdr->hwndFrom, GWLP_USERDATA);
+				widget_radio* leader=obj->m->leader;
+				leader->set_state(obj->m->id);
+				if (leader->m->onclick)
 				{
-					this->leader->onclick((struct widget_radio*)this->leader, this->id, this->leader->userdata);
+					leader->m->onclick(leader, obj->m->id, leader->m->userdata);
 				}
 			}
 			break;
@@ -1393,19 +1394,20 @@ uintptr_t _window_notify_inner(void* notification)
 		{
 			if (nmhdr->code==EN_CHANGE)
 			{
-				struct widget_textbox_win32 * this=(struct widget_textbox_win32*)GetWindowLongPtr(nmhdr->hwndFrom, GWLP_USERDATA);
-				if (this->invalid)
+				widget_textbox* obj=(widget_textbox*)GetWindowLongPtr(nmhdr->hwndFrom, GWLP_USERDATA);
+				if (obj->m->invalid)
 				{
-					this->invalid=false;
-					InvalidateRect(this->hwnd, NULL, FALSE);
+					obj->m->invalid=false;
+					InvalidateRect(obj->m->hwnd, NULL, FALSE);
 				}
-				if (this->onchange)
+				if (obj->m->onchange)
 				{
-					this->onchange((struct widget_textbox*)this, textbox_get_text((struct widget_textbox*)this), this->ch_userdata);
+					obj->m->onchange(obj, obj->get_text(), obj->m->ch_userdata);
 				}
 			}
 			break;
 		}
+/*
 		case CTID_LISTVIEW:
 		{
 			return listbox_notify(nmhdr);
@@ -1420,18 +1422,16 @@ uintptr_t _window_get_widget_color(unsigned int type, void* handle, void* draw, 
 {
 	switch (GetDlgCtrlID((HWND)handle))
 	{
-/*
 		case CTID_TEXTBOX:
 		{
-			struct widget_textbox_win32 * this=(struct widget_textbox_win32*)GetWindowLongPtr((HWND)handle, GWLP_USERDATA);
-			if (this->invalid)
+			widget_textbox* obj=(widget_textbox*)GetWindowLongPtr((HWND)handle, GWLP_USERDATA);
+			if (obj->m->invalid)
 			{
 				SetBkMode((HDC)draw, TRANSPARENT);
 				return (LRESULT)bg_invalid;
 			}
 			break;
 		}
-*/
 	}
 	return DefWindowProcA((HWND)parent, (UINT)type, (WPARAM)draw, (LPARAM)handle);
 }
