@@ -496,7 +496,7 @@ widget_radio* widget_radio::set_text(const char * text)
 	{
 		measure_text(text, &this->width, NULL);
 		this->width+=checkbox_width + g_padding*2;
-		this->height=checkbox_height + g_padding*2;
+		this->height=checkbox_height;
 		
 		if (m->id==0 || m->last) this->height+=g_padding;
 		
