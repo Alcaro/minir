@@ -232,7 +232,7 @@ unsigned int widget_button::init(struct window * parent, uintptr_t parenthandle)
 {
 	char* text=(char*)m->hwnd;
 	m->hwnd=CreateWindow(WC_BUTTON, text, WS_CHILD|WS_VISIBLE|WS_TABSTOP, 0, 0, 16, 16,
-	                        (HWND)parenthandle, (HMENU)CTID_BUTTON, GetModuleHandle(NULL), NULL);
+	                     (HWND)parenthandle, (HMENU)CTID_BUTTON, GetModuleHandle(NULL), NULL);
 	free(text);
 	if (m->state==1) EnableWindow(m->hwnd, false);
 	m->state=2;
@@ -277,7 +277,7 @@ widget_button* widget_button::set_onclick(void (*onclick)(struct widget_button *
 
 
 struct widget_checkbox::impl {
-	//struct window * parent;
+	struct window * parent;
 	HWND hwnd;
 	
 	void (*onclick)(struct widget_checkbox * subject, bool checked, void* userdata);
@@ -302,15 +302,18 @@ widget_checkbox::widget_checkbox(const char * text) : m(new impl)
 
 unsigned int widget_checkbox::init(struct window * parent, uintptr_t parenthandle)
 {
+	m->parent=parent;
 	char* text=(char*)m->hwnd;
-	m->hwnd=CreateWindow(WC_BUTTON, text, WS_CHILD|WS_VISIBLE|WS_TABSTOP|BS_CHECKBOX, 0, 0, 16, 16,
-	                        (HWND)parenthandle, (HMENU)CTID_CHECK, GetModuleHandle(NULL), NULL);
-	free(text);
+	m->hwnd=CreateWindow(WC_BUTTON, "", WS_CHILD|WS_VISIBLE|WS_TABSTOP|BS_CHECKBOX, 0, 0, 16, 16,
+	                     (HWND)parenthandle, (HMENU)CTID_CHECK, GetModuleHandle(NULL), NULL);
 	if (m->state&2) EnableWindow(m->hwnd, false);
 	if (m->state&4) Button_SetCheck(m->hwnd, BST_CHECKED);
 	m->state=0x01;
 	SetWindowLongPtr(m->hwnd, GWLP_USERDATA, (LONG_PTR)this);
 	SendMessage(m->hwnd, WM_SETFONT, (WPARAM)dlgfont, FALSE);
+	
+	this->set_text(text);
+	free(text);
 	return 1;
 }
 
@@ -336,7 +339,20 @@ widget_checkbox* widget_checkbox::set_enabled(bool enable)
 
 widget_checkbox* widget_checkbox::set_text(const char * text)
 {
-	SetWindowText(m->hwnd, text);
+	if (m->state==1)
+	{
+		measure_text(text, &this->width, &this->height);
+		this->width+=this->height;
+		this->width+=g_padding*2; this->height+=g_padding*2;
+		
+		SetWindowText(m->hwnd, text);
+		m->parent->_reflow(m->parent);
+	}
+	else
+	{
+		free((char*)m->hwnd);
+		m->hwnd=(HWND)strdup(text);
+	}
 	return this;
 }
 
@@ -353,7 +369,8 @@ widget_checkbox* widget_checkbox::set_state(bool checked)
 	return this;
 }
 
-widget_checkbox* widget_checkbox::set_onclick(void (*onclick)(struct widget_checkbox * subject, bool checked, void* userdata), void* userdata)
+widget_checkbox* widget_checkbox::set_onclick(void (*onclick)(struct widget_checkbox * subject, bool checked, void* userdata),
+                                              void* userdata)
 {
 	m->onclick=onclick;
 	m->userdata=userdata;
