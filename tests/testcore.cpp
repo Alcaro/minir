@@ -220,7 +220,7 @@ void test3a()
 		state.test3a_activate=2;
 	}
 	
-	if (state.test3a_activate==0 && inpstate[0]) state.test3a_activate=1;
+	if (state.test3a_activate==0 && inpstate[0]&0xFF0F) state.test3a_activate=1;
 	if (state.test3a_activate==2 && !inpstate[0]) state.test3a_activate=0;
 	
 	for (int i=0;i<320*240;i++) pixels[i]=p_wht;
@@ -419,7 +419,7 @@ EXPORT void retro_run(void)
 		for (int i=0;i<8;i++) audio_batch_cb(data, 64);
 	}
 	
-	video_cb(pixels, 320, 240, sizeof(*pixels));
+	video_cb(pixels, 320, 240, sizeof(pixel_t)*320);
 }
 
 EXPORT size_t retro_serialize_size(void) { return sizeof(state); }
