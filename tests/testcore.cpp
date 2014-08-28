@@ -17,21 +17,24 @@ g++ -I.. testcore.cpp -Os -s -shared -lm -o ../roms/testcore_libretro.dll
 // 2. Latency and synchronization
 // 2a. A/V sync test. Will switch between white and silent, and black and noisy, every two seconds.
 // 2b. Latency test. If any of ABXYLRStSe are held, it's black and noisy; if not, it's white and silent.
-// 3. Netplay
-// 3a. Input sync. All button presses are sent to the screen; a hash of that is used as background color, for easy comparison.
+// 3. Input
+// 3a. Press any key to check how fast input_state_cb can be called.
+// 4. Netplay
+// 4a. Input sync. All button presses are sent to the screen; a hash of that is used as background color, for easy comparison.
 // Up and Down will cycle between the test groups. Left and Right will cycle between the tests in each group.
-int numgroups=3;
-int groupsizes[]={5,2,1};
-#define init_grp 1
-#define init_sub 'c'
+int numgroups=4;
+int groupsizes[]={5,2,1,1};
+#define init_grp 3
+#define init_sub 'a'
 
 //Also tests the following libretro env callbacks:
 //RETRO_ENVIRONMENT_SET_PIXEL_FORMAT 10
 //RETRO_ENVIRONMENT_SET_SUPPORT_NO_GAME 18
 
-//#define PIXFMT RETRO_PIXEL_FORMAT_0RGB1555//0
-//#define PIXFMT RETRO_PIXEL_FORMAT_XRGB8888//1
-#define PIXFMT RETRO_PIXEL_FORMAT_RGB565//2
+//do not use the names as primary - they're an enum, the preprocessor can't read them
+//#define PIXFMT 0//RETRO_PIXEL_FORMAT_0RGB1555
+//#define PIXFMT 1//RETRO_PIXEL_FORMAT_XRGB8888
+#define PIXFMT 2//RETRO_PIXEL_FORMAT_RGB565
 //For XRGB8888, 1a will set the Xs to 0, while 1b will set them to 1.
 //Note that test 3a will give different colors for each of the pixel formats. Therefore, for any comparison to be meaningful, the pixel format must be the same.
 
@@ -72,6 +75,7 @@ int groupsizes[]={5,2,1};
 #include "libretro.h"
 
 #include <string.h>
+#include <stdlib.h>
 #include <stdio.h>
 #include <math.h>
 #define PI 3.14159265358979323846
@@ -91,16 +95,28 @@ static struct {
 	
 	int frame;
 	
-	uint16_t test3a[28*3];
+	uint8_t test3a_activate;
+	uint64_t test3a_last;
+	uint16_t test4a[28*3];
 } state;
 
 uint16_t inpstate[2];
 bool sound_enable;
 pixel_t pixels[240*320];
 
-void renderchr(int chr, int x, int y);
-void renderstr(const char * str, int x, int y);
+void renderchr(pixel_t col, int chr, int x, int y);
+void renderstr(pixel_t col, const char * str, int x, int y);
 unsigned long crc32_calc (unsigned char *ptr, unsigned cnt, unsigned long crc);
+
+#ifdef __unix__
+#include <time.h>
+uint64_t window_get_time()
+{
+	struct timespec ts;
+	clock_gettime(CLOCK_MONOTONIC, &ts);
+	return ts.tv_sec*1000000 + ts.tv_nsec/1000;
+}
+#endif
 
 
 
@@ -188,27 +204,63 @@ void test2b()
 
 void test3a()
 {
-	if (inpstate[0]!=state.test3a[27*3+1] || inpstate[1]!=state.test3a[27*3+2])
+	if (state.test3a_activate==1)
+	{
+		uint64_t end=window_get_time()+2000000;
+		uint64_t n=0;
+		while (window_get_time() < end)
+		{
+			for (int i=0;i<32;i++)
+			{
+				input_state_cb(rand()%2, RETRO_DEVICE_JOYPAD, 0, rand()%16);
+				n++;
+			}
+		}
+		state.test3a_last=n/2;
+		state.test3a_activate=2;
+	}
+	
+	if (state.test3a_activate==0 && inpstate[0]) state.test3a_activate=1;
+	if (state.test3a_activate==2 && !inpstate[0]) state.test3a_activate=0;
+	
+	for (int i=0;i<320*240;i++) pixels[i]=p_wht;
+	
+	if (state.test3a_activate==1) renderstr(p_blk, "Running...", 8, 8);
+	else if (state.test3a_last==0) renderstr(p_blk, "Ready", 8, 8);
+	else
+	{
+		char line[128];
+		sprintf(line, "%lu calls per second", state.test3a_last);
+		renderstr(p_blk, line, 8, 8);
+		sprintf(line, "%lu calls per frame", state.test3a_last/60);
+		renderstr(p_blk, line, 8, 16);
+	}
+}
+
+
+void test4a()
+{
+	if (inpstate[0]!=state.test4a[27*3+1] || inpstate[1]!=state.test4a[27*3+2])
 	{
 		for (int i=0;i<27*3;i++)
 		{
-			state.test3a[0*3+i]=state.test3a[0*3+i+3];
+			state.test4a[0*3+i]=state.test4a[0*3+i+3];
 		}
-		state.test3a[27*3+0]=state.frame;
-		state.test3a[27*3+1]=inpstate[0];
-		state.test3a[27*3+2]=inpstate[1];
+		state.test4a[27*3+0]=state.frame;
+		state.test4a[27*3+1]=inpstate[0];
+		state.test4a[27*3+2]=inpstate[1];
 	}
 	
-	uint16_t color=(~crc32_calc((unsigned char*)state.test3a, 6*28, ~0U))&p_dark;
+	uint16_t color=(~crc32_calc((unsigned char*)state.test4a, 6*28, ~0U))&p_dark;
 	for (int i=0;i<320*240;i++) pixels[i]=color;
 	
 	for (int i=0;i<28;i++)
 	{
-		if (state.test3a[i*3+0])
+		if (state.test4a[i*3+0])
 		{
 			char line[17];
-			sprintf(line, "%i: %.4X %.4X", state.test3a[i*3+0], state.test3a[i*3+1], state.test3a[i*3+2]);
-			renderstr(line, 8, 8+i*8);
+			sprintf(line, "%i: %.4X %.4X", state.test4a[i*3+0], state.test4a[i*3+1], state.test4a[i*3+2]);
+			renderstr(p_wht, line, 8, 8+i*8);
 		}
 	}
 }
@@ -257,7 +309,7 @@ EXPORT void retro_get_system_info(struct retro_system_info *info)
 	memcpy(info, &myinfo, sizeof(myinfo));
 }
 
-EXPORT void retro_get_system_av_info(struct retro_system_av_info *info)
+EXPORT void retro_get_system_av_info(struct retro_system_av_info* info)
 {
 	const struct retro_system_av_info myinfo={
 		{ 320, 240, 320, 240, 0.0 },
@@ -274,17 +326,6 @@ EXPORT void retro_reset(void)
 	state.testgroup=init_grp;
 	state.testsub=init_sub;
 }
-
-#ifdef TEST_INPUT_SPEED
-#include <time.h>
-#include <stdlib.h>
-uint64_t window_get_time()
-{
-	struct timespec ts;
-	clock_gettime(CLOCK_MONOTONIC, &ts);
-	return ts.tv_sec*1000000 + ts.tv_nsec/1000;
-}
-#endif
 
 EXPORT void retro_run(void)
 {
@@ -351,25 +392,12 @@ EXPORT void retro_run(void)
 	{
 		if (state.testsub=='a') test3a();
 	}
+	if (state.testgroup==4)
+	{
+		if (state.testsub=='a') test4a();
+	}
 	
 	state.frame++;
-	
-#ifdef TEST_INPUT_SPEED
-	if (state.frame==60)
-	{
-		uint64_t end=window_get_time()+2000000;
-		uint64_t n=0;
-		while (window_get_time() < end)
-		{
-			for (int i=0;i<32;i++)
-			{
-				input_state_cb(rand()%2, RETRO_DEVICE_JOYPAD, 0, rand()%16);
-				n++;
-			}
-		}
-		printf("Calls in two seconds: %lu\n", n);
-	}
-#endif
 	
 	if (sound_enable)
 	{
@@ -395,13 +423,13 @@ EXPORT void retro_run(void)
 }
 
 EXPORT size_t retro_serialize_size(void) { return sizeof(state); }
-EXPORT bool retro_serialize(void *data, size_t size)
+EXPORT bool retro_serialize(void* data, size_t size)
 {
 	if (size<sizeof(state)) return false;
 	memcpy(data, &state, sizeof(state));
 	return true;
 }
-EXPORT bool retro_unserialize(const void *data, size_t size)
+EXPORT bool retro_unserialize(const void* data, size_t size)
 {
 	if (size<sizeof(state)) return false;
 	memcpy(&state, data, sizeof(state));
@@ -410,18 +438,18 @@ EXPORT bool retro_unserialize(const void *data, size_t size)
 }
 
 EXPORT void retro_cheat_reset(void) {}
-EXPORT void retro_cheat_set(unsigned index, bool enabled, const char *code) {}
-EXPORT bool retro_load_game(const struct retro_game_info *game)
+EXPORT void retro_cheat_set(unsigned index, bool enabled, const char* code) {}
+EXPORT bool retro_load_game(const struct retro_game_info* game)
 {
 	retro_reset();
-	enum retro_pixel_format rgb565=PIXFMT;
+	enum retro_pixel_format rgb565=(enum retro_pixel_format)PIXFMT;
 	if (!environ_cb(RETRO_ENVIRONMENT_SET_PIXEL_FORMAT, &rgb565)) return false;
 	return true;
 }
-EXPORT bool retro_load_game_special(unsigned game_type, const struct retro_game_info *info, size_t num_info) { return false; }
+EXPORT bool retro_load_game_special(unsigned game_type, const struct retro_game_info* info, size_t num_info) { return false; }
 EXPORT void retro_unload_game(void) {}
 EXPORT unsigned retro_get_region(void) { return RETRO_REGION_NTSC; }
-EXPORT void* retro_get_memory_data(unsigned id) { printf("MEMREQ %u\n", id); return NULL; }
+EXPORT void* retro_get_memory_data(unsigned id) { return NULL; }
 EXPORT size_t retro_get_memory_size(unsigned id) { return 0; }
 
 
@@ -470,7 +498,7 @@ unsigned char convtable[256]={
 0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x4D,0x4C,0x4B,0x4A,0x45,0x46,0x47,0x48,0x49,
 };
 
-void renderchr(int chr, int x, int y)
+void renderchr(pixel_t col, int chr, int x, int y)
 {
 	int ix;
 	int iy;
@@ -480,17 +508,17 @@ void renderchr(int chr, int x, int y)
 	{
 		if ((zfont[convtable[chr]*5 + iy]>>ix)&1)
 		{
-			pixels[(y+iy)*320 + x+(ix^7)]=p_wht;
+			pixels[(y+iy)*320 + x+(ix^7)]=col;
 		}
 	}
 }
 
-void renderstr(const char * str, int x, int y)
+void renderstr(pixel_t col, const char * str, int x, int y)
 {
 	int i;
 	for (i=0;str[i];i++)
 	{
-		renderchr(str[i], x+i*8, y);
+		renderchr(col, str[i], x+i*8, y);
 	}
 }
 
