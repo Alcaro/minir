@@ -379,163 +379,179 @@ widget_checkbox* widget_checkbox::set_onclick(void (*onclick)(struct widget_chec
 
 
 
-#if 0
-struct widget_radio_win32 {
-	//struct widget_radio i;
+struct widget_radio::impl {
+	UNION_BEGIN
+		STRUCT_BEGIN//active if !initialized (if init() has not been called)
+			char* text;//strdup'd
+			bool disabled;
+		STRUCT_END
+		STRUCT_BEGIN//active otherwise
+			struct window * parent;
+			HWND hwnd;
+		STRUCT_END
+	UNION_END
 	
-	struct window * parent;
-	HWND hwnd;
+	bool initialized;
+	//char padding[3];
 	
 	//this can point to itself
-	struct widget_radio_win32 * leader;
 	unsigned int id;
-	unsigned int active;
+	widget_radio* leader;
 	
-	struct widget_radio_win32 * * group;
+	widget_radio* * group;
 	
 	UNION_BEGIN
 		//which one is active depends on 'id'; if it's nonzero, 'last' is valid
-		STRUCT_BEGIN
+		STRUCT_BEGIN//active if id==0
 			void (*onclick)(struct widget_radio * subject, unsigned int state, void* userdata);
 			void* userdata;
+			unsigned int active;
 		STRUCT_END
-		STRUCT_BEGIN
-			bool last;
-			//char padding[15];
+		STRUCT_BEGIN//active otherwise
+			bool last;//the 'first' flag is known by checking for id==0
+			//char padding[19];
 		STRUCT_END
 	UNION_END
+	//char padding[4];
 };
 
-static unsigned int radio__init(struct widget_base * this_, struct window * parent, uintptr_t parenthandle)
+widget_radio::widget_radio(const char * text) : m(new impl)
 {
-	struct widget_radio_win32 * this=(struct widget_radio_win32*)this_;
-	this->parent=parent;
-	this->hwnd=CreateWindow(WC_BUTTON, (const char*)this->hwnd, WS_CHILD|WS_VISIBLE|WS_TABSTOP|BS_RADIOBUTTON, 0, 0, 16, 16,
-	                        (HWND)parenthandle, (HMENU)CTID_RADIO, GetModuleHandle(NULL), NULL);
-	SetWindowLongPtr(this->hwnd, GWLP_USERDATA, (LONG_PTR)this);
-	SendMessage(this->hwnd, WM_SETFONT, (WPARAM)dlgfont, FALSE);
-	if (this->leader && this->id==0) Button_SetCheck(this->hwnd, BST_CHECKED);
+	this->widthprio=1;
+	this->heightprio=1;
+	
+	measure_text(text, &this->width, &this->height);
+	this->width+=this->height;
+	this->width+=g_padding*2;
+	
+	m->leader=NULL;
+	m->hwnd=(HWND)strdup(text);
+	m->onclick=NULL;
+	m->parent=NULL;
+	m->group=NULL;
+	
+	m->initialized=false;
+}
+
+unsigned int widget_radio::init(struct window * parent, uintptr_t parenthandle)
+{
+	bool disabled=m->disabled;
+	char* text=(char*)m->hwnd;
+	
+	m->parent=parent;
+	m->hwnd=CreateWindow(WC_BUTTON, text, WS_CHILD|WS_VISIBLE|WS_TABSTOP|BS_RADIOBUTTON, 0, 0, 16, 16,
+	                     (HWND)parenthandle, (HMENU)CTID_RADIO, GetModuleHandle(NULL), NULL);
+	SetWindowLongPtr(m->hwnd, GWLP_USERDATA, (LONG_PTR)this);
+	SendMessage(m->hwnd, WM_SETFONT, (WPARAM)dlgfont, FALSE);
+	if (m->leader && m->id==m->leader->m->active) Button_SetCheck(m->hwnd, BST_CHECKED);
+	if (disabled) EnableWindow(m->hwnd, false);
+	
+	m->initialized=true;
+	this->set_text(text);
+	free(text);
+	
 	return 1;
 }
 
-static void radio__measure(struct widget_base * this_) {}
+void widget_radio::measure() {}
 
-static void radio__place(struct widget_base * this_, void* resizeinf,
-                         unsigned int x, unsigned int y, unsigned int width, unsigned int height)
+void widget_radio::place(void* resizeinf, unsigned int x, unsigned int y, unsigned int width, unsigned int height)
 {
-	struct widget_radio_win32 * this=(struct widget_radio_win32*)this_;
 	x+=g_padding; width-=g_padding*2;
-	if (this->id==0 || this->last)
+	if (m->id==0)
 	{
-		if (this->id==0) y+=g_padding;
+		y+=g_padding;
 		height-=g_padding;
 	}
-	place_window(this->hwnd, resizeinf, x, y, width, height);
+	else if (m->last)
+	{
+		height-=g_padding;
+	}
+	place_window(m->hwnd, resizeinf, x, y, width, height);
 }
 
-static void radio__free(struct widget_base * this_)
+widget_radio::~widget_radio()
 {
-	struct widget_radio_win32 * this=(struct widget_radio_win32*)this_;
-	free(this->group);
-	free(this);
+	free(m->group);//this frees NULL on anything except the leader
+	delete m;
 }
 
-static void radio_set_enabled(struct widget_radio * this_, bool enable)
+widget_radio* widget_radio::set_enabled(bool enable)
 {
-	struct widget_radio_win32 * this=(struct widget_radio_win32*)this_;
-	EnableWindow(this->hwnd, enable);
+	if (m->initialized) EnableWindow(m->hwnd, enable);
+	else m->disabled=!enable;
+	return this;
 }
 
-static void radio_set_text(struct widget_radio * this_, const char * text)
+widget_radio* widget_radio::set_text(const char * text)
 {
-	struct widget_radio_win32 * this=(struct widget_radio_win32*)this_;
-	SetWindowText(this->hwnd, text);
-	measure_text(text, &this->i._base.width, &this->i._base.height);
-	this->i._base.width+=this->i._base.height;
-	this->i._base.width+=g_padding*2; this->i._base.height+=g_padding*2;
-	this->parent->_reflow(this->parent);
+	if (m->initialized)
+	{
+		SetWindowText(m->hwnd, text);
+		measure_text(text, &this->width, &this->height);
+		this->width+=this->height;
+		this->width+=g_padding*2; this->height+=g_padding*2;
+		m->parent->_reflow(m->parent);
+	}
+	else
+	{
+		free(m->text);
+		m->text=strdup(text);
+	}
+	return this;
 }
 
-static void radio_set_state(struct widget_radio * this_, unsigned int state);
-static void radio_group(struct widget_radio * this_, unsigned int numitems, struct widget_radio * * group_)
+widget_radio* widget_radio::group(unsigned int numitems, widget_radio* * group)
 {
-	struct widget_radio_win32 * this=(struct widget_radio_win32*)this_;
-	struct widget_radio_win32 * * group=(struct widget_radio_win32**)group_;
 	for (unsigned int i=0;i<numitems;i++)
 	{
-		group[i]->leader=this;
-		group[i]->id=i;
+		group[i]->m->leader=this;
+		group[i]->m->id=i;
 		if (i)
 		{
-			group[i]->last=false;
+			group[i]->m->last=false;
 			if (i==numitems-1)
 			{
-				group[i]->last=true;
-				group[i]->i._base.height+=g_padding;
+				group[i]->m->last=true;
+				group[i]->height+=g_padding;
 			}
 		}
 	}
-	this->active=0;
-	this->group=malloc(sizeof(struct widget_radio_win32*)*numitems);
-	memcpy(this->group, group, sizeof(struct widget_radio_win32*)*numitems);
-	if (this->hwnd) Button_SetCheck(this->hwnd, BST_CHECKED);
-	this->i._base.height+=g_padding;
-	if (this->parent) this->parent->_reflow(this->parent);
-}
-
-static unsigned int radio_get_state(struct widget_radio * this_)
-{
-	struct widget_radio_win32 * this=(struct widget_radio_win32*)this_;
-	return this->active;
-}
-
-static void radio_set_state(struct widget_radio * this_, unsigned int state)
-{
-	struct widget_radio_win32 * this=(struct widget_radio_win32*)this_;
-	Button_SetCheck(this->leader->group[this->leader->active]->hwnd, BST_UNCHECKED);
-	Button_SetCheck(this->leader->group[state]->hwnd, BST_CHECKED);
-	this->leader->active=state;
-}
-
-static void radio_set_onclick(struct widget_radio * this_,
-                    void (*onclick)(struct widget_radio * subject, unsigned int state, void* userdata), void* userdata)
-{
-	struct widget_radio_win32 * this=(struct widget_radio_win32*)this_;
-	this->onclick=onclick;
-	this->userdata=userdata;
-}
-
-struct widget_radio * widget_create_radio(const char * text)
-{
-	struct widget_radio_win32 * this=malloc(sizeof(struct widget_radio_win32));
-	this->i._base.init=radio__init;
-	this->i._base.measure=radio__measure;
-	this->i._base.widthprio=1;
-	this->i._base.heightprio=1;
-	this->i._base.place=radio__place;
-	this->i._base.free=radio__free;
 	
-	this->i.set_enabled=radio_set_enabled;
-	this->i.set_text=radio_set_text;
-	this->i.group=radio_group;
-	this->i.get_state=radio_get_state;
-	this->i.set_state=radio_set_state;
-	this->i.set_onclick=radio_set_onclick;
+	m->group=malloc(sizeof(widget_radio*)*numitems);
+	memcpy(m->group, group, sizeof(widget_radio*)*numitems);
+	if (m->initialized) Button_SetCheck(m->hwnd, BST_CHECKED);
+	this->height+=g_padding;
+	if (m->parent) m->parent->_reflow(m->parent);
 	
-	measure_text(text, &this->i._base.width, &this->i._base.height);
-	this->i._base.width+=this->i._base.height;
-	this->i._base.width+=g_padding*2;
+	return this;
+}
+
+unsigned int widget_radio::get_state()
+{
+	return m->active;
+}
+
+widget_radio* widget_radio::set_state(unsigned int state)
+{
+	Button_SetCheck(m->group[m->active]->m->hwnd, BST_UNCHECKED);
+	Button_SetCheck(m->group[state]->m->hwnd, BST_CHECKED);
+	m->active=state;
+	return this;
+}
+
+widget_radio* widget_radio::set_onclick(void (*onclick)(struct widget_radio * subject, unsigned int state, void* userdata),
+                                        void* userdata)
+{
+	m->onclick=onclick;
+	m->userdata=userdata;
 	
-	this->leader=NULL;
-	this->hwnd=(HWND)(void*)text;
-	this->onclick=NULL;
-	this->parent=NULL;
-	
-	return (struct widget_radio*)this;
+	return this;
 }
 
 
 
+#if 0
 struct widget_textbox_win32 {
 	//struct widget_textbox i;
 	
