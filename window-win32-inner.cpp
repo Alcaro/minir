@@ -431,19 +431,19 @@ widget_radio::widget_radio(const char * text) : m(new impl)
 	this->width+=g_padding*2;
 	
 	m->leader=NULL;
-	m->hwnd=(HWND)strdup(text);
 	m->onclick=NULL;
-	m->parent=NULL;
 	m->group=NULL;
 	m->active=0;
 	
 	m->initialized=false;
+	m->disabled=false;
+	m->text=strdup(text);
 }
 
 unsigned int widget_radio::init(struct window * parent, uintptr_t parenthandle)
 {
 	bool disabled=m->disabled;
-	char* text=(char*)m->hwnd;
+	char* text=m->text;
 	
 	m->parent=parent;
 	m->hwnd=CreateWindow(WC_BUTTON, text, WS_CHILD|WS_VISIBLE|WS_TABSTOP|BS_RADIOBUTTON, 0, 0, 16, 16,
@@ -532,7 +532,7 @@ widget_radio* widget_radio::group(unsigned int numitems, widget_radio* * group)
 	memcpy(m->group, group, sizeof(widget_radio*)*numitems);
 	if (m->initialized) Button_SetCheck(m->hwnd, BST_CHECKED);
 	this->height+=g_padding;
-	if (m->parent) m->parent->_reflow(m->parent);
+	if (m->initialized && m->parent) m->parent->_reflow(m->parent);
 	
 	return this;
 }
