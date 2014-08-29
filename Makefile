@@ -17,20 +17,7 @@ NATCXXFLAGS = $(CPPFLAGS)
 NATLD = $(LD)
 NATLFLAGS = $(LFLAGS)
 
-#Windows setup.
-WIN_LIB = -lgdi32 -lcomctl32 -lcomdlg32 -ldinput8 -ldxguid -lopengl32 -ldsound
-TRUE_CFLAGS = $(CFLAGS)
-TRUE_CXXFLAGS = $(CXXFLAGS)
-TRUE_LFLAGS = $(LFLAGS) $(WIN_LIB)
-EXESUFFIX = .exe
-EXTRAOBJ = obj/resource$(OBJSUFFIX).o
-RC = windres
-RCFLAGS =
-obj/resource$(OBJSUFFIX).o: ico/*
-	$(RC) $(RCFLAGS) ico/minir.rc obj/resource$(OBJSUFFIX).o
-
-#On Linux, this undoes most of the above. On Windows, this file doesn't exist because 'configure' wasn't executed.
--include Makefile.custom
+include Makefile.custom
 
 OUTNAME = minir$(EXESUFFIX)
 
