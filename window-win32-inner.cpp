@@ -72,7 +72,7 @@ static void measure_text(const char * text, unsigned int * width, unsigned int *
 	if (height) *height=rc.bottom;
 }
 
-//static LRESULT CALLBACK viewport_WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam);
+static LRESULT CALLBACK viewport_WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam);
 void _window_init_inner()
 {
 	//HDC hdc=GetDC(NULL);
@@ -105,18 +105,18 @@ void _window_init_inner()
 	//SelectObject(hdc, prevfont);
 	//ReleaseDC(NULL, hdc);
 	
-	//WNDCLASS wc;
-	//wc.style=0;
-	//wc.lpfnWndProc=viewport_WindowProc;
-	//wc.cbClsExtra=0;
-	//wc.cbWndExtra=0;
-	//wc.hInstance=GetModuleHandle(NULL);
-	//wc.hIcon=LoadIcon(GetModuleHandle(NULL), MAKEINTRESOURCE(0));
-	//wc.hCursor=LoadCursor(NULL, IDC_ARROW);
-	//wc.hbrBackground=GetSysColorBrush(COLOR_3DFACE);//(HBRUSH)(COLOR_WINDOW + 1);
-	//wc.lpszMenuName=NULL;
-	//wc.lpszClassName="minir_viewport";
-	//RegisterClass(&wc);
+	WNDCLASS wc;
+	wc.style=0;
+	wc.lpfnWndProc=viewport_WindowProc;
+	wc.cbClsExtra=0;
+	wc.cbWndExtra=0;
+	wc.hInstance=GetModuleHandle(NULL);
+	wc.hIcon=LoadIcon(GetModuleHandle(NULL), MAKEINTRESOURCE(0));
+	wc.hCursor=LoadCursor(NULL, IDC_ARROW);
+	wc.hbrBackground=GetSysColorBrush(COLOR_3DFACE);//(HBRUSH)(COLOR_WINDOW + 1);
+	wc.lpszMenuName=NULL;
+	wc.lpszClassName="minir_viewport";
+	RegisterClass(&wc);
 	
 	measure_text("XXXXXXXXXXXX", &xwidth, NULL);
 	
@@ -738,10 +738,7 @@ struct widget_canvas_win32;
 
 
 
-#if 0
-struct widget_viewport_win32 {
-	//struct widget_viewport i;
-	
+struct widget_viewport::impl {
 	struct window * parent;
 	HWND hwnd;
 	
@@ -753,131 +750,115 @@ struct widget_viewport_win32 {
 	void* dropuserdata;
 };
 
-static unsigned int viewport__init(struct widget_base * this_, struct window * parent, uintptr_t parenthandle)
+
+
+unsigned int widget_viewport::init(struct window * parent, uintptr_t parenthandle)
 {
-	struct widget_viewport_win32 * this=(struct widget_viewport_win32*)this_;
-	this->parent=parent;
-	this->hwnd=CreateWindow("minir_viewport", "", WS_CHILD|WS_VISIBLE, 0, 0, 16, 16,
-	                        (HWND)parenthandle, NULL, GetModuleHandle(NULL), NULL);
-	SetWindowLongPtr(this->hwnd, GWLP_USERDATA, (LONG_PTR)this);
+	m->parent=parent;
+	m->hwnd=CreateWindow("minir_viewport", "", WS_CHILD|WS_VISIBLE, 0, 0, 16, 16,
+	                     (HWND)parenthandle, NULL, GetModuleHandle(NULL), NULL);
+	SetWindowLongPtr(m->hwnd, GWLP_USERDATA, (LONG_PTR)this);
 	return 1;
 }
 
-static void viewport__measure(struct widget_base * this_) {}
-
-static void viewport__place(struct widget_base * this_, void* resizeinf,
-                            unsigned int x, unsigned int y, unsigned int width, unsigned int height)
+widget_viewport::widget_viewport(unsigned int width, unsigned int height) : m(new impl)
 {
-	struct widget_viewport_win32 * this=(struct widget_viewport_win32*)this_;
-	place_window(this->hwnd, resizeinf, x, y, width, height);
-}
-
-static void viewport__free(struct widget_base * this_)
-{
-	struct widget_viewport_win32 * this=(struct widget_viewport_win32*)this_;
-	free(this);
-}
-
-static void viewport_resize(struct widget_viewport * this_, unsigned int width, unsigned int height)
-{
-	struct widget_viewport_win32 * this=(struct widget_viewport_win32*)this_;
-	this->i._base.width=width;
-	this->i._base.height=height;
-	this->parent->_reflow(this->parent);
-}
-
-static uintptr_t viewport_get_window_handle(struct widget_viewport * this_)
-{
-	struct widget_viewport_win32 * this=(struct widget_viewport_win32*)this_;
-	return (uintptr_t)this->hwnd;
-}
-
-static void viewport_set_hide_cursor(struct widget_viewport * this_, bool hide)
-{
-	struct widget_viewport_win32 * this=(struct widget_viewport_win32*)this_;
-	this->hide_cursor_user=hide;
+	this->widthprio=0;
+	this->heightprio=0;
 	
-	if (this->hide_cursor_user && this->hide_cursor_timer) SetCursor(NULL);
-	else SetCursor(LoadCursor(NULL, IDC_ARROW));
-}
-
-static void viewport_set_support_drop(struct widget_viewport * this_,
-                             void (*on_file_drop)(struct widget_viewport * subject, const char * const * filenames, void* userdata),
-                             void* userdata)
-{
-	struct widget_viewport_win32 * this=(struct widget_viewport_win32*)this_;
-	
-	DragAcceptFiles(this->hwnd, TRUE);
-	
-	this->on_file_drop=on_file_drop;
-	this->dropuserdata=userdata;
-}
-
-struct widget_viewport * widget_create_viewport(unsigned int width, unsigned int height)
-{
-	struct widget_viewport_win32 * this=malloc(sizeof(struct widget_viewport_win32));
-	this->i._base.init=viewport__init;
-	this->i._base.measure=viewport__measure;
-	this->i._base.widthprio=0;
-	this->i._base.heightprio=0;
-	this->i._base.place=viewport__place;
-	this->i._base.free=viewport__free;
-	
-	this->i.resize=viewport_resize;
-	this->i.get_window_handle=viewport_get_window_handle;
-	this->i.set_hide_cursor=viewport_set_hide_cursor;
-	this->i.set_support_drop=viewport_set_support_drop;
-	
-	this->i._base.width=width;
-	this->i._base.height=height;
+	this->width=width;
+	this->height=height;
 	//no padding here
 	
-	this->hide_cursor_user=false;
-	this->hide_cursor_timer=true;
-	this->lastmousepos=-1;//random value, just so Valgrind-like tools won't throw.
-	this->on_file_drop=NULL;
+	m->hide_cursor_user=false;
+	m->hide_cursor_timer=true;
+	m->lastmousepos=-1;//random value, just so Valgrind-like tools won't throw.
+	m->on_file_drop=NULL;
+}
+
+void widget_viewport::measure() {}
+
+void widget_viewport::place(void* resizeinf, unsigned int x, unsigned int y, unsigned int width, unsigned int height)
+{
+	place_window(m->hwnd, resizeinf, x, y, width, height);
+}
+
+widget_viewport::~widget_viewport()
+{
+	delete m;
+}
+
+widget_viewport* widget_viewport::resize(unsigned int width, unsigned int height)
+{
+	this->width=width;
+	this->height=height;
+	m->parent->_reflow(m->parent);
+	return this;
+}
+
+uintptr_t widget_viewport::get_window_handle()
+{
+	return (uintptr_t)m->hwnd;
+}
+
+widget_viewport* widget_viewport::set_hide_cursor(bool hide)
+{
+	m->hide_cursor_user=hide;
+	if (m->hide_cursor_user && m->hide_cursor_timer) SetCursor(NULL);
+	else SetCursor(LoadCursor(NULL, IDC_ARROW));
 	
-	return (struct widget_viewport*)this;
+	return this;
+}
+
+widget_viewport* widget_viewport::set_support_drop(void (*on_file_drop)(struct widget_viewport * subject,
+                                                                        const char * const * filenames, void* userdata),
+                                                   void* userdata)
+{
+	DragAcceptFiles(m->hwnd, TRUE);
+	m->on_file_drop=on_file_drop;
+	m->dropuserdata=userdata;
+	
+	return this;
 }
 
 static LRESULT CALLBACK viewport_WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 {
-	struct widget_viewport_win32 * this=(struct widget_viewport_win32*)GetWindowLongPtr(hwnd, GWLP_USERDATA);
+	widget_viewport* obj=(widget_viewport*)GetWindowLongPtr(hwnd, GWLP_USERDATA);
 	switch (uMsg)
 	{
 	case WM_MOUSEMOVE:
 		{
 			//windows, what exactly is the point behind the bogus mouse move messages
 			//you clearly know they exist (http://blogs.msdn.com/b/oldnewthing/archive/2009/06/17/9763416.aspx), why not block them?
-			if (lParam==this->lastmousepos) break;
-			this->lastmousepos=lParam;
+			if (lParam==obj->m->lastmousepos) break;
+			obj->m->lastmousepos=lParam;
 			
-			SetTimer(this->hwnd, TIMER_MOUSEHIDE, 1000, NULL);
-			TRACKMOUSEEVENT tme={ sizeof(tme), TME_LEAVE, this->hwnd, HOVER_DEFAULT };
+			SetTimer(obj->m->hwnd, TIMER_MOUSEHIDE, 1000, NULL);
+			TRACKMOUSEEVENT tme={ sizeof(tme), TME_LEAVE, obj->m->hwnd, HOVER_DEFAULT };
 			TrackMouseEvent(&tme);
-			this->hide_cursor_timer=false;
+			obj->m->hide_cursor_timer=false;
 		}
 		break;
 	case WM_MOUSELEAVE:
 	case WM_NCMOUSEMOVE:
 		{
-			KillTimer(this->hwnd, TIMER_MOUSEHIDE);
-			this->hide_cursor_timer=false;
+			KillTimer(obj->m->hwnd, TIMER_MOUSEHIDE);
+			obj->m->hide_cursor_timer=false;
 		}
 		break;
 	case WM_TIMER:
 		{
 			if (wParam==TIMER_MOUSEHIDE)
 			{
-				this->hide_cursor_timer=true;
-				if (this->hide_cursor_user) SetCursor(NULL);
-				KillTimer(this->hwnd, TIMER_MOUSEHIDE);
+				obj->m->hide_cursor_timer=true;
+				if (obj->m->hide_cursor_user) SetCursor(NULL);
+				KillTimer(obj->m->hwnd, TIMER_MOUSEHIDE);
 			}
 		}
 		break;
 	case WM_SETCURSOR:
 		{
-			if (this->hide_cursor_user && this->hide_cursor_timer) SetCursor(NULL);
+			if (obj->m->hide_cursor_user && obj->m->hide_cursor_timer) SetCursor(NULL);
 			else goto _default;
 		}
 		break;
@@ -898,7 +879,7 @@ static LRESULT CALLBACK viewport_WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam,
 			}
 			filenames[numfiles]=NULL;
 			DragFinish(hdrop);
-			this->on_file_drop((struct widget_viewport*)this, (const char * const *)filenames, this->dropuserdata);
+			obj->m->on_file_drop(obj, (const char * const *)filenames, obj->m->dropuserdata);
 			for (UINT i=0;i<numfiles;i++) free(filenames[i]);
 		}
 		break;
@@ -911,6 +892,7 @@ static LRESULT CALLBACK viewport_WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam,
 
 
 
+#if 0
 //http://msdn.microsoft.com/en-us/library/windows/desktop/bb774737(v=vs.85).aspx
 //http://www.codeproject.com/Articles/7891/Using-virtual-lists - codeproject being useful for once
 
