@@ -598,6 +598,9 @@ widget_textbox::widget_textbox() : m(new impl)
 	m->focus=false;
 	m->maxchars=0;
 	
+	this->widthprio=3;
+	this->heightprio=1;
+	
 	m->text=NULL;
 	m->onchange=NULL;
 	m->onactivate=NULL;
@@ -621,6 +624,8 @@ unsigned int widget_textbox::init(struct window * parent, uintptr_t parenthandle
 	
 	this->set_length(m->maxchars);
 	this->set_invalid(m->invalid);
+	
+	m->initialized=true;
 	
 	m->parent=parent;
 	m->hwnd=hwnd;
@@ -905,11 +910,17 @@ struct widget_listbox::impl {
 	struct window * parent;
 	HWND hwnd;
 	
-	size_t rows;
+	unsigned int rows;
 	unsigned int columns;
 	
 	unsigned int columnwidthsum;
 	unsigned int * columnwidths;
+	
+	bool initialized;
+	bool disabled;
+	
+	bool checkboxes;//oddly placed due to padding
+	//char padding[1];
 	
 	const char * (*get_cell)(struct widget_listbox * subject, size_t row, int column, void * userdata);
 	size_t (*search)(struct widget_listbox * subject, const char * prefix, size_t start, bool up, void * userdata);
@@ -920,11 +931,6 @@ struct widget_listbox::impl {
 	void (*onactivate)(struct widget_listbox * subject, size_t row, void* userdata);
 	void* act_userdata;
 	
-	bool initialized;
-	bool disabled;
-	
-	bool checkboxes;
-	//char padding[6];
 	void (*ontoggle)(struct widget_listbox * subject, size_t row, void* userdata);
 	void* tg_userdata;
 };
@@ -938,6 +944,8 @@ void widget_listbox::construct(unsigned int numcolumns, const char * * columns)
 	
 	m->columnwidths=malloc(sizeof(unsigned int)*numcolumns);
 	m->columns=numcolumns;
+	m->rows=0;
+	m->disabled=false;
 	m->onfocuschange=NULL;
 	m->onactivate=NULL;
 	m->checkboxes=NULL;
@@ -981,6 +989,8 @@ unsigned int widget_listbox::init(struct window * parent, uintptr_t parenthandle
 	ListView_SetItemCountEx(m->hwnd, m->rows, 0);//not redrawing because the window isn't even visible at this point
 	
 	free(columns);
+	
+	m->initialized=true;
 	
 	//pretty sure the listbox has children, but I can't ask how many of those there are. Probably varies if I add checkboxes, too.
 	//But I'm not the one resizing them, so I can't do anything with that even if I knew the number.
@@ -1036,6 +1046,7 @@ widget_listbox* widget_listbox::set_enabled(bool enable)
 
 widget_listbox* widget_listbox::set_num_rows(size_t rows)
 {
+printf("rows=%u\n",(int)rows);
 	if (rows > 100000000) rows=100000000;//Windows "only" supports 100 million (0x05F5E100); more than that and it gets empty.
 	m->rows=rows;
 	if (m->initialized)

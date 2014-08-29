@@ -153,7 +153,7 @@ struct windowmenu * windowmenu_create_topmenu_l(unsigned int numchildren, struct
 // type of widget this is. However, they should all be seen as implementation details.
 //It is undefined behaviour to set a callback to NULL. It is, however, allowed to not set it.
 //It is undefined behaviour to set a callback twice.
-//It is undefined behaviour to interact with any widget, except by putting it inside another widget, before it's placed inside a window.
+//It is undefined behaviour to query a widget's state before it's placed inside a window.
 //Any pointers given during widget creation must be valid until the widget is placed inside a window.
 class widget_base : nocopy {
 public:
