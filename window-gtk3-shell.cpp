@@ -249,8 +249,11 @@ static void menu_activate_radio(GtkMenuItem* menuitem, gpointer user_data)
 	struct windowmenu_gtk3 * this=item->parent;
 	if (this->block_signals) return;
 	if (!gtk_check_menu_item_get_active(GTK_CHECK_MENU_ITEM(item->item))) return;
-	if (this->state!=item->state) this->onactivate_radio((struct windowmenu*)this, item->state, this->userdata);
-	this->state=item->state;
+	if (this->state!=item->state)
+	{
+		this->state=item->state;
+		this->onactivate_radio((struct windowmenu*)this, item->state, this->userdata);
+	}
 }
 
 static void menu_radio_set_enabled(struct windowmenu * this_, bool enable)
