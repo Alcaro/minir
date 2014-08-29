@@ -892,7 +892,6 @@ static LRESULT CALLBACK viewport_WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam,
 
 
 
-#if 0
 //http://msdn.microsoft.com/en-us/library/windows/desktop/bb774737(v=vs.85).aspx
 //http://www.codeproject.com/Articles/7891/Using-virtual-lists - codeproject being useful for once
 
@@ -900,7 +899,7 @@ static LRESULT CALLBACK viewport_WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam,
 #define LVCFMT_FIXED_WIDTH 0x100
 #endif
 
-struct widget_listbox_win32 {
+struct widget_listbox::impl {
 	//struct widget_listbox i;
 	
 	struct window * parent;
@@ -921,48 +920,76 @@ struct widget_listbox_win32 {
 	void (*onactivate)(struct widget_listbox * subject, size_t row, void* userdata);
 	void* act_userdata;
 	
+	bool initialized;
+	bool disabled;
+	
 	bool checkboxes;
+	//char padding[6];
 	void (*ontoggle)(struct widget_listbox * subject, size_t row, void* userdata);
 	void* tg_userdata;
 };
 
-static unsigned int listbox__init(struct widget_base * this_, struct window * parent, uintptr_t parenthandle)
+void widget_listbox::construct(unsigned int numcolumns, const char * * columns)
 {
-	struct widget_listbox_win32 * this=(struct widget_listbox_win32*)this_;
-	this->parent=parent;
-	const char * * columns=(const char**)this->hwnd;
-	this->hwnd=CreateWindowEx(WS_EX_CLIENTEDGE, WC_LISTVIEW, "", WS_CHILD|WS_VISIBLE|WS_TABSTOP|LVS_REPORT|LVS_OWNERDATA,
+	m=new impl;
+	
+	this->widthprio=3;
+	this->heightprio=3;
+	
+	m->columnwidths=malloc(sizeof(unsigned int)*numcolumns);
+	m->columns=numcolumns;
+	m->onfocuschange=NULL;
+	m->onactivate=NULL;
+	m->checkboxes=NULL;
+	
+	this->width=1+19+1+m->columns*20;
+	this->height=1+25+19*0+2;
+	
+	m->hwnd=malloc(sizeof(const char*)*numcolumns);
+	memcpy(m->hwnd, columns, sizeof(const char*)*numcolumns);
+	
+	m->initialized=false;
+}
+
+unsigned int widget_listbox::init(struct window * parent, uintptr_t parenthandle)
+{
+	m->parent=parent;
+	const char * * columns=(const char**)m->hwnd;
+	m->hwnd=CreateWindowEx(WS_EX_CLIENTEDGE, WC_LISTVIEW, "", WS_CHILD|WS_VISIBLE|WS_TABSTOP|LVS_REPORT|LVS_OWNERDATA,
 	                          0, 0, 16, 16, (HWND)parenthandle, (HMENU)CTID_LISTVIEW, GetModuleHandle(NULL), NULL);
 	
-	SetWindowLongPtr(this->hwnd, GWLP_USERDATA, (LONG_PTR)this);
-	SendMessage(this->hwnd, WM_SETFONT, (WPARAM)dlgfont, FALSE);
+	SetWindowLongPtr(m->hwnd, GWLP_USERDATA, (LONG_PTR)this);
+	SendMessage(m->hwnd, WM_SETFONT, (WPARAM)dlgfont, FALSE);
 	
 	LVCOLUMN col;
 	col.mask=LVCF_FMT|LVCF_WIDTH|LVCF_TEXT;
 	col.fmt=LVCFMT_LEFT|LVCFMT_FIXED_WIDTH;
 	col.cx=20;
-	for (unsigned int i=0;i<this->columns;i++)
+	for (unsigned int i=0;i<m->columns;i++)
 	{
 		//measure_text(columns[i], (unsigned int*)&col.cx, NULL);
 		//col.cx+=12;
 		col.pszText=(char*)columns[i];
-		(void)ListView_InsertColumn(this->hwnd, i, &col);
-		this->columnwidths[i]=1;
-		//this->i._base.width+=col.cx;
+		(void)ListView_InsertColumn(m->hwnd, i, &col);
+		m->columnwidths[i]=1;
+		//this->width+=col.cx;
 	}
-	this->columnwidthsum=this->columns;
+	m->columnwidthsum=m->columns;
 	
-	this->checkboxes=NULL;
+	if (m->checkboxes) (void)ListView_SetExtendedListViewStyleEx(m->hwnd, LVS_EX_CHECKBOXES, LVS_EX_CHECKBOXES);
+	if (m->disabled) EnableWindow(m->hwnd, false);
+	ListView_SetItemCountEx(m->hwnd, m->rows, 0);//not redrawing because the window isn't even visible at this point
 	
 	free(columns);
+	
 	//pretty sure the listbox has children, but I can't ask how many of those there are. Probably varies if I add checkboxes, too.
-	//But I'm not the one resizing them, so whatever.
+	//But I'm not the one resizing them, so I can't do anything with that even if I knew the number.
 	return 1;
 }
 
-static void listbox__measure(struct widget_base * this_) {}
+void widget_listbox::measure() {}
 
-static void listbox_resize_column(HWND hwnd, size_t/*TODO: check type*/ col, unsigned int width)
+static void listbox_resize_column(HWND hwnd, int col, unsigned int width)
 {
 	//microsoft, which drugs did you take this time? LVCFMT_FIXED_WIDTH blocks me from resizing from code too!
 	LVCOLUMN mkrz;
@@ -977,85 +1004,86 @@ static void listbox_resize_column(HWND hwnd, size_t/*TODO: check type*/ col, uns
 	(void)ListView_SetColumn(hwnd, col, &mknrz);
 }
 
-static void listbox__place(struct widget_base * this_, void* resizeinf,
-                           unsigned int x, unsigned int y, unsigned int width, unsigned int height)
+void widget_listbox::place(void* resizeinf, unsigned int x, unsigned int y, unsigned int width, unsigned int height)
 {
 	x+=g_padding; y+=g_padding; width-=g_padding*2; height-=g_padding*2;
-	struct widget_listbox_win32 * this=(struct widget_listbox_win32*)this_;
-	place_window(this->hwnd, resizeinf, x, y, width, height);
+	place_window(m->hwnd, resizeinf, x, y, width, height);
 	
 	width-=GetSystemMetrics(SM_CXVSCROLL)+4;
-	unsigned char width_div=this->columnwidthsum;
+	unsigned char width_div=m->columnwidthsum;
 	unsigned int width_frac=0;
-	for (unsigned int i=0;i<this->columns;i++)
+	for (unsigned int i=0;i<m->columns;i++)
 	{
-		width_frac+=this->columnwidths[i]*width;
+		width_frac+=m->columnwidths[i]*width;
 		unsigned int yourwidth=width_frac/width_div;
 		width_frac%=width_div;
-		listbox_resize_column(this->hwnd, i, yourwidth);
+		listbox_resize_column(m->hwnd, i, yourwidth);
 	}
 }
 
-static void listbox__free(struct widget_base * this_)
+widget_listbox::~widget_listbox()
 {
-	struct widget_listbox_win32 * this=(struct widget_listbox_win32*)this_;
-	free(this->columnwidths);
-	free(this);
+	free(m->columnwidths);
+	delete m;
 }
 
-static void listbox_set_enabled(struct widget_listbox * this_, bool enable)
+widget_listbox* widget_listbox::set_enabled(bool enable)
 {
-	struct widget_listbox_win32 * this=(struct widget_listbox_win32*)this_;
-	EnableWindow(this->hwnd, enable);
+	if (m->initialized) EnableWindow(m->hwnd, enable);
+	else m->disabled=!enable;
+	return this;
 }
 
-static void listbox_set_num_rows(struct widget_listbox * this_, size_t rows)
+widget_listbox* widget_listbox::set_num_rows(size_t rows)
 {
-	struct widget_listbox_win32 * this=(struct widget_listbox_win32*)this_;
 	if (rows > 100000000) rows=100000000;//Windows "only" supports 100 million (0x05F5E100); more than that and it gets empty.
-	this->rows=rows;
-	ListView_SetItemCountEx(this->hwnd, rows, 0);
-	(void)ListView_RedrawItems(this->hwnd, 0, rows-1);
+	m->rows=rows;
+	if (m->initialized)
+	{
+		ListView_SetItemCountEx(m->hwnd, rows, 0);
+		(void)ListView_RedrawItems(m->hwnd, 0, rows-1);
+	}
+	return this;
 }
 
-static void listbox_set_contents(struct widget_listbox * this_,
-                                 const char * (*get_cell)(struct widget_listbox * subject,
-                                                          size_t row, int column,
-                                                          void* userdata),
-                                 size_t (*search)(struct widget_listbox * subject,
-                                                  const char * prefix, size_t start, bool up, void* userdata),
-                                 void* userdata)
+widget_listbox* widget_listbox::set_contents(const char * (*get_cell)(struct widget_listbox * subject,
+                                                                      size_t row, int column,
+                                                                      void* userdata),
+                                             size_t (*search)(struct widget_listbox * subject,
+                                                              const char * prefix, size_t start, bool up, void* userdata),
+                                             void* userdata)
 {
-	struct widget_listbox_win32 * this=(struct widget_listbox_win32*)this_;
-	this->get_cell=get_cell;
-	this->search=search;
-	this->virt_userdata=userdata;
+	m->get_cell=get_cell;
+	m->search=search;
+	m->virt_userdata=userdata;
+	return this;
 }
 
-static void listbox_refresh(struct widget_listbox * this_, size_t row)
+widget_listbox* widget_listbox::refresh(size_t row)
 {
-	struct widget_listbox_win32 * this=(struct widget_listbox_win32*)this_;
-	if (row==(size_t)-1) (void)ListView_RedrawItems(this->hwnd, 0, this->rows-1);
-	else (void)ListView_RedrawItems(this->hwnd, row, row);
+	if (m->initialized)
+	{
+		if (row==(size_t)-1) (void)ListView_RedrawItems(m->hwnd, 0, m->rows-1);
+		else (void)ListView_RedrawItems(m->hwnd, row, row);
+	}
+	return this;
 }
 
-static void listbox_set_size(struct widget_listbox * this_, unsigned int height, const unsigned int * widths, int expand)
+widget_listbox* widget_listbox::set_size(unsigned int height, const unsigned int * widths, int expand)
 {
-	struct widget_listbox_win32 * this=(struct widget_listbox_win32*)this_;
-	
 	int widthpx=-1;
 	int heightpx=1+25+height*19+2;
 	
 	if (widths)
 	{
 		widthpx=1+19+1;
-		this->columnwidthsum=0;
-		for (unsigned int i=0;i<this->columns;i++)
+		m->columnwidthsum=0;
+		for (unsigned int i=0;i<m->columns;i++)
 		{
-			listbox_resize_column(this->hwnd, i, widths[i]*xwidth/12+12+5+(i==0));//why are these columns not resized to the sizes I tell them to resize to
+			listbox_resize_column(m->hwnd, i, widths[i]*xwidth/12+12+5+(i==0));//why are these columns not resized to the sizes I tell them to resize to
 			widthpx+=widths[i]*xwidth/12+12+5;
-			this->columnwidths[i]=widths[i];
-			this->columnwidthsum+=widths[i];
+			m->columnwidths[i]=widths[i];
+			m->columnwidthsum+=widths[i];
 		}
 	}
 	
@@ -1064,92 +1092,55 @@ static void listbox_set_size(struct widget_listbox * this_, unsigned int height,
 		LVCOLUMN mkrz;
 		mkrz.mask=LVCF_FMT;
 		mkrz.fmt=LVCFMT_LEFT;
-		(void)ListView_SetColumn(this->hwnd, expand, &mkrz);
+		(void)ListView_SetColumn(m->hwnd, expand, &mkrz);
 	}
 	
-	DWORD widthheight=ListView_ApproximateViewRect(this->hwnd, widthpx, heightpx, height);
-	this->i._base.width=LOWORD(widthheight);
-	this->i._base.height=HIWORD(widthheight)-GetSystemMetrics(SM_CYHSCROLL)+2;//microsoft really isn't making this easy for me
-	this->i._base.width+=g_padding*2; this->i._base.height+=g_padding*2;
+	DWORD widthheight=ListView_ApproximateViewRect(m->hwnd, widthpx, heightpx, height);
+	this->width=LOWORD(widthheight);
+	this->height=HIWORD(widthheight)-GetSystemMetrics(SM_CYHSCROLL)+2;//microsoft really isn't making this easy for me
+	this->width+=g_padding*2; this->height+=g_padding*2;
 //printf("%u->%u %u->%u\n",widthpx,this->i._base.width,heightpx,this->i._base.height);
 	
-	this->parent->_reflow(this->parent);
+	m->parent->_reflow(m->parent);
+	
+	return this;
 }
 
-static size_t listbox_get_active_row(struct widget_listbox * this_)
+size_t widget_listbox::get_active_row()
 //TODO: check retval from ListView_GetSelectionMark if there is no selection
 {
-	struct widget_listbox_win32 * this=(struct widget_listbox_win32*)this_;
-	return ListView_GetSelectionMark(this->hwnd);
+	return ListView_GetSelectionMark(m->hwnd);
 }
 
-static void listbox_set_on_focus_change(struct widget_listbox * this_,
-                                        void (*onchange)(struct widget_listbox * subject, size_t row, void * userdata),
-                                        void* userdata)
+widget_listbox* widget_listbox::set_on_focus_change(void (*onchange)(struct widget_listbox * subject, size_t row, void * userdata),
+                                                    void* userdata)
 {
-	struct widget_listbox_win32 * this=(struct widget_listbox_win32*)this_;
-	this->onfocuschange=onchange;
-	this->foc_userdata=userdata;
+	m->onfocuschange=onchange;
+	m->foc_userdata=userdata;
+	return this;
 }
 
-static void listbox_set_onactivate(struct widget_listbox * this_,
-                                   void (*onactivate)(struct widget_listbox * subject, size_t row, void* userdata),
-                                   void* userdata)
+widget_listbox* widget_listbox::set_onactivate(void (*onactivate)(struct widget_listbox * subject, size_t row, void* userdata),
+                                               void* userdata)
 {
-	struct widget_listbox_win32 * this=(struct widget_listbox_win32*)this_;
-	this->onactivate=onactivate;
-	this->act_userdata=userdata;
+	m->onactivate=onactivate;
+	m->act_userdata=userdata;
+	return this;
 }
 
-static void listbox_add_checkboxes(struct widget_listbox * this_,
-                                   void (*ontoggle)(struct widget_listbox * subject, size_t row, void* userdata),
-                                   void* userdata)
+widget_listbox* widget_listbox::add_checkboxes(void (*ontoggle)(struct widget_listbox * subject, size_t row, void* userdata),
+                                               void* userdata)
 {
-	struct widget_listbox_win32 * this=(struct widget_listbox_win32*)this_;
-	(void)ListView_SetExtendedListViewStyleEx(this->hwnd, LVS_EX_CHECKBOXES, LVS_EX_CHECKBOXES);
-	this->ontoggle=ontoggle;
-	this->tg_userdata=userdata;
-	this->checkboxes=true;
-}
-
-struct widget_listbox * widget_create_listbox_l(unsigned int numcolumns, const char * * columns)
-{
-	struct widget_listbox_win32 * this=malloc(sizeof(struct widget_listbox_win32));
-	this->i._base.init=listbox__init;
-	this->i._base.measure=listbox__measure;
-	this->i._base.widthprio=3;
-	this->i._base.heightprio=3;
-	this->i._base.place=listbox__place;
-	this->i._base.free=listbox__free;
-	
-	this->i.set_enabled=listbox_set_enabled;
-	this->i.set_contents=listbox_set_contents;
-	this->i.set_num_rows=listbox_set_num_rows;
-	this->i.refresh=listbox_refresh;
-	this->i.get_active_row=listbox_get_active_row;
-	this->i.set_on_focus_change=listbox_set_on_focus_change;
-	this->i.set_onactivate=listbox_set_onactivate;
-	this->i.set_size=listbox_set_size;
-	this->i.add_checkboxes=listbox_add_checkboxes;
-	
-	this->columnwidths=malloc(sizeof(unsigned int)*numcolumns);
-	this->columns=numcolumns;
-	this->onfocuschange=NULL;
-	this->onactivate=NULL;
-	this->checkboxes=NULL;
-	
-	this->i._base.width=1+19+1+this->columns*20;
-	this->i._base.height=1+25+19*0+2;
-	
-	this->hwnd=malloc(sizeof(const char*)*numcolumns);
-	memcpy(this->hwnd, columns, sizeof(const char*)*numcolumns);
-	
-	return (struct widget_listbox*)this;
+	m->ontoggle=ontoggle;
+	m->tg_userdata=userdata;
+	m->checkboxes=true;
+	if (m->initialized) (void)ListView_SetExtendedListViewStyleEx(m->hwnd, LVS_EX_CHECKBOXES, LVS_EX_CHECKBOXES);
+	return this;
 }
 
 static uintptr_t listbox_notify(NMHDR* nmhdr)
 {
-	struct widget_listbox_win32 * this=(struct widget_listbox_win32*)GetWindowLongPtr(nmhdr->hwndFrom, GWLP_USERDATA);
+	widget_listbox* obj=(widget_listbox*)GetWindowLongPtr(nmhdr->hwndFrom, GWLP_USERDATA);
 	if (nmhdr->code==LVN_GETDISPINFO)
 	{
 		LV_DISPINFO* info=(LV_DISPINFO*)nmhdr;
@@ -1159,7 +1150,7 @@ static uintptr_t listbox_notify(NMHDR* nmhdr)
 		
 		if (info->item.mask & LVIF_TEXT)
 		{
-			const char * str=this->get_cell((struct widget_listbox*)this, row, column, this->virt_userdata);
+			const char * str=obj->m->get_cell(obj, row, column, obj->m->virt_userdata);
 			unsigned int len=strlen(str);
 			if (len > (unsigned int)info->item.cchTextMax-1) len=info->item.cchTextMax-1;
 			memcpy(info->item.pszText, str, len);
@@ -1171,7 +1162,7 @@ static uintptr_t listbox_notify(NMHDR* nmhdr)
 			info->item.iImage=0;
 			info->item.mask|=LVIF_STATE;
 			info->item.stateMask=LVIS_STATEIMAGEMASK;
-			info->item.state=INDEXTOSTATEIMAGEMASK(this->checkboxes ? this->get_cell((struct widget_listbox*)this, row, -1, this->virt_userdata) ? 2 : 1 : 0);
+			info->item.state=INDEXTOSTATEIMAGEMASK(obj->m->checkboxes ? obj->m->get_cell(obj, row, -1, obj->m->virt_userdata) ? 2 : 1 : 0);
 		}
 	}
 	if (nmhdr->code==LVN_ODCACHEHINT)
@@ -1183,35 +1174,34 @@ static uintptr_t listbox_notify(NMHDR* nmhdr)
 		NMLVFINDITEM* find=(NMLVFINDITEM*)nmhdr;
 		if (!(find->lvfi.flags&LVFI_STRING)) return 0;
 		
-		if (this->search)
+		if (obj->m->search)
 		{
-			size_t ret=this->search((struct widget_listbox*)this, find->lvfi.psz, find->iStart, false, this->virt_userdata);
-			if (ret >= this->rows) ret=this->search((struct widget_listbox*)this, find->lvfi.psz, 0, false, this->virt_userdata);
-			if (ret >= this->rows) ret=(size_t)-1;
+			size_t ret=obj->m->search(obj, find->lvfi.psz, find->iStart, false, obj->m->virt_userdata);
+			//if (ret >= obj->m->rows) ret=obj->m->search(obj, find->lvfi.psz, 0, false, obj->m->virt_userdata);
+			if (ret >= obj->m->rows) ret=(size_t)-1;
 			return (uintptr_t)ret;
 		}
 		else
 		{
-			return _widget_listbox_search((struct widget_listbox*)this, this->rows, this->get_cell,
-			                              find->lvfi.psz, find->iStart, false, this->virt_userdata);
+			return _widget_listbox_search(obj, obj->m->rows, obj->m->get_cell, find->lvfi.psz, find->iStart, false, obj->m->virt_userdata);
 		}
 	}
 	if (nmhdr->code==LVN_KEYDOWN)
 	{
 		NMLVKEYDOWN* keydown=(NMLVKEYDOWN*)nmhdr;
-		if (keydown->wVKey==VK_SPACE && this->checkboxes)
+		if (keydown->wVKey==VK_SPACE && obj->m->checkboxes)
 		{
-			int row=ListView_GetSelectionMark(this->hwnd);
+			int row=ListView_GetSelectionMark(obj->m->hwnd);
 			if (row!=-1)
 			{
-				if (this->ontoggle) this->ontoggle((struct widget_listbox*)this, row, this->tg_userdata);
-				(void)ListView_RedrawItems(this->hwnd, row, row);
+				if (obj->m->ontoggle) obj->m->ontoggle(obj, row, obj->m->tg_userdata);
+				(void)ListView_RedrawItems(obj->m->hwnd, row, row);
 			}
 		}
 		if (keydown->wVKey==VK_RETURN)
 		{
-			int row=ListView_GetSelectionMark(this->hwnd);
-			if (row!=-1 && this->onactivate) this->onactivate((struct widget_listbox*)this, row, this->act_userdata);
+			int row=ListView_GetSelectionMark(obj->m->hwnd);
+			if (row!=-1 && obj->m->onactivate) obj->m->onactivate(obj, row, obj->m->act_userdata);
 		}
 	}
 	if (nmhdr->code==NM_CLICK)
@@ -1219,11 +1209,11 @@ static uintptr_t listbox_notify(NMHDR* nmhdr)
 		NMITEMACTIVATE* click=(NMITEMACTIVATE*)nmhdr;
 		LVHITTESTINFO hitinfo;
 		hitinfo.pt=click->ptAction;
-		int row=ListView_HitTest(this->hwnd, &hitinfo);
+		int row=ListView_HitTest(obj->m->hwnd, &hitinfo);
 		if (row!=-1 && (hitinfo.flags & LVHT_ONITEMSTATEICON))
 		{
-			if (this->ontoggle) this->ontoggle((struct widget_listbox*)this, row, this->tg_userdata);
-			(void)ListView_RedrawItems(this->hwnd, row, row);
+			if (obj->m->ontoggle) obj->m->ontoggle(obj, row, obj->m->tg_userdata);
+			(void)ListView_RedrawItems(obj->m->hwnd, row, row);
 		}
 	}
 	if (nmhdr->code==NM_DBLCLK)
@@ -1231,10 +1221,10 @@ static uintptr_t listbox_notify(NMHDR* nmhdr)
 		NMITEMACTIVATE* click=(NMITEMACTIVATE*)nmhdr;
 		LVHITTESTINFO hitinfo;
 		hitinfo.pt=click->ptAction;
-		int row=ListView_HitTest(this->hwnd, &hitinfo);
+		int row=ListView_HitTest(obj->m->hwnd, &hitinfo);
 		if (row!=-1 && (hitinfo.flags & LVHT_ONITEMLABEL))
 		{
-			if (this->onactivate) this->onactivate((struct widget_listbox*)this, row, this->act_userdata);
+			if (obj->m->onactivate) obj->m->onactivate(obj, row, obj->m->act_userdata);
 		}
 	}
 	if (nmhdr->code==LVN_ITEMCHANGED)
@@ -1242,13 +1232,11 @@ static uintptr_t listbox_notify(NMHDR* nmhdr)
 		NMLISTVIEW* change=(NMLISTVIEW*)nmhdr;
 		if (!(change->uOldState&LVIS_FOCUSED) && (change->uNewState&LVIS_FOCUSED) && change->iItem>=0)
 		{
-			if (this->onfocuschange) this->onfocuschange((struct widget_listbox*)this, change->iItem, this->foc_userdata);
+			if (obj->m->onfocuschange) obj->m->onfocuschange(obj, change->iItem, obj->m->foc_userdata);
 		}
 	}
 	return 0;
 }
-#endif
-static uintptr_t listbox_notify(NMHDR* nmhdr){return 0;}
 
 
 
