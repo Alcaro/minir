@@ -22,7 +22,8 @@ include Makefile.custom
 OUTNAME = minir$(EXESUFFIX)
 
 TESTSRC = memory.cpp
-TESTSEPSRC = test-*.cpp window-*.cpp
+TESTSEPSRC = test-*.cpp
+#window-*.cpp
 
 OBJS = $(patsubst %.cpp,obj/%$(OBJSUFFIX).o,$(wildcard *.cpp)) $(EXTRAOBJ) obj/miniz$(OBJSUFFIX).o
 TESTOBJS = $(patsubst %.cpp,obj/%.o,$(wildcard $(TESTSRC))) $(patsubst %.cpp,obj/%-test.o,$(wildcard $(TESTSEPSRC))) $(EXTRAOBJ)

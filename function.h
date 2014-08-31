@@ -4,7 +4,7 @@
 //- BIND_FREE_CB/BIND_MEM_CB were combined to a single bind(), by using the C99 preprocessor's __VA_ARGS__.
 //- Instead of the thousand lines of copypasta, the implementations were merged by using some preprocessor macros.
 //- The Arity, ReturnType and ParamNType constants/typedefs were removed.
-//- NullCallback was removed.
+//- NullCallback was replaced with support for plain NULL.
 //- BoundCallbackFactory and bind_arg was added, as a compatibility aid for the C++ conversion.
 
 //Alternate libraries that do roughly the same thing:
@@ -24,10 +24,12 @@
 
 template<typename FuncSignature> class function;
 
+class null_only;
+
 #define JOIN2(a,b) a##b
 #define JOIN(a,b) JOIN2(a,b)
 
-#define FreeCallbackFactory JOIN(MemberCallbackFactory,COUNT)
+#define FreeCallbackFactory JOIN(FreeCallbackFactory,COUNT)
 #define MemberCallbackFactory JOIN(MemberCallbackFactory,COUNT)
 #define ConstMemberCallbackFactory JOIN(ConstMemberCallbackFactory,COUNT)
 #define BoundCallbackFactory JOIN(BoundCallbackFactory,COUNT)
@@ -108,7 +110,9 @@ class function<R (ARG_TYPES)>
 public:
     function()                    : func(0), obj(0) {}
     function(const function& rhs) : func(rhs.func), obj(rhs.obj) {}
-    ~function() {} 
+    ~function() {}
+
+    function(const null_only*)    : func(0), obj(0) {}
 
     function& operator=(const function& rhs)
         { obj = rhs.obj; func = rhs.func; return *this; }
@@ -140,6 +144,9 @@ private:
     friend class MemberCallbackFactory;
     template<typename FR, class FT TYPENAMES2>
     friend class ConstMemberCallbackFactory;
+
+    template<typename FR TYPENAMES2>
+    friend class BoundCallbackFactory;
 };
 
 template<typename R TYPENAMES>
@@ -237,26 +244,26 @@ template<typename R TYPENAMES>
 class BoundCallbackFactory
 {
 private:
-    template<R (*Func)(ARG_TYPES)>
+    template<R (*Func)(void* ARG_TYPES_C)>
     static R Wrapper(const void* o ARG_TYPES_AND_NAMES_C)
     {
-        return (*Func)(o ARG_NAMES_C);
+        return (*Func)((void*)o ARG_NAMES_C);
     }
 
 public:
-    template<R (*Func)(ARG_TYPES)>
-    inline static function<R (ARG_TYPES)> Bind(void* ptr)
+    template<R (*Func)(void* ARG_TYPES_C)>
+    inline static function<R (ARG_TYPES)> Bind(void* o)
     {
         return function<R (ARG_TYPES)>
-            (&BoundCallbackFactory::Wrapper<Func>, ptr);
+            (&BoundCallbackFactory::Wrapper<Func>, o);
     }
 };
 
 template<typename R TYPENAMES>
 inline BoundCallbackFactory<R ARG_TYPES_C>
-GetBoundCallbackFactory(R (*)(ARG_TYPES))
+GetBoundCallbackFactory(R (*)(void* ARG_TYPES_C))
 {
-    return FreeCallbackFactory<R ARG_TYPES_C>();
+    return BoundCallbackFactory<R ARG_TYPES_C>();
 }
 
 #undef COUNT
