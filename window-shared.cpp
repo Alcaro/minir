@@ -339,7 +339,7 @@ struct windowmenu * windowmenu_create_submenu(const char * text, struct windowme
 	return windowmenu_create_submenu_l(text, numitems, items);
 }
 
-widget_radio_group::widget_radio_group(bool vertical, widget_radio* leader, ...)
+widget_layout* widget_create_radio_group(bool vertical, widget_radio * leader, ...)
 {
 	unsigned int numitems=1;
 	
@@ -359,10 +359,10 @@ widget_radio_group::widget_radio_group(bool vertical, widget_radio* leader, ...)
 	
 	items[0]->group(numitems, items);
 	
-	construct(numitems, (widget_base**)items, vertical?1:numitems, NULL, false, vertical?numitems:1, NULL, false);
+	return widget_create_layout(numitems, (widget_base**)items, vertical?1:numitems, NULL, false, vertical?numitems:1, NULL, false);
 }
 
-widget_radio_group::widget_radio_group(bool vertical, widget_radio** leader, const char * firsttext, ...)
+widget_layout* widget_create_radio_group(bool vertical, widget_radio** leader, const char * firsttext, ...)
 {
 	unsigned int numitems=1;
 	
@@ -383,7 +383,7 @@ widget_radio_group::widget_radio_group(bool vertical, widget_radio** leader, con
 	items[0]->group(numitems, items);
 	if (leader) *leader=items[0];
 	
-	construct(numitems, (widget_base**)items, vertical?1:numitems, NULL, false, vertical?numitems:1, NULL, false);
+	return widget_create_layout(numitems, (widget_base**)items, vertical?1:numitems, NULL, false, vertical?numitems:1, NULL, false);
 }
 
 widget_listbox::widget_listbox(const char * firstcol, ...)
@@ -464,7 +464,7 @@ widget_layout::widget_layout(unsigned int totwidth,   unsigned int totheight,   
 	construct(numchildren, children,  totwidth, widths, uniformwidths,  totheight, heights, uniformheights);
 }
 
-widget_layout_grid::widget_layout_grid(unsigned int width, unsigned int height, bool uniformsizes, widget_base* firstchild, ...)
+widget_layout* widget_create_layout_grid(unsigned int width, unsigned int height, bool uniformsizes, widget_base* firstchild, ...)
 {
 	va_list args;
 	widget_base* children[width*height];
@@ -476,5 +476,5 @@ widget_layout_grid::widget_layout_grid(unsigned int width, unsigned int height, 
 	}
 	va_end(args);
 	
-	construct(width*height, children,  width, NULL, uniformsizes,  height, NULL, uniformsizes);
+	return widget_create_layout(width*height, children,  width, NULL, uniformsizes,  height, NULL, uniformsizes);
 }

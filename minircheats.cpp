@@ -236,7 +236,7 @@ static void details_create(struct minircheats_impl * parent, struct window * par
 				widget_create_label("New Value"), this->newval=widget_create_textbox(),
 				//TODO: size and type, change mode, etc
 				widget_create_label("Description"), this->desc=widget_create_textbox(),
-				widget_create_label("Size"), new widget_radio_group_horz(&this->size, "1", "2", "3", "4 bytes", NULL),
+				widget_create_label("Size"), widget_create_radio_group_horz(&this->size, "1", "2", "3", "4 bytes", NULL),
 				widget_create_label("Allow"), widget_create_layout_horz(
 					this->allowinc=widget_create_checkbox("increment"),
 					this->allowdec=widget_create_checkbox("decrement"),
@@ -464,15 +464,15 @@ static void show_search(struct minircheats * this_)
 						reset=widget_create_button("Reset"),
 						this->wndsrch_nummatch=widget_create_label(""),
 						widget_create_padding_vert(),
-						(new widget_button("Watch"))->set_enabled(false),
-						(new widget_button("Clear Watches"))->set_enabled(false),
-						(new widget_button("Load Watches"))->set_enabled(false),
-						(new widget_button("Save Watches"))->set_enabled(false),
+						widget_create_button("Watch")->set_enabled(false),
+						widget_create_button("Clear Watches")->set_enabled(false),
+						widget_create_button("Load Watches")->set_enabled(false),
+						widget_create_button("Save Watches")->set_enabled(false),
 						NULL),
 					NULL),
 				widget_create_layout_horz(
 						widget_create_frame("Comparison Type",
-								new widget_radio_group_vert(
+								widget_create_radio_group_vert(
 									&this->wndsrch_comptype,
 									"< (Less Than)",              "> (Greater Than)",
 									"<= (Less Than or Equal To)", ">= (Greater Than or Equal To)",
@@ -482,19 +482,19 @@ static void show_search(struct minircheats * this_)
 					widget_create_layout_vert(
 						widget_create_frame("Compare To",
 							//widget_create_radio_group(&this->wndsrch_compto_select, true, "Previous Value", "Entered Value", "Entered Address", NULL)
-							new widget_radio_group_vert(
+							widget_create_radio_group_vert(
 								compto_select[0]=widget_create_radio("Previous Value"),//this manual layout is because I need to be able to disable #1
 								compto_select[1]=widget_create_radio("Entered Value"),
 								compto_select[2]=widget_create_radio("Entered Address"),
 								NULL)
 							),
 						widget_create_frame("Data Type",
-							new widget_radio_group_vert(&this->wndsrch_dattype, "Unsigned (>= 0)", "Signed (+/-)", "Hexadecimal", NULL)
+							widget_create_radio_group_vert(&this->wndsrch_dattype, "Unsigned (>= 0)", "Signed (+/-)", "Hexadecimal", NULL)
 							),
 						NULL),
 					widget_create_layout_vert(
 						widget_create_frame("Data Size",
-							new widget_radio_group_vert(&this->wndsrch_datsize, "1 byte", "2 bytes", "3 bytes", "4 bytes", NULL)
+							widget_create_radio_group_vert(&this->wndsrch_datsize, "1 byte", "2 bytes", "3 bytes", "4 bytes", NULL)
 							),
 						widget_create_padding_vert(),
 						NULL),
@@ -664,22 +664,16 @@ static void show_list(struct minircheats * this_)
 	struct minircheats_impl * this=(struct minircheats_impl*)this_;
 	if (!this->wndlist)
 	{
-		struct widget_button * add;
-		struct widget_button * remove;
-		struct widget_button * edit;
-		struct widget_button * clear;
-		struct widget_button * sort;
-		
 		this->wndlist=window_create(
 			//widget_create_layout_vert(
 				widget_create_layout_horz(
 					this->wndlist_listbox=widget_create_listbox("Address", "Value", "Description", NULL),
 					widget_create_layout_vert(
-						add=(new widget_button("Add"))->set_onclick(list_add_cheat, this),
-						remove=(new widget_button("Delete")),
-						edit=widget_create_button("Edit"),
-						clear=widget_create_button("Clear"),
-						sort=widget_create_button("Sort"),
+						widget_create_button("Add")->set_onclick(list_add_cheat, this),
+						widget_create_button("Delete")->set_onclick(list_delete_cheat, this),
+						widget_create_button("Edit")->set_onclick(list_edit_cheat, this),
+						widget_create_button("Clear")->set_onclick(list_clear_cheat, this),
+						widget_create_button("Sort")->set_onclick(list_sort_cheat, this),
 						widget_create_padding_vert(),
 						NULL),
 					NULL)//,
@@ -700,11 +694,6 @@ static void show_list(struct minircheats * this_)
 					//),
 				//NULL)
 			);
-		
-		remove->set_onclick(list_delete_cheat, this);
-		edit->set_onclick(list_edit_cheat, this);
-		clear->set_onclick(list_clear_cheat, this);
-		sort->set_onclick(list_sort_cheat, this);
 		
 		this->wndlist->set_is_dialog(this->wndlist);
 		this->wndlist->set_parent(this->wndlist, this->parent);

@@ -203,16 +203,8 @@ public:
 	struct impl;
 	impl * m;
 };
-
-class widget_padding_horz : public widget_padding {
-public:
-	widget_padding_horz() : widget_padding(false) {}
-};
-
-class widget_padding_vert : public widget_padding {
-public:
-	widget_padding_vert() : widget_padding(true) {}
-};
+static inline widget_padding* widget_create_padding_horz() { return new widget_padding(false); }
+static inline widget_padding* widget_create_padding_vert() { return new widget_padding(true); }
 
 
 class widget_layout : public widget_base { WIDGET_BASE
@@ -224,9 +216,9 @@ protected:
 	
 public:
 //The lists are terminated with a NULL. It shouldn't be empty.
-#define widget_layout_horz(...) widget_layout(false, false, __VA_ARGS__)
-#define widget_layout_vert(...) widget_layout(true,  false, __VA_ARGS__)
 	widget_layout(bool vertical, bool uniform, widget_base* firstchild, ...);
+#define widget_create_layout_horz(...) (new widget_layout(false, false, __VA_ARGS__))
+#define widget_create_layout_vert(...) (new widget_layout(true,  false, __VA_ARGS__))
 	
 	//This one allows some widgets to take up multiple boxes of the grid. They're still stored row by
 	// row, except that there is no entry for slots that are already used.
@@ -234,6 +226,7 @@ public:
 	// or if it's size 0 in either direction.
 	widget_layout(unsigned int totwidth,   unsigned int totheight,   bool uniformwidths, bool uniformheights,
 	              unsigned int firstwidth, unsigned int firstheight, widget_base* firstchild, ...);
+#define widget_create_layout(...) (new widget_layout(__VA_ARGS__))
 	
 	//In this one, the widths/heights arrays can be NULL, which is treated as being filled with 1s.
 	//But if you want that, you should probably use the grid constructor instead. (Though it's useful for the constructors themselves.)
@@ -250,14 +243,9 @@ public:
 	struct impl;
 	impl * m;
 };
-
-class widget_layout_grid : public widget_layout {
-public:
 //The widgets are stored row by row. There is no NULL terminator, because the size is known from the arguments already.
 //Uniform sizes mean that every row has the same height, and every column has the same width.
-	widget_layout_grid(unsigned int width, unsigned int height, bool uniformsizes,
-	                   widget_base* firstchild, ...);
-};
+widget_layout* widget_create_layout_grid(unsigned int width, unsigned int height, bool uniformsizes, widget_base* firstchild, ...);
 
 
 class widget_label : public widget_base { WIDGET_BASE
@@ -278,6 +266,7 @@ public:
 	struct impl;
 	impl * m;
 };
+#define widget_create_label(...) new widget_label(__VA_ARGS__)
 
 
 class widget_button : public widget_base { WIDGET_BASE
@@ -293,6 +282,7 @@ public:
 	struct impl;
 	impl * m;
 };
+#define widget_create_button(...) (new widget_button(__VA_ARGS__))
 
 
 class widget_checkbox : public widget_base { WIDGET_BASE
@@ -310,6 +300,7 @@ public:
 	struct impl;
 	impl * m;
 };
+#define widget_create_checkbox(...) (new widget_checkbox(__VA_ARGS__))
 
 
 class widget_radio : public widget_base { WIDGET_BASE
@@ -341,16 +332,14 @@ public:
 	struct impl;
 	impl * m;
 };
+#define widget_create_radio(...) (new widget_radio(__VA_ARGS__))
 
 //This one wraps them in a horizontal or vertical layout, and groups them.
 //It's just a convenience; you can create them and group them manually and get the same results.
-class widget_radio_group : public widget_layout {
-public:
-	widget_radio_group(bool vertical, widget_radio * leader, ...);
-	widget_radio_group(bool vertical, widget_radio ** leader, const char * firsttext, ...);
-};
-#define widget_radio_group_horz(...) widget_radio_group(false, __VA_ARGS__)
-#define widget_radio_group_vert(...) widget_radio_group(true, __VA_ARGS__)
+widget_layout* widget_create_radio_group(bool vertical, widget_radio * leader, ...);
+widget_layout* widget_create_radio_group(bool vertical, widget_radio ** leader, const char * firsttext, ...);
+#define widget_create_radio_group_horz(...) widget_create_radio_group(false, __VA_ARGS__)
+#define widget_create_radio_group_vert(...) widget_create_radio_group(true, __VA_ARGS__)
 
 
 class widget_textbox : public widget_base { WIDGET_BASE
@@ -389,6 +378,7 @@ public:
 	struct impl;
 	impl * m;
 };
+#define widget_create_textbox(...) (new widget_textbox(__VA_ARGS__))
 
 
 //A canvas is a simple image. It's easy to work with, but performance is poor and it can't vsync, so it shouldn't be used for video.
@@ -416,6 +406,7 @@ public:
 	struct impl;
 	impl * m;
 };
+#define widget_create_canvas(width, height) (new widget_canvas(width, height))
 
 
 //A viewport fills the same purpose as a canvas, but the tradeoffs go the opposite way.
@@ -443,6 +434,7 @@ public:
 	struct impl;
 	impl * m;
 };
+#define widget_create_viewport(width, height) (new widget_viewport(width, height))
 
 
 class widget_listbox : public widget_base { WIDGET_BASE
@@ -502,6 +494,7 @@ public:
 	struct impl;
 	impl * m;
 };
+#define widget_create_listbox(...) (new widget_listbox(__VA_ARGS__))
 
 
 //A decorative frame around a widget, to group them together. The widget can be a layout (and probably should, otherwise you're adding a box to a single widget).
@@ -517,6 +510,7 @@ public:
 	struct impl;
 	impl * m;
 };
+#define widget_create_frame(...) (new widget_frame(__VA_ARGS__))
 
 
 
@@ -624,16 +618,3 @@ size_t _widget_listbox_search(struct widget_listbox * subject, size_t rows,
                               const char * (*get_cell)(struct widget_listbox * subject, size_t row, int column,
                                                        void * userdata),
                               const char * prefix, size_t start, bool up, void * userdata);
-
-#define widget_create_button(...) new widget_button(__VA_ARGS__)
-#define widget_create_layout_horz(...) new widget_layout_horz(__VA_ARGS__)
-#define widget_create_layout_vert(...) new widget_layout_vert(__VA_ARGS__)
-#define widget_create_layout_grid(...) new widget_layout_grid(__VA_ARGS__)
-#define widget_create_padding_horz(...) new widget_padding_horz(__VA_ARGS__)
-#define widget_create_padding_vert(...) new widget_padding_vert(__VA_ARGS__)
-#define widget_create_listbox(...) new widget_listbox(__VA_ARGS__)
-#define widget_create_textbox(...) new widget_textbox(__VA_ARGS__)
-#define widget_create_frame(...) new widget_frame(__VA_ARGS__)
-#define widget_create_radio(...) new widget_radio(__VA_ARGS__)
-#define widget_create_checkbox(...) new widget_checkbox(__VA_ARGS__)
-#define widget_create_label(...) new widget_label(__VA_ARGS__)

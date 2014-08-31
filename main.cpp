@@ -755,7 +755,7 @@ void initialize(int argc, char * argv[])
 	
 	if (core) core->get_video_settings(core, &videowidth, &videoheight, &videodepth, &videofps);
 	
-	draw=new widget_viewport(videowidth*config.video_scale, videoheight*config.video_scale);
+	draw=widget_create_viewport(videowidth*config.video_scale, videoheight*config.video_scale);
 	wndw=window_create(draw);
 	wndw->set_title(wndw, "minir");//in case the previous one didn't work
 	wndw->set_onclose(wndw, closethis, NULL);
