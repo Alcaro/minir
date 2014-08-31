@@ -713,7 +713,7 @@ bool handle_cli_args(const char * const * filenames, bool coresonly)
 	return false;
 }
 
-void drop_handler(struct widget_viewport * subject, const char * const * filenames, void* userdata)
+void drop_handler(const char * const * filenames)
 {
 	if (handle_cli_args(filenames, false)) wndw->focus(wndw);
 }
@@ -761,7 +761,7 @@ void initialize(int argc, char * argv[])
 	wndw->set_onclose(wndw, closethis, NULL);
 	set_window_title();
 	
-	draw->set_support_drop(drop_handler, NULL);
+	draw->set_support_drop(bind(drop_handler));
 	
 	const int align[]={0,2};
 	const int divider=180;

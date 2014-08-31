@@ -9,6 +9,8 @@
 #include <stddef.h>
 #include "host.h"
 
+#include "function.h"
+
 #ifdef DEBUG
 //Having to include this one all the time annoys me.
 #include <stdio.h>

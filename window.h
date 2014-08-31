@@ -276,7 +276,7 @@ public:
 	
 	widget_button* set_enabled(bool enable);
 	widget_button* set_text(const char * text);
-	widget_button* set_onclick(void (*onclick)(struct widget_button * subject, void* userdata), void* userdata);
+	widget_button* set_onclick(function<void()> onclick);
 	
 public:
 	struct impl;
@@ -294,7 +294,7 @@ public:
 	widget_checkbox* set_text(const char * text);
 	bool get_state();
 	widget_checkbox* set_state(bool checked);
-	widget_checkbox* set_onclick(void (*onclick)(struct widget_checkbox * subject, bool checked, void* userdata), void* userdata);
+	widget_checkbox* set_onclick(function<void(bool checked)> onclick);
 	
 public:
 	struct impl;
@@ -326,7 +326,7 @@ public:
 	
 	//Called whenever the state changes. It is allowed to set the state in response to this.
 	//It is undefined whether the callback can fire for the previously active state, for example due to clicking the button twice.
-	widget_radio* set_onclick(void (*onclick)(struct widget_radio * subject, unsigned int state, void* userdata), void* userdata);
+	widget_radio* set_onclick(function<void(unsigned int state)> onclick);
 	
 public:
 	struct impl;
@@ -368,11 +368,9 @@ public:
 	//Note that it is not guaranteed to fire only if the text has changed; it may, for example,
 	// fire if the user selects an E and types another E on top. Or for no reason at all.
 	//Also note that 'text' is invalidated under the same conditions as get_text is.
-	widget_textbox* set_onchange(void (*onchange)(struct widget_textbox * subject, const char * text, void * userdata),
-	                             void * userdata);
+	widget_textbox* set_onchange(function<void(const char * text)> onchange);
 	//Called if the user hits Enter while this widget is focused. [TODO: Doesn't that activate the default button instead?]
-	widget_textbox* set_onactivate(void (*onactivate)(struct widget_textbox * subject, const char * text, void * userdata),
-	                               void * userdata);
+	widget_textbox* set_onactivate(function<void(const char * text)> onactivate);
 	
 public:
 	struct impl;
@@ -399,8 +397,7 @@ public:
 	
 	//This must be called before the window is shown, and only exactly once.
 	//All given filenames are invalidated once the callback returns.
-	widget_canvas* set_support_drop(void (*on_file_drop)(struct widget_canvas * subject, const char * const * filenames, void* userdata),
-	                                void* userdata);
+	widget_canvas* set_support_drop(function<void(const char * const * filenames)> on_file_drop);
 	
 public:
 	struct impl;
@@ -421,14 +418,10 @@ public:
 	
 	//See documentation of canvas for these.
 	widget_viewport* set_hide_cursor(bool hide);
-	widget_viewport* set_support_drop(void (*on_file_drop)(struct widget_viewport * subject,
-	                                                       const char * const * filenames, void* userdata),
-	                                  void* userdata);
+	widget_viewport* set_support_drop(function<void(const char * const * filenames)> on_file_drop);
 	
 	//Keycodes are from libretro; 0 if unknown. Scancodes are implementation defined, but if there is no libretro translation, then none is returned.
-	//widget_viewport* set_kb_callback)(void (*keyboard_cb)(struct window * subject, unsigned int keycode,
-	//                                                      unsigned int scancode, void* userdata),
-	//                                  void* userdata);
+	//widget_viewport* set_kb_callback)(function<void(unsigned int keycode, unsigned int scancode)> keyboard_cb);
 	
 public:
 	struct impl;
@@ -455,10 +448,8 @@ public:
 	//If there is none in that direction, loop around. If still no match, return (size_t)-1.
 	//It's optional, but recommended for better performance.
 	//(GTK+ is stupid and doesn't let me use it.)
-	widget_listbox* set_contents(const char * (*get_cell)(struct widget_listbox * subject, size_t row, int column, void * userdata),
-	                             size_t (*search)(struct widget_listbox * subject, const char * prefix,
-	                                              size_t start, bool up, void * userdata),
-	                             void * userdata);
+	widget_listbox* set_contents(function<const char * (int column, size_t row)> get_cell, 
+	                             function<size_t(const char * prefix, size_t start, bool up, void * userdata)> search);
 	
 	//It is allowed for the implementation to cap this to some sensible value. However, at least 16382 items must be supported.
 	//(On Windows, the limit is 100 million; more than that and it gets empty. On GTK+, the limit is 100000 because large lists are slow.)
@@ -472,10 +463,8 @@ public:
 	// click and Enter are likely. It is guaranteed to be possible.
 	//Returns (size_t)-1 if no row is active.
 	size_t get_active_row();
-	widget_listbox* set_on_focus_change(void (*onchange)(struct widget_listbox * subject, size_t row, void * userdata),
-	                                    void* userdata);
-	widget_listbox* set_onactivate(void (*onactivate)(struct widget_listbox * subject, size_t row, void * userdata),
-	                               void* userdata);
+	widget_listbox* set_on_focus_change(function<void(size_t row)> onchange);
+	widget_listbox* set_onactivate(function<void(size_t row)> onactivate);
 	
 	//This is the size on the screen. The height is how many items show up; the widths are how many
 	// instances of the letter 'X' must fit in the column.
@@ -487,8 +476,7 @@ public:
 	// first column, on a column of their own, or something weirder. The position relative to the
 	// other columns is not guaranteed.
 	//The toggle callback does not contain the current nor former state; the user is expected to keep track of that.
-	widget_listbox* add_checkboxes(void (*ontoggle)(struct widget_listbox * subject, size_t row, void * userdata),
-	                               void * userdata);
+	widget_listbox* add_checkboxes(function<void(size_t row)> ontoggle);
 	
 public:
 	struct impl;

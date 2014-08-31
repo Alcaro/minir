@@ -5,6 +5,7 @@
 //- Instead of the thousand lines of copypasta, the implementations were merged by using some preprocessor macros.
 //- The Arity, ReturnType and ParamNType constants/typedefs were removed.
 //- NullCallback was removed.
+//- BoundCallbackFactory and bind_arg was added, as a compatibility aid for the C++ conversion.
 
 //Alternate libraries that do roughly the same thing:
 //http://www.codeproject.com/Articles/7150/ Member Function Pointers and the Fastest Possible C++ Delegates
@@ -19,6 +20,7 @@
 #define UTIL_CALLBACK_HPP_INSIDE
 
 #define bind(func, ...) (GetCallbackFactory(func).Bind<func>(__VA_ARGS__))
+#define bind_arg(func, arg) (GetBoundCallbackFactory(func).Bind<func>(arg))
 
 template<typename FuncSignature> class function;
 
@@ -28,6 +30,7 @@ template<typename FuncSignature> class function;
 #define FreeCallbackFactory JOIN(MemberCallbackFactory,COUNT)
 #define MemberCallbackFactory JOIN(MemberCallbackFactory,COUNT)
 #define ConstMemberCallbackFactory JOIN(ConstMemberCallbackFactory,COUNT)
+#define BoundCallbackFactory JOIN(BoundCallbackFactory,COUNT)
 
 #define ARG_TYPES_I(n) JOIN(P,n)
 #define ARG_TYPES LOOP(ARG_TYPES_I)
@@ -79,6 +82,7 @@ template<typename FuncSignature> class function;
 #undef FreeCallbackFactory
 #undef MemberCallbackFactory
 #undef ConstMemberCallbackFactory
+#undef BoundCallbackFactory
 #undef ARG_TYPES_I
 #undef ARG_TYPES
 #undef ARG_TYPES_C
@@ -225,6 +229,34 @@ inline ConstMemberCallbackFactory<R, T ARG_TYPES_C>
 GetCallbackFactory(R (T::*)(ARG_TYPES) const)
 {
     return ConstMemberCallbackFactory<R, T ARG_TYPES_C>();
+}
+
+
+
+template<typename R TYPENAMES>
+class BoundCallbackFactory
+{
+private:
+    template<R (*Func)(ARG_TYPES)>
+    static R Wrapper(const void* o ARG_TYPES_AND_NAMES_C)
+    {
+        return (*Func)(o ARG_NAMES_C);
+    }
+
+public:
+    template<R (*Func)(ARG_TYPES)>
+    inline static function<R (ARG_TYPES)> Bind(void* ptr)
+    {
+        return function<R (ARG_TYPES)>
+            (&BoundCallbackFactory::Wrapper<Func>, ptr);
+    }
+};
+
+template<typename R TYPENAMES>
+inline BoundCallbackFactory<R ARG_TYPES_C>
+GetBoundCallbackFactory(R (*)(ARG_TYPES))
+{
+    return FreeCallbackFactory<R ARG_TYPES_C>();
 }
 
 #undef COUNT
