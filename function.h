@@ -6,6 +6,7 @@
 //- The Arity, ReturnType and ParamNType constants/typedefs were removed.
 //- NullCallback was replaced with support for plain NULL.
 //- BoundCallbackFactory and bind_arg was added, as a compatibility aid for the C++ conversion.
+//- Made it safe to call an unassigned (still NULL) object.
 
 //Alternate libraries that do roughly the same thing:
 //http://www.codeproject.com/Articles/7150/ Member Function Pointers and the Fastest Possible C++ Delegates
@@ -17,10 +18,12 @@
 #ifndef UTIL_CALLBACK_HPP
 #define UTIL_CALLBACK_HPP
 
+#include <stddef.h>
+
 #define UTIL_CALLBACK_HPP_INSIDE
 
 #define bind(func, ...) (GetCallbackFactory(func).Bind<func>(__VA_ARGS__))
-#define bind_arg(func, arg) (GetBoundCallbackFactory(func).Bind<func>(arg))
+#define bind_ptr(func, arg) (GetBoundCallbackFactory(func).Bind<func>(arg))
 
 template<typename FuncSignature> class function;
 
@@ -108,11 +111,11 @@ template<typename R TYPENAMES>
 class function<R (ARG_TYPES)>
 {
 public:
-    function()                    : func(0), obj(0) {}
+    function()                    : func(EmptyHandler), obj(NULL) {}
     function(const function& rhs) : func(rhs.func), obj(rhs.obj) {}
     ~function() {}
 
-    function(const null_only*)    : func(0), obj(0) {}
+    function(const null_only*)    : func(EmptyHandler), obj(NULL) {}
 
     function& operator=(const function& rhs)
         { obj = rhs.obj; func = rhs.func; return *this; }
@@ -126,9 +129,9 @@ private:
     typedef const void* function::*SafeBoolType;
 public:
     inline operator SafeBoolType() const
-        { return func != 0 ? &function::obj : 0; }
+        { return func != EmptyHandler ? &function::obj : NULL; }
     inline bool operator!() const
-        { return func == 0; }
+        { return func == EmptyHandler; }
 
 private:
     typedef R (*FuncType)(const void* ARG_TYPES_C);
@@ -138,13 +141,14 @@ private:
     FuncType func;
     const void* obj;
 
+    static R EmptyHandler(const void* o ARG_TYPES_AND_NAMES_C) { return R(); }
+
     template<typename FR TYPENAMES2>
     friend class FreeCallbackFactory;
     template<typename FR, class FT TYPENAMES2>
     friend class MemberCallbackFactory;
     template<typename FR, class FT TYPENAMES2>
     friend class ConstMemberCallbackFactory;
-
     template<typename FR TYPENAMES2>
     friend class BoundCallbackFactory;
 };
@@ -237,8 +241,6 @@ GetCallbackFactory(R (T::*)(ARG_TYPES) const)
 {
     return ConstMemberCallbackFactory<R, T ARG_TYPES_C>();
 }
-
-
 
 template<typename R TYPENAMES>
 class BoundCallbackFactory

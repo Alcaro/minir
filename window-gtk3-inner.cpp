@@ -143,8 +143,7 @@ widget_label* widget_label::set_alignment(int alignment)
 
 
 struct widget_button::impl {
-	void (*onclick)(struct widget_button * button, void* userdata);
-	void* userdata;
+	function<void()> onclick;
 };
 
 widget_button::widget_button(const char * text) : m(new impl)
@@ -174,22 +173,20 @@ widget_button* widget_button::set_text(const char * text)
 static void widget_button_onclick(GtkButton* button, gpointer user_data)
 {
 	widget_button* obj=(widget_button*)user_data;
-	obj->m->onclick(obj, obj->m->userdata);
+	obj->m->onclick();
 }
 
-widget_button* widget_button::set_onclick(void (*onclick)(struct widget_button * subject, void* userdata), void* userdata)
+widget_button* widget_button::set_onclick(function<void()> onclick)
 {
 	g_signal_connect(widget, "clicked", G_CALLBACK(widget_button_onclick), this);
 	m->onclick=onclick;
-	m->userdata=userdata;
 	return this;
 }
 
 
 
 struct widget_checkbox::impl {
-	void (*onclick)(struct widget_checkbox * button, bool checked, void* userdata);
-	void* userdata;
+	function<void(bool checked)> onclick;
 };
 
 widget_checkbox::widget_checkbox(const char * text) : m(new impl)
@@ -233,14 +230,13 @@ static void widget_checkbox_onclick(GtkButton* button, gpointer user_data)
 {
 	if (in_callback) return;
 	widget_checkbox* obj=(widget_checkbox*)user_data;
-	obj->m->onclick(obj, gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(obj->widget)), obj->m->userdata);
+	obj->m->onclick(gtk_toggle_button_get_active(GTK_TOGGLE_BUTTON(obj->widget)));
 }
 
-widget_checkbox* widget_checkbox::set_onclick(void (*onclick)(struct widget_checkbox * subject, bool checked, void* userdata), void* userdata)
+widget_checkbox* widget_checkbox::set_onclick(function<void(bool checked)> onclick)
 {
 	g_signal_connect(widget, "clicked", G_CALLBACK(widget_checkbox_onclick), this);
 	m->onclick=onclick;
-	m->userdata=userdata;
 	return this;
 }
 
@@ -255,8 +251,7 @@ struct widget_radio::impl {
 	unsigned int id;//if state is set before grouping, this is used as state
 	widget_radio * parent;
 	
-	void (*onclick)(struct widget_radio * subject, unsigned int state, void* userdata);
-	void* userdata;
+	function<void(unsigned int state)> onclick;
 };
 
 static void widget_radio_onclick(GtkToggleButton* togglebutton, gpointer user_data);
@@ -337,23 +332,20 @@ static void widget_radio_onclick(GtkToggleButton* togglebutton, gpointer user_da
 	if (in_callback) return;
 	widget_radio* obj=(widget_radio*)user_data;
 	if (!gtk_toggle_button_get_active(togglebutton)) return;
-	if (obj->m->parent->m->onclick) obj->m->parent->m->onclick(obj, obj->m->id, obj->m->parent->m->userdata);
+	if (obj->m->parent->m->onclick) obj->m->parent->m->onclick(obj->m->id);
 }
 
-widget_radio* widget_radio::set_onclick(void (*onclick)(widget_radio * subject, unsigned int state, void* userdata), void* userdata)
+widget_radio* widget_radio::set_onclick(function<void(unsigned int state)> onclick)
 {
 	m->onclick=onclick;
-	m->userdata=userdata;
 	return this;
 }
 
 
 
 struct widget_textbox::impl {
-	void (*onchange)(struct widget_textbox * subject, const char * text, void* userdata);
-	void* ch_userdata;
-	void (*onactivate)(struct widget_textbox * subject, const char * text, void* userdata);
-	void* ac_userdata;
+	function<void(const char * text)> onchange;
+	function<void(const char * text)> onactivate;
 };
 
 static void widget_textbox_onchange(GtkEntry* entry, gpointer user_data);
@@ -431,30 +423,26 @@ static void widget_textbox_onchange(GtkEntry* entry, gpointer user_data)
 	gtk_widget_set_name(GTK_WIDGET(obj->widget), "x");
 	if (obj->m->onchange)
 	{
-		obj->m->onchange(obj, gtk_entry_get_text(GTK_ENTRY(obj->widget)), obj->m->ch_userdata);
+		obj->m->onchange(gtk_entry_get_text(GTK_ENTRY(obj->widget)));
 	}
 }
 
-widget_textbox* widget_textbox::set_onchange(void (*onchange)(struct widget_textbox * subject, const char * text, void* userdata),
-                                             void* userdata)
+widget_textbox* widget_textbox::set_onchange(function<void(const char * text)> onchange)
 {
 	m->onchange=onchange;
-	m->ch_userdata=userdata;
 	return this;
 }
 
 static void widget_textbox_onactivate(GtkEntry* entry, gpointer user_data)
 {
 	widget_textbox* obj=(widget_textbox*)user_data;
-	obj->m->onactivate(obj, gtk_entry_get_text(GTK_ENTRY(obj->widget)), obj->m->ac_userdata);
+	obj->m->onactivate(gtk_entry_get_text(GTK_ENTRY(obj->widget)));
 }
 
-widget_textbox* widget_textbox::set_onactivate(void (*onactivate)(struct widget_textbox * subject, const char * text, void* userdata),
-                                               void* userdata)
+widget_textbox* widget_textbox::set_onactivate(function<void(const char * text)> onactivate)
 {
 	g_signal_connect(widget, "activate", G_CALLBACK(widget_textbox_onactivate), this);
 	m->onactivate=onactivate;
-	m->ac_userdata=userdata;
 	return this;
 }
 
@@ -471,8 +459,7 @@ struct widget_viewport::impl {
 	guint32 hide_mouse_at;
 	GdkCursor* hidden_cursor;
 	
-	void (*on_file_drop)(struct widget_viewport * subject, const char * const * filenames, void* userdata);
-	void* dropuserdata;
+	function<void(const char * const * filenames)> on_file_drop;
 };
 
 widget_viewport::widget_viewport(unsigned int width, unsigned int height) : m(new impl)
@@ -625,16 +612,14 @@ static void viewport_drop_handler(GtkWidget* widget, GdkDragContext* drag_contex
 	strings[numstr]=NULL;
 	free(datacopy);
 	
-	obj->m->on_file_drop(obj, strings, obj->m->dropuserdata);
+	obj->m->on_file_drop(strings);
 	
 	for (int i=0;strings[i];i++) free(strings[i]);
 	free(strings);
 	gtk_drag_finish(drag_context, TRUE, FALSE, time);
 }
 
-widget_viewport* widget_viewport::set_support_drop(
-                             void (*on_file_drop)(struct widget_viewport * subject, const char * const * filenames, void* userdata),
-                             void* userdata)
+widget_viewport* widget_viewport::set_support_drop(function<void(const char * const * filenames)> on_file_drop)
 {
 	GtkTargetList* list=gtk_target_list_new(NULL, 0);
 	gtk_target_list_add_uri_targets(list, 0);
@@ -649,7 +634,6 @@ widget_viewport* widget_viewport::set_support_drop(
 	
 	g_signal_connect(widget, "drag-data-received", G_CALLBACK(viewport_drop_handler), this);
 	m->on_file_drop=on_file_drop;
-	m->dropuserdata=userdata;
 	
 	return this;
 }

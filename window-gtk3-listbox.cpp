@@ -27,8 +27,7 @@ struct VirtualList
 	bool checkboxes;
 	
 	struct widget_listbox * subject;
-	const char * (*get_cell)(struct widget_listbox * subject, size_t row, int column, void * userdata);
-	void * get_userdata;
+	function<const char * (int column, size_t row)> get_cell;
 };
 
 struct VirtualListClass
@@ -123,7 +122,7 @@ static void virtual_list_get_value(GtkTreeModel* tree_model, GtkTreeIter* iter, 
 	if (ucolumn == virtual_list->columns)
 	{
 		g_value_init(value, G_TYPE_BOOLEAN);
-		g_value_set_boolean(value, virtual_list->get_cell(virtual_list->subject, row, -1, virtual_list->get_userdata) ? true : false);
+		g_value_set_boolean(value, virtual_list->get_cell(-1, row) ? true : false);
 		return;
 	}
 	
@@ -133,7 +132,7 @@ static void virtual_list_get_value(GtkTreeModel* tree_model, GtkTreeIter* iter, 
 	if (row>=virtual_list->rows) g_return_if_reached();
 	
 	g_value_init(value, G_TYPE_STRING);
-	const char * ret=virtual_list->get_cell(virtual_list->subject, row, ucolumn, virtual_list->get_userdata);
+	const char * ret=virtual_list->get_cell(ucolumn, row);
 	g_value_set_string(value, ret);
 }
 
@@ -247,14 +246,9 @@ struct widget_listbox::impl {
 	
 	struct VirtualList* vlist;
 	
-	void (*ontoggle)(struct widget_listbox * subject, size_t row, void * userdata);
-	void* toggle_userdata;
-	
-	void (*onfocus)(struct widget_listbox * subject, size_t row, void * userdata);
-	void* focus_userdata;
-	
-	void (*onactivate)(struct widget_listbox * subject, size_t row, void * userdata);
-	void* activate_userdata;
+	function<void(size_t row)> onfocus;
+	function<void(size_t row)> onactivate;
+	function<void(size_t row)> ontoggle;
 };
 
 void widget_listbox::construct(unsigned int numcolumns, const char * * columns)
@@ -317,15 +311,11 @@ widget_listbox* widget_listbox::set_enabled(bool enable)
 	return this;
 }
 
-widget_listbox* widget_listbox::set_contents(
-                                 const char * (*get_cell)(struct widget_listbox * subject, size_t row, int column, void * userdata),
-                                 size_t (*search)(struct widget_listbox * subject,
-                                                  const char * prefix, size_t start, bool up, void * userdata),
-                                 void * userdata)
+widget_listbox* widget_listbox::set_contents(function<const char * (int column, size_t row)> get_cell,
+                                             function<size_t(const char * prefix, size_t start, bool up)> search)
 {
 	//we ignore the search function, there is no valid way for gtk+ to use it
 	m->vlist->get_cell=get_cell;
-	m->vlist->get_userdata=userdata;
 	return this;
 }
 
@@ -377,16 +367,13 @@ static void listbox_on_focus_change(GtkTreeView* tree_view, gpointer user_data)
 	size_t item=(size_t)-1;
 	if (path) item=gtk_tree_path_get_indices(path)[0];
 	if (item==MAX_ROWS) item=(size_t)-1;
-	obj->m->onfocus(obj, item, obj->m->focus_userdata);
+	obj->m->onfocus(item);
 	if (path) gtk_tree_path_free(path);
 }
 
-widget_listbox* widget_listbox::set_on_focus_change(
-                                        void (*onchange)(struct widget_listbox * subject, size_t row, void * userdata),
-                                        void* userdata)
+widget_listbox* widget_listbox::set_on_focus_change(function<void(size_t row)> onchange)
 {
 	m->onfocus=onchange;
-	m->focus_userdata=userdata;
 	g_signal_connect(m->tree, "cursor-changed", G_CALLBACK(listbox_on_focus_change), this);
 	return this;
 }
@@ -397,16 +384,13 @@ static void listbox_onactivate(GtkTreeView* tree_view, GtkTreePath* path, GtkTre
 	int item=gtk_tree_path_get_indices(path)[0];
 	if (item!=MAX_ROWS)
 	{
-		obj->m->onactivate(obj, item, obj->m->activate_userdata);
+		obj->m->onactivate(item);
 	}
 }
 
-widget_listbox* widget_listbox::set_onactivate(
-                                   void (*onactivate)(struct widget_listbox * subject, size_t row, void * userdata),
-                                   void* userdata)
+widget_listbox* widget_listbox::set_onactivate(function<void(size_t row)> onactivate)
 {
 	m->onactivate=onactivate;
-	m->activate_userdata=userdata;
 	g_signal_connect(m->tree, "row-activated", G_CALLBACK(listbox_onactivate), this);
 	return this;
 }
@@ -449,13 +433,11 @@ static void widget_listbox_checkbox_toggle(GtkCellRendererToggle* cell_renderer,
 {
 	widget_listbox* obj=(widget_listbox*)user_data;
 	unsigned int row=atoi(path);
-	if (obj->m->ontoggle) obj->m->ontoggle(obj, row, obj->m->toggle_userdata);
+	obj->m->ontoggle(row);
 	widget_listbox_refresh_row(obj, row);
 }
 
-widget_listbox* widget_listbox::add_checkboxes(
-                                   void (*ontoggle)(struct widget_listbox * subject, size_t id, void * userdata),
-                                   void * userdata)
+widget_listbox* widget_listbox::add_checkboxes(function<void(size_t row)> ontoggle)
 {
 	m->vlist->checkboxes=true;
 	
@@ -467,7 +449,6 @@ widget_listbox* widget_listbox::add_checkboxes(
 	if (checkheight>m->cellheight) m->cellheight=checkheight;
 	
 	m->ontoggle=ontoggle;
-	m->toggle_userdata=userdata;
 	g_signal_connect(render, "toggled", G_CALLBACK(widget_listbox_checkbox_toggle), this);
 	
 	GtkRequisition size;

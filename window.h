@@ -448,8 +448,8 @@ public:
 	//If there is none in that direction, loop around. If still no match, return (size_t)-1.
 	//It's optional, but recommended for better performance.
 	//(GTK+ is stupid and doesn't let me use it.)
-	widget_listbox* set_contents(function<const char * (int column, size_t row)> get_cell, 
-	                             function<size_t(const char * prefix, size_t start, bool up, void * userdata)> search);
+	widget_listbox* set_contents(function<const char * (int column, size_t row)> get_cell,
+	                             function<size_t(const char * prefix, size_t start, bool up)> search);
 	
 	//It is allowed for the implementation to cap this to some sensible value. However, at least 16382 items must be supported.
 	//(On Windows, the limit is 100 million; more than that and it gets empty. On GTK+, the limit is 100000 because large lists are slow.)
