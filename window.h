@@ -478,6 +478,8 @@ public:
 	//The toggle callback does not contain the current nor former state; the user is expected to keep track of that.
 	widget_listbox* add_checkboxes(function<void(size_t row)> ontoggle);
 	
+	//TODO (maybe): make columns editable; for windows, it's LVN_BEGINLABELEDIT
+	
 public:
 	struct impl;
 	impl * m;
