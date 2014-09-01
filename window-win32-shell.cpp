@@ -3,7 +3,9 @@
 #undef _WIN32_WINNT
 #define _WIN32_WINNT 0x0501
 #define _WIN32_IE 0x0600
+#undef bind
 #include <windows.h>
+#define bind BIND_CB
 #include <commctrl.h>
 #include <ctype.h>
 
@@ -30,7 +32,7 @@ void _window_init_shell()
 	wc.cbClsExtra=0;
 	wc.cbWndExtra=0;
 	wc.hInstance=GetModuleHandle(NULL);
-	wc.hIcon=LoadIcon(GetModuleHandle(NULL), MAKEINTRESOURCE(0));
+	wc.hIcon=LoadIcon(GetModuleHandle(NULL), MAKEINTRESOURCE(1));
 	wc.hCursor=LoadCursor(NULL, IDC_ARROW);
 	wc.hbrBackground=(HBRUSH)(COLOR_3DFACE + 1);
 	wc.lpszMenuName=NULL;
@@ -463,7 +465,6 @@ static void menu_insert_child(struct windowmenu * this_, unsigned int pos, struc
 	struct windowmenu_win32 * child=(struct windowmenu_win32*)child_;
 	this->numchildren++;
 	this->childlist=realloc(this->childlist, sizeof(struct windowmenu_win32*)*this->numchildren);
-	if (!this->childlist) abort();
 	memmove(this->childlist+pos+1, this->childlist+pos, sizeof(struct windowmenu_win32*)*(this->numchildren-pos-1));
 	this->childlist[pos]=(struct windowmenu_win32*)child;
 	menu_add_item(this, pos, child);
@@ -855,7 +856,7 @@ static LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM l
 		}
 		break;
 	case WM_ACTIVATE:
-		if (LOWORD(WM_ACTIVATE) && this->isdialog) activedialog=hwnd;
+		if (LOWORD(wParam) && this->isdialog) activedialog=hwnd;
 		else activedialog=NULL;
 		break;
 	case WM_CLOSE:

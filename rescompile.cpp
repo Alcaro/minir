@@ -2,7 +2,6 @@
 #include <stdio.h>
 #include <string.h>
 #include <ctype.h>
-#include <stdbool.h>
 #include <stdlib.h>
 #include <stdint.h>
 
@@ -125,7 +124,7 @@ void compileconfig(FILE * output)
 		outputs[i].len=0;
 	}
 	
-#define emit_to(id, ...) do { mem_append(sprintfbuf, sprintf(sprintfbuf, __VA_ARGS__), &outputs[id]); } while(0)
+#define emit_to(id, ...) do { mem_append(sprintfbuf, sprintf(sprintfbuf, __VA_ARGS__), &outputs[id]); } while(0,0)
 	//fseek(in, 0, SEEK_SET);
 #define emit_header_input(...) emit_to(p_header_input, __VA_ARGS__)
 	emit_header_input("#ifdef CONFIG_HEADER\n");
@@ -200,7 +199,7 @@ void compileconfig(FILE * output)
 	emit_header_override_strmap("union { struct {\n");
 	
 	char comment[8192];
-	int commentlen=0;
+	unsigned int commentlen=0;
 	
 	while (!feof(in))
 	{
@@ -238,13 +237,13 @@ void compileconfig(FILE * output)
 		}
 		else if (commentlen)
 		{
-			for (int i=0;i<commentlen;i++)
+			for (unsigned int i=0;i<commentlen;i++)
 			{
 				if (!(i%255))
 				{
-					int remaining=commentlen-i;
+					unsigned int remaining=commentlen-i;
 					emit_bytecode(CFGB_COMMENT);
-					emit_bytecode(remaining>255?255:remaining);
+					emit_bytecode(remaining>255 ? 255 : remaining);
 				}
 				emit_bytecode(comment[i]);
 			}
@@ -278,7 +277,7 @@ void compileconfig(FILE * output)
 				//null
 			//enumeration
 				char enumtype[64];
-				int numenumopts=numenumopts;
+				unsigned int numenumopts=numenumopts;
 			
 			const char * basetype=basetype;
 			const char * arrayname=arrayname;
@@ -392,9 +391,9 @@ void compileconfig(FILE * output)
 				strcat(enumtype, varname);
 			}
 			
-			int arraylen=1;
+			unsigned int arraylen=1;
 			bool shuffled=false;
-			int arrayshowtop=1;
+			unsigned int arrayshowtop=1;
 			char defaults[256][32];
 			memset(defaults, 0, sizeof(defaults));
 			const char * stddefault=(type==str)?"NULL":(type==num)?"0":(type==flag)?"false":defaults[0];
@@ -415,16 +414,16 @@ void compileconfig(FILE * output)
 					unsigned int at;
 					unsigned int multiplier;
 				} loop[32];
-				int maxloopdepth=0;
+				unsigned int maxloopdepth=0;
 				
 				unsigned int maxdynamiclen=0;
-				int loopdepth=0;
+				unsigned int loopdepth=0;
 				char * at=varend+1;
-				int cfgnamestart=strlen(varname);
+				unsigned int cfgnamestart=strlen(varname);
 				while (*at && *at!='=')
 				{
 					unsigned int thisdynamiclen=0;
-					int beforelen=0;
+					unsigned int beforelen=0;
 					while (*at && *at!='=' && *at!='{' && *at!='[')
 					{
 						loop[loopdepth].before[beforelen]=*at;
@@ -445,10 +444,10 @@ void compileconfig(FILE * output)
 					else if (*at=='[')
 					{
 						char* newat;
-						int rangelow=strtol(at+1, &newat, 0);
+						unsigned int rangelow=strtol(at+1, &newat, 0);
 						if (at==newat || *newat!='-') error("bad loop range");
 						at=newat;
-						int rangehigh=strtol(at+1, &newat, 0);
+						unsigned int rangehigh=strtol(at+1, &newat, 0);
 						if (at!=newat && newat[0]=='?' && newat[1]=='-')
 						{
 							at=newat+2;
@@ -458,7 +457,7 @@ void compileconfig(FILE * output)
 						if (at==newat || *newat!=']') error("bad loop range");
 						at=newat+1;
 						loop[loopdepth].len=rangehigh+1-rangelow;
-						for (int i=0;i<rangehigh+1-rangelow;i++)
+						for (unsigned int i=0;i<rangehigh+1-rangelow;i++)
 						{
 							sprintf(loop[loopdepth].keys[i], "%i", i+rangelow);
 							loop[loopdepth].index[i]=i;
@@ -467,7 +466,7 @@ void compileconfig(FILE * output)
 					}
 					else if (*at=='{')
 					{
-						int i=0;
+						unsigned int i=0;
 						while (*at!='}')
 						{
 							at++;
@@ -493,7 +492,7 @@ void compileconfig(FILE * output)
 					}
 					else error("what");
 					arraylen*=loop[loopdepth].len;
-					for (int i=0;i<loopdepth;i++)
+					for (unsigned int i=0;i<loopdepth;i++)
 					{
 						loop[i].multiplier*=loop[loopdepth].len;
 					}
@@ -523,12 +522,12 @@ void compileconfig(FILE * output)
 				strcat(thiscfgname_c, loop[0].before);
 				
 				char table_num[4096];
-				int table_num_pos=0;
+				unsigned int table_num_pos=0;
 				
 				char table_byte[4096];
-				int table_byte_pos=0;
-				static char table_byte_prev[4096];
-				static int table_byte_pos_prev;
+				unsigned int table_byte_pos=0;
+				char table_byte_prev[4096];
+				unsigned int table_byte_pos_prev;
 				
 #define append_table_num(byte) do { table_num[table_num_pos++]=byte; } while(0)
 #define append_table_byte(byte) do { table_byte[table_byte_pos++]=byte; } while(0)
@@ -551,7 +550,7 @@ void compileconfig(FILE * output)
 					
 					append_table_num(index);
 					
-					int i;
+					unsigned int i;
 					for (i=0;i<maxdynamiclen && thiscfgname_d[i];i++)
 					{
 						append_table_byte(thiscfgname_d[i]);
@@ -700,7 +699,7 @@ void compileconfig(FILE * output)
 				if (type==enumer)
 				{
 					emit_header_enum("%s { ", basetype);
-					for (int i=0;i<numenumopts;i++)
+					for (unsigned int i=0;i<numenumopts;i++)
 					{
 						emit_header_enum("%s, ", defaults[i]);
 					}
@@ -758,6 +757,16 @@ void compileconfig(FILE * output)
 	}
 #define error(why) do { puts(why); exit(1); } while(0)
 	
+//msvc dislikes zero-size arrays
+if (numinputs==0) numinputs++;
+if (numstrs==0) numstrs++;
+if (numuints==0) numuints++;
+if (numints==0) numints++;
+if (numenums==0) numenums++;
+if (numbools==0) numbools++;
+if (numstringlists==0) numstringlists++;
+if (numstringmaps==0) numstringmaps++;
+	
 	emit_header_input("}; char* inputs[%i]; };\n", numinputs);
 	emit_header_str("}; char* _strings[%i]; };\n", numstrs);
 	emit_header_uint("}; unsigned int _uints[%i]; };\n", numuints);
@@ -786,7 +795,7 @@ void compileconfig(FILE * output)
 	emit_to(p_bytecode, "#define CONFIG_BYTECODE_LEN %i\n", bytecodepos);
 	size_t complen;
 	uint8_t * comp=compress(bytecode, bytecodepos, &complen);
-	for (int i=0;i<complen;i++)
+	for (unsigned int i=0;i<complen;i++)
 	{
 		emit_to(p_bytecode, "0x%.2X,", comp[i]);
 		if (i%16 == 15) emit_to(p_bytecode, "\n");
@@ -865,8 +874,8 @@ static const char * const keynames[]={
 void compilekeynames(FILE * out)
 {
 	char keynamesr[8192];//size ended up as 869 last time I checked, but let's have a bit of margin.
-	int keynameslenr=0;
-	for (int i=0;i<sizeof(keynames)/sizeof(*keynames);i++)
+	unsigned int keynameslenr=0;
+	for (unsigned int i=0;i<sizeof(keynames)/sizeof(*keynames);i++)
 	{
 		keynameslenr+=sprintf(keynamesr+keynameslenr, "%s%c", keynames[i]?keynames[i]:"", '\0');
 	}
@@ -880,7 +889,7 @@ void compilekeynames(FILE * out)
 	fprintf(out, "#ifdef KEYNAMES_COMP\n");
 	fprintf(out, "#define KEYNAMES_DECOMP_LEN %i\n", (int)keynameslenr);
 	fprintf(out, "#define NUM_COMP_KEYNAMES %i\n", (int)(sizeof(keynames)/sizeof(*keynames)));
-	for (int i=0;i<keynameslenc;i++)
+	for (unsigned int i=0;i<keynameslenc;i++)
 	{
 		fprintf(out, "0x%.2X,", keynamesc[i]);
 		if (i%16 == 15) fprintf(out, "\n");

@@ -1,6 +1,8 @@
 #include "minir.h"
 #ifdef VIDEO_DDRAW
+#undef bind
 #include <windows.h>
+#define bind BIND_CB
 
 //http://msdn.microsoft.com/en-us/library/windows/desktop/gg426116%28v=vs.85%29.aspx
 //we can not use Ex, because it is not present on a clean installation of XP.

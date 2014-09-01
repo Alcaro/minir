@@ -1,6 +1,6 @@
 #include "minir.h"
 #include <string.h>
-#include <strings.h> //strcasecmp
+//#include <strings.h> //strcasecmp
 #include <stdlib.h>
 #include <ctype.h>
 #include <stdio.h>

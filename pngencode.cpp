@@ -1,4 +1,3 @@
-#include <stdbool.h>
 #include <stdlib.h>
 #include <stdint.h>
 #include <string.h>
@@ -234,7 +233,7 @@ bool png_encode(const struct image * img, const char * * pngcomments,  void* * p
 	
 	if (palettelen)
 	{
-		unsigned char palettepack[palettelen*3];
+		unsigned char palettepack[256*3];
 		for (int i=0;i<palettelen;i++)
 		{
 			palettepack[i*3+0]=(palette[i]>>16)&0xFF;
@@ -257,13 +256,13 @@ bool png_encode(const struct image * img, const char * * pngcomments,  void* * p
 	size_t bpl_unpacked=bpp*width;
 	size_t bpl=((bpl_unpacked*bits_per_channel)+7)/8;
 	
-	unsigned char prevlineplus[bpp+bpl];
-	unsigned char * prevline=prevlineplus+bpp;
-	memset(prevlineplus, 0, sizeof(prevlineplus));
+	uint8_t * prevlineplus=(uint8_t*)malloc(bpp+bpl);
+	uint8_t * prevline=prevlineplus+bpp;
+	memset(prevlineplus, 0, sizeof(bpp+bpl));
 	
-	unsigned char thislineplus[bpp+bpl_unpacked];
+	uint8_t * thislineplus=(uint8_t*)malloc(bpp+bpl_unpacked);
 	memset(thislineplus, 0, bpp);
-	unsigned char * thisline=thislineplus+bpp;
+	uint8_t * thisline=thislineplus+bpp;
 	
 	for (unsigned int y=0;y<height;y++)
 	{
@@ -375,8 +374,9 @@ bool png_encode(const struct image * img, const char * * pngcomments,  void* * p
 			}
 		}
 		
-		unsigned char filteredlines[5][bpl];
-		unsigned char filterid;
+		uint8_t * filteredlines[5];
+		for (unsigned int i=0;i<5;i++) filteredlines[i]=(uint8_t*)malloc(bpl);
+		unsigned int filterid;
 		
 		if (palettelen==0)
 		{
@@ -458,10 +458,14 @@ bool png_encode(const struct image * img, const char * * pngcomments,  void* * p
 		tdefl_compress_buffer(&d, &filterid, 1, TDEFL_NO_FLUSH);
 		tdefl_compress_buffer(&d, (char*)filteredlines[filterid], bpl, TDEFL_NO_FLUSH);
 		
+		for (unsigned int i=0;i<5;i++) free(filteredlines[i]);
+		
 		memcpy(prevline, thisline, bpl);
 		thislineraw+=img->pitch;
 	}
 //puts("");
+	free(prevlineplus);
+	free(thislineplus);
 	tdefl_compress_buffer(&d, NULL, 0, TDEFL_FINISH);
 	
 	CHUNK("IDAT", buf_data(&chunkbuf), buf_len(&chunkbuf));

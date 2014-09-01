@@ -1,6 +1,8 @@
 #include "minir.h"
 #ifdef VIDEO_GDI
+#undef bind
 #include <windows.h>
+#define bind BIND_CB
 
 //this file is based on ruby by byuu
 

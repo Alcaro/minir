@@ -1,19 +1,20 @@
 #include "minir.h"
 #ifdef THREAD_WIN32
+#undef bind
 #include <windows.h>
+#define bind BIND_CB
 #include <stdlib.h>
 #include <string.h>
 
 //list of synchronization points: http://msdn.microsoft.com/en-us/library/windows/desktop/ms686355%28v=vs.85%29.aspx
 
-/*
 struct threaddata_win32 {
 	void(*startpos)(void* userdata);
 	void* userdata;
 };
 static DWORD WINAPI ThreadProc(LPVOID lpParameter)
 {
-	struct threaddata_win32 * thdat=lpParameter;
+	struct threaddata_win32 * thdat=(struct threaddata_win32*)lpParameter;
 	thdat->startpos(thdat->userdata);
 	free(thdat);
 	return 0;
@@ -32,10 +33,12 @@ void thread_create(void(*startpos)(void* userdata), void* userdata)
 	LONG ignored=0;
 	InterlockedIncrement(&ignored);
 	
-	CloseHandle(CreateThread(NULL, 0, ThreadProc, thdat, 0, NULL));
+	HANDLE h=CreateThread(NULL, 0, ThreadProc, thdat, 0, NULL);
+	if (!h) abort();
+	CloseHandle(h);
 }
-*/
 
+/*
 #include <process.h>
 void thread_create(void(*startpos)(void* userdata), void* userdata)
 {
@@ -46,6 +49,7 @@ void thread_create(void(*startpos)(void* userdata), void* userdata)
 	
 	_beginthread(startpos, 0, userdata);
 }
+*/
 
 unsigned int thread_ideal_count()
 {

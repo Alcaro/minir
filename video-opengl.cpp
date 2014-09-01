@@ -71,7 +71,9 @@ return diff.tv_nsec;
   #include <GL/glx.h>
   #define glGetProcAddress(name) (*glXGetProcAddress)((const GLubyte*)(name))
 #elif defined(WNDPROT_WINDOWS)
+  #undef bind
   #include <windows.h>
+  #define bind BIND_CB
   #include <GL/gl.h>
   #include <GL/glext.h>
   #define glGetProcAddress(name) wglGetProcAddress(name)

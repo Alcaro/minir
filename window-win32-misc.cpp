@@ -3,13 +3,16 @@
 #undef _WIN32_WINNT
 #define _WIN32_WINNT 0x0501
 #define _WIN32_IE 0x0600
+#undef bind
 #include <windows.h>
+#define bind BIND_CB
 
-//Number of ugly hacks: 4
+//Number of ugly hacks: 5
 //If a status bar item is right-aligned, a space is appended.
 //The status bar is created with WS_DISABLED.
 //WM_SYSCOMMAND is sometimes ignored.
 //I have to keep track of the mouse position so I can ignore various bogus instances of WM_MOUSEMOVE.
+//I have to undefine 'bind' before including any Windows header. I suspect something is including winsock.
 
 //XP incompatibility status:
 //Level 1 - a feature is usable, but behaves weirdly
@@ -100,9 +103,8 @@ const char * const * window_file_picker(struct window * parent,
 	ofn.Flags=OFN_HIDEREADONLY|OFN_FILEMUSTEXIST|OFN_PATHMUSTEXIST|OFN_EXPLORER|(multiple?OFN_ALLOWMULTISELECT:0);
 	ofn.lpstrDefExt=NULL;
 	
-	DWORD cwd_len=GetCurrentDirectoryW(0, NULL);
-	WCHAR cwd[cwd_len+1];
-	GetCurrentDirectoryW(cwd_len+1, cwd);
+	WCHAR cwd[MAX_PATH];
+	GetCurrentDirectoryW(MAX_PATH, cwd);
 	BOOL ok=GetOpenFileName(&ofn);
 	SetCurrentDirectoryW(cwd);
 	

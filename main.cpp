@@ -1420,7 +1420,7 @@ void update_coreopt_menu(struct windowmenu * parent, unsigned int pos)
 			struct windowmenu * item;
 			item=windowmenu_create_check(opts[i].name_display, yesfirst ? set_core_opt_bool_invert : set_core_opt_bool, (void*)(uintptr_t)i);
 			menu->insert_child(menu, i, item);
-			item->set_state(item, core->get_core_option(core, i) ^ yesfirst);
+			item->set_state(item, (bool)core->get_core_option(core, i) ^ yesfirst);
 		}
 		else
 		{
@@ -1461,8 +1461,8 @@ struct windowmenu * update_corepicker_menu(struct windowmenu * parent)
 		free(cores_for_this);
 		unsigned int numcores;
 		cores_for_this=configmgr->get_core_for(configmgr, romloaded, &numcores);
-		const char * names[numcores];
 		
+		const char * * names=malloc(sizeof(const char*)*numcores);
 		for (unsigned int i=0;i<numcores;i++)
 		{
 			if (!cores_for_this[i].name)
@@ -1496,6 +1496,7 @@ struct windowmenu * update_corepicker_menu(struct windowmenu * parent)
 		}
 		menu->insert_child(menu, numchildren++, items);
 		items->set_state(items, current_core_id);
+		free(names);
 	}
 	else
 	{

@@ -3,7 +3,9 @@
 #undef _WIN32_WINNT
 #define _WIN32_WINNT 0x0501
 #define _WIN32_IE 0x0600
+#undef bind
 #include <windows.h>
+#define bind BIND_CB
 #include <windowsx.h>
 #include <commctrl.h>
 #include <stdlib.h>
@@ -111,7 +113,7 @@ void _window_init_inner()
 	wc.cbClsExtra=0;
 	wc.cbWndExtra=0;
 	wc.hInstance=GetModuleHandle(NULL);
-	wc.hIcon=LoadIcon(GetModuleHandle(NULL), MAKEINTRESOURCE(0));
+	wc.hIcon=LoadIcon(GetModuleHandle(NULL), MAKEINTRESOURCE(1));
 	wc.hCursor=LoadCursor(NULL, IDC_ARROW);
 	wc.hbrBackground=GetSysColorBrush(COLOR_3DFACE);//(HBRUSH)(COLOR_WINDOW + 1);
 	wc.lpszMenuName=NULL;
@@ -214,8 +216,7 @@ struct widget_button::impl {
 	//struct window * parent;
 	HWND hwnd;
 	
-	void (*onclick)(struct widget_button * subject, void* userdata);
-	void* userdata;
+	function<void()> onclick;
 	
 	uint8_t state;
 	//char padding[7];
@@ -273,10 +274,9 @@ widget_button* widget_button::set_text(const char * text)
 	return this;
 }
 
-widget_button* widget_button::set_onclick(void (*onclick)(struct widget_button * subject, void* userdata), void* userdata)
+widget_button* widget_button::set_onclick(function<void()> onclick)
 {
 	m->onclick=onclick;
-	m->userdata=userdata;
 	return this;
 }
 
@@ -286,8 +286,7 @@ struct widget_checkbox::impl {
 	struct window * parent;
 	HWND hwnd;
 	
-	void (*onclick)(struct widget_checkbox * subject, bool checked, void* userdata);
-	void* userdata;
+	function<void(bool checked)> onclick;
 	
 	uint8_t state;
 	//char padding[7];
@@ -375,11 +374,9 @@ widget_checkbox* widget_checkbox::set_state(bool checked)
 	return this;
 }
 
-widget_checkbox* widget_checkbox::set_onclick(void (*onclick)(struct widget_checkbox * subject, bool checked, void* userdata),
-                                              void* userdata)
+widget_checkbox* widget_checkbox::set_onclick(function<void(bool checked)> onclick)
 {
 	m->onclick=onclick;
-	m->userdata=userdata;
 	return this;
 }
 
@@ -406,16 +403,15 @@ struct widget_radio::impl {
 	
 	widget_radio* * group;
 	
+	function<void(unsigned int state)> onclick;//can't be put in the union because it has a constructor
 	UNION_BEGIN
 		//which one is active depends on 'id'; if it's nonzero, 'last' is valid
 		STRUCT_BEGIN//active if id==0
-			void (*onclick)(struct widget_radio * subject, unsigned int state, void* userdata);
-			void* userdata;
 			unsigned int active;
 		STRUCT_END
 		STRUCT_BEGIN//active otherwise
 			bool last;//the 'first' flag is known by checking for id==0
-			//char padding[19];
+			//char padding[3];
 		STRUCT_END
 	UNION_END
 	//char padding[4];
@@ -550,12 +546,9 @@ widget_radio* widget_radio::set_state(unsigned int state)
 	return this;
 }
 
-widget_radio* widget_radio::set_onclick(void (*onclick)(struct widget_radio * subject, unsigned int state, void* userdata),
-                                        void* userdata)
+widget_radio* widget_radio::set_onclick(function<void(unsigned int state)> onclick)
 {
 	m->onclick=onclick;
-	m->userdata=userdata;
-	
 	return this;
 }
 
@@ -582,10 +575,8 @@ struct widget_textbox::impl {
 	bool invalid;
 	//char padding[6];
 	
-	void (*onchange)(struct widget_textbox * subject, const char * text, void* userdata);
-	void* ch_userdata;
-	void (*onactivate)(struct widget_textbox * subject, const char * text, void* userdata);
-	void* ac_userdata;
+	function<void(const char * text)> onchange;
+	function<void(const char * text)> onactivate;
 };
 
 static LRESULT CALLBACK textbox_SubclassProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam,
@@ -700,19 +691,15 @@ widget_textbox* widget_textbox::set_invalid(bool invalid)
 	return this;
 }
 
-widget_textbox* widget_textbox::set_onchange(void (*onchange)(struct widget_textbox * subject, const char * text, void* userdata),
-                                             void* userdata)
+widget_textbox* widget_textbox::set_onchange(function<void(const char * text)> onchange)
 {
 	m->onchange=onchange;
-	m->ch_userdata=userdata;
 	return this;
 }
 
-widget_textbox* widget_textbox::set_onactivate(void (*onactivate)(widget_textbox* subject, const char * text, void* userdata),
-                                               void* userdata)
+widget_textbox* widget_textbox::set_onactivate(function<void(const char * text)> onactivate)
 {
 	m->onactivate=onactivate;
-	m->ac_userdata=userdata;
 	return this;
 }
 
@@ -724,9 +711,9 @@ static LRESULT CALLBACK textbox_SubclassProc(HWND hwnd, UINT uMsg, WPARAM wParam
 	switch (uMsg)
 	{
 		case WM_KEYDOWN:
-			if (wParam==VK_RETURN && !(lParam & 0x40000000) && obj->m->onactivate)
+			if (wParam==VK_RETURN && !(lParam & 0x40000000))
 			{
-				obj->m->onactivate(obj, obj->get_text(), obj->m->ac_userdata);
+				obj->m->onactivate(obj->get_text());
 				return 0;
 			}
 			break;
@@ -751,8 +738,7 @@ struct widget_viewport::impl {
 	bool hide_cursor_timer;
 	LPARAM lastmousepos;
 	
-	void (*on_file_drop)(struct widget_viewport * subject, const char * const * filenames, void* userdata);
-	void* dropuserdata;
+	function<void(const char * const * filenames)> on_file_drop;
 };
 
 
@@ -815,13 +801,10 @@ widget_viewport* widget_viewport::set_hide_cursor(bool hide)
 	return this;
 }
 
-widget_viewport* widget_viewport::set_support_drop(void (*on_file_drop)(struct widget_viewport * subject,
-                                                                        const char * const * filenames, void* userdata),
-                                                   void* userdata)
+widget_viewport* widget_viewport::set_support_drop(function<void(const char * const * filenames)> on_file_drop)
 {
 	DragAcceptFiles(m->hwnd, TRUE);
 	m->on_file_drop=on_file_drop;
-	m->dropuserdata=userdata;
 	
 	return this;
 }
@@ -871,7 +854,7 @@ static LRESULT CALLBACK viewport_WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam,
 		{
 			HDROP hdrop=(HDROP)wParam;
 			UINT numfiles=DragQueryFile(hdrop, 0xFFFFFFFF, NULL, 0);//but what if I drop four billion files?
-			char * filenames[numfiles+1];
+			char * * filenames=malloc(sizeof(char*)*(numfiles+1));
 			for (UINT i=0;i<numfiles;i++)
 			{
 				UINT len=DragQueryFile(hdrop, i, NULL, 0);
@@ -884,8 +867,9 @@ static LRESULT CALLBACK viewport_WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam,
 			}
 			filenames[numfiles]=NULL;
 			DragFinish(hdrop);
-			obj->m->on_file_drop(obj, (const char * const *)filenames, obj->m->dropuserdata);
+			obj->m->on_file_drop((const char * const *)filenames);
 			for (UINT i=0;i<numfiles;i++) free(filenames[i]);
+			free(filenames);
 		}
 		break;
 		_default:
@@ -922,17 +906,13 @@ struct widget_listbox::impl {
 	bool checkboxes;//oddly placed due to padding
 	//char padding[1];
 	
-	const char * (*get_cell)(struct widget_listbox * subject, size_t row, int column, void * userdata);
-	size_t (*search)(struct widget_listbox * subject, const char * prefix, size_t start, bool up, void * userdata);
-	void* virt_userdata;
+	function<const char * (int column, size_t row)> get_cell;
+	function<size_t(const char * prefix, size_t start, bool up)> search;
 	
-	void (*onfocuschange)(struct widget_listbox * subject, size_t row, void* userdata);
-	void* foc_userdata;
-	void (*onactivate)(struct widget_listbox * subject, size_t row, void* userdata);
-	void* act_userdata;
+	function<void(size_t row)> onfocuschange;
+	function<void(size_t row)> onactivate;
 	
-	void (*ontoggle)(struct widget_listbox * subject, size_t row, void* userdata);
-	void* tg_userdata;
+	function<void(size_t row)> ontoggle;
 };
 
 void widget_listbox::construct(unsigned int numcolumns, const char * * columns)
@@ -1046,7 +1026,6 @@ widget_listbox* widget_listbox::set_enabled(bool enable)
 
 widget_listbox* widget_listbox::set_num_rows(size_t rows)
 {
-printf("rows=%u\n",(int)rows);
 	if (rows > 100000000) rows=100000000;//Windows "only" supports 100 million (0x05F5E100); more than that and it gets empty.
 	m->rows=rows;
 	if (m->initialized)
@@ -1057,16 +1036,11 @@ printf("rows=%u\n",(int)rows);
 	return this;
 }
 
-widget_listbox* widget_listbox::set_contents(const char * (*get_cell)(struct widget_listbox * subject,
-                                                                      size_t row, int column,
-                                                                      void* userdata),
-                                             size_t (*search)(struct widget_listbox * subject,
-                                                              const char * prefix, size_t start, bool up, void* userdata),
-                                             void* userdata)
+widget_listbox* widget_listbox::set_contents(function<const char * (int column, size_t row)> get_cell,
+                                             function<size_t(const char * prefix, size_t start, bool up)> search)
 {
 	m->get_cell=get_cell;
 	m->search=search;
-	m->virt_userdata=userdata;
 	return this;
 }
 
@@ -1123,27 +1097,21 @@ size_t widget_listbox::get_active_row()
 	return ListView_GetSelectionMark(m->hwnd);
 }
 
-widget_listbox* widget_listbox::set_on_focus_change(void (*onchange)(struct widget_listbox * subject, size_t row, void * userdata),
-                                                    void* userdata)
+widget_listbox* widget_listbox::set_on_focus_change(function<void(size_t row)> onchange)
 {
 	m->onfocuschange=onchange;
-	m->foc_userdata=userdata;
 	return this;
 }
 
-widget_listbox* widget_listbox::set_onactivate(void (*onactivate)(struct widget_listbox * subject, size_t row, void* userdata),
-                                               void* userdata)
+widget_listbox* widget_listbox::set_onactivate(function<void(size_t row)> onactivate)
 {
 	m->onactivate=onactivate;
-	m->act_userdata=userdata;
 	return this;
 }
 
-widget_listbox* widget_listbox::add_checkboxes(void (*ontoggle)(struct widget_listbox * subject, size_t row, void* userdata),
-                                               void* userdata)
+widget_listbox* widget_listbox::add_checkboxes(function<void(size_t row)> ontoggle)
 {
 	m->ontoggle=ontoggle;
-	m->tg_userdata=userdata;
 	m->checkboxes=true;
 	if (m->initialized) (void)ListView_SetExtendedListViewStyleEx(m->hwnd, LVS_EX_CHECKBOXES, LVS_EX_CHECKBOXES);
 	return this;
@@ -1161,7 +1129,7 @@ static uintptr_t listbox_notify(NMHDR* nmhdr)
 		
 		if (info->item.mask & LVIF_TEXT)
 		{
-			const char * str=obj->m->get_cell(obj, row, column, obj->m->virt_userdata);
+			const char * str=obj->m->get_cell(column, row);
 			unsigned int len=strlen(str);
 			if (len > (unsigned int)info->item.cchTextMax-1) len=info->item.cchTextMax-1;
 			memcpy(info->item.pszText, str, len);
@@ -1173,7 +1141,7 @@ static uintptr_t listbox_notify(NMHDR* nmhdr)
 			info->item.iImage=0;
 			info->item.mask|=LVIF_STATE;
 			info->item.stateMask=LVIS_STATEIMAGEMASK;
-			info->item.state=INDEXTOSTATEIMAGEMASK(obj->m->checkboxes ? obj->m->get_cell(obj, row, -1, obj->m->virt_userdata) ? 2 : 1 : 0);
+			info->item.state=INDEXTOSTATEIMAGEMASK(obj->m->checkboxes ? obj->m->get_cell(-1, row) ? 2 : 1 : 0);
 		}
 	}
 	if (nmhdr->code==LVN_ODCACHEHINT)
@@ -1187,14 +1155,13 @@ static uintptr_t listbox_notify(NMHDR* nmhdr)
 		
 		if (obj->m->search)
 		{
-			size_t ret=obj->m->search(obj, find->lvfi.psz, find->iStart, false, obj->m->virt_userdata);
-			//if (ret >= obj->m->rows) ret=obj->m->search(obj, find->lvfi.psz, 0, false, obj->m->virt_userdata);
+			size_t ret=obj->m->search(find->lvfi.psz, find->iStart, false);
 			if (ret >= obj->m->rows) ret=(size_t)-1;
 			return (uintptr_t)ret;
 		}
 		else
 		{
-			return _widget_listbox_search(obj, obj->m->rows, obj->m->get_cell, find->lvfi.psz, find->iStart, false, obj->m->virt_userdata);
+			return _widget_listbox_search(obj->m->get_cell, obj->m->rows, find->lvfi.psz, find->iStart, false);
 		}
 	}
 	if (nmhdr->code==LVN_KEYDOWN)
@@ -1205,14 +1172,14 @@ static uintptr_t listbox_notify(NMHDR* nmhdr)
 			int row=ListView_GetSelectionMark(obj->m->hwnd);
 			if (row!=-1)
 			{
-				if (obj->m->ontoggle) obj->m->ontoggle(obj, row, obj->m->tg_userdata);
+				obj->m->ontoggle(row);
 				(void)ListView_RedrawItems(obj->m->hwnd, row, row);
 			}
 		}
 		if (keydown->wVKey==VK_RETURN)
 		{
 			int row=ListView_GetSelectionMark(obj->m->hwnd);
-			if (row!=-1 && obj->m->onactivate) obj->m->onactivate(obj, row, obj->m->act_userdata);
+			if (row!=-1) obj->m->onactivate(row);
 		}
 	}
 	if (nmhdr->code==NM_CLICK)
@@ -1223,7 +1190,7 @@ static uintptr_t listbox_notify(NMHDR* nmhdr)
 		int row=ListView_HitTest(obj->m->hwnd, &hitinfo);
 		if (row!=-1 && (hitinfo.flags & LVHT_ONITEMSTATEICON))
 		{
-			if (obj->m->ontoggle) obj->m->ontoggle(obj, row, obj->m->tg_userdata);
+			obj->m->ontoggle(row);
 			(void)ListView_RedrawItems(obj->m->hwnd, row, row);
 		}
 	}
@@ -1235,7 +1202,7 @@ static uintptr_t listbox_notify(NMHDR* nmhdr)
 		int row=ListView_HitTest(obj->m->hwnd, &hitinfo);
 		if (row!=-1 && (hitinfo.flags & LVHT_ONITEMLABEL))
 		{
-			if (obj->m->onactivate) obj->m->onactivate(obj, row, obj->m->act_userdata);
+			obj->m->onactivate(row);
 		}
 	}
 	if (nmhdr->code==LVN_ITEMCHANGED)
@@ -1243,7 +1210,7 @@ static uintptr_t listbox_notify(NMHDR* nmhdr)
 		NMLISTVIEW* change=(NMLISTVIEW*)nmhdr;
 		if (!(change->uOldState&LVIS_FOCUSED) && (change->uNewState&LVIS_FOCUSED) && change->iItem>=0)
 		{
-			if (obj->m->onfocuschange) obj->m->onfocuschange(obj, change->iItem, obj->m->foc_userdata);
+			obj->m->onfocuschange(change->iItem);
 		}
 	}
 	return 0;
@@ -1325,10 +1292,7 @@ uintptr_t _window_notify_inner(void* notification)
 			if (nmhdr->code==BN_CLICKED)
 			{
 				widget_button* obj=(widget_button*)GetWindowLongPtr(nmhdr->hwndFrom, GWLP_USERDATA);
-				if (obj->m->onclick)
-				{
-					obj->m->onclick(obj, obj->m->userdata);
-				}
+				obj->m->onclick();
 			}
 			break;
 		}
@@ -1340,10 +1304,7 @@ uintptr_t _window_notify_inner(void* notification)
 				bool state=obj->get_state();
 				state=!state;
 				obj->set_state(state);
-				if (obj->m->onclick)
-				{
-					obj->m->onclick(obj, state, obj->m->userdata);
-				}
+				obj->m->onclick(state);
 			}
 			break;
 		}
@@ -1354,10 +1315,8 @@ uintptr_t _window_notify_inner(void* notification)
 				widget_radio* obj=(widget_radio*)GetWindowLongPtr(nmhdr->hwndFrom, GWLP_USERDATA);
 				widget_radio* leader=obj->m->leader;
 				leader->set_state(obj->m->id);
-				if (leader->m->onclick)
-				{
-					leader->m->onclick(leader, obj->m->id, leader->m->userdata);
-				}
+				
+				leader->m->onclick(obj->m->id);
 			}
 			break;
 		}
@@ -1373,7 +1332,7 @@ uintptr_t _window_notify_inner(void* notification)
 				}
 				if (obj->m->onchange)
 				{
-					obj->m->onchange(obj, obj->get_text(), obj->m->ch_userdata);
+					obj->m->onchange(obj->get_text());
 				}
 			}
 			break;

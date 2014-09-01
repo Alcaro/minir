@@ -1,9 +1,17 @@
 #include "minir.h"
 #ifdef AUDIO_DIRECTSOUND
 #define CINTERFACE
+#undef bind
 #include <dsound.h>
+#define bind BIND_CB
 
 //this file is heavily based on ruby by byuu
+
+static HMODULE hDSound=NULL;
+static HRESULT (WINAPI * lpDirectSoundCreate)(LPCGUID lpGuid, LPDIRECTSOUND* ppDS, LPUNKNOWN pUnkOuter);
+
+static bool libLoad();
+static void libRelease();
 
 const GUID GUID_NULL={0};
 
@@ -109,11 +117,30 @@ static void free_(struct audio * this_)
 	if (this->dsb_p) { this->dsb_p->lpVtbl->Stop(this->dsb_p); this->dsb_p->lpVtbl->Release(this->dsb_p); }
 	if (this->ds) { this->ds->lpVtbl->Release(this->ds); }
 	
+	libRelease();
+	
 	free(this);
+}
+
+static bool libLoad()
+{
+	hDSound=LoadLibrary("dsound.dll");
+	if (!hDSound) return false;
+	//lpDirectSoundCreate=DirectSoundCreate;//this is for type checking; it's not needed anymore
+	lpDirectSoundCreate=(HRESULT(WINAPI*)(LPCGUID,LPDIRECTSOUND*,LPUNKNOWN))GetProcAddress(hDSound, "DirectSoundCreate");
+	if (!lpDirectSoundCreate) { FreeLibrary(hDSound); return false; }
+	return true;
+}
+
+static void libRelease()
+{
+	FreeLibrary(hDSound);
 }
 
 struct audio * audio_create_directsound(uintptr_t windowhandle, double samplerate, double latency)
 {
+	if (!libLoad()) return NULL;
+	
 	struct audio_directsound * this=malloc(sizeof(struct audio_directsound));
 	this->i.render=render;
 	this->i.clear=clear;
@@ -126,7 +153,7 @@ struct audio * audio_create_directsound(uintptr_t windowhandle, double samplerat
 	
 	this->samplerate=samplerate;
 	
-	DirectSoundCreate(0, &this->ds, 0);
+	lpDirectSoundCreate(NULL, &this->ds, NULL);
 	if (!this->ds)
 	{
 		free(this);

@@ -1,6 +1,8 @@
 #include "minir.h"
 #ifdef WNDPROT_WINDOWS
+#undef bind
 #include <windows.h>
+#define bind BIND_CB
 #include "libretro.h"
 
 //guess whether the mingw headers include these

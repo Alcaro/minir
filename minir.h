@@ -4,7 +4,6 @@
 #endif
 #define _strdup strdup //and windows is being windows as usual
 #define __STDC_LIMIT_MACROS
-#include <stdbool.h>
 #include <stdint.h>
 #include <stddef.h>
 #include "host.h"

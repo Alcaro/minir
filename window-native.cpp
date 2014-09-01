@@ -61,7 +61,9 @@ char * _window_native_get_absolute_path(const char * path)
 }
 
 #elif defined(FILEPATH_WINDOWS)
+#undef bind
 #include <windows.h>
+#define bind BIND_CB
 #include <string.h>
 
 const char * window_get_proc_path()

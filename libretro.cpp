@@ -39,7 +39,7 @@ static bool load_raw_iface(struct dylib * lib, struct libretro_raw * interface)
 #if defined(__GNUC__)
 #define sym(name) interface->name=(__typeof(interface->name))lib->sym_func(lib, "retro_"#name); if (!interface->name) return false;
 #else
-#error __typeof looks gcc specific, fix it up.
+#define sym(name) *(void(**)())&interface->name = (void(*)())lib->sym_func(lib, "retro_"#name); if (!interface->name) return false;
 #endif
 	sym(set_environment);
 	sym(set_video_refresh);
@@ -186,13 +186,14 @@ static char ** convert_extensions(const char * extensions, unsigned int * count)
 	return ptrs;
 }
 
+static const char * no_extensions=NULL;
 static const char * const * supported_extensions(struct libretro * this_, unsigned int * count)
 {
 	struct libretro_impl * this=(struct libretro_impl*)this_;
 	
 	struct retro_system_info info;
 	this->raw.get_system_info(&info);
-	if (!info.valid_extensions) return (const char * const *){NULL};
+	if (!info.valid_extensions) return &no_extensions;
 	char ** ret=convert_extensions(info.valid_extensions, count);
 	appendtmpptr(this, ret);
 	return (const char * const *)ret;

@@ -1,7 +1,9 @@
 #include "minir.h"
 #ifdef VIDEO_D3D9
 #define CINTERFACE
+#undef bind
 #include <D3D9.h>
+#define bind BIND_CB
 
 #define D3DSWAPEFFECT_FLIPEX ((D3DSWAPEFFECT)5)//lazy compiler. and it's an enum so I can't #ifdef it
                                                //(if this one exists, it's safe to ignore; 5 is still 5,
@@ -29,8 +31,8 @@ STATIC_ASSERT_GSCOPE_CAN_EVALUATE(((IDirect3D9Ex*)NULL)->lpVtbl->RegisterSoftwar
 //and save. Things should now compile and run properly.
 
 static HMODULE hD3D9=NULL;
-static HRESULT WINAPI (*lpDirect3DCreate9Ex)(UINT SDKVersion, IDirect3D9Ex* * ppD3D);
-static IDirect3D9* WINAPI (*lpDirect3DCreate9)(UINT SDKVersion);
+static HRESULT (WINAPI * lpDirect3DCreate9Ex)(UINT SDKVersion, IDirect3D9Ex* * ppD3D);
+static IDirect3D9* (WINAPI * lpDirect3DCreate9)(UINT SDKVersion);
 
 static bool libLoad();
 static void libRelease();
@@ -276,7 +278,7 @@ static bool set_sync(struct video * this_, bool sync)
 	}
 	else
 	{
-		if (this->syncflags != sync)
+		if (this->syncflags != (DWORD)sync)
 		{
 			this->syncflags=(sync);
 			recreate(this, 0,0, 0);
@@ -320,9 +322,9 @@ static bool libLoad()
 	if (!hD3D9) return false;
 	//lpDirect3DCreate9=Direct3DCreate9;//these are for type checking; they're not needed anymore
 	//lpDirect3DCreate9Ex=Direct3DCreate9Ex;
-	lpDirect3DCreate9=(IDirect3D9* WINAPI(*)(UINT))GetProcAddress(hD3D9, "Direct3DCreate9");
+	lpDirect3DCreate9=(IDirect3D9* (WINAPI*)(UINT))GetProcAddress(hD3D9, "Direct3DCreate9");
 	if (!lpDirect3DCreate9) { FreeLibrary(hD3D9); return false; }
-	lpDirect3DCreate9Ex=(HRESULT WINAPI(*)(UINT,IDirect3D9Ex**))GetProcAddress(hD3D9, "Direct3DCreate9Ex");
+	lpDirect3DCreate9Ex=(HRESULT (WINAPI*)(UINT,IDirect3D9Ex**))GetProcAddress(hD3D9, "Direct3DCreate9Ex");
 	//if (!lpDirect3DCreate9Ex) return false;
 	return true;
 }

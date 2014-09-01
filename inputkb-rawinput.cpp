@@ -17,6 +17,15 @@
 //TODO: http://molecularmusings.wordpress.com/2011/09/05/properly-handling-keyboard-input/
 //TODO: GetKeyNameText may be useful for debugging
 
+#ifdef INPUT_DIRECTINPUT
+#undef _WIN32_WINNT
+#define _WIN32_WINNT 0x0501
+#undef bind
+#include <windows.h>
+#define bind BIND_CB
+#include <stdlib.h>
+#include "libretro.h"
+
 //guess whether the mingw headers include these
 //I don't use all of them, but no reason not to include them.
 #ifndef MAPVK_VK_TO_VSC
@@ -48,13 +57,6 @@
 #define VK_OEM_PERIOD 0xBE
 #endif
 
-#ifdef INPUT_DIRECTINPUT
-#undef _WIN32_WINNT
-#define _WIN32_WINNT 0x0501
-#include <windows.h>
-#include <stdlib.h>
-#include "libretro.h"
-
 struct inputkb_rawinput {
 	struct inputkb i;
 	
@@ -76,7 +78,7 @@ static LRESULT CALLBACK window_proc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM l
 	{
 		UINT size=0;
 		GetRawInputData((HRAWINPUT)lparam, RID_INPUT, NULL, &size, sizeof(RAWINPUTHEADER));
-		char data[size];
+		char * data=malloc(size);
 		GetRawInputData((HRAWINPUT)lparam, RID_INPUT, data, &size, sizeof(RAWINPUTHEADER));
 		
 		RAWINPUT* input=(RAWINPUT*)data;
@@ -178,6 +180,7 @@ static LRESULT CALLBACK window_proc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM l
 		
 	done:;
 		LRESULT result=DefRawInputProc(&input, size, sizeof(RAWINPUTHEADER));
+		free(data);
 		return result;
 	}
 	
@@ -234,7 +237,7 @@ struct inputkb * inputkb_create_rawinput(uintptr_t windowhandle)
 	wc.cbClsExtra=0;
 	wc.cbWndExtra=0;
 	wc.hInstance=GetModuleHandle(NULL);
-	wc.hIcon=LoadIcon(GetModuleHandle(NULL), MAKEINTRESOURCE(0));
+	wc.hIcon=LoadIcon(GetModuleHandle(NULL), MAKEINTRESOURCE(1));
 	wc.hCursor=LoadCursor(NULL, IDC_ARROW);
 	wc.hbrBackground=GetSysColorBrush(COLOR_3DFACE);
 	wc.lpszMenuName=NULL;

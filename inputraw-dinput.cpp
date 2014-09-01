@@ -2,11 +2,13 @@
 #ifdef INPUT_DIRECTINPUT
 #define DIRECTINPUT_VERSION 0x0800
 #define CINTERFACE
+#undef bind
 #include <dinput.h>
+#define bind BIND_CB
 //#include "libretro.h"
 
 static HMODULE hDInput=NULL;
-static HRESULT WINAPI (*lpDirectInput8Create)(HINSTANCE hinst, DWORD dwVersion, REFIID riidltf, LPVOID * ppvOut, LPUNKNOWN punkOuter);
+static HRESULT (WINAPI * lpDirectInput8Create)(HINSTANCE hinst, DWORD dwVersion, REFIID riidltf, LPVOID * ppvOut, LPUNKNOWN punkOuter);
 
 struct inputraw_directinput {
 	struct inputraw i;
@@ -41,7 +43,7 @@ static bool libLoad()
 	hDInput=LoadLibrary("dinput8.dll");
 	if (!hDInput) return false;
 	//lpDirectInput8Create=DirectInput8Create;
-	lpDirectInput8Create=(HRESULT WINAPI(*)(HINSTANCE, DWORD, REFIID, LPVOID*, LPUNKNOWN))GetProcAddress(hDInput, "DirectInput8Create");
+	lpDirectInput8Create=(HRESULT(WINAPI*)(HINSTANCE, DWORD, REFIID, LPVOID*, LPUNKNOWN))GetProcAddress(hDInput, "DirectInput8Create");
 	if (!lpDirectInput8Create) { FreeLibrary(hDInput); return false; }
 	return true;
 }
@@ -49,6 +51,10 @@ static bool libLoad()
 struct inputraw * _inputraw_create_directinput(uintptr_t windowhandle)
 {
 	if (!libLoad()) return NULL;
+	
+	//const GUID IID_IDirectInput8 = { 0xBF798031, 0x483A, 0x4DA2, 0xAA, 0x99, 0x5D, 0x64, 0xED, 0x36, 0x97, 0x00 };
+	//const GUID GUID_SysKeyboard = { 0x6F1D2B61, 0xD5A0, 0x11CF, 0xBF, 0xC7, 0x44, 0x45, 0x53, 0x54, 0x00, 0x00 };
+	//enabling those adds half a dozen other dependencies
 	
 	struct inputraw_directinput * this=malloc(sizeof(struct inputraw_directinput));
 	_inputraw_windows_keyboard_create_shared((struct inputraw*)this);

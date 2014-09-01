@@ -65,8 +65,8 @@ void widget_layout::construct(unsigned int numchildren, widget_base* * children,
 	
 	m->startpos[0]=malloc(sizeof(unsigned int)*numchildren);
 	m->startpos[1]=malloc(sizeof(unsigned int)*numchildren);
-	bool posused[totheight*totwidth];
-	memset(posused, 0, sizeof(posused));
+	bool * posused=malloc(sizeof(bool)*(totheight*totwidth));
+	memset(posused, 0, sizeof(bool)*(totheight*totwidth));
 	unsigned int firstempty=0;
 	for (unsigned int i=0;i<numchildren;i++)
 	{
@@ -79,6 +79,7 @@ void widget_layout::construct(unsigned int numchildren, widget_base* * children,
 			posused[firstempty + y*m->totsize[0] + x]=true;
 		}
 	}
+	free(posused);
 }
 
 widget_layout::~widget_layout()
@@ -141,8 +142,8 @@ void widget_layout::measure()
 	{
 		m->children[i]->measure();
 	}
-	unsigned int cellwidths[m->totsize[0]];
-	unsigned int cellheights[m->totsize[1]];
+	unsigned int * cellwidths=malloc(sizeof(unsigned int)*m->totsize[0]);
+	unsigned int * cellheights=malloc(sizeof(unsigned int)*m->totsize[1]);
 	widget_layout_calc_size(this, cellwidths, cellheights);
 	unsigned int width=0;
 	for (unsigned int i=0;i<m->totsize[0];i++) width+=cellwidths[i];
@@ -150,6 +151,9 @@ void widget_layout::measure()
 	unsigned int height=0;
 	for (unsigned int i=0;i<m->totsize[1];i++) height+=cellheights[i];
 	this->height=height;
+	
+	free(cellwidths);
+	free(cellheights);
 	
 	widthprio=0;
 	heightprio=0;
@@ -162,13 +166,13 @@ void widget_layout::measure()
 
 void widget_layout::place(void* resizeinf, unsigned int x, unsigned int y, unsigned int width, unsigned int height)
 {
-	unsigned int cellwidths[m->totsize[0]];
-	unsigned int cellheights[m->totsize[1]];
+	unsigned int * cellwidths=malloc(sizeof(unsigned int)*m->totsize[0]);
+	unsigned int * cellheights=malloc(sizeof(unsigned int)*m->totsize[1]);
 	widget_layout_calc_size(this, cellwidths, cellheights);
 	
 	for (int dir=0;dir<2;dir++)
 	{
-		uint32_t expand[m->totsize[dir]];
+		uint32_t * expand=malloc(sizeof(uint32_t)*m->totsize[dir]);
 		memset(expand, 0, sizeof(uint32_t)*m->totsize[dir]);
 		unsigned int extrasize_pix;
 		if (dir==0) extrasize_pix = width  - this->width;
@@ -203,14 +207,18 @@ void widget_layout::place(void* resizeinf, unsigned int x, unsigned int y, unsig
 				extrasize_frac%=extrasize_split;
 			}
 		}
+		free(expand);
 	}
 	
-	unsigned int cellstartx[m->totsize[0]+1];
+	unsigned int * cellstartx=malloc(sizeof(unsigned int)*(m->totsize[0]+1));
+	unsigned int * cellstarty=malloc(sizeof(unsigned int)*(m->totsize[1]+1));
 	cellstartx[0]=0;
-	for (unsigned int i=0;i<m->totsize[0];i++) cellstartx[i+1]=cellstartx[i]+cellwidths[i];
-	unsigned int cellstarty[m->totsize[1]+1];
 	cellstarty[0]=0;
+	for (unsigned int i=0;i<m->totsize[0];i++) cellstartx[i+1]=cellstartx[i]+cellwidths[i];
 	for (unsigned int i=0;i<m->totsize[1];i++) cellstarty[i+1]=cellstarty[i]+cellheights[i];
+	
+	free(cellwidths);
+	free(cellheights);
 	
 	for (unsigned int i=0;i<m->numchildren;i++)
 	{
@@ -223,41 +231,33 @@ void widget_layout::place(void* resizeinf, unsigned int x, unsigned int y, unsig
 		                         cellstartx[m->startpos[0][i]+m->extent[0][i]]-cellstartx[m->startpos[0][i]],
 		                         cellstarty[m->startpos[1][i]+m->extent[1][i]]-cellstarty[m->startpos[1][i]]);
 	}
+	free(cellstartx);
+	free(cellstarty);
 }
 #endif
 
 
 
 
-size_t _widget_listbox_search(struct widget_listbox * subject, size_t rows,
-                              const char * (*get_cell)(struct widget_listbox * subject, size_t row, int column, void * userdata),
-                              const char * prefix, size_t start, bool up, void * userdata)
+size_t _widget_listbox_search(function<const char *(int column, size_t row)> get_cell, size_t rows,
+                              const char * prefix, size_t start, bool up)
 {
 	size_t len=strlen(prefix);
-	if (!up)
+	
+	size_t pos=start;
+	for (size_t i=0;i<rows;i++)
 	{
-		for (size_t i=start;i<rows;i++)
+		const char * thisstr=get_cell(0, pos);
+		if (!strncasecmp(thisstr, prefix, len)) return pos;
+		if (!up)
 		{
-			const char * thisstr=get_cell(subject, i, 0, userdata);
-			if (!strncasecmp(thisstr, prefix, len)) return i;
+			pos++;
+			if (pos==rows) pos=0;
 		}
-		for (size_t i=0;i<start;i++)
+		else
 		{
-			const char * thisstr=get_cell(subject, i, 0, userdata);
-			if (!strncasecmp(thisstr, prefix, len)) return i;
-		}
-	}
-	else
-	{
-		for (size_t i=start;i>=0;i--)
-		{
-			const char * thisstr=get_cell(subject, i, 0, userdata);
-			if (!strncasecmp(thisstr, prefix, len)) return i;
-		}
-		for (size_t i=rows-1;i>start;i--)
-		{
-			const char * thisstr=get_cell(subject, i, 0, userdata);
-			if (!strncasecmp(thisstr, prefix, len)) return i;
+			if (pos==0) pos=rows;
+			pos--;
 		}
 	}
 	return (size_t)-1;
@@ -277,7 +277,7 @@ struct windowmenu * windowmenu_create_radio(void (*onactivate)(struct windowmenu
 	while (va_arg(args, const char*)) numitems++;
 	va_end(args);
 	
-	const char * items[numitems];
+	const char * * items=malloc(sizeof(const char*)*numitems);
 	items[0]=firsttext;
 	va_start(args, firsttext);
 	for (unsigned int i=1;i<numitems;i++)
@@ -286,7 +286,9 @@ struct windowmenu * windowmenu_create_radio(void (*onactivate)(struct windowmenu
 	}
 	va_end(args);
 	
-	return windowmenu_create_radio_l(numitems, items, onactivate, userdata);
+	struct windowmenu * ret = windowmenu_create_radio_l(numitems, items, onactivate, userdata);
+	free(items);
+	return ret;
 }
 
 struct windowmenu * windowmenu_create_topmenu(struct windowmenu * firstchild, ...)
@@ -302,7 +304,7 @@ struct windowmenu * windowmenu_create_topmenu(struct windowmenu * firstchild, ..
 	}
 	else numitems=0;
 	
-	struct windowmenu * items[numitems];
+	struct windowmenu * * items=malloc(sizeof(struct windowmenu*)*numitems);
 	items[0]=firstchild;
 	va_start(args, firstchild);
 	for (unsigned int i=1;i<numitems;i++)
@@ -311,7 +313,9 @@ struct windowmenu * windowmenu_create_topmenu(struct windowmenu * firstchild, ..
 	}
 	va_end(args);
 	
-	return windowmenu_create_topmenu_l(numitems, items);
+	struct windowmenu * ret = windowmenu_create_topmenu_l(numitems, items);
+	free(items);
+	return ret;
 }
 
 struct windowmenu * windowmenu_create_submenu(const char * text, struct windowmenu * firstchild, ...)
@@ -327,7 +331,7 @@ struct windowmenu * windowmenu_create_submenu(const char * text, struct windowme
 	}
 	else numitems=0;
 	
-	struct windowmenu * items[numitems];
+	struct windowmenu * * items=malloc(sizeof(struct windowmenu*)*numitems);
 	items[0]=firstchild;
 	va_start(args, firstchild);
 	for (unsigned int i=1;i<numitems;i++)
@@ -336,7 +340,9 @@ struct windowmenu * windowmenu_create_submenu(const char * text, struct windowme
 	}
 	va_end(args);
 	
-	return windowmenu_create_submenu_l(text, numitems, items);
+	struct windowmenu * ret=windowmenu_create_submenu_l(text, numitems, items);
+	free(items);
+	return ret;
 }
 
 widget_layout* widget_create_radio_group(bool vertical, widget_radio * leader, ...)
@@ -348,7 +354,7 @@ widget_layout* widget_create_radio_group(bool vertical, widget_radio * leader, .
 	while (va_arg(args, widget_radio*)) numitems++;
 	va_end(args);
 	
-	widget_radio* items[numitems];
+	widget_radio* * items=malloc(sizeof(widget_radio*)*numitems);
 	items[0]=leader;
 	va_start(args, leader);
 	for (unsigned int i=1;i<numitems;i++)
@@ -359,7 +365,9 @@ widget_layout* widget_create_radio_group(bool vertical, widget_radio * leader, .
 	
 	items[0]->group(numitems, items);
 	
-	return widget_create_layout(numitems, (widget_base**)items, vertical?1:numitems, NULL, false, vertical?numitems:1, NULL, false);
+	widget_layout* ret = widget_create_layout(numitems, (widget_base**)items, vertical?1:numitems, NULL, false, vertical?numitems:1, NULL, false);
+	free(items);
+	return ret;
 }
 
 widget_layout* widget_create_radio_group(bool vertical, widget_radio** leader, const char * firsttext, ...)
@@ -371,7 +379,7 @@ widget_layout* widget_create_radio_group(bool vertical, widget_radio** leader, c
 	while (va_arg(args, const char*)) numitems++;
 	va_end(args);
 	
-	widget_radio* items[numitems];
+	widget_radio* * items=malloc(sizeof(widget_radio*)*numitems);
 	items[0]=widget_create_radio(firsttext);
 	va_start(args, firsttext);
 	for (unsigned int i=1;i<numitems;i++)
@@ -383,7 +391,9 @@ widget_layout* widget_create_radio_group(bool vertical, widget_radio** leader, c
 	items[0]->group(numitems, items);
 	if (leader) *leader=items[0];
 	
-	return widget_create_layout(numitems, (widget_base**)items, vertical?1:numitems, NULL, false, vertical?numitems:1, NULL, false);
+	widget_layout* ret=widget_create_layout(numitems, (widget_base**)items, vertical?1:numitems, NULL, false, vertical?numitems:1, NULL, false);
+	free(items);
+	return ret;
 }
 
 widget_listbox::widget_listbox(const char * firstcol, ...)
@@ -395,7 +405,7 @@ widget_listbox::widget_listbox(const char * firstcol, ...)
 	while (va_arg(args, const char*)) numcols++;
 	va_end(args);
 	
-	const char * columns[numcols];
+	const char * * columns=malloc(sizeof(const char*)*numcols);
 	columns[0]=firstcol;
 	va_start(args, firstcol);
 	for (unsigned int i=1;i<numcols;i++)
@@ -405,6 +415,7 @@ widget_listbox::widget_listbox(const char * firstcol, ...)
 	va_end(args);
 	
 	construct(numcols, columns);
+	free(columns);
 }
 
 widget_layout::widget_layout(bool vertical, bool uniform, widget_base* firstchild, ...)
@@ -416,7 +427,7 @@ widget_layout::widget_layout(bool vertical, bool uniform, widget_base* firstchil
 	while (va_arg(args, void*)) numchildren++;
 	va_end(args);
 	
-	widget_base* children[numchildren];
+	widget_base* * children=malloc(sizeof(widget_base*)*numchildren);
 	children[0]=firstchild;
 	va_start(args, firstchild);
 	for (unsigned int i=1;i<numchildren;i++)
@@ -426,6 +437,7 @@ widget_layout::widget_layout(bool vertical, bool uniform, widget_base* firstchil
 	va_end(args);
 	
 	construct(numchildren, (widget_base**)children, vertical?1:numchildren, NULL, uniform, vertical?numchildren:1, NULL, uniform);
+	free(children);
 }
 
 widget_layout::widget_layout(unsigned int totwidth,   unsigned int totheight,   bool uniformwidths, bool uniformheights,
@@ -441,14 +453,14 @@ widget_layout::widget_layout(unsigned int totwidth,   unsigned int totheight,   
 	while (boxesleft)
 	{
 		boxesleft-=va_arg(args, unsigned int)*va_arg(args, unsigned int);
-		va_arg(args, widget_base*);
+		widget_base* ignored=va_arg(args, widget_base*); (void)ignored;//ignore this, we only want the sizes right now
 		numchildren++;
 	}
 	va_end(args);
 	
-	unsigned int widths[numchildren];
-	unsigned int heights[numchildren];
-	widget_base* children[numchildren];
+	unsigned int * widths=malloc(sizeof(unsigned int)*numchildren);
+	unsigned int * heights=malloc(sizeof(unsigned int)*numchildren);
+	widget_base* * children=malloc(sizeof(widget_base*)*numchildren);
 	widths[0]=firstwidth;
 	heights[0]=firstheight;
 	children[0]=firstchild;
@@ -462,12 +474,15 @@ widget_layout::widget_layout(unsigned int totwidth,   unsigned int totheight,   
 	va_end(args);
 	
 	construct(numchildren, children,  totwidth, widths, uniformwidths,  totheight, heights, uniformheights);
+	free(widths);
+	free(heights);
+	free(children);
 }
 
 widget_layout* widget_create_layout_grid(unsigned int width, unsigned int height, bool uniformsizes, widget_base* firstchild, ...)
 {
 	va_list args;
-	widget_base* children[width*height];
+	widget_base* * children=malloc(sizeof(widget_base*)*width*height);
 	children[0]=firstchild;
 	va_start(args, firstchild);
 	for (unsigned int i=1;i<width*height;i++)

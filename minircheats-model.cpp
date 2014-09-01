@@ -904,6 +904,7 @@ static void thread_do_search(struct minircheats_model_impl * this, unsigned int 
 	//enum cheat_compfunc { cht_lt, cht_gt, cht_lte, cht_gte, cht_eq, cht_neq };
 	unsigned char compfunc_perm[]={cht_lt, cht_lte, cht_lte, cht_lt, cht_eq, cht_eq};
 	bool compfunc_exp=(compfunc&1);
+	size_t compfunc_exp_size = compfunc_exp ? ~(size_t)0 : 0;
 	unsigned char compfunc_fun=compfunc_perm[compfunc];
 	unsigned int datsize=this->search_datsize;//caching this here gives a ~15% speed boost, and cleans some stuff up
 	
@@ -1031,7 +1032,7 @@ static void thread_do_search(struct minircheats_model_impl * this, unsigned int 
 							}
 						}
 						
-						keep^=-compfunc_exp;
+						keep^=-compfunc_exp_size;
 						unsigned int deleted=popcountS(show&~keep);
 						show&=keep;
 #else
@@ -1085,7 +1086,7 @@ static void thread_do_search(struct minircheats_model_impl * this, unsigned int 
 						if (compfunc_fun==cht_eq) remove=neq;//we'll add tilde to both the others, in exchange for not having tilde on equal
 						if (compfunc_fun==cht_lt) remove=~(neq&lte);
 						if (compfunc_fun==cht_lte) remove=~lte;
-						remove^=-compfunc_exp;
+						remove^=compfunc_exp_size;
 						unsigned int deleted=popcountS(show&remove);
 						show&=~remove;
 #endif
@@ -1182,7 +1183,7 @@ static void thread_do_search(struct minircheats_model_impl * this, unsigned int 
 						size_t keep=0;
 						if (compfunc_fun<=cht_lte) keep|=lt;
 						if (compfunc_fun>=cht_lte) keep|=eq;
-						keep^=-compfunc_exp;
+						keep^=compfunc_exp_size;
 						unsigned int deleted=popcountS(show&~keep);
 						mem->show_treehigh[(pos+pagepos)/SIZE_PAGE_HIGH]-=deleted;
 						mem->show_treelow[(pos+pagepos)/SIZE_PAGE_LOW]-=deleted;
@@ -1483,7 +1484,12 @@ static void cheat_remove(struct minircheats_model * this_, unsigned int pos)
 	this->numcheats--;
 }
 
-static int cheat_sort_comp(const void * a_, const void * b_)
+#ifdef _MSC_VER
+#define cdecl __cdecl
+#else
+#define cdecl /* */
+#endif
+static int cdecl cheat_sort_comp(const void * a_, const void * b_)
 {
 	struct cheat_impl * a=(struct cheat_impl*)a_;
 	struct cheat_impl * b=(struct cheat_impl*)b_;

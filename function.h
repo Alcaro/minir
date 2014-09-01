@@ -22,8 +22,10 @@
 
 #define UTIL_CALLBACK_HPP_INSIDE
 
-#define bind(func, ...) (GetCallbackFactory(func).Bind<func>(__VA_ARGS__))
-#define bind_ptr(func, arg) (GetBoundCallbackFactory(func).Bind<func>(arg))
+#define BIND_CB(func, ...) (GetCallbackFactory(func).Bind<func>(__VA_ARGS__))
+#define BIND_CB_PTR(func, arg) (GetBoundCallbackFactory(func).Bind<func>(arg))
+#define bind BIND_CB
+#define bind_ptr BIND_CB_PTR
 
 template<typename FuncSignature> class function;
 

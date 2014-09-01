@@ -1,17 +1,17 @@
 struct window;
 struct windowmenu;
-struct widget_base;
-struct widget_padding;
-struct widget_label;
-struct widget_button;
-struct widget_checkbox;
-struct widget_radio;
-struct widget_textbox;
-struct widget_canvas;
-struct widget_viewport;
-struct widget_listbox;
-struct widget_frame;
-struct widget_layout;
+class widget_base;
+class widget_padding;
+class widget_label;
+class widget_button;
+class widget_checkbox;
+class widget_radio;
+class widget_textbox;
+class widget_canvas;
+class widget_viewport;
+class widget_listbox;
+class widget_frame;
+class widget_layout;
 
 //This must be called before calling any other window_*, before creating any interface that does any I/O, before calling anything from
 // the malloc() family, and before using argc/argv; basically, before doing anything else. It should be the first thing main() does.
@@ -604,7 +604,5 @@ uintptr_t _window_get_widget_color(unsigned int type, void* handle, void* draw, 
 char * _window_native_get_absolute_path(const char * path);
 
 //This one can be used if the one calling widget_listbox->set_contents doesn't provide a search function.
-size_t _widget_listbox_search(struct widget_listbox * subject, size_t rows,
-                              const char * (*get_cell)(struct widget_listbox * subject, size_t row, int column,
-                                                       void * userdata),
-                              const char * prefix, size_t start, bool up, void * userdata);
+size_t _widget_listbox_search(function<const char *(int column, size_t row)> get_cell, size_t rows,
+                              const char * prefix, size_t start, bool up);
