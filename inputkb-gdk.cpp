@@ -28,7 +28,7 @@ public:
 public:
 	inputkb_gdk(uintptr_t windowhandle);
 	void set_callback(function<void(unsigned int keyboard, int scancode, int libretrocode, bool down, bool changed)> key_cb);
-	void poll();
+	//void poll();
 	~inputkb_gdk();
 };
 
@@ -114,10 +114,10 @@ void inputkb_gdk::set_callback(function<void(unsigned int keyboard, int scancode
 	this->key_cb=key_cb;
 }
 
-void inputkb_gdk::poll()
-{
-	//do nothing - we're polled through the gtk+ main loop
-}
+//void inputkb_gdk::poll()
+//{
+//	//do nothing - we're polled through the gtk+ main loop
+//}
 
 inputkb_gdk::~inputkb_gdk()
 {

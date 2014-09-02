@@ -61,7 +61,9 @@ public:
 	inputkb_udev();
 	bool construct(uintptr_t windowhandle);
 	void set_callback(function<void(unsigned int keyboard, int scancode, int libretrocode, bool down, bool changed)> key_cb);
+#ifndef GLIB
 	void poll();
+#endif
 	~inputkb_udev();
 };
 
@@ -244,16 +246,15 @@ void inputkb_udev::set_callback(function<void(unsigned int keyboard, int scancod
 	}
 }
 
+#ifndef GLIB
+//if glib, do nothing - we're polled through the gtk+ main loop
 void inputkb_udev::poll()
 {
-#ifdef GLIB
-	//do nothing - we're polled through the gtk+ main loop
-#else
 int epoll_wait(int epfd, struct epoll_event *events,
                       int maxevents, int timeout);
 #error
-#endif
 }
+#endif
 
 inputkb_udev::~inputkb_udev()
 {
