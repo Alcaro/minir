@@ -14,9 +14,6 @@ static struct inputraw * inputraw_create(const char * backend, uintptr_t windowh
 #ifdef INPUT_XINPUT2
 	if (!strcmp(backend, "XInput2")) return _inputraw_create_xinput2(windowhandle);
 #endif
-#ifdef INPUT_X11
-	if (!strcmp(backend, "X11")) return _inputraw_create_x11(windowhandle);
-#endif
 #ifdef INPUT_DIRECTINPUT
 	if (!strcmp(backend, "DirectInput")) return _inputraw_create_directinput(windowhandle);
 #endif
@@ -78,8 +75,6 @@ static unsigned int return1(struct inputraw * This) { return 1; }
 void _inputraw_x11_keyboard_create_shared(struct inputraw * This)
 {
 	This->keyboard_num_keyboards=return1;
-	This->keyboard_num_keys=NULL;
-	This->keyboard_get_map=NULL;
 }
 void _inputraw_windows_keyboard_create_shared(struct inputraw * This)
 {
@@ -96,6 +91,9 @@ inputkb* inputkb_create(const char * backend, uintptr_t windowhandle)
 #endif
 #ifdef INPUT_GDK
 	if (!strcmp(backend, "GDK")) return inputkb_create_gdk(windowhandle);
+#endif
+#ifdef INPUT_X11
+	if (!strcmp(backend, "X11")) return inputkb_create_x11(windowhandle);
 #endif
 	if (!strcmp(backend, "None")) return inputkb_create_none(windowhandle);
 	
@@ -135,7 +133,7 @@ const char * const * inputkb_supported_backends()
 		"XInput2",//no-auto initial no-inputkb
 #endif
 #ifdef INPUT_X11
-		"X11",//no-multi no-auto initial no-inputkb
+		"X11",//no-multi no-auto initial
 #endif
 #ifdef INPUT_DIRECTINPUT
 		"DirectInput",//no-multi no-auto initial no-inputkb

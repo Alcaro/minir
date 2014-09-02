@@ -903,14 +903,6 @@ struct inputraw {
 	// instantly, or if it remains the same until next time keyboard 0 is polled.
 	unsigned int (*keyboard_num_keyboards)(struct inputraw * this);
 	
-	//Returns how long array keyboard_poll expects. It is same for all keyboards. It is not required
-	// that all keys are possible, though too big overestimations will waste resources.
-	//Key 0 is guaranteed to never fire; if it could, the implementation should poll to keys+1, and set keys[0] to zero.
-	//The return value is guaranteed to be no higher than 1024; if it would be, the implementatio
-	// should use a better way to map native keycodes to something below 1024. If this is not
-	// possible, the excess keys are ignored.
-	unsigned int (*keyboard_num_keys)(struct inputraw * this);
-	
 	//Returns which keyboard keys are pressed on the given keyboard. keys[] must be keyboard_num_keys()
 	// bytes long.
 	//If a key is not pressed, the return value in this array is 0. If it is pressed, it's something
@@ -920,19 +912,10 @@ struct inputraw {
 	//It is allowed for an implementation to cache the answers and only update when being polled for kb_id=0.
 	bool (*keyboard_poll)(struct inputraw * this, unsigned int kb_id, unsigned char * keys);
 	
-	//Returns which entries in the keyboard map maps to a retro_key. The lengths of these arrays are
-	// keyboard_num_keys() and RETROK_LAST, respectively. They are valid for, at least, the lifetime
-	// of the structure, but may last longer. It is allowed for them to be shared between multiple
-	// inputraw structures, including inputraw structures of different kinds.
-	void (*keyboard_get_map)(struct inputraw * this, const unsigned int ** keycode_to_libretro,
-	                                                 const unsigned int ** libretro_to_keycode);
 	void (*free)(struct inputraw * this);
 };
-struct inputraw * _inputraw_create_x11(uintptr_t windowhandle);
 struct inputraw * _inputraw_create_xinput2(uintptr_t windowhandle);
-struct inputraw * _inputraw_create_gdk(uintptr_t windowhandle);
 void _inputraw_x11_keyboard_create_shared(struct inputraw * this);
-struct inputraw * _inputraw_create_rawinput(uintptr_t windowhandle);
 struct inputraw * _inputraw_create_directinput(uintptr_t windowhandle);
 void _inputraw_windows_keyboard_create_shared(struct inputraw * this);
 unsigned int _inputraw_translate_key(unsigned int keycode);

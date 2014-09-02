@@ -4,11 +4,11 @@
 //- BIND_FREE_CB/BIND_MEM_CB were combined to a single bind(), by using the C99 preprocessor's __VA_ARGS__.
 //- Instead of the thousand lines of copypasta, the implementations were merged by using some preprocessor macros.
 //- The Arity, ReturnType and ParamNType constants/typedefs were removed.
-//- NullCallback was replaced with support for plain NULL.
+//- NullCallback was replaced with support for plain NULL, by implicitly casting the NULL to a pointer to a private class.
 //- BoundCallbackFactory and bind_arg was added, as a compatibility aid for the C++ conversion.
-//- Made it safe to call an unassigned object. (It's still false.)
+//- Made it safe to call an unassigned object. (Unassigned objects are still false.)
 
-//Alternate libraries that do roughly the same thing:
+//List of libraries that do roughly the same thing:
 //http://www.codeproject.com/Articles/7150/ Member Function Pointers and the Fastest Possible C++ Delegates
 //http://www.codeproject.com/Articles/11015/ The Impossibly Fast C++ Delegates
 //http://www.codeproject.com/Articles/13287/ Fast C++ Delegate
@@ -28,8 +28,6 @@
 #define bind_ptr BIND_CB_PTR
 
 template<typename FuncSignature> class function;
-
-class null_only;
 
 #define JOIN2(a,b) a##b
 #define JOIN(a,b) JOIN2(a,b)
@@ -112,6 +110,7 @@ class null_only;
 template<typename R TYPENAMES>
 class function<R (ARG_TYPES)>
 {
+private: class null_only;
 public:
     function()                    : func(EmptyHandler), obj(NULL) {}
     function(const function& rhs) : func(rhs.func), obj(rhs.obj) {}
