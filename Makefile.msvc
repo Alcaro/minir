@@ -29,7 +29,7 @@ TESTOBJS = $(patsubst %.cpp,obj/%.obj,$(wildcard $(TESTSRC))) $(patsubst %.cpp,o
 
 TRUE_CFLAGS = $(CFLAGS) /nologo /Imsvc
 TRUE_CXXFLAGS = $(CXXFLAGS) /nologo /Imsvc /Dstrtoll=strtol /Dstrcasecmp=stricmp /Dstrncasecmp=strnicmp
-TRUE_LFLAGS = $(LFLAGS) /nologo
+TRUE_LFLAGS = $(LFLAGS) $(MSLIB) /nologo /subsystem:windows /entry:mainCRTStartup
 
 
 #$(CC) $(TRUE_CFLAGS) -DTEST -DNO_ICON test*.c window*.c $(TRUE_LFLAGS) -otest $(RESOBJ)
@@ -68,6 +68,6 @@ obj/rescompile.exe: rescompile.cpp miniz.c | obj
 	del miniz.obj rescompile.obj
 
 $(OUTNAME): $(OBJS)
-	$(LD) $(MSLIB) $(TRUE_LFLAGS) $+ /out:$@
+	$(LD) $(TRUE_LFLAGS) $+ /out:$@
 
 minir_dummy: $(OUTNAME)

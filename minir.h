@@ -859,10 +859,11 @@ struct minircheats_model {
 };
 struct minircheats_model * minircheats_create_model();
 
-//This is a very high-level object; not counting the core, it takes more input directly from the user than from this object.
+//This is a very high-level object; not counting the libretro core, it takes more input directly from the user than from this object.
 struct minircheats {
 	void (*set_parent)(struct minircheats * this, struct window * parent);
 	//It is allowed to set the core to NULL, and all operations are safe if the core is NULL.
+	//However, if the core has been deleted, set_core or delete must be called (possibly with NULL) before any other function, and before window_run_*.
 	void (*set_core)(struct minircheats * this, struct libretro * core, size_t prev_limit);
 	
 	void (*show_search)(struct minircheats * this);

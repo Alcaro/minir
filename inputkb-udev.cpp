@@ -58,7 +58,7 @@ public:
 	void fd_activity(int fd);
 	
 public:
-	inputkb_udev();
+	inputkb_udev() {}
 	bool construct(uintptr_t windowhandle);
 	void set_callback(function<void(unsigned int keyboard, int scancode, int libretrocode, bool down, bool changed)> key_cb);
 #ifndef GLIB
@@ -268,8 +268,6 @@ inputkb_udev::~inputkb_udev()
 	}
 	free(this->fd);
 }
-
-inputkb_udev::inputkb_udev() {}
 
 bool inputkb_udev::construct(uintptr_t windowhandle)
 {
