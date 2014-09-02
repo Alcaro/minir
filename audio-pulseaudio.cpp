@@ -6,6 +6,8 @@
 
 //this file is heavily based on the implementation in byuu's ruby, written by RedDwarf
 
+#define this This
+
 struct audio_pulse {
 	struct audio i;
 	

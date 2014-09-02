@@ -7,6 +7,8 @@
 #include <string.h>
 #include <unistd.h>
 
+#define this This
+
 //list of synchronization points: http://pubs.opengroup.org/onlinepubs/009695399/basedefs/xbd_chap04.html#tag_04_10
 
 struct threaddata_pthread {

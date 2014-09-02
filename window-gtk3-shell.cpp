@@ -8,7 +8,7 @@
 #include <gdk/gdkx.h>
 #endif
 
-
+#define this This
 
 struct windowmenu_gtk3;
 struct windowradio_gtk3 {

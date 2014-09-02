@@ -16,6 +16,8 @@
 #include <gdk/gdkx.h>
 #endif
 
+#define this This
+
 struct inputraw_xinput2 {
 	struct inputraw i;
 	

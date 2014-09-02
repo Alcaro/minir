@@ -7,6 +7,8 @@
 #include <X11/Xutil.h>
 #include <X11/extensions/XShm.h>
 
+#define this This
+
 //this file is slightly based on ruby by byuu
 
 struct video_xshm {
