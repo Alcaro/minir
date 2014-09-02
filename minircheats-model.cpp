@@ -7,6 +7,8 @@
 #include <ctype.h>
 #include "libretro.h"
 
+#define this This
+
 //how address conversion works
 //----------------------------
 //

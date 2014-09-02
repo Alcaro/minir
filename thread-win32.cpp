@@ -6,6 +6,8 @@
 #include <stdlib.h>
 #include <string.h>
 
+#define this This
+
 //list of synchronization points: http://msdn.microsoft.com/en-us/library/windows/desktop/ms686355%28v=vs.85%29.aspx
 
 struct threaddata_win32 {

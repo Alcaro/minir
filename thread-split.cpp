@@ -1,5 +1,7 @@
 #include "minir.h"
 
+#define this This
+
 //TODO: there is no procedure for destroying threads
 struct threadpool {
 	struct mutex * lock;

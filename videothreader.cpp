@@ -2,6 +2,8 @@
 #include <stdlib.h>
 #include <string.h>
 
+#define this This
+
 struct video_thread_frame {
 	uint8_t* pixels;
 	size_t bufsize;

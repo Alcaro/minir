@@ -7,6 +7,8 @@
 #define bind BIND_CB
 //#include "libretro.h"
 
+#define this This
+
 static HMODULE hDInput=NULL;
 static HRESULT (WINAPI * lpDirectInput8Create)(HINSTANCE hinst, DWORD dwVersion, REFIID riidltf, LPVOID * ppvOut, LPUNKNOWN punkOuter);
 

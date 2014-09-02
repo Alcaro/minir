@@ -5,6 +5,8 @@
 #include <D3D9.h>
 #define bind BIND_CB
 
+#define this This
+
 #define D3DSWAPEFFECT_FLIPEX ((D3DSWAPEFFECT)5)//lazy compiler. and it's an enum so I can't #ifdef it
                                                //(if this one exists, it's safe to ignore; 5 is still 5,
                                                // and they can't break ABI so it must remain 5.)

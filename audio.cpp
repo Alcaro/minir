@@ -1,6 +1,8 @@
 #include "minir.h"
 #include <string.h>
 
+#define this This
+
 const char * const * audio_supported_backends()
 {
 	static const char * backends[]={

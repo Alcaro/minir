@@ -9,6 +9,8 @@
 #define MINIZ_HEADER_FILE_ONLY
 #include "miniz.c"
 
+#define this This
+
 //See rescompile.c for the actual key names.
 static const unsigned char keynames_comp[]={
 #define KEYNAMES_COMP

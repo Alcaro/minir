@@ -4,6 +4,8 @@
 #include <windows.h>
 #define bind BIND_CB
 
+#define this This
+
 //http://msdn.microsoft.com/en-us/library/windows/desktop/gg426116%28v=vs.85%29.aspx
 //we can not use Ex, because it is not present on a clean installation of XP.
 

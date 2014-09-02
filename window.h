@@ -28,38 +28,38 @@ struct window {
 	//Marks the window as a popup dialog. This makes it act differently in some ways.
 	//For example, poking Escape will close it, and it may or may not get a thinner window border.
 	//Must be called before the first call to show(). Can't be undone, and can't be called multiple times.
-	void (*set_is_dialog)(struct window * this);
+	void (*set_is_dialog)(struct window * This);
 	
 	//Sets which window created this one. This can, for example, center it on top of the parent.
 	//Should generally be combined with set_is_popup.
 	//Must be called before the first call to show(). Can't be undone, and can't be called multiple times.
-	void (*set_parent)(struct window * this, struct window * parent);
+	void (*set_parent)(struct window * This, struct window * parent);
 	
 	//Blocks interacting with other windows in the program while this one is visible.
 	//It is undefined behaviour to have two modal windows visible simultaneously.
-	void (*set_modal)(struct window * this, bool modal);
+	void (*set_modal)(struct window * This, bool modal);
 	
 	//newwidth and newheight are the content size, excluding menues/toolbars/etc.
 	//If there is any widget whose size is unknown inside, then the sizes may only be used in resize(), and for relative measurements.
 	//It is allowed to call resize() on unresizable windows, but changing the size of
 	// any contents (changing a label text, for example) will resize it to minimum.
 	//If resizable, the resize callback is called after the window is resized and everything is set to the new sizes.
-	void (*resize)(struct window * this, unsigned int width, unsigned int height);
-	void (*set_resizable)(struct window * this, bool resizable,
+	void (*resize)(struct window * This, unsigned int width, unsigned int height);
+	void (*set_resizable)(struct window * This, bool resizable,
 	                      void (*onresize)(struct window * subject, unsigned int newwidth, unsigned int newheight, void* userdata),
 	                      void* userdata);
 	
-	void (*set_title)(struct window * this, const char * title);
+	void (*set_title)(struct window * This, const char * title);
 	
 	//The callback tells whether the close request should be honored; true for close, false for keep.
 	//The window is only hidden, not deleted; you can use show() again later.
 	//It is safe to free this structure from within this callback; if you do this, return true for close.
-	void (*set_onclose)(struct window * this, bool (*function)(struct window * subject, void* userdata), void* userdata);
+	void (*set_onclose)(struct window * This, bool (*function)(struct window * subject, void* userdata), void* userdata);
 	
 	//Appends a menu bar to the top of the window. If the window has a menu already, it's replaced. NULL removes the menu.
 	//There's no real reason to replace it, though. Just change it.
 	//The given widget must be a topmenu.
-	void (*set_menu)(struct window * this, struct windowmenu * menu);
+	void (*set_menu)(struct window * This, struct windowmenu * menu);
 	
 	//Creates a status bar at the bottom of the window. It is undefined what happens if numslots equals or exceeds 32.
 	//align is how each string is aligned; 0 means touch the left side, 1 means centered, 2 means touch the right side.
@@ -72,54 +72,54 @@ struct window {
 	//It is implementation defined what exactly happens if a string is too
 	// long to fit; however, it is guaranteed to show as much as it can.
 	//To remove the status bar, set numslots to 0.
-	void (*statusbar_create)(struct window * this, int numslots, const int * align, const int * dividerpos);
+	void (*statusbar_create)(struct window * This, int numslots, const int * align, const int * dividerpos);
 	//Sets a string on the status bar. The index is zero-based. All strings are initially blank.
-	void (*statusbar_set)(struct window * this, int slot, const char * text);
+	void (*statusbar_set)(struct window * This, int slot, const char * text);
 	
 	//This replaces the contents of a window.
-	void (*replace_contents)(struct window * this, void * contents);
+	void (*replace_contents)(struct window * This, void * contents);
 	
 	//Setting a window visible while it already is will do nothing.
-	void (*set_visible)(struct window * this, bool visible);
-	bool (*is_visible)(struct window * this);
+	void (*set_visible)(struct window * This, bool visible);
+	bool (*is_visible)(struct window * This);
 	
 	//Call only after making the window visible.
-	void (*focus)(struct window * this);
+	void (*focus)(struct window * This);
 	
 	//If the menu is active, the window is considered not active.
 	//If the menu doesn't exist, it is considered not active.
 	//If the window is hidden, results are undefined.
-	bool (*is_active)(struct window * this);
-	bool (*menu_active)(struct window * this);
+	bool (*is_active)(struct window * This);
+	bool (*menu_active)(struct window * This);
 	
 	//This will also remove the window from the screen, if it's visible.
-	void (*free)(struct window * this);
+	void (*free)(struct window * This);
 	
 	
 	//Returns a native handle to the window. It is implementation defined what this native handle is, or if it's implemented at all.
-	uintptr_t (*_get_handle)(struct window * this);
+	uintptr_t (*_get_handle)(struct window * This);
 	//Repositions the window contents. May not necessarily be implemented, if reflow requests are detected in other ways.
-	void (*_reflow)(struct window * this);
+	void (*_reflow)(struct window * This);
 };
 struct window * window_create(void * contents);
 
 
 //No state may be set on any menu item until it's been added into a parent menu; however, adding or removing children is allowed.
 struct windowmenu {
-	void (*set_enabled)(struct windowmenu * this, bool enable);
+	void (*set_enabled)(struct windowmenu * This, bool enable);
 	UNION_BEGIN
 		//This applies to check and radio.
 		STRUCT_BEGIN
 			//For check, 0 is unchecked and 1 is checked. For radio, it's the 0-based index of the checked item.
 			//Setting a state to something out of range is undefined behaviour.
-			unsigned int (*get_state)(struct windowmenu * this);
-			void (*set_state)(struct windowmenu * this, unsigned int state);
+			unsigned int (*get_state)(struct windowmenu * This);
+			void (*set_state)(struct windowmenu * This, unsigned int state);
 		STRUCT_END
 		//This applies to submenu and topmenu.
 		STRUCT_BEGIN
 			//The positions are 0-based.
-			void (*insert_child)(struct windowmenu * this, unsigned int pos, struct windowmenu * child);
-			void (*remove_child)(struct windowmenu * this, struct windowmenu * child);
+			void (*insert_child)(struct windowmenu * This, unsigned int pos, struct windowmenu * child);
+			void (*remove_child)(struct windowmenu * This, struct windowmenu * child);
 		STRUCT_END
 		//If anything is not covered by the above, none of them are allowed.
 		//Additionally, it's not allowed to disable separators and the topmenu.

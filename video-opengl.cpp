@@ -2,6 +2,8 @@
 #ifdef VIDEO_OPENGL
 #include <stdlib.h>
 
+#define this This
+
 //this file is based on ruby by byuu
 
 //this file uses OpenGL 1.2 or 1.1, depending on what's available

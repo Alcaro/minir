@@ -4,6 +4,8 @@
 #include <windows.h>
 #define bind BIND_CB
 
+#define this This
+
 //this file is based on ruby by byuu
 
 struct video_gdi {

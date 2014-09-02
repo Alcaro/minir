@@ -6,6 +6,8 @@
 #include <limits.h>
 #include "libretro.h"
 
+#define this This
+
 //http://msdn.microsoft.com/en-us/library/vstudio/tcxf1dw6.aspx says %zX is not supported
 //let's define it to whatever they do support.
 #ifdef _WIN32

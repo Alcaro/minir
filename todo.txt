@@ -5,15 +5,16 @@ current:
  - it's currently fairly leaky
  - will need to rewrite minir.cfg.tmpl, in a new format that can be turned into a GUI
   - still want the union with config.video_scale/etc, though
-   - now that c++ is used, strings (including input) can be turned into some kind of manual layout
+   - now that c++ is used, strings (including input) can be turned into some kind of memory managing class - far easier
  - get rid of the compressed bytecode, can be optimized later
   - don't do it
   - don't do it yet
  - tie core options to input sources, for layer toggle in snes9x
 
 bugs:
-- starting without rom then opening one screws up window width due to status bar not resizing
+- (gtk+) starting without rom then opening one screws up window width due to status bar not resizing
  - can I get rid of the manual layout management there?
+- (win32) dropping a file into the window segfaults - but only with debugger disabled
 
 other:
 - get gl cores working
@@ -25,7 +26,9 @@ other:
 
 - rewrite main.c (maybe do one part at the time?)
 
-- figure out how to do alternate input sources
+- figure out how to handle mice
+ - controllers (only if I can get my hands on any)
+ - tablets and other bizarre devices?
 
 - rewrite audio:
  - dynamic rate control

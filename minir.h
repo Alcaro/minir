@@ -53,10 +53,6 @@ template<typename T> operator const T*() const { return (const T*)data; }
 typedef void* anyptr;
 #endif
 
-#ifdef __cplusplus
-#define this This
-#endif
-
 
 #include <stdlib.h> // needed because otherwise I get errors from malloc being redeclared.
 anyptr malloc_check(size_t size);
@@ -74,6 +70,27 @@ protected:
 private:
 	nocopy(const nocopy&);
 	const nocopy& operator=(const nocopy&);
+};
+
+
+#include <string.h> // strdup
+class string {
+private:
+	char* ptr;
+	void set(const char * newstr) { if (newstr) ptr=strdup(newstr); else ptr=NULL; }
+public:
+	string() : ptr(NULL) {}
+	string(const char * newstr) { set(newstr); }
+	string(const string& newstr) { set(newstr.ptr); }
+	~string() { free(ptr); }
+	string& operator=(const char * newstr) { char* prev=ptr; set(newstr); free(prev); return *this; }
+	string& operator=(string newstr) { char* tmp=newstr.ptr; newstr.ptr=ptr; ptr=tmp; return *this; } // my sources tell me this can avoid copying entirely
+	operator const char * () { return ptr; }
+};
+
+
+struct driverlist {
+	const char * name;
 };
 
 
@@ -132,31 +149,31 @@ struct libretroinput;
 
 struct video {
 	//Initializes the video system. It will draw on the windowhandle given during creation, at the given bit depth.
-	//The user guarantees that the window is size screen_width*screen_height when this is called, and at
+	//The user guarantees that the window is size screen_width*screen_height when This is called, and at
 	// every subsequent call to draw(). If the window is resized, reinit() (or free()) must be called again.
 	//The bit depths may be 32 (XRGB8888), 16 (RGB565), or 15 (0RGB1555).
-	void (*reinit)(struct video * this, unsigned int screen_width, unsigned int screen_height, unsigned int depth, double fps);
+	void (*reinit)(struct video * This, unsigned int screen_width, unsigned int screen_height, unsigned int depth, double fps);
 	
 	//Draws the given data. Size doesn't need to be same as above; if it isn't, nearest neighbor scaling will be used.
 	//pitch is how many bytes to go forward to reach the next scanline.
 	//If data is NULL, the last frame is redrawn, and other arguments are ignored. It will still wait for vsync.
-	void (*draw)(struct video * this, unsigned int width, unsigned int height, const void * data, unsigned int pitch);
+	void (*draw)(struct video * This, unsigned int width, unsigned int height, const void * data, unsigned int pitch);
 	
 	//Toggles vsync; that is, whether draw() should wait for vblank before doing its stuff and
 	// returning. Defaults to on; does not change on reinit().
 	//Returns the previous state, if syncing is possible; otherwise, returns an undefined value.
-	bool (*set_sync)(struct video * this, bool sync);
+	bool (*set_sync)(struct video * This, bool sync);
 	
-	//Whether vsync can be enabled on this item.
-	bool (*has_sync)(struct video * this);
+	//Whether vsync can be enabled on This item.
+	bool (*has_sync)(struct video * This);
 	
 	//Returns the last frame drawn.
-	//If this video driver doesn't support this, or if there is no previous frame, returns 0,0,NULL,0,16.
-	bool (*repeat_frame)(struct video * this, unsigned int * width, unsigned int * height,
+	//If This video driver doesn't support This, or if there is no previous frame, returns 0,0,NULL,0,16.
+	bool (*repeat_frame)(struct video * This, unsigned int * width, unsigned int * height,
 	                                          const void * * data, unsigned int * pitch, unsigned int * bpp);
 	
 	//Deletes the structure.
-	void (*free)(struct video * this);
+	void (*free)(struct video * This);
 };
 
 //This returns everything that's compiled in, but some may have runtime requirements that are not
@@ -202,24 +219,24 @@ struct video * video_create_thread(const char * backend, uintptr_t windowhandle,
 struct audio {
 	//Plays the given samples. They're interleaved left then right then left then right; one pair is
 	// one frame.
-	void (*render)(struct audio * this, unsigned int numframes, const int16_t * samples);
+	void (*render)(struct audio * This, unsigned int numframes, const int16_t * samples);
 	
 	//Clears out the sound buffer, silencing the buffer until the next call to render(). It is
 	// implementation defined whether what's already in the buffer is played.
-	void (*clear)(struct audio * this);
+	void (*clear)(struct audio * This);
 	
 	//It is implementation defined whether doing this will drop whatever is currently in the sound buffer.
-	void (*set_samplerate)(struct audio * this, double samplerate);
-	void (*set_latency)(struct audio * this, double latency);
+	void (*set_samplerate)(struct audio * This, double samplerate);
+	void (*set_latency)(struct audio * This, double latency);
 	
 	//Toggles synchronization, that is, whether render() should wait or drop some samples if there's
 	// insufficient freespace in the internal sound buffer. Defaults to wait.
-	void (*set_sync)(struct audio * this, bool sync);
+	void (*set_sync)(struct audio * This, bool sync);
 	
-	bool (*has_sync)(struct audio * this);
+	bool (*has_sync)(struct audio * This);
 	
 	//Deletes the structure.
-	void (*free)(struct audio * this);
+	void (*free)(struct audio * This);
 };
 
 const char * const * audio_supported_backends();
@@ -300,18 +317,18 @@ struct inputmapper {
 	//Asks whether a button is pressed. If oneshot is set, the button is considered released after
 	// being held for one frame. If the button is not mapped to anything, it's considered unheld.
 	//It is safe to query the same button for both oneshot and non-oneshot.
-	bool (*button)(struct inputmapper * this, unsigned int id, bool oneshot);
+	bool (*button)(struct inputmapper * This, unsigned int id, bool oneshot);
 	
 	//Tells which key was pressed (actually released) last. You're responsible for setting it free()
 	// when you're done. Includes all relevant shift states.
 	//It is undefined whether you'll miss anything if you call poll() twice without calling this. It
 	// is undefined what you'll get if you call it twice without a poll() in between. It is undefined
 	// which of them is returned if two keys are released at the same time.
-	char * (*last)(struct inputmapper * this);
+	char * (*last)(struct inputmapper * This);
 	
 	//Sets where to get keyboard input. The inputmapper takes ownership of this item; it can not be used
 	// anymore after calling this, not even to free it (the inputmapper takes care of that).
-	void (*set_keyboard)(struct inputmapper * this, struct inputkb * in);
+	void (*set_keyboard)(struct inputmapper * This, struct inputkb * in);
 	
 	//Maps an input descriptor (a string) to an input ID.
 	//IDs should be assigned to low numbers (0 is fine); leaving big unused holes is wasteful, though
@@ -331,12 +348,12 @@ struct inputmapper {
 	//Non-keyboard inputs are not supported right now.
 	//The return value is whether it worked; if it didn't, the input slot will be unmapped.
 	//A NULL or an empty string will return success and unmap the key.
-	bool (*map_key)(struct inputmapper * this, const char * descriptor, unsigned int id);
+	bool (*map_key)(struct inputmapper * This, const char * descriptor, unsigned int id);
 	
 	//Tells the structure to ask the inputraw for updates. Clears all prior oneshot flags.
-	void (*poll)(struct inputmapper * this);
+	void (*poll)(struct inputmapper * This);
 	
-	void (*free)(struct inputmapper * this);
+	void (*free)(struct inputmapper * This);
 };
 struct inputmapper * inputmapper_create();
 
@@ -349,12 +366,12 @@ char * inputmapper_normalize(const char * descriptor);
 
 typedef void(*funcptr)();
 struct dylib {
-	bool (*owned)(struct dylib * this);
+	bool (*owned)(struct dylib * This);
 	
-	void* (*sym_ptr)(struct dylib * this, const char * name);
-	funcptr (*sym_func)(struct dylib * this, const char * name);
+	void* (*sym_ptr)(struct dylib * This, const char * name);
+	funcptr (*sym_func)(struct dylib * This, const char * name);
 	
-	void (*free)(struct dylib * this);
+	void (*free)(struct dylib * This);
 };
 struct dylib * dylib_create(const char * filename);
 
@@ -382,35 +399,13 @@ unsigned int thread_ideal_count();
 //lock() is not guaranteed to yield the CPU if it can't grab the lock. It may be implemented as a busy loop.
 //Remember to create all relevant mutexes before creating a thread.
 struct mutex {
-	void (*lock)(struct mutex * this);
-	bool (*try_lock)(struct mutex * this);
-	void (*unlock)(struct mutex * this);
+	void (*lock)(struct mutex * This);
+	bool (*try_lock)(struct mutex * This);
+	void (*unlock)(struct mutex * This);
 	
-	void (*free)(struct mutex * this);
+	void (*free)(struct mutex * This);
 };
 struct mutex * mutex_create();
-
-#if 0
-//This one lets one thread wake another.
-//The conceptual difference between this and a mutex is that while a mutex is intended to protect a
-// shared resource from being accessed simultaneously, an event is intended to wait until another
-// thread is done with something.
-//An example would be a producer-consumer scenario; if one thread is producing 200 items per second,
-// and another thread processes them at 100 items per second, then there will soon be a lot of
-// waiting items. An event allows the consumer to ask the producer to get to work, so it'll spend
-// half of its time sleeping, instead of filling the system memory.
-//If the consumer is the faster one, the excess signals will be ignored. If this is an issue, you
-// can use another event, alternatively just drop the excess items. (Remember to use a mutex!)
-//Only one thread is allowed to be in wait() at any moment; it is undefined what happens if two
-// threads wait() at once on the same event.
-struct event {
-	void (*signal)(struct event * this);
-	void (*wait)(struct event * this);
-	
-	void (*free)(struct event * this);
-};
-struct event * event_create();
-#endif
 
 //This one lets one thread wake another.
 //The conceptual difference between this and a mutex is that while a mutex is intended to protect a
@@ -427,16 +422,16 @@ struct event * event_create();
 //count() is guaranteed to remain within [-128, 127]. If anything would put it outside that, it's undefined behaviour.
 //Signalling or waiting multiple times may make count() return intermediate values, if applicable.
 struct event {
-	void (*signal)(struct event * this);
-	void (*wait)(struct event * this);
+	void (*signal)(struct event * This);
+	void (*wait)(struct event * This);
 	//The multi functions are equivalent to calling their associated function 'count' times.
-	void (*multisignal)(struct event * this, unsigned int count);
-	void (*multiwait)(struct event * this, unsigned int count);
+	void (*multisignal)(struct event * This, unsigned int count);
+	void (*multiwait)(struct event * This, unsigned int count);
 	//This is how many signals are waiting to be wait()ed for. Can be below zero if something is currently waiting for this event.
 	//Alternate explaination: Increased for each entry to signal() and decreased for each entry to wait().
-	int (*count)(struct event * this);
+	int (*count)(struct event * This);
 	
-	void (*free)(struct event * this);
+	void (*free)(struct event * This);
 };
 struct event * event_create();
 
@@ -465,39 +460,39 @@ extern const unsigned char icon_minir_64x64_png[1300];
 //"Lossy" means that it will discard old data if its capacity is exhausted. It will not give out any
 // memory block it wasn't given.
 struct rewindstack {
-	//This is equivalent to deleting and recreating the structure, with the exception that
-	// it won't reallocate the big block if the capacity is unchanged. It is safe to set the capacity
-	// to 0, though this will make the structure rather useless.
+	//This is equivalent to deleting and recreating the structure, but may be faster.
+	//It is safe to set the capacity to 0, though this will make the structure rather useless.
 	//The structure may hand out bigger blocks of data than requested. This is not detectable; just
 	// ignore the extra bytes.
 	//The structure may allocate a reasonable multiple of blocksize, in addition to capacity.
 	//It is not possible to accurately predict how many blocks will fit in the structure; it varies
 	// depending on how much the data changes. Emulator savestates are usually compressed to about
-	// 0.5-2% of their original size. If you're curious, you can stick in some data and use capacity().
-	void (*reset)(struct rewindstack * this, size_t blocksize, size_t capacity);
+	// 0.5-2% of their original size, but this varies depending on various factors. For exact numbers,
+	// stick in some data and use capacity().
+	void (*reset)(struct rewindstack * This, size_t blocksize, size_t capacity);
 	
 	//Asks where to put a new block. Size is same as blocksize. Don't read from it; contents are undefined.
 	//push_end or push_cancel must be the first function called on the structure after this; not even free() is allowed.
 	//This function cannot fail, though a pull() directly afterwards may fail.
-	void * (*push_begin)(struct rewindstack * this);
+	void * (*push_begin)(struct rewindstack * This);
 	//Tells that the savestate has been written. Don't use the pointer from push_begin after this point.
-	void (*push_end)(struct rewindstack * this);
-	//Tells that nothing good was written to the pointer from push_begin. Equivalent to push_end+pull,
-	// but faster, and may avoid discarding something. It is allowed to have written to the pointer.
-	void (*push_cancel)(struct rewindstack * this);
+	void (*push_end)(struct rewindstack * This);
+	//Tells that nothing usable was written to the pointer from push_begin. Equivalent to push_end+pull,
+	// but faster, and may avoid discarding something. The user is allowed to have written to the pointer.
+	void (*push_cancel)(struct rewindstack * This);
 	
-	//Pulls off a block. Don't change it; it'll be used to generate the next one. The returned pointer is only
+	//Pulls off a block. Don't change it; it will be used to generate the next one. The returned pointer is only
 	// guaranteed valid until the first call to any function in this structure, with the exception that capacity()
 	// will not invalidate anything. If the requested block has been discarded, or was never pushed, it returns NULL.
-	const void * (*pull)(struct rewindstack * this);
+	const void * (*pull)(struct rewindstack * This);
 	
 	//Tells how many entries are in the structure, how many bytes are used, and whether the structure
 	// is likely to discard something if a new item is appended. The full flag is guaranteed true if
 	// it has discarded anything since the last pull() or reset(); however, it may be set even before
 	// discarding, if the implementation believes that will simplify the implementation.
-	void (*capacity)(struct rewindstack * this, unsigned int * entries, size_t * bytes, bool * full);
+	void (*capacity)(struct rewindstack * This, unsigned int * entries, size_t * bytes, bool * full);
 	
-	void (*free)(struct rewindstack * this);
+	void (*free)(struct rewindstack * This);
 };
 struct rewindstack * rewindstack_create(size_t blocksize, size_t capacity);
 
@@ -526,58 +521,58 @@ struct libretro {
 	//Any returned pointer is, unless otherwise specified, valid only until the next call to a function here, and freed by this object.
 	//Input pointers are, unless otherwise specified, not expected valid after the function returns.
 	
-	const char * (*name)(struct libretro * this);
+	const char * (*name)(struct libretro * This);
 	
 	//Return value format is { "smc", "sfc", NULL }.
-	const char * const * (*supported_extensions)(struct libretro * this, unsigned int * count);
+	const char * const * (*supported_extensions)(struct libretro * This, unsigned int * count);
 	
 	//This one is also without the dot.
-	bool (*supports_extension)(struct libretro * this, const char * extension);
+	bool (*supports_extension)(struct libretro * This, const char * extension);
 	
 	//Whether the core supports load_rom(NULL).
-	bool (*supports_no_game)(struct libretro * this);
+	bool (*supports_no_game)(struct libretro * This);
 	
 	//The interface pointers must be valid during every call to run().
 	//It is safe to attach new interfaces without recreating the structure.
 	//It is safe to attach new interfaces if the previous ones are destroyed.
-	void (*attach_interfaces)(struct libretro * this, struct video * v, struct audio * a, struct libretroinput * i);
+	void (*attach_interfaces)(struct libretro * This, struct video * v, struct audio * a, struct libretroinput * i);
 	
 	//data/datalen or filename can be NULL, but not both unless supports_no_game is true. It is allowed for both to be non-NULL.
 	//If load_rom_mem_supported is false, filename must be non-NULL, and data/datalen are unlikely to be used.
-	bool (*load_rom)(struct libretro * this, const char * data, size_t datalen, const char * filename);
-	bool (*load_rom_mem_supported)(struct libretro * this);
+	bool (*load_rom)(struct libretro * This, const char * data, size_t datalen, const char * filename);
+	bool (*load_rom_mem_supported)(struct libretro * This);
 	
 	//The following are only valid after a game is loaded.
 	
-	void (*get_video_settings)(struct libretro * this, unsigned int * width, unsigned int * height, unsigned int * depth, double * fps);
-	double (*get_sample_rate)(struct libretro * this);
+	void (*get_video_settings)(struct libretro * This, unsigned int * width, unsigned int * height, unsigned int * depth, double * fps);
+	double (*get_sample_rate)(struct libretro * This);
 	
 	//The core options will be reported as having changed on a freshly created core,
 	// even if there are no options. The flag is cleared by calling this function.
-	bool (*get_core_options_changed)(struct libretro * this);
+	bool (*get_core_options_changed)(struct libretro * This);
 	//The list is terminated by a { NULL, NULL, false, 0, NULL }.
 	//The return value is invalidated by run() or free(), whichever comes first.
-	const struct libretro_core_option * (*get_core_options)(struct libretro * this, unsigned int * numopts);
+	const struct libretro_core_option * (*get_core_options)(struct libretro * This, unsigned int * numopts);
 	//It is undefined behaviour to set a nonexistent option, or to set an option to a nonexistent value.
-	void (*set_core_option)(struct libretro * this, unsigned int option, unsigned int value);
-	unsigned int (*get_core_option)(struct libretro * this, unsigned int option);
+	void (*set_core_option)(struct libretro * This, unsigned int option, unsigned int value);
+	unsigned int (*get_core_option)(struct libretro * This, unsigned int option);
 	
 	//You can write to the returned pointer.
 	//Will return 0:NULL if the core doesn't know what the given memory type is.
 	//(If that happens, you can still read and write the indicated amount to the pointer.)
-	void (*get_memory)(struct libretro * this, enum libretro_memtype which, size_t * size, void* * ptr);
+	void (*get_memory)(struct libretro * This, enum libretro_memtype which, size_t * size, void* * ptr);
 	
-	const struct retro_memory_descriptor * (*get_memory_info)(struct libretro * this, unsigned int * nummemdesc);
+	const struct retro_memory_descriptor * (*get_memory_info)(struct libretro * This, unsigned int * nummemdesc);
 	
-	void (*reset)(struct libretro * this);
+	void (*reset)(struct libretro * This);
 	
-	size_t (*state_size)(struct libretro * this);
-	bool (*state_save)(struct libretro * this, void* state, size_t size);
-	bool (*state_load)(struct libretro * this, const void* state, size_t size);
+	size_t (*state_size)(struct libretro * This);
+	bool (*state_save)(struct libretro * This, void* state, size_t size);
+	bool (*state_load)(struct libretro * This, const void* state, size_t size);
 	
-	void (*run)(struct libretro * this);
+	void (*run)(struct libretro * This);
 	
-	void (*free)(struct libretro * this);
+	void (*free)(struct libretro * This);
 };
 
 //The message notification may be called before libretro_create returns. It may even be called if the
@@ -619,22 +614,22 @@ const char * const * libretro_nearby_cores(const char * rompath);
 // understands. It's roughly a joypad emulator. The input mapper is assumed polled elsewhere.
 struct libretroinput {
 	//Polls input. Same interface as libretro.
-	int16_t (*query)(struct libretroinput * this, unsigned port, unsigned device, unsigned index, unsigned id);
+	int16_t (*query)(struct libretroinput * This, unsigned port, unsigned device, unsigned index, unsigned id);
 	
 	//Sets the input handler. It is still usable for other things while attached to a libretroinput.
 	// It is not deleted once this structure is deleted.
-	void (*set_input)(struct libretroinput * this, struct inputmapper * in);
+	void (*set_input)(struct libretroinput * This, struct inputmapper * in);
 	
 	//Tells where the libretroinput should ask the inputmapper for the first used key. Order is rather
 	// illogical; B, Y, Select, Start, Up, Down, Left, Right, A, X, L, R, L2, R2, L3, R3.
 	//len is how many input slots should be used, including the first one. They must be consecutive,
 	// and should be a multiple of 16.
-	void (*joypad_set_inputs)(struct libretroinput * this, unsigned port, unsigned int inputstart, unsigned int len);
+	void (*joypad_set_inputs)(struct libretroinput * This, unsigned port, unsigned int inputstart, unsigned int len);
 	
 	//Whether to blocks left+right and up+down. Defaults to allowed.
-	void (*joypad_set_block_opposing)(struct libretroinput * this, bool block);
+	void (*joypad_set_block_opposing)(struct libretroinput * This, bool block);
 	
-	void (*free)(struct libretroinput * this);
+	void (*free)(struct libretroinput * This);
 };
 
 struct libretroinput * libretroinput_create(struct inputmapper * in);
@@ -699,35 +694,35 @@ enum input { CONFIG_ENUM_INPUT };
 
 struct minirconfig {
 	//Tells which game to autoload. Can be NULL if none. Don't free it.
-	const char * (*get_autoload)(struct minirconfig * this);
+	const char * (*get_autoload)(struct minirconfig * This);
 	//Returns { "smc", "sfc", NULL } for the extensions supported by any core.
 	//Free it when you're done, but don't free the pointers inside.
-	struct configcorelist * (*get_core_for)(struct minirconfig * this, const char * gamepath, unsigned int * count);
+	struct configcorelist * (*get_core_for)(struct minirconfig * This, const char * gamepath, unsigned int * count);
 	//This one should also be freed. Its contents should not.
-	const char * * (*get_supported_extensions)(struct minirconfig * this);
+	const char * * (*get_supported_extensions)(struct minirconfig * This);
 	
 	//This one loads config for the given core and game.
 	//NULL is valid for either or both of them. It is not an error if a given entry doesn't exist; it will be created.
 	//If the given game demands a specific core, the given core will be ignored. The game will always be honored unless it's NULL.
 	//The caller gets ownership of everything in 'config'. When you're done, use data_free().
-	void (*data_load)(struct minirconfig * this, struct configdata * config,
+	void (*data_load)(struct minirconfig * This, struct configdata * config,
 	                  bool free_old, const char * corepath, const char * gamepath);
 	//To change anything permanently, free() the old value if needed and hand in the new one.
 	//NULL is treated identically to an empty item.
 	//If anything is written to 'support' and no core has an entry for that in 'primary', it will be created.
 	//If anything is written to 'primary', it will be deleted from the entries for all other cores.
 	//Nothing is freed; the caller is responsible for cleaning out the structure.
-	void (*data_save)(struct minirconfig * this, struct configdata * config);
+	void (*data_save)(struct minirconfig * This, struct configdata * config);
 	//Frees all pointers in 'config' and sets them to NULL. 'config' itself is not freed.
-	void (*data_free)(struct minirconfig * this, struct configdata * config);
+	void (*data_free)(struct minirconfig * This, struct configdata * config);
 	
 	//Removes all data for a core or game.
-	void (*data_destroy)(struct minirconfig * this, const char * item);
+	void (*data_destroy)(struct minirconfig * This, const char * item);
 	
 	//This one writes the configuration back to disk, if changed.
-	void (*write)(struct minirconfig * this, const char * path);
+	void (*write)(struct minirconfig * This, const char * path);
 	
-	void (*free)(struct minirconfig * this);
+	void (*free)(struct minirconfig * This);
 };
 struct minirconfig * config_create(const char * path);
 
@@ -754,31 +749,31 @@ struct cheat {
 	const char * desc;//Do not free if you get this from cheat_get; it's owned by the cheat model.
 };
 struct minircheats_model {
-	void (*set_memory)(struct minircheats_model * this, const struct retro_memory_descriptor * memory, unsigned int nummemory);
+	void (*set_memory)(struct minircheats_model * This, const struct retro_memory_descriptor * memory, unsigned int nummemory);
 	
 	//The relevant size is how much memory it would take to create the 'prev' arrays.
 	//It doesn't change depending on whether they exist, and doesn't account for malloc overhead.
 	//Defaults to disabled, and switches to that on every set_memory.
-	size_t (*prev_get_size)(struct minircheats_model * this);
-	void (*prev_set_enabled)(struct minircheats_model * this, bool enable);
-	bool (*prev_get_enabled)(struct minircheats_model * this);
+	size_t (*prev_get_size)(struct minircheats_model * This);
+	void (*prev_set_enabled)(struct minircheats_model * This, bool enable);
+	bool (*prev_get_enabled)(struct minircheats_model * This);
 	
-	void (*search_reset)(struct minircheats_model * this);
-	void (*search_set_datsize)(struct minircheats_model * this, unsigned int datsize);//Default 1.
-	void (*search_set_signed)(struct minircheats_model * this, bool issigned);//Default unsigned.
-	void (*search_do_search)(struct minircheats_model * this,
+	void (*search_reset)(struct minircheats_model * This);
+	void (*search_set_datsize)(struct minircheats_model * This, unsigned int datsize);//Default 1.
+	void (*search_set_signed)(struct minircheats_model * This, bool issigned);//Default unsigned.
+	void (*search_do_search)(struct minircheats_model * This,
 	                         enum cheat_compfunc compfunc, bool comptoprev, uint32_t compto);
 	
-	size_t (*search_get_num_rows)(struct minircheats_model * this);
+	size_t (*search_get_num_rows)(struct minircheats_model * This);
 	//Returns all information about a currently visible row. The data size is set by the functions above.
 	//The address will be written to, and must be at least 32 bytes long (31 plus NUL).
 	//If 'prev' is disabled, 'prevval' will remain unchanged if queried.
-	void (*search_get_row)(struct minircheats_model * this, size_t row,
+	void (*search_get_row)(struct minircheats_model * This, size_t row,
 	                       char * addr, uint32_t * val, uint32_t * prevval);
 	
 	//Returns the ID of the visible row starting with the given prefix closest to 'start', in the given direction.
 	//Returns (size_t)-1 if there is no such row.
-	size_t (*search_find_row)(struct minircheats_model * this, const char * prefix, size_t start, bool up);
+	size_t (*search_find_row)(struct minircheats_model * This, const char * prefix, size_t start, bool up);
 	
 	//Threading works like this:
 	//First, call thread_enable and tell how many threads are available on this CPU.
@@ -797,10 +792,10 @@ struct minircheats_model {
 	// not in practice. It is linear for some workloads, but for the expected workloads, it's
 	// sublinear (though it does speed up a little). Reasons aren't known for sure, but memory
 	// bandwidth limitations are likely.
-	void (*thread_enable)(struct minircheats_model * this, unsigned int numthreads);
-	unsigned int (*thread_get_count)(struct minircheats_model * this);
-	void (*thread_do_work)(struct minircheats_model * this, unsigned int threadid);
-	void (*thread_finish_work)(struct minircheats_model * this);
+	void (*thread_enable)(struct minircheats_model * This, unsigned int numthreads);
+	unsigned int (*thread_get_count)(struct minircheats_model * This);
+	void (*thread_do_work)(struct minircheats_model * This, unsigned int threadid);
+	void (*thread_finish_work)(struct minircheats_model * This);
 	
 	//Cheat code structure:
 	//disable address value signspec direction SP desc
@@ -818,7 +813,7 @@ struct minircheats_model {
 	//The format is designed so that a SNES Gameshark code is valid.
 	
 	//Returns the longest possible size for a valid address.
-	unsigned int (*cheat_get_max_addr_len)(struct minircheats_model * this);
+	unsigned int (*cheat_get_max_addr_len)(struct minircheats_model * This);
 	
 	//This one tells the current value of an address.
 	//Fails if:
@@ -826,63 +821,63 @@ struct minircheats_model {
 	//- That address is not mapped in that namespace
 	//- The relevant memory block ends too soon
 	//- Alignment says you can't use that address
-	bool (*cheat_read)(struct minircheats_model * this, const char * addr, unsigned int datsize, uint32_t * val);
+	bool (*cheat_read)(struct minircheats_model * This, const char * addr, unsigned int datsize, uint32_t * val);
 	
 	//Don't cache cheat IDs; use the address as unique key.
 	//If the address is invalid, or not targeted by any cheats, it returns -1.
-	int (*cheat_find_for_addr)(struct minircheats_model * this, unsigned int datsize, const char * addr);
+	int (*cheat_find_for_addr)(struct minircheats_model * This, unsigned int datsize, const char * addr);
 	
-	unsigned int (*cheat_get_count)(struct minircheats_model * this);
+	unsigned int (*cheat_get_count)(struct minircheats_model * This);
 	//To add a new cheat, use pos==count. Note that if changetype==cht_once, it will be used, but not added to the list.
 	//To check if a cheat is valid without actually adding it, use pos==-1.
 	//The possible errors are the same as cheat_read. In all such cases, it's fair to blame the address.
 	//It is not guaranteed that cheat_get returns the same values as given to cheat_set; for example, mirroring may be undone.
 	//However, it is guaranteed that setting a cheat to itself will do nothing.
-	bool (*cheat_set)(struct minircheats_model * this, int pos, const struct cheat * newcheat);
-	void (*cheat_get)(struct minircheats_model * this, unsigned int pos, struct cheat * thecheat);
-	void (*cheat_remove)(struct minircheats_model * this, unsigned int pos);
+	bool (*cheat_set)(struct minircheats_model * This, int pos, const struct cheat * newcheat);
+	void (*cheat_get)(struct minircheats_model * This, unsigned int pos, struct cheat * thecheat);
+	void (*cheat_remove)(struct minircheats_model * This, unsigned int pos);
 	
 	//This one sorts the cheats in the same order as the addresses show up in the cheat search.
-	void (*cheat_sort)(struct minircheats_model * this);
+	void (*cheat_sort)(struct minircheats_model * This);
 	
 	//This one disables all cheat codes.
-	//void (*cheat_set_enabled)(struct minircheats_model * this, bool enabled);
+	//void (*cheat_set_enabled)(struct minircheats_model * This, bool enabled);
 	//This one makes all cheat codes take effect. Call it each frame.
-	void (*cheat_apply)(struct minircheats_model * this);
+	void (*cheat_apply)(struct minircheats_model * This);
 	
 	//The returned code is invalidated on the next call to code_create.
-	const char * (*code_create)(struct minircheats_model * this, struct cheat * thecheat);
+	const char * (*code_create)(struct minircheats_model * This, struct cheat * thecheat);
 	//On failure, the contents of thecheat is undefined.
-	bool (*code_parse)(struct minircheats_model * this, const char * code, struct cheat * thecheat);
+	bool (*code_parse)(struct minircheats_model * This, const char * code, struct cheat * thecheat);
 	
-	void (*free)(struct minircheats_model * this);
+	void (*free)(struct minircheats_model * This);
 };
 struct minircheats_model * minircheats_create_model();
 
 //This is a very high-level object; not counting the libretro core, it takes more input directly from the user than from this object.
 struct minircheats {
-	void (*set_parent)(struct minircheats * this, struct window * parent);
+	void (*set_parent)(struct minircheats * This, struct window * parent);
 	//It is allowed to set the core to NULL, and all operations are safe if the core is NULL.
 	//However, if the core has been deleted, set_core or delete must be called (possibly with NULL) before any other function, and before window_run_*.
-	void (*set_core)(struct minircheats * this, struct libretro * core, size_t prev_limit);
+	void (*set_core)(struct minircheats * This, struct libretro * core, size_t prev_limit);
 	
-	void (*show_search)(struct minircheats * this);
-	void (*show_list)(struct minircheats * this);
+	void (*show_search)(struct minircheats * This);
+	void (*show_list)(struct minircheats * This);
 	
 	//This one disables all cheat codes. Does, however, not disable RAM watch.
-	void (*set_enabled)(struct minircheats * this, bool enable);
-	bool (*get_enabled)(struct minircheats * this);
+	void (*set_enabled)(struct minircheats * This, bool enable);
+	bool (*get_enabled)(struct minircheats * This);
 	
 	//This one should be called every frame, as soon as possible after libretro->run(). This applies even if disabled.
 	//ramwatch tells whether RAM watch should be updated (both cheat search and ram watch).
-	void (*update)(struct minircheats * this, bool ramwatch);
+	void (*update)(struct minircheats * This, bool ramwatch);
 	
-	unsigned int (*get_cheat_count)(struct minircheats * this);
+	unsigned int (*get_cheat_count)(struct minircheats * This);
 	//The returned pointer is valid until the next get_cheat() or free().
-	const char * (*get_cheat)(struct minircheats * this, unsigned int id);
-	void (*set_cheat)(struct minircheats * this, unsigned int id, const char * code);
+	const char * (*get_cheat)(struct minircheats * This, unsigned int id);
+	void (*set_cheat)(struct minircheats * This, unsigned int id, const char * code);
 	
-	void (*free)(struct minircheats * this);
+	void (*free)(struct minircheats * This);
 };
 struct minircheats * minircheats_create();
 
@@ -902,7 +897,7 @@ struct inputraw {
 	// between keyboards, and none are attached, it should lie and say 1; it's allowed for polling on this keyboard to fail.
 	//If a keyboard is attached or detached, it is implementation defined whether this is noticed
 	// instantly, or if it remains the same until next time keyboard 0 is polled.
-	unsigned int (*keyboard_num_keyboards)(struct inputraw * this);
+	unsigned int (*keyboard_num_keyboards)(struct inputraw * This);
 	
 	//Returns which keyboard keys are pressed on the given keyboard. keys[] must be keyboard_num_keys()
 	// bytes long.
@@ -911,14 +906,14 @@ struct inputraw {
 	// keys or different pollings. If polling fails for any reason, the user should pretend all keys
 	// are released.
 	//It is allowed for an implementation to cache the answers and only update when being polled for kb_id=0.
-	bool (*keyboard_poll)(struct inputraw * this, unsigned int kb_id, unsigned char * keys);
+	bool (*keyboard_poll)(struct inputraw * This, unsigned int kb_id, unsigned char * keys);
 	
-	void (*free)(struct inputraw * this);
+	void (*free)(struct inputraw * This);
 };
 struct inputraw * _inputraw_create_xinput2(uintptr_t windowhandle);
-void _inputraw_x11_keyboard_create_shared(struct inputraw * this);
+void _inputraw_x11_keyboard_create_shared(struct inputraw * This);
 struct inputraw * _inputraw_create_directinput(uintptr_t windowhandle);
-void _inputraw_windows_keyboard_create_shared(struct inputraw * this);
+void _inputraw_windows_keyboard_create_shared(struct inputraw * This);
 unsigned int _inputraw_translate_key(unsigned int keycode);
 
 

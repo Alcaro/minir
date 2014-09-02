@@ -6,6 +6,8 @@
 #include <ctype.h>
 #include "libretro.h"
 
+#define this This
+
 struct libretro_raw {
 	void (*set_environment)(retro_environment_t);
 	void (*set_video_refresh)(retro_video_refresh_t);

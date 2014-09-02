@@ -1,7 +1,7 @@
 #include "minir.h"
 #include <string.h>
 
-
+#define this This
 
 const char * const * video_supported_backends()
 {

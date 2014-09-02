@@ -2,6 +2,8 @@
 #include <stdlib.h>
 #include <string.h>
 
+#define this This
+
 //Format per frame:
 //size nextstart;
 //repeat {

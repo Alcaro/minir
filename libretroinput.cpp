@@ -3,6 +3,8 @@
 #include <string.h>
 #include "libretro.h"
 
+#define this This
+
 struct libretroinput_impl {
 	struct libretroinput i;
 	

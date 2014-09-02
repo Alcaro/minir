@@ -5,6 +5,8 @@
 #include <ctype.h>
 #include <stdio.h>
 
+#define this This
+
 #define MINIZ_HEADER_FILE_ONLY
 #include "miniz.c"
 

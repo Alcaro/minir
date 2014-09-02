@@ -9,6 +9,8 @@
 #include <commctrl.h>
 #include <ctype.h>
 
+#define this This
+
 //TODO:
 //menu_create: check where it's resized if size changes
 

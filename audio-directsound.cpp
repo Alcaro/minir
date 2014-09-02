@@ -7,6 +7,8 @@
 
 //this file is heavily based on ruby by byuu
 
+#define this This
+
 static HMODULE hDSound=NULL;
 static HRESULT (WINAPI * lpDirectSoundCreate)(LPCGUID lpGuid, LPDIRECTSOUND* ppDS, LPUNKNOWN pUnkOuter);
 

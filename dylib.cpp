@@ -1,6 +1,8 @@
 #include "minir.h"
 #include <stdlib.h>
 
+#define this This
+
 #ifdef DYLIB_POSIX
 #include <dlfcn.h>
 #endif
