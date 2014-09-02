@@ -260,7 +260,7 @@ char * inputmapper_normalize(const char * descriptor)
 struct inputmapper_impl {
 	struct inputmapper i;
 	
-	struct inputkb * kb;
+	inputkb* kb;
 	
 	uint8_t * kb_state;
 	//0=released
@@ -507,7 +507,7 @@ static bool button(struct inputmapper * this_, unsigned int id, bool oneshot)
 static void poll(struct inputmapper * this_)
 {
 	struct inputmapper_impl * this=(struct inputmapper_impl*)this_;
-	if (this->kb) this->kb->poll(this->kb);
+	if (this->kb) this->kb->poll();
 	if (this->kb_anylastframe)
 	{
 		this->kb_anylastframe=false;
@@ -519,10 +519,10 @@ static void poll(struct inputmapper * this_)
 	}
 }
 
-static void kb_cb(struct inputkb * subject, unsigned int keyboard, int scancode, int libretrocode,
-                   bool down, bool changed, void* userdata)
+void inputmapper_kb_cb(void* this_, unsigned int keyboard, int scancode, int libretrocode,
+                   bool down, bool changed)
 {
-	struct inputmapper_impl * this=(struct inputmapper_impl*)userdata;
+	struct inputmapper_impl * this=(struct inputmapper_impl*)this_;
 	if (keyboard >= this->kb_nkb)
 	{
 		reset_shiftstates(this);
@@ -550,7 +550,7 @@ static void reset(struct inputmapper_impl * this)
 {
 	reset_shiftstates(this);
 	
-	if (this->kb) this->kb->free(this->kb);
+	if (this->kb) delete this->kb;
 	this->kb_nkb=0;
 	free(this->kb_state);
 	this->kb_state=NULL;
@@ -572,7 +572,7 @@ static void set_inputkb(struct inputmapper * this_, struct inputkb * kb)
 	reset(this);
 	
 	this->kb=kb;
-	if (this->kb) this->kb->set_callback(this->kb, kb_cb, this);
+	if (this->kb) this->kb->set_callback(bind_ptr(inputmapper_kb_cb, this));
 }
 
 static void free_(struct inputmapper * this_)

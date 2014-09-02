@@ -9,9 +9,12 @@
 #include <string.h>
 #include "libretro.h"
 
-struct inputkb_gdk {
-	struct inputkb i;
-	
+#undef this
+
+namespace {
+
+class inputkb_gdk : public inputkb {
+public:
 	GdkDisplay* display;
 	GdkDeviceManager* devicemanager;
 	GtkWidget* widget;//likely a GtkWindow, but we only use it as GtkWidget so let's keep it as that.
@@ -20,10 +23,13 @@ struct inputkb_gdk {
 	//char padding[4];
 	GdkDevice* * devices;
 	
-	void (*key_cb)(struct inputkb * subject,
-	               unsigned int keyboard, int scancode, int libretrocode,
-	               bool down, bool changed, void* userdata);
-	void* userdata;
+	function<void(unsigned int keyboard, int scancode, int libretrocode, bool down, bool changed)> key_cb;
+	
+public:
+	inputkb_gdk(uintptr_t windowhandle);
+	void set_callback(function<void(unsigned int keyboard, int scancode, int libretrocode, bool down, bool changed)> key_cb);
+	void poll();
+	~inputkb_gdk();
 };
 
 //static void device_add(GdkDeviceManager* object, GdkDevice* device, gpointer user_data)
@@ -64,16 +70,16 @@ struct inputkb_gdk {
 
 static void device_remove(GdkDeviceManager* object, GdkDevice* device, gpointer user_data)
 {
-	struct inputkb_gdk * this=(struct inputkb_gdk*)user_data;
-	for (unsigned int i=0;i<this->numdevices;i++)
+	inputkb_gdk* obj=(inputkb_gdk*)user_data;
+	for (unsigned int i=0;i<obj->numdevices;i++)
 	{
-		if (this->devices[i]==device) this->devices[i]=NULL;
+		if (obj->devices[i]==device) obj->devices[i]=NULL;
 	}
 }
 
 static gboolean key_action(GtkWidget* widget, GdkEvent* event, gpointer user_data)
 {
-	struct inputkb_gdk * this=(struct inputkb_gdk*)user_data;
+	inputkb_gdk* obj=(struct inputkb_gdk*)user_data;
 	GdkDevice* device=gdk_event_get_source_device(event);
 	
 	if (gdk_device_get_device_type(device)==GDK_DEVICE_TYPE_MASTER) return FALSE;
@@ -81,62 +87,47 @@ static gboolean key_action(GtkWidget* widget, GdkEvent* event, gpointer user_dat
 	//we don't want repeats all, let's just kill them.
 	
 	unsigned int kb=0;
-	while (kb<this->numdevices && this->devices[kb]!=device) kb++;
-	if (kb==this->numdevices)
+	while (kb<obj->numdevices && obj->devices[kb]!=device) kb++;
+	if (kb==obj->numdevices)
 	{
 		kb=0;
-		while (kb<this->numdevices && this->devices[kb]) kb++;
-		if (kb==this->numdevices)
+		while (kb<obj->numdevices && obj->devices[kb]) kb++;
+		if (kb==obj->numdevices)
 		{
-			this->devices=realloc(this->devices, sizeof(GdkDevice*)*(this->numdevices+1));
-			this->devices[this->numdevices]=device;
-			this->numdevices++;
+			obj->devices=realloc(obj->devices, sizeof(GdkDevice*)*(obj->numdevices+1));
+			obj->devices[obj->numdevices]=device;
+			obj->numdevices++;
 		}
-		else this->devices[kb]=device;
+		else obj->devices[kb]=device;
 	}
 	
 	guint16 keycode;
 	gdk_event_get_keycode(event, &keycode);
 	
 //printf("%i: %.2X %.2X\n", kb, keycode, inputkb_translate_scan(keycode));
-	this->key_cb((struct inputkb*)this, kb,
-	             keycode, inputkb_translate_scan(keycode),
-	             (event->type==GDK_KEY_PRESS), true, this->userdata);
+	obj->key_cb(kb, keycode, inputkb_translate_scan(keycode), (event->type==GDK_KEY_PRESS), true);
 	return FALSE;
 }
 
-static void set_callback(struct inputkb * this_,
-                         void (*key_cb)(struct inputkb * subject,
-                                        unsigned int keyboard, int scancode, int libretrocode, 
-                                        bool down, bool changed, void* userdata),
-                         void* userdata)
+void inputkb_gdk::set_callback(function<void(unsigned int keyboard, int scancode, int libretrocode, bool down, bool changed)> key_cb)
 {
-	struct inputkb_gdk * this=(struct inputkb_gdk*)this_;
 	this->key_cb=key_cb;
-	this->userdata=userdata;
 }
 
-static void poll(struct inputkb * this)
+void inputkb_gdk::poll()
 {
 	//do nothing - we're polled through the gtk+ main loop
 }
 
-static void free_(struct inputkb * this_)
+inputkb_gdk::~inputkb_gdk()
 {
-	struct inputkb_gdk * this=(struct inputkb_gdk*)this_;
 	g_signal_handlers_disconnect_by_data(this->widget, this);
 	g_signal_handlers_disconnect_by_data(this->devicemanager, this);
 	free(this->devices);
-	free(this);
 }
 
-struct inputkb * inputkb_create_gdk(uintptr_t windowhandle)
+inputkb_gdk::inputkb_gdk(uintptr_t windowhandle)
 {
-	struct inputkb_gdk * this=malloc(sizeof(struct inputkb_gdk));
-	this->i.set_callback=set_callback;
-	this->i.poll=poll;
-	this->i.free=free_;
-	
 	inputkb_translate_init();
 	
 #ifdef WNDPROT_X11
@@ -194,7 +185,12 @@ struct inputkb * inputkb_create_gdk(uintptr_t windowhandle)
 	//	}
 	//	XFreeDeviceState(state);
 	//}
-	
-	return (struct inputkb*)this;
+}
+
+}
+
+struct inputkb * inputkb_create_gdk(uintptr_t windowhandle)
+{
+	return new inputkb_gdk(windowhandle);
 }
 #endif

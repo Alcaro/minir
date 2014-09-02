@@ -6,7 +6,7 @@
 //- The Arity, ReturnType and ParamNType constants/typedefs were removed.
 //- NullCallback was replaced with support for plain NULL.
 //- BoundCallbackFactory and bind_arg was added, as a compatibility aid for the C++ conversion.
-//- Made it safe to call an unassigned (still NULL) object.
+//- Made it safe to call an unassigned object. (It's still false.)
 
 //Alternate libraries that do roughly the same thing:
 //http://www.codeproject.com/Articles/7150/ Member Function Pointers and the Fastest Possible C++ Delegates

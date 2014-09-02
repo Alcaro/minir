@@ -15,6 +15,10 @@
 #error
 #endif
 
+#undef this
+
+namespace {
+
 static const char * udevpath="/dev/input/";
 
 #define test_bit(buf, bit) ((buf)[(bit)>>3] & 1<<((bit)&7))
@@ -31,32 +35,40 @@ struct fdinfo {
 #endif
 };
 
-struct inputkb_udev {
-	struct inputkb i;
-	
+class inputkb_udev : public inputkb {
+public:
 	//fd[0] is the inotify instance
 	struct fdinfo * fd;
 	unsigned int numfd;
 	
-	void (*key_cb)(struct inputkb * subject,
-	               unsigned int keyboard, int scancode, int libretrocode,
-	               bool down, bool changed, void* userdata);
-	void* userdata;
+	function<void(unsigned int keyboard, int scancode, int libretrocode, bool down, bool changed)> key_cb;
+	
+public:
+	int linuxcode_to_scan(int fd, unsigned int code)
+	{
+		if (code<=255) return code+8;//I have zero clue where this 8 comes from.
+		else return -1;
+	}
+	void fd_watch(int fd);
+	void fd_unwatch(unsigned int id);
+	
+	unsigned int alloc_id(int fd);
+	
+	bool openpath(const char * fname);
+	void fd_activity(int fd);
+	
+public:
+	inputkb_udev();
+	bool construct(uintptr_t windowhandle);
+	void set_callback(function<void(unsigned int keyboard, int scancode, int libretrocode, bool down, bool changed)> key_cb);
+	void poll();
+	~inputkb_udev();
 };
 
-static int linuxcode_to_scan(int fd, unsigned int code)
-{
-	if (code<=255) return code+8;//I have zero clue where this 8 comes from.
-	else return -1;
-}
-
-static void fd_watch(struct inputkb_udev * this, int fd);
-static void fd_unwatch(struct inputkb_udev * this, unsigned int id);
-
-static int alloc_id(struct inputkb_udev * this, int fd)
+unsigned int inputkb_udev::alloc_id(int fd)
 {
 	//allocate IDs as lazily as possible - we don't want to hand out a keyboard ID because the mouse is doing something.
-	int id;
+	unsigned int id;
 	for (id=0;fd!=this->fd[id].fd;id++) {}
 	if (this->fd[id].state==1)
 	{
@@ -73,7 +85,7 @@ static int alloc_id(struct inputkb_udev * this, int fd)
 }
 
 //return value is whether we have access to this device; it's true even if the device is rejected for not being a keyboard
-static bool openpath(struct inputkb_udev * this, const char * fname)
+bool inputkb_udev::openpath(const char * fname)
 {
 	char path[512];
 	strcpy(path, udevpath); strcat(path, fname);
@@ -90,7 +102,7 @@ static bool openpath(struct inputkb_udev * this, const char * fname)
 		return true;
 	}
 	
-	fd_watch(this, fd);
+	this->fd_watch(fd);
 	
 	//for (int i=0;i<256;i++)
 	//{
@@ -127,7 +139,7 @@ static bool openpath(struct inputkb_udev * this, const char * fname)
 
 
 
-static void fd_activity(struct inputkb_udev * this, int fd)
+void inputkb_udev::fd_activity(int fd)
 {
 	if (fd == this->fd[0].fd)
 	{
@@ -141,7 +153,7 @@ static void fd_activity(struct inputkb_udev * this, int fd)
 			while (ptr < buf+len)
 			{
 				const struct inotify_event* ev=(struct inotify_event*)ptr;
-				openpath(this, ev->name);
+				this->openpath(ev->name);
 //printf("ev=%i %.8X %.8X %i %s\n",ev->wd,ev->mask,ev->cookie,ev->len,ev->name);
 				ptr += sizeof(struct inotify_event)+ev->len;
 			}
@@ -161,10 +173,9 @@ static void fd_activity(struct inputkb_udev * this, int fd)
 			{
 				int scan=linuxcode_to_scan(fd, ev.code);
 				if (scan<0) continue;
-				if (id==-1) id=alloc_id(this, fd);
+				if (id==-1) id=this->alloc_id(fd);
 //printf("evc=%.2X sc=%.2X\n",ev.code,scan);
-				this->key_cb((struct inputkb*)this, id-1, scan, inputkb_translate_scan(scan),
-				             (ev.value!=0), (ev.value!=2), this->userdata);
+				this->key_cb(id-1, scan, inputkb_translate_scan(scan), (ev.value!=0), (ev.value!=2));
 			}
 		}
 	}
@@ -173,8 +184,8 @@ static void fd_activity(struct inputkb_udev * this, int fd)
 #ifdef GLIB
 static gboolean fd_activity_glib(gint fd, GIOCondition condition, gpointer user_data)
 {
-	struct inputkb_udev * this=(struct inputkb_udev*)user_data;
-	fd_activity(this, fd);
+	inputkb_udev* obj=(inputkb_udev*)user_data;
+	obj->fd_activity(fd);
 	return TRUE;//FALSE if the source should be removed
 }
 #endif
@@ -182,7 +193,7 @@ static gboolean fd_activity_glib(gint fd, GIOCondition condition, gpointer user_
 //static void fd_
 //epoll_create1(0);
 
-static void fd_watch(struct inputkb_udev * this, int fd)
+void inputkb_udev::fd_watch(int fd)
 {
 	unsigned int id=0;
 	while (id<this->numfd && this->fd[id].state) id++;
@@ -199,7 +210,7 @@ static void fd_watch(struct inputkb_udev * this, int fd)
 #endif
 }
 
-static void fd_unwatch(struct inputkb_udev * this, unsigned int id)
+void inputkb_udev::fd_unwatch(unsigned int id)
 {
 #ifdef GLIB
 	g_source_remove(this->fd[id].watchid);
@@ -210,15 +221,9 @@ static void fd_unwatch(struct inputkb_udev * this, unsigned int id)
 	this->fd[id].fd=-1;
 }
 
-static void set_callback(struct inputkb * this_,
-                         void (*key_cb)(struct inputkb * subject,
-                                        unsigned int keyboard, int scancode, int libretrocode, 
-                                        bool down, bool changed, void* userdata),
-                         void* userdata)
+void inputkb_udev::set_callback(function<void(unsigned int keyboard, int scancode, int libretrocode, bool down, bool changed)> key_cb)
 {
-	struct inputkb_udev * this=(struct inputkb_udev*)this_;
 	this->key_cb=key_cb;
-	this->userdata=userdata;
 	
 	for (unsigned int id=1;id<this->numfd;id++)
 	{
@@ -230,16 +235,16 @@ static void set_callback(struct inputkb * this_,
 		{
 			if (test_bit(keys, bit))
 			{
-				int scan=linuxcode_to_scan(this->fd[id].fd, bit);
+				int scan=this->linuxcode_to_scan(this->fd[id].fd, bit);
 				if (scan<0) continue;
-				int kbid=alloc_id(this, this->fd[id].fd);
-				this->key_cb((struct inputkb*)this, kbid-1, scan, inputkb_translate_scan(scan), true, false, this->userdata);
+				int kbid=this->alloc_id(this->fd[id].fd);
+				this->key_cb(kbid-1, scan, inputkb_translate_scan(scan), true, false);
 			}
 		}
 	}
 }
 
-static void poll(struct inputkb * this)
+void inputkb_udev::poll()
 {
 #ifdef GLIB
 	//do nothing - we're polled through the gtk+ main loop
@@ -250,28 +255,23 @@ int epoll_wait(int epfd, struct epoll_event *events,
 #endif
 }
 
-static void free_(struct inputkb * this_)
+inputkb_udev::~inputkb_udev()
 {
-	struct inputkb_udev * this=(struct inputkb_udev*)this_;
 	for (unsigned int i=0;i<this->numfd;i++)
 	{
 		if (this->fd[i].state)
 		{
 			close(this->fd[i].fd);
-			fd_unwatch(this, i);
+			this->fd_unwatch(i);
 		}
 	}
 	free(this->fd);
-	free(this);
 }
 
-struct inputkb * inputkb_create_udev(uintptr_t windowhandle)
+inputkb_udev::inputkb_udev() {}
+
+bool inputkb_udev::construct(uintptr_t windowhandle)
 {
-	struct inputkb_udev * this=malloc(sizeof(struct inputkb_udev));
-	this->i.set_callback=set_callback;
-	this->i.poll=poll;
-	this->i.free=free_;
-	
 	inputkb_translate_init();
 	
 	this->fd=NULL;
@@ -279,7 +279,7 @@ struct inputkb * inputkb_create_udev(uintptr_t windowhandle)
 	
 	int inotify=inotify_init1(IN_NONBLOCK);
 	if (inotify<0) goto cancel;
-	fd_watch(this, inotify);
+	this->fd_watch(inotify);
 	this->fd[0].state=2;
 	inotify_add_watch(inotify, udevpath, IN_CREATE);
 	
@@ -292,7 +292,7 @@ struct inputkb * inputkb_create_udev(uintptr_t windowhandle)
 			struct dirent * ent=readdir(dir);
 			if (!ent) break;
 			if (ent->d_type==DT_DIR) continue;
-			access|=openpath(this, ent->d_name);
+			access|=this->openpath(ent->d_name);
 		}
 		closedir(dir);
 		
@@ -305,7 +305,7 @@ struct inputkb * inputkb_create_udev(uintptr_t windowhandle)
 			if (this->fd[i].state)
 			{
 				close(this->fd[i].fd);
-				fd_unwatch(this, i);
+				this->fd_unwatch(i);
 			}
 		}
 	}
@@ -313,10 +313,22 @@ struct inputkb * inputkb_create_udev(uintptr_t windowhandle)
 	if (!access) goto cancel;//couldn't open any devices? we probably can't access them, let's abort.
 	                         //this could be due to not having any input device plugged in, but that's not likely.
 	
-	return (struct inputkb*)this;
+	return true;
 	
 cancel:
-	free_((struct inputkb*)this);
-	return NULL;
+	return false;
+}
+
+}
+
+inputkb* inputkb_create_udev(uintptr_t windowhandle)
+{
+	inputkb_udev* obj=new inputkb_udev();
+	if (!obj->construct(windowhandle))
+	{
+		delete obj;
+		return NULL;
+	}
+	return obj;
 }
 #endif

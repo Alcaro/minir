@@ -3,20 +3,11 @@
 #include <stdlib.h>
 #include "libretro.h"
 
-static void none_set_callback(struct inputkb * this,
-                              void (*key_cb)(struct inputkb * subject,
-                                             unsigned int keyboard, int scancode, int libretrocode, 
-                                             bool down, bool silent, void* userdata),
-                              void* userdata)
-{}
-static void none_poll(struct inputkb * this) {}
-static void none_free(struct inputkb * this) {}
+#undef this
 
-struct inputkb * inputkb_create_none(uintptr_t windowhandle)
-{
-	static struct inputkb this={ none_set_callback, none_poll, none_free };
-	return &this;
-}
+inputkb* inputkb_create_none(uintptr_t windowhandle) { return new inputkb(); }
+
+namespace {
 
 static struct inputraw * inputraw_create(const char * backend, uintptr_t windowhandle)
 {
@@ -34,30 +25,31 @@ static struct inputraw * inputraw_create(const char * backend, uintptr_t windowh
 
 
 //terrible spacing - it's temp code, no point wasting time on making it proper
-struct inputkb_compat {
-	struct inputkb i;
+class inputkb_compat : public inputkb {
 	struct inputraw * ir;
-void (*key_cb)(struct inputkb * subject,
-	                                    unsigned int keyboard, int scancode, int libretrocode,
-	                                    bool down, bool changed, void* userdata);
-	                     void* userdata;
+	function<void(unsigned int keyboard, int scancode, int libretrocode, bool down, bool changed)> key_cb;
 	unsigned char state[32][1024];
+	
+public:
+	inputkb_compat(struct inputraw * ir);
+	void set_callback(function<void(unsigned int keyboard, int scancode, int libretrocode, bool down, bool changed)> key_cb);
+	void poll();
+	~inputkb_compat();
 };
 
-static void ikbc_set_callback(struct inputkb * this_,
-	                     void (*key_cb)(struct inputkb * subject,
-	                                    unsigned int keyboard, int scancode, int libretrocode, 
-	                                    bool down, bool changed, void* userdata),
-	                     void* userdata)
+inputkb_compat::inputkb_compat(struct inputraw * ir)
 {
-	struct inputkb_compat * this=(struct inputkb_compat*)this_;
-	this->key_cb=key_cb;
-	this->userdata=userdata;
+	this->ir=ir;
+	memset(this->state, 0, sizeof(this->state));
 }
 
-static void ikbc_poll(struct inputkb * this_)
+void inputkb_compat::set_callback(function<void(unsigned int keyboard, int scancode, int libretrocode, bool down, bool changed)> key_cb)
 {
-struct inputkb_compat * this=(struct inputkb_compat*)this_;
+	this->key_cb=key_cb;
+}
+
+void inputkb_compat::poll()
+{
 	unsigned char newstate[1024];
 	memset(newstate, 0, sizeof(newstate));
 	for (unsigned int i=0;i<this->ir->keyboard_num_keyboards(this->ir);i++)
@@ -68,33 +60,33 @@ struct inputkb_compat * this=(struct inputkb_compat*)this_;
 			if (newstate[j]!=this->state[i][j])
 			{
 				this->state[i][j]=newstate[j];
-				this->key_cb((struct inputkb*)this, i, j, inputkb_translate_scan(j), this->state[i][j], true, this->userdata);
+				this->key_cb(i, j, inputkb_translate_scan(j), this->state[i][j], true);
 			}
 		}
 	}
 }
-static void ikbc_free(struct inputkb * this_)
+
+inputkb_compat::~inputkb_compat()
 {
-	struct inputkb_compat * this=(struct inputkb_compat*)this_;
 	this->ir->free(this->ir);
-	free(this);
 }
 
-static unsigned int return1(struct inputraw * this) { return 1; }
+static unsigned int return1(struct inputraw * This) { return 1; }
 
-void _inputraw_x11_keyboard_create_shared(struct inputraw * this)
+};
+
+void _inputraw_x11_keyboard_create_shared(struct inputraw * This)
 {
-	this->keyboard_num_keyboards=return1;
-	this->keyboard_num_keys=NULL;
-	this->keyboard_get_map=NULL;
+	This->keyboard_num_keyboards=return1;
+	This->keyboard_num_keys=NULL;
+	This->keyboard_get_map=NULL;
 }
-void _inputraw_windows_keyboard_create_shared(struct inputraw * this)
+void _inputraw_windows_keyboard_create_shared(struct inputraw * This)
 {
-	_inputraw_x11_keyboard_create_shared(this);
+	_inputraw_x11_keyboard_create_shared(This);
 }
 
-struct inputkb * inputkb_create_gdk(uintptr_t windowhandle);
-struct inputkb * inputkb_create(const char * backend, uintptr_t windowhandle)
+inputkb* inputkb_create(const char * backend, uintptr_t windowhandle)
 {
 #ifdef INPUT_RAWINPUT
 	if (!strcmp(backend, "RawInput")) return inputkb_create_rawinput(windowhandle);
@@ -110,14 +102,8 @@ struct inputkb * inputkb_create(const char * backend, uintptr_t windowhandle)
 	struct inputraw * raw=inputraw_create(backend,windowhandle);
 	
 	if (!raw) return NULL;
-	struct inputkb_compat * this=malloc(sizeof(struct inputkb_compat));
 	inputkb_translate_init();
-	this->i.set_callback=ikbc_set_callback;
-	this->i.poll=ikbc_poll;
-	this->i.free=ikbc_free;
-	this->ir=raw;
-	memset(this->state, 0, sizeof(this->state));
-	return (struct inputkb*)this;
+	return new inputkb_compat(raw);
 }
 
 

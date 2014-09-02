@@ -58,7 +58,7 @@ typedef void* anyptr;
 #endif
 
 
-#include <stdlib.h> // needed because otherwise I get errors from anyptr malloc() != void* malloc().
+#include <stdlib.h> // needed because otherwise I get errors from malloc being redeclared.
 anyptr malloc_check(size_t size);
 anyptr try_malloc(size_t size);
 #define malloc malloc_check
@@ -79,15 +79,6 @@ private:
 
 #include "window.h"
 
-//None of these interfaces should be instantiated and then passed around. Instead, they should be
-// the first member of another, backend-specific, structure, and this structure should then be
-// casted to the desired return value; the implementation can then cast it back. This way, they can
-// keep state. (Exception: The None interfaces have no state, and are not backend-specific.)
-//All functions taking a 'this' parameter must be called like iface->frobnicate(iface, foo, bar).
-//If a function is called on anything except itself, results are undefined.
-//Results are undefined if any interface is used in any way other than passing around pointers, and
-// calling the functions. Don't copy them, don't cast them, don't compare them, don't access the
-// functions other than to call them, and absolutely don't modify them.
 //If an interface specifies cases where only a subset of the functions may be called, free() is
 // always allowed, unless it specifically mentions free().
 //However, if any interface defines a callback, free() is banned while inside this callback, while
@@ -246,7 +237,8 @@ struct audio * audio_create_none(uintptr_t windowhandle, double samplerate, doub
 
 
 //inputkb is a quite low-level structure. You'll have to keep the state yourself.
-struct inputkb {
+class inputkb {
+public:
 	//The 'silent' flag is false if the key was pressed while creating the structure, or if the keyboard is unplugged.
 	//If set, the user should pretend it was that way all along; events bound to state change should, if possible, not fire.
 	//However, the structure may also send events with 'silent' false but 'down' same as last time. The user should treat these as if they have the silent flag set.
@@ -255,41 +247,37 @@ struct inputkb {
 	//scancode is in the range 0..1023; libretrocode is in the range 1..RETROK_LAST-1. keyboard is in 0..31.
 	//
 	//It is undefined behaviour to poll this object without setting the callback. It is undefined behaviour to set it twice.
-	void (*set_callback)(struct inputkb * this,
-	                     void (*key_cb)(struct inputkb * subject,
-	                                    unsigned int keyboard, int scancode, int libretrocode, 
-	                                    bool down, bool changed, void* userdata),
-	                     void* userdata);
+	virtual void set_callback(function<void(unsigned int keyboard, int scancode, int libretrocode, bool down, bool changed)> key_cb) {}
 	
-	void (*poll)(struct inputkb * this);
+	virtual void poll() {}
 	
-	void (*free)(struct inputkb * this);
+	virtual ~inputkb() {}
 };
 
 const char * const * inputkb_supported_backends();
-struct inputkb * inputkb_create(const char * backend, uintptr_t windowhandle);
+inputkb* inputkb_create(const char * backend, uintptr_t windowhandle);
 
 //It's better to use inputkb_create() and let it pick the right one. Otherwise, you're surrendering platform independence.
 //Linux drivers:
 #ifdef INPUT_X11
-struct inputkb * inputkb_create_x11(uintptr_t windowhandle);
+struct inputkb* inputkb_create_x11(uintptr_t windowhandle);
 #endif
 #ifdef INPUT_X11_XINPUT2
-struct inputkb * inputkb_create_xinput2(uintptr_t windowhandle);
+struct inputkb* inputkb_create_xinput2(uintptr_t windowhandle);
 #endif
 #ifdef INPUT_GDK
-struct inputkb * inputkb_create_gdk(uintptr_t windowhandle);
+struct inputkb* inputkb_create_gdk(uintptr_t windowhandle);
 #endif
 #ifdef INPUT_UDEV
-struct inputkb * inputkb_create_udev(uintptr_t windowhandle);
+struct inputkb* inputkb_create_udev(uintptr_t windowhandle);
 #endif
 
 //Windows drivers:
 #ifdef INPUT_RAWINPUT
-struct inputkb * inputkb_create_rawinput(uintptr_t windowhandle);
+struct inputkb* inputkb_create_rawinput(uintptr_t windowhandle);
 #endif
 #ifdef INPUT_DIRECTINPUT
-struct inputkb * inputkb_create_directinput(uintptr_t windowhandle);
+struct inputkb* inputkb_create_directinput(uintptr_t windowhandle);
 #endif
 
 //These translate hardware scancodes or virtual keycodes to libretro cores.
@@ -298,7 +286,7 @@ void inputkb_translate_init();
 int inputkb_translate_scan(unsigned int scancode);
 int inputkb_translate_vkey(unsigned int vkey);
 
-struct inputkb * inputkb_create_none(uintptr_t windowhandle);
+inputkb* inputkb_create_none(uintptr_t windowhandle);
 
 
 
