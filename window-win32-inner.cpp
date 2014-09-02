@@ -9,7 +9,6 @@
 #include <windowsx.h>
 #include <commctrl.h>
 #include <stdlib.h>
-#undef this
 
 //controls HIG and screenshots of them http://msdn.microsoft.com/en-us/library/dn742399.aspx
 //controls docs http://msdn.microsoft.com/en-us/library/windows/desktop/bb773169%28v=vs.85%29.aspx

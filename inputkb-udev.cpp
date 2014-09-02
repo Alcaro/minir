@@ -15,8 +15,6 @@
 #error
 #endif
 
-#undef this
-
 namespace {
 
 static const char * udevpath="/dev/input/";

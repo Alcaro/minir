@@ -2,7 +2,6 @@
 #include <stdlib.h>
 #include <stdarg.h>
 #include <string.h>
-#undef this
 
 #ifdef NEED_MANUAL_LAYOUT
 //This is in practice only used on Windows, but it's theoretically usable on other operating systems too. Maybe I'll need it on OSX.

@@ -13,8 +13,6 @@
 //#include <X11/keysym.h>
 //#include "libretro.h"
 
-#undef this
-
 namespace {
 
 class inputkb_x11 : public inputkb {

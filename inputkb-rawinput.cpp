@@ -57,7 +57,6 @@
 #define VK_OEM_PERIOD 0xBE
 #endif
 
-#undef this
 namespace {
 
 class inputkb_rawinput : public inputkb {

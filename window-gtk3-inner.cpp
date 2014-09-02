@@ -6,7 +6,6 @@
 #ifdef WNDPROT_X11
 #include <gdk/gdkx.h>
 #endif
-#undef this
 
 static bool in_callback=false;
 static GtkCssProvider* cssprovider;

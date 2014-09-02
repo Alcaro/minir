@@ -9,7 +9,6 @@
 #include <gtk/gtk.h>
 #include <stdlib.h>
 #include <string.h>
-#undef this
 
 #define MAX_ROWS 100000 // GtkTreeView seems to be at least O(n log n) for creating a long list. Let's just add a hard cap.
 

@@ -9,8 +9,6 @@
 #include <string.h>
 #include "libretro.h"
 
-#undef this
-
 namespace {
 
 class inputkb_gdk : public inputkb {
