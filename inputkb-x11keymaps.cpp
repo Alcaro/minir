@@ -78,6 +78,10 @@ struct {
 	{ RETROK_EURO, XK_EuroSign }, { RETROK_UNDO, XK_Undo },
 	
 	{ RETROK_RALT, XK_ISO_Level3_Shift },//AltGr
+	
+	//those two are imported from RetroArch
+	{ RETROK_CARET, XK_dead_circumflex },
+	{ RETROK_KP_PERIOD, XK_KP_Decimal },
 };
 
 void inputkb_translate_init()
