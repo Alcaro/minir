@@ -3,8 +3,8 @@ sleep 1
 
 enabled=""
 disabled=""
-cflags="\$(CFLAGS) -pthread "
-lflags="\$(LFLAGS) -pthread -ldl "
+cflags="-pthread "
+lflags="-pthread -ldl "
 lflags+="-lX11 -lGL -lXi -lXext "
 #`pkg-config --libs   gtk+-3.0 libpulse` -pthread -ldl -lX11 -lGL -lXi -lXext -lpulse"
 if pkg-config --exists gtk+-3.0; then
@@ -29,13 +29,9 @@ fi
 #ifneq ($(findstring Darwin,$(uname)),) osx
 #else x
 echo "
-CFLAGS = -g
-LFLAGS =
-TRUE_CFLAGS = $cflags
-TRUE_LFLAGS = $lflags
-EXESUFFIX =
-EXTRAOBJ =
-" > Makefile.custom
+CONF_CFLAGS = $cflags
+CONF_LFLAGS = $lflags
+" > config.mk
 #Rules for which dependencies are allowed:
 #If there is no reasonable way to continue the program without this library, then make use of it.
 #If a library matches the above rule, no effort needs to be spent on getting rid of it from other locations.
