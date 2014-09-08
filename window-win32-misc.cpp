@@ -14,14 +14,24 @@
 //I have to keep track of the mouse position so I can ignore various bogus instances of WM_MOUSEMOVE.
 //I have to undefine 'bind' before including any Windows header. I suspect something is including winsock.
 
-//XP incompatibility status:
+//Incompatibility levels:
+//Level 0 - a feature works as intended
 //Level 1 - a feature is usable, but behaves weirdly
 //Level 2 - attempting to use a feature throws an error box, or reports failure in a way the program can and does handle
 //Level 3 - attempting to use a feature reports success internally, but nothing happens
 //Level 4 - attempting to use a feature crashes the program
 //Level 5 - program won't start
-//Maximum allowed incompatibility level: 2 [will be increased later, and eventually this list removed]
+//Maximum allowed incompatibility level:
+//XP SP2 and older: 5
+//XP SP3:
+//  1 after December 8, 2013
+//  2 after April 8, 2014
+//  3 after August 8, 2014
+//  4 after December 8, 2015
+//  5 after April 8, 2015
+//Vista SP0 and higher: 0
 //List:
+//Level 0: SetDllDirectory demands XP SP1 or higher. (But anything below SP3 is, for all intents and purposes, dead.)
 //Level 1: LVCFMT_FIXED_WIDTH on the listbox is ignored before Vista
 //Danger list (likely to hit):
 //Level 4: printf dislikes z (size_t) size specifiers; they must be behind #ifdef DEBUG, or turned into "I" via #define
