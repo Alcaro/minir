@@ -11,8 +11,7 @@ class inputkb_x11 : public inputkb {
 	function<void(unsigned int keyboard, int scancode, int libretrocode, bool down, bool changed)> key_cb;
 	
 public:
-	//inputkb_x11() {}
-	//~inputkb_x11() {}
+	~inputkb_x11() {}
 	
 	void poll()
 	{
