@@ -264,7 +264,7 @@ public:
 	//scancode is in the range 0..1023; libretrocode is in the range 1..RETROK_LAST-1. keyboard is in 0..31.
 	//
 	//It is undefined behaviour to poll this object without setting the callback. It is undefined behaviour to set it twice.
-	virtual void set_callback(function<void(unsigned int keyboard, int scancode, int libretrocode, bool down, bool changed)> key_cb) = 0;
+	virtual void set_callback(function<void(unsigned int keyboard, int scancode, unsigned int libretrocode, bool down, bool changed)> key_cb) = 0;
 	
 	virtual void poll() {}
 	

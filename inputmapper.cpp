@@ -521,8 +521,7 @@ static void poll(struct inputmapper * this_)
 	}
 }
 
-void inputmapper_kb_cb(void* this_, unsigned int keyboard, int scancode, int libretrocode,
-                   bool down, bool changed)
+void inputmapper_kb_cb(void* this_, unsigned int keyboard, int scancode, unsigned int libretrocode, bool down, bool changed)
 {
 	struct inputmapper_impl * this=(struct inputmapper_impl*)this_;
 	if (keyboard >= this->kb_nkb)
@@ -535,8 +534,8 @@ void inputmapper_kb_cb(void* this_, unsigned int keyboard, int scancode, int lib
 	
 	unsigned int key;
 	if(0);
-	else if (libretrocode>RETROK_UNKNOWN) key=libretrocode;
-	else if (scancode>=0)                 key=scancode|0x400;
+	else if (libretrocode>0) key=libretrocode;
+	else if (scancode>=0)    key=scancode|0x400;
 	else return;//it's unlikely that we'll get null for both, but not impossible
 	
 	key|=keyboard*0x800;
