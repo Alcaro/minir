@@ -13,7 +13,7 @@
 //paragraph, the one left of 1, doesn't map to libretro
 
 static bool initialized=false;
-static int libretrofor[256];
+static unsigned int libretrofor[256];
 
 struct {
 	uint16_t libretro;
@@ -86,6 +86,7 @@ struct {
 void inputkb_translate_init()
 {
 	if (initialized) return;
+	memset(libretrofor, 0, sizeof(libretrofor));
 	
 	Display* display=window_x11_get_display()->display;
 	
