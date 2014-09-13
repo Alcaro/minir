@@ -39,7 +39,7 @@ public:
 	struct fdinfo * fd;
 	unsigned int numfd;
 	
-	function<void(unsigned int keyboard, int scancode, int libretrocode, bool down, bool changed)> key_cb;
+	function<void(unsigned int keyboard, int scancode, unsigned int libretrocode, bool down, bool changed)> key_cb;
 	
 public:
 	int linuxcode_to_scan(int fd, unsigned int code)
@@ -58,7 +58,7 @@ public:
 public:
 	inputkb_udev() {}
 	bool construct(uintptr_t windowhandle);
-	void set_callback(function<void(unsigned int keyboard, int scancode, int libretrocode, bool down, bool changed)> key_cb);
+	void set_callback(function<void(unsigned int keyboard, int scancode, unsigned int libretrocode, bool down, bool changed)> key_cb);
 #ifndef GLIB
 	void poll();
 #endif
@@ -221,7 +221,8 @@ void inputkb_udev::fd_unwatch(unsigned int id)
 	this->fd[id].fd=-1;
 }
 
-void inputkb_udev::set_callback(function<void(unsigned int keyboard, int scancode, int libretrocode, bool down, bool changed)> key_cb)
+void inputkb_udev::set_callback(function<void(unsigned int keyboard, int scancode, unsigned int libretrocode,
+                                              bool down, bool changed)> key_cb)
 {
 	this->key_cb=key_cb;
 	

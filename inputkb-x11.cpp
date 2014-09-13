@@ -8,7 +8,7 @@
 namespace {
 
 class inputkb_x11 : public inputkb {
-	function<void(unsigned int keyboard, int scancode, int libretrocode, bool down, bool changed)> key_cb;
+	function<void(unsigned int keyboard, int scancode, unsigned int libretrocode, bool down, bool changed)> key_cb;
 	
 public:
 	~inputkb_x11() {}
@@ -25,7 +25,7 @@ public:
 		}
 	}
 	
-	void set_callback(function<void(unsigned int keyboard, int scancode, int libretrocode, bool down, bool changed)> key_cb)
+	void set_callback(function<void(unsigned int keyboard, int scancode, unsigned int libretrocode, bool down, bool changed)> key_cb)
 	{
 		this->key_cb = key_cb;
 	}

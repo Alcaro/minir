@@ -66,15 +66,18 @@ class inputkb_rawinput : public inputkb {
 	HANDLE * kbhandle;
 	char* * kbnames;
 	
-	function<void(unsigned int keyboard, int scancode, int libretrocode, bool down, bool silent)> key_cb;
+	function<void(unsigned int keyboard, int scancode, unsigned int libretrocode, bool down, bool silent)> key_cb;
 	
 public:
 	void handle_event(RAWINPUT* input);
 	
 public:
 	inputkb_rawinput(uintptr_t windowhandle);
-	void set_callback(function<void(unsigned int keyboard, int scancode, int libretrocode, bool down, bool changed)> key_cb) { this->key_cb = key_cb; }
-	//void poll();
+	void set_callback(function<void(unsigned int keyboard, int scancode, unsigned int libretrocode, bool down, bool changed)> key_cb)
+	{
+		this->key_cb = key_cb;
+	}
+	//void poll(); //do nothing - we're polled through the windows main loop
 	~inputkb_rawinput();
 };
 
@@ -202,11 +205,6 @@ static LRESULT CALLBACK window_proc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM l
 	
 	return DefWindowProc(hwnd, msg, wparam, lparam);
 }
-
-//void inputkb::poll()
-//{
-//	//do nothing - we're polled through the windows main loop
-//}
 
 inputkb_rawinput::~inputkb_rawinput()
 {

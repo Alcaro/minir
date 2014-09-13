@@ -90,21 +90,46 @@ void inputkb_translate_init()
 	
 	Display* display=window_x11_get_display()->display;
 	
-	for (unsigned int i=0;i<sizeof(libretrofor)/sizeof(*libretrofor);i++) libretrofor[i]=0;
 	
+	//This allocation may look wasteful, but we need a way to go from keysym to libretro code.
+	//Our options are allocating an array, or looping each time we need to look up something.
+	//Looping each time means map length * number of mapped keysyms = 139 * 855 (for me) = 118845. Not good.
+	//
+	//On the other hand, the cost for allocating is less than expected:
+	//Since we only use keysyms 0000..FFFF, we can ignore the rest, reducing it to 128KB.
+	//Additionally, only a few areas are written:
+	//0020..007A: various items from the ASCII table
+	//20AC: XK_EuroSign
+	//FE03..FFFF: modifier keys (Shift, Ctrl) and other nontyping keys (Insert, End, numpad)
+	//allowing the kernel can map in the zero page for the rest, for a total cost of 12KB - completely reasonable.
+	uint16_t* sym_to_libretro=calloc(65536, sizeof(uint16_t));
 	unsigned int i=sizeof(map)/sizeof(*map);
-	do {
-		i--;
-		int keycode=XKeysymToKeycode(display, map[i].xkey);
-		if (!keycode)
+	while (i--) sym_to_libretro[map[i].xkey]=map[i].libretro;
+	
+	
+	int minkc;
+	int maxkc;
+	XDisplayKeycodes(display, &minkc, &maxkc);
+	
+	int sym_per_code;
+	KeySym* sym=XGetKeyboardMapping(display, minkc, maxkc-minkc+1, &sym_per_code);
+	
+	
+	//We want to process this backwards, so the unshifted state is the one that stays in the array.
+	i=sym_per_code*(maxkc-minkc);
+	while (i--)
+	{
+		if (sym[i]&~0xFFFF) continue;//We don't use the extended (not-0x0000xxxx) keysyms, let's just ignore them.
+		                             //If we do use them, gcc will throw a warning for constant truncation.
+		if (sym_to_libretro[sym[i]])//Ignore blanks - may yield better results on weird keyboard layouts.
 		{
-			continue;//can't expect people to have all keys; for example, I lack Compose, and F13 through F15. (But who doesn't?)
+			libretrofor[minkc + i/sym_per_code]=sym_to_libretro[sym[i]];
 		}
-		//On the other hand, I have a lot of duplicates; PrintScreen and SysRq
-		//are the same key. We'll map it to the one placed first in the table.
-		libretrofor[keycode]=map[i].libretro;
 	}
-	while(i);
+	
+	
+	XFree(sym);
+	free(sym_to_libretro);
 	
 	initialized=true;
 }
@@ -114,6 +139,7 @@ unsigned int inputkb_translate_scan(unsigned int scancode)
 	return libretrofor[scancode];
 }
 
-//no inputkb_translate_vkey because an X11 vkey is 29 bits.
-//I'll fill it in if I can find any way to make it not slow. And a way to make it useful.
+//no inputkb_translate_vkey because I haven't found any use for it.
+//X11 vkeys are documented to be 29 bits, which is too unwieldy to do anything with,
+// but I can ignore anything that uses anything beyond the first 16 bits.
 #endif

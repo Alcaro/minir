@@ -21,12 +21,15 @@ public:
 	//char padding[4];
 	GdkDevice* * devices;
 	
-	function<void(unsigned int keyboard, int scancode, int libretrocode, bool down, bool changed)> key_cb;
+	function<void(unsigned int keyboard, int scancode, unsigned int libretrocode, bool down, bool changed)> key_cb;
 	
 public:
 	inputkb_gdk(uintptr_t windowhandle);
-	void set_callback(function<void(unsigned int keyboard, int scancode, int libretrocode, bool down, bool changed)> key_cb);
-	//void poll();
+	void set_callback(function<void(unsigned int keyboard, int scancode, unsigned int libretrocode, bool down, bool changed)> key_cb)
+	{
+		this->key_cb=key_cb;
+	}
+	//void poll(); //do nothing - we're polled through the gtk+ main loop
 	~inputkb_gdk();
 };
 
@@ -106,16 +109,6 @@ static gboolean key_action(GtkWidget* widget, GdkEvent* event, gpointer user_dat
 	obj->key_cb(kb, keycode, inputkb_translate_scan(keycode), (event->type==GDK_KEY_PRESS), true);
 	return FALSE;
 }
-
-void inputkb_gdk::set_callback(function<void(unsigned int keyboard, int scancode, int libretrocode, bool down, bool changed)> key_cb)
-{
-	this->key_cb=key_cb;
-}
-
-//void inputkb_gdk::poll()
-//{
-//	//do nothing - we're polled through the gtk+ main loop
-//}
 
 inputkb_gdk::~inputkb_gdk()
 {

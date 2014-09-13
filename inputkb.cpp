@@ -20,26 +20,24 @@ static struct inputraw * inputraw_create(const char * backend, uintptr_t windowh
 
 class inputkb_compat : public inputkb {
 	struct inputraw * ir;
-	function<void(unsigned int keyboard, int scancode, int libretrocode, bool down, bool changed)> key_cb;
+	function<void(unsigned int keyboard, int scancode, unsigned int libretrocode, bool down, bool changed)> key_cb;
 	unsigned char state[32][1024];
 	
 public:
-	inputkb_compat(struct inputraw * ir);
-	void set_callback(function<void(unsigned int keyboard, int scancode, int libretrocode, bool down, bool changed)> key_cb);
+	inputkb_compat(struct inputraw * ir)
+	{
+		this->ir=ir;
+		memset(this->state, 0, sizeof(this->state));
+	}
+	
+	void set_callback(function<void(unsigned int keyboard, int scancode, unsigned int libretrocode, bool down, bool changed)> key_cb)
+	{
+		this->key_cb=key_cb;
+	}
+	
 	void poll();
 	~inputkb_compat();
 };
-
-inputkb_compat::inputkb_compat(struct inputraw * ir)
-{
-	this->ir=ir;
-	memset(this->state, 0, sizeof(this->state));
-}
-
-void inputkb_compat::set_callback(function<void(unsigned int keyboard, int scancode, int libretrocode, bool down, bool changed)> key_cb)
-{
-	this->key_cb=key_cb;
-}
 
 void inputkb_compat::poll()
 {
@@ -69,7 +67,8 @@ static unsigned int return1(struct inputraw * This) { return 1; }
 
 
 class inputkb_none : public inputkb {
-	void set_callback(function<void(unsigned int keyboard, int scancode, int libretrocode, bool down, bool changed)> key_cb) {}
+	~inputkb_none(){}
+	void set_callback(function<void(unsigned int keyboard, int scancode, unsigned int libretrocode, bool down, bool changed)> key_cb) {}
 };
 
 };

@@ -61,6 +61,9 @@ anyptr try_malloc(size_t size);
 anyptr realloc_check(anyptr ptr, size_t size);
 anyptr try_realloc(anyptr ptr, size_t size);
 #define realloc realloc_check
+anyptr calloc_check(size_t size, size_t count);
+anyptr try_calloc(size_t size, size_t count);
+#define calloc calloc_check
 
 
 class nocopy {
