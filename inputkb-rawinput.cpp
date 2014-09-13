@@ -219,8 +219,6 @@ inputkb_rawinput::~inputkb_rawinput()
 
 inputkb_rawinput::inputkb_rawinput(uintptr_t windowhandle)
 {
-	inputkb_translate_init();
-	
 	WNDCLASS wc;
 	wc.style=0;
 	wc.lpfnWndProc=window_proc;

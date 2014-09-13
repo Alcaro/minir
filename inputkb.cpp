@@ -5,8 +5,6 @@
 
 #undef this
 
-inputkb* inputkb_create_none(uintptr_t windowhandle) { return new inputkb(); }
-
 namespace {
 
 static struct inputraw * inputraw_create(const char * backend, uintptr_t windowhandle)
@@ -20,8 +18,6 @@ static struct inputraw * inputraw_create(const char * backend, uintptr_t windowh
 	return NULL;
 }
 
-
-//terrible spacing - it's temp code, no point wasting time on making it proper
 class inputkb_compat : public inputkb {
 	struct inputraw * ir;
 	function<void(unsigned int keyboard, int scancode, int libretrocode, bool down, bool changed)> key_cb;
@@ -70,6 +66,12 @@ inputkb_compat::~inputkb_compat()
 
 static unsigned int return1(struct inputraw * This) { return 1; }
 
+
+
+class inputkb_none : public inputkb {
+	void set_callback(function<void(unsigned int keyboard, int scancode, int libretrocode, bool down, bool changed)> key_cb) {}
+};
+
 };
 
 void _inputraw_x11_keyboard_create_shared(struct inputraw * This)
@@ -83,6 +85,7 @@ void _inputraw_windows_keyboard_create_shared(struct inputraw * This)
 
 inputkb* inputkb_create(const char * backend, uintptr_t windowhandle)
 {
+	inputkb_translate_init();
 #ifdef INPUT_RAWINPUT
 	if (!strcmp(backend, "RawInput")) return inputkb_create_rawinput(windowhandle);
 #endif
@@ -98,11 +101,11 @@ inputkb* inputkb_create(const char * backend, uintptr_t windowhandle)
 	if (!strcmp(backend, "None")) return inputkb_create_none(windowhandle);
 	
 	struct inputraw * raw=inputraw_create(backend,windowhandle);
-	
 	if (!raw) return NULL;
-	inputkb_translate_init();
 	return new inputkb_compat(raw);
 }
+
+inputkb* inputkb_create_none(uintptr_t windowhandle) { return new inputkb_none(); }
 
 
 

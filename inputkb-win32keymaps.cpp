@@ -100,15 +100,15 @@ struct {
 };
 
 static bool initialized=false;
-static int sc_to_libretro[256];
-static int vk_to_libretro[256];
+static unsigned int sc_to_libretro[256];
+static unsigned int vk_to_libretro[256];
 
 void inputkb_translate_init()
 {
 	if (initialized) return;
 	
-	for (unsigned int i=0;i<256;i++) sc_to_libretro[i]=-1;
-	for (unsigned int i=0;i<256;i++) vk_to_libretro[i]=-1;
+	for (unsigned int i=0;i<256;i++) sc_to_libretro[i]=0;
+	for (unsigned int i=0;i<256;i++) vk_to_libretro[i]=0;
 	
 	for (unsigned int i=0;i<sizeof(map_raw)/sizeof(*map_raw);i++)
 	{
@@ -124,12 +124,12 @@ void inputkb_translate_init()
 	initialized=true;
 }
 
-int inputkb_translate_scan(unsigned int scancode)
+unsigned int inputkb_translate_scan(unsigned int scancode)
 {
 	return sc_to_libretro[scancode];
 }
 
-int inputkb_translate_vkey(unsigned int vkey)
+unsigned int inputkb_translate_vkey(unsigned int vkey)
 {
 	return vk_to_libretro[vkey];
 }

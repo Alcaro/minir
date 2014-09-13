@@ -535,9 +535,9 @@ void inputmapper_kb_cb(void* this_, unsigned int keyboard, int scancode, int lib
 	
 	unsigned int key;
 	if(0);
-	else if (libretrocode>=0) key=libretrocode;
-	else if (scancode>=0)     key=scancode|0x400;
-	else return;//it's unlikely that we'll get -1 for both, but not impossible
+	else if (libretrocode>RETROK_UNKNOWN) key=libretrocode;
+	else if (scancode>=0)                 key=scancode|0x400;
+	else return;//it's unlikely that we'll get null for both, but not impossible
 	
 	key|=keyboard*0x800;
 	if ((this->kb_state[key]&1) != down)
@@ -553,6 +553,8 @@ static void reset(struct inputmapper_impl * this)
 	reset_shiftstates(this);
 	
 	if (this->kb) delete this->kb;
+	this->kb=NULL;
+	
 	this->kb_nkb=0;
 	free(this->kb_state);
 	this->kb_state=NULL;

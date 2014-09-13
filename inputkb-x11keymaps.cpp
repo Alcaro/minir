@@ -90,21 +90,18 @@ void inputkb_translate_init()
 	
 	Display* display=window_x11_get_display()->display;
 	
-	for (unsigned int i=0;i<sizeof(libretrofor)/sizeof(*libretrofor);i++) libretrofor[i]=-1;
+	for (unsigned int i=0;i<sizeof(libretrofor)/sizeof(*libretrofor);i++) libretrofor[i]=0;
 	
-//printf("HI=%.4X\n",XKeycodeToKeysym(display,0x6c,0));
 	unsigned int i=sizeof(map)/sizeof(*map);
 	do {
 		i--;
 		int keycode=XKeysymToKeycode(display, map[i].xkey);
-//if (map[i].libretro==RETROK_RALT) printf("%i %i %i\n",i,map[i].xkey,keycode);
 		if (!keycode)
 		{
 			continue;//can't expect people to have all keys; for example, I lack Compose, and F13 through F15. (But who doesn't?)
 		}
 		//On the other hand, I have a lot of duplicates; PrintScreen and SysRq
 		//are the same key. We'll map it to the one placed first in the table.
-		//libretro_to_keycode_g[map[i].libretro]=keycode;
 		libretrofor[keycode]=map[i].libretro;
 	}
 	while(i);
@@ -112,9 +109,9 @@ void inputkb_translate_init()
 	initialized=true;
 }
 
-int inputkb_translate_scan(unsigned int keycode)
+unsigned int inputkb_translate_scan(unsigned int scancode)
 {
-	return libretrofor[keycode];
+	return libretrofor[scancode];
 }
 
 //no inputkb_translate_vkey because an X11 vkey is 29 bits.

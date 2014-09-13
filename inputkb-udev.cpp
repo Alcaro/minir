@@ -269,8 +269,6 @@ inputkb_udev::~inputkb_udev()
 
 bool inputkb_udev::construct(uintptr_t windowhandle)
 {
-	inputkb_translate_init();
-	
 	this->fd=NULL;
 	this->numfd=0;
 	

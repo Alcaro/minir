@@ -254,7 +254,7 @@ struct audio * audio_create_none(uintptr_t windowhandle, double samplerate, doub
 
 
 //inputkb is a quite low-level structure. You'll have to keep the state yourself.
-class inputkb {
+class inputkb : nocopy {
 public:
 	//The 'silent' flag is false if the key was pressed while creating the structure, or if the keyboard is unplugged.
 	//If set, the user should pretend it was that way all along; events bound to state change should, if possible, not fire.
@@ -264,12 +264,13 @@ public:
 	//scancode is in the range 0..1023; libretrocode is in the range 1..RETROK_LAST-1. keyboard is in 0..31.
 	//
 	//It is undefined behaviour to poll this object without setting the callback. It is undefined behaviour to set it twice.
-	virtual void set_callback(function<void(unsigned int keyboard, int scancode, int libretrocode, bool down, bool changed)> key_cb) {}
+	virtual void set_callback(function<void(unsigned int keyboard, int scancode, int libretrocode, bool down, bool changed)> key_cb) = 0;
 	
 	virtual void poll() {}
 	
-	virtual ~inputkb() {}
+	virtual ~inputkb() = 0;
 };
+inline inputkb::~inputkb(){}
 
 const char * const * inputkb_supported_backends();
 inputkb* inputkb_create(const char * backend, uintptr_t windowhandle);
@@ -297,11 +298,11 @@ struct inputkb* inputkb_create_rawinput(uintptr_t windowhandle);
 struct inputkb* inputkb_create_directinput(uintptr_t windowhandle);
 #endif
 
-//These translate hardware scancodes or virtual keycodes to libretro cores.
+//These translate hardware scancodes or virtual keycodes to libretro cores. Can return RETROK_UNKNOWN.
 //Note that "virtual keycode" is platform dependent, and because they're huge on X11, they don't exist at all there.
 void inputkb_translate_init();
-int inputkb_translate_scan(unsigned int scancode);
-int inputkb_translate_vkey(unsigned int vkey);
+unsigned inputkb_translate_scan(unsigned int scancode);
+unsigned inputkb_translate_vkey(unsigned int vkey);
 
 inputkb* inputkb_create_none(uintptr_t windowhandle);
 
