@@ -19,11 +19,6 @@ struct {
 	uint16_t libretro;
 	uint16_t xkey;
 } const map[]={
-	{ RETROK_0, XK_0 }, { RETROK_1, XK_1 }, { RETROK_2, XK_2 },
-	{ RETROK_3, XK_3 }, { RETROK_4, XK_4 }, { RETROK_5, XK_5 },
-	{ RETROK_6, XK_6 }, { RETROK_7, XK_7 }, { RETROK_8, XK_8 },
-	{ RETROK_9, XK_9 },
-	
 	{ RETROK_BACKSPACE, XK_BackSpace }, { RETROK_TAB, XK_Tab }, { RETROK_CLEAR, XK_Clear },
 	{ RETROK_RETURN, XK_Return }, { RETROK_PAUSE, XK_Pause }, { RETROK_ESCAPE, XK_Escape },
 	{ RETROK_SPACE, XK_space }, { RETROK_EXCLAIM, XK_exclam }, { RETROK_QUOTEDBL, XK_quotedbl },
@@ -31,7 +26,12 @@ struct {
 	{ RETROK_QUOTE, XK_apostrophe }, { RETROK_LEFTPAREN, XK_parenleft }, { RETROK_RIGHTPAREN, XK_parenright },
 	{ RETROK_ASTERISK, XK_asterisk }, { RETROK_PLUS, XK_plus }, { RETROK_COMMA, XK_comma },
 	{ RETROK_MINUS, XK_minus }, { RETROK_PERIOD, XK_period }, { RETROK_SLASH, XK_slash },
-	//the numbers actually belong here, but doing that makes us see 1! as !; we want 1 because that's the non-shifted state.
+	
+	{ RETROK_0, XK_0 }, { RETROK_1, XK_1 }, { RETROK_2, XK_2 },
+	{ RETROK_3, XK_3 }, { RETROK_4, XK_4 }, { RETROK_5, XK_5 },
+	{ RETROK_6, XK_6 }, { RETROK_7, XK_7 }, { RETROK_8, XK_8 },
+	{ RETROK_9, XK_9 },
+	
 	{ RETROK_COLON, XK_colon }, { RETROK_SEMICOLON, XK_semicolon }, { RETROK_LESS, XK_less },
 	{ RETROK_EQUALS, XK_equal }, { RETROK_GREATER, XK_greater }, { RETROK_QUESTION, XK_question },
 	{ RETROK_AT, XK_at }, { RETROK_LEFTBRACKET, XK_bracketleft }, { RETROK_BACKSLASH, XK_backslash },
@@ -77,9 +77,8 @@ struct {
 	{ RETROK_BREAK, XK_Break }, { RETROK_MENU, XK_Menu }, //{ RETROK_POWER, x },
 	{ RETROK_EURO, XK_EuroSign }, { RETROK_UNDO, XK_Undo },
 	
+	//some synonyms
 	{ RETROK_RALT, XK_ISO_Level3_Shift },//AltGr
-	
-	//those two are imported from RetroArch
 	{ RETROK_CARET, XK_dead_circumflex },
 	{ RETROK_KP_PERIOD, XK_KP_Decimal },
 };
