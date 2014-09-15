@@ -144,6 +144,8 @@ int[1-20] rewind_speedup=1
 # loading screens uses more. (But you shouldn't need to rewind to the previous level, anyways.)
 #If the buffer is filled up, the oldest data is discarded.
 int[1-1024] rewind_mem=64
+#[TODO] This allows you to rewind a few more frames for each push of the rewind key.
+int[0-60] rewind_per_push=0
 #This one makes minir print how much the rewind buffer contains, as well as a guess on how much will fit before it fills up, on the status bar.
 #Note that if rewind_delay does not equal rewind_delay_turbo and fastforward has been used, the reported value does not
 # reflect how much fits in the rewind buffer; instead, it reflects how much would fit there if you had not used fastforward.
