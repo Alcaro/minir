@@ -20,38 +20,27 @@ static struct inputraw * inputraw_create(const char * backend, uintptr_t windowh
 
 class inputkb_compat : public inputkb {
 	struct inputraw * ir;
-	function<void(unsigned int keyboard, int scancode, unsigned int libretrocode, bool down, bool changed)> key_cb;
-	unsigned char state[32][1024];
 	
 public:
-	inputkb_compat(struct inputraw * ir)
-	{
-		this->ir=ir;
-		memset(this->state, 0, sizeof(this->state));
-	}
-	
-	void set_callback(function<void(unsigned int keyboard, int scancode, unsigned int libretrocode, bool down, bool changed)> key_cb)
-	{
-		this->key_cb=key_cb;
-	}
-	
-	void poll();
+	inputkb_compat(struct inputraw * ir) { this->ir=ir; }
 	~inputkb_compat();
+	
+	uint32_t features() { return ir->feat; }
+	void refresh();
+	void poll() { refresh(); }
 };
 
-void inputkb_compat::poll()
+void inputkb_compat::refresh()
 {
-	unsigned char newstate[1024];
-	memset(newstate, 0, sizeof(newstate));
+	unsigned char state[1024];
 	for (unsigned int i=0;i<this->ir->keyboard_num_keyboards(this->ir);i++)
 	{
-		if (!this->ir->keyboard_poll(this->ir, i, newstate)) memset(newstate, 0, sizeof(newstate));
-		for (unsigned int j=0;j<1024;j++)
+		memset(state, 0, sizeof(state));
+		if (this->ir->keyboard_poll(this->ir, i, state))
 		{
-			if (newstate[j]!=this->state[i][j])
+			for (unsigned int j=0;j<256;j++)
 			{
-				this->state[i][j]=newstate[j];
-				this->key_cb(i, j, inputkb_translate_scan(j), this->state[i][j], true);
+				this->key_cb(i, j, inputkb_translate_scan(j), state[j]);
 			}
 		}
 	}
@@ -68,7 +57,7 @@ static unsigned int return1(struct inputraw * This) { return 1; }
 
 class inputkb_none : public inputkb {
 	~inputkb_none(){}
-	void set_callback(function<void(unsigned int keyboard, int scancode, unsigned int libretrocode, bool down, bool changed)> key_cb) {}
+	uint32_t features() { return 0; }
 };
 
 };

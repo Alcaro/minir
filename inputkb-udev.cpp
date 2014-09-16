@@ -33,13 +33,17 @@ struct fdinfo {
 #endif
 };
 
+#ifdef GLIB
+#define GLIB_N 1
+#else
+#define GLIB_N 0
+#endif
+
 class inputkb_udev : public inputkb {
 public:
 	//fd[0] is the inotify instance
 	struct fdinfo * fd;
 	unsigned int numfd;
-	
-	function<void(unsigned int keyboard, int scancode, unsigned int libretrocode, bool down, bool changed)> key_cb;
 	
 public:
 	int linuxcode_to_scan(int fd, unsigned int code)
@@ -58,10 +62,14 @@ public:
 public:
 	inputkb_udev() {}
 	bool construct(uintptr_t windowhandle);
-	void set_callback(function<void(unsigned int keyboard, int scancode, unsigned int libretrocode, bool down, bool changed)> key_cb);
+	
+	uint32_t features() { return f_multi|(GLIB_N ? 0 : f_auto)|f_direct|f_background|f_pollable; }
+	
+	void refresh();
 #ifndef GLIB
-	void poll();
+	void poll(); // we do this through the gtk+ main loop if we can, but if there is no gtk+ main loop, we can poll
 #endif
+	
 	~inputkb_udev();
 };
 
@@ -175,7 +183,7 @@ void inputkb_udev::fd_activity(int fd)
 				if (scan<0) continue;
 				if (id==-1) id=this->alloc_id(fd);
 //printf("evc=%.2X sc=%.2X\n",ev.code,scan);
-				this->key_cb(id-1, scan, inputkb_translate_scan(scan), (ev.value!=0), (ev.value!=2));
+				this->key_cb(id-1, scan, inputkb_translate_scan(scan), (ev.value!=0));//ev.value==2 means repeated
 			}
 		}
 	}
@@ -221,11 +229,8 @@ void inputkb_udev::fd_unwatch(unsigned int id)
 	this->fd[id].fd=-1;
 }
 
-void inputkb_udev::set_callback(function<void(unsigned int keyboard, int scancode, unsigned int libretrocode,
-                                              bool down, bool changed)> key_cb)
+void inputkb_udev::refresh()
 {
-	this->key_cb=key_cb;
-	
 	for (unsigned int id=1;id<this->numfd;id++)
 	{
 		uint8_t keys[KEY_MAX/8 + 1];
@@ -238,8 +243,8 @@ void inputkb_udev::set_callback(function<void(unsigned int keyboard, int scancod
 			{
 				int scan=this->linuxcode_to_scan(this->fd[id].fd, bit);
 				if (scan<0) continue;
-				int kbid=this->alloc_id(this->fd[id].fd);
-				this->key_cb(kbid-1, scan, inputkb_translate_scan(scan), true, false);
+				unsigned int kbid=this->alloc_id(this->fd[id].fd);
+				this->key_cb(kbid-1, scan, inputkb_translate_scan(scan), true);
 			}
 		}
 	}

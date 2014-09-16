@@ -238,6 +238,7 @@ static void free_(struct inputraw * this_)
 struct inputraw * _inputraw_create_xinput2(uintptr_t windowhandle)
 {
 	struct inputraw_xinput2 * this=malloc(sizeof(struct inputraw_xinput2));
+this->i.feat=inputkb::f_multi|inputkb::f_public|inputkb::f_pollable|inputkb::f_remote;
 	_inputraw_x11_keyboard_create_shared((struct inputraw*)this);
 	this->i.keyboard_num_keyboards=keyboard_num_keyboards;
 	//this->i.keyboard_num_keys=keyboard_num_keys;

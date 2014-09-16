@@ -319,6 +319,8 @@ struct windowmenu * windowmenu_create_topmenu(struct windowmenu * firstchild, ..
 
 struct windowmenu * windowmenu_create_submenu(const char * text, struct windowmenu * firstchild, ...)
 {
+	if (!firstchild) return windowmenu_create_submenu_l(text, 0, NULL);
+	
 	unsigned int numitems=1;
 	
 	va_list args;
@@ -328,7 +330,6 @@ struct windowmenu * windowmenu_create_submenu(const char * text, struct windowme
 		while (va_arg(args, struct windowmenu*)) numitems++;
 		va_end(args);
 	}
-	else numitems=0;
 	
 	struct windowmenu * * items=malloc(sizeof(struct windowmenu*)*numitems);
 	items[0]=firstchild;

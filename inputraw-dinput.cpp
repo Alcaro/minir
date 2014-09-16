@@ -50,6 +50,26 @@ static bool libLoad()
 	return true;
 }
 
+//stolen from http://msdn.microsoft.com/en-us/library/windows/desktop/ms687061%28v=vs.85%29.aspx
+/*
+void ErrorDescription(HRESULT hr) 
+{ 
+     if(FACILITY_WINDOWS == HRESULT_FACILITY(hr)) 
+         hr = HRESULT_CODE(hr); 
+     TCHAR* szErrMsg; 
+
+     if(FormatMessage( 
+       FORMAT_MESSAGE_ALLOCATE_BUFFER|FORMAT_MESSAGE_FROM_SYSTEM, 
+       NULL, hr, MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT), 
+       (LPTSTR)&szErrMsg, 0, NULL) != 0) 
+     { 
+         printf(TEXT("%s"), szErrMsg); 
+         LocalFree(szErrMsg); 
+     } else 
+         printf( TEXT("[Could not find a description for error # %#x.]\n"), hr); 
+}
+*/
+
 struct inputraw * _inputraw_create_directinput(uintptr_t windowhandle)
 {
 	if (!libLoad()) return NULL;
@@ -64,6 +84,7 @@ struct inputraw * _inputraw_create_directinput(uintptr_t windowhandle)
 	//this->i.keyboard_num_keys=keyboard_num_keys;
 	this->i.keyboard_poll=keyboard_poll;
 	//this->i.keyboard_get_map=keyboard_get_map;
+this->i.feat=inputkb::f_direct|inputkb::f_public|inputkb::f_pollable;
 	this->i.free=free_;
 	
 	this->context=NULL;
@@ -76,7 +97,7 @@ struct inputraw * _inputraw_create_directinput(uintptr_t windowhandle)
 	if (!this->keyboard) goto cancel;
 	
 	if (FAILED(this->keyboard->lpVtbl->SetDataFormat(this->keyboard, &c_dfDIKeyboard))) goto cancel;
-	if (FAILED(this->keyboard->lpVtbl->SetCooperativeLevel(this->keyboard, (HWND)windowhandle, DISCL_NONEXCLUSIVE | DISCL_FOREGROUND))) goto cancel;
+	if (FAILED(this->keyboard->lpVtbl->SetCooperativeLevel(this->keyboard, GetParent((HWND)windowhandle), DISCL_NONEXCLUSIVE | DISCL_FOREGROUND))) goto cancel;
 	
 	return (struct inputraw*)this;
 	

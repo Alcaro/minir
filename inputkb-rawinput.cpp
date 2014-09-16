@@ -66,19 +66,17 @@ class inputkb_rawinput : public inputkb {
 	HANDLE * kbhandle;
 	char* * kbnames;
 	
-	function<void(unsigned int keyboard, int scancode, unsigned int libretrocode, bool down, bool silent)> key_cb;
-	
 public:
 	void handle_event(RAWINPUT* input);
 	
 public:
 	inputkb_rawinput(uintptr_t windowhandle);
-	void set_callback(function<void(unsigned int keyboard, int scancode, unsigned int libretrocode, bool down, bool changed)> key_cb)
-	{
-		this->key_cb = key_cb;
-	}
-	//void poll(); //do nothing - we're polled through the windows main loop
 	~inputkb_rawinput();
+	
+	uint32_t features() { return f_multi|f_auto|f_direct|f_public|f_background; }
+	
+	//void refresh(); // we cannot poll the device
+	//void poll(); // we do this through the windows main loop
 };
 
 void inputkb_rawinput::handle_event(RAWINPUT* input)
@@ -168,7 +166,7 @@ void inputkb_rawinput::handle_event(RAWINPUT* input)
 				if (vkey==VK_CLEAR) vkey=VK_NUMPAD5;
 			}
 			
-			this->key_cb(deviceid, scan, inputkb_translate_vkey(vkey), !(flags&RI_KEY_BREAK), true);
+			this->key_cb(deviceid, scan, inputkb_translate_vkey(vkey), !(flags&RI_KEY_BREAK));
 		}
 		
 #ifdef DEBUG

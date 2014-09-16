@@ -9,21 +9,10 @@
 
 #ifdef DYLIB_WIN32
 #undef _WIN32_WINNT
-#define _WIN32_WINNT 0x0502
+#define _WIN32_WINNT 0x0502//0x0501 excludes SetDllDirectory, so I need to put it at 0x0502
 #undef bind
 #include <windows.h>
 #define bind BIND_CB
-
-//#ifndef SetDllDirectory
-//WINBASEAPI BOOL WINAPI SetDllDirectoryA(LPCSTR lpPathName);
-//WINBASEAPI BOOL WINAPI SetDllDirectoryW(LPCWSTR lpPathName);
-//#ifdef UNICODE
-//#define SetDllDirectory SetDllDirectoryW
-//#else
-//#define SetDllDirectory SetDllDirectoryA
-//#endif
-//#endif
-
 #endif
 
 struct dylib_impl {

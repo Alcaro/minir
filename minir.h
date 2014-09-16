@@ -258,22 +258,41 @@ struct audio * audio_create_none(uintptr_t windowhandle, double samplerate, doub
 
 //inputkb is a quite low-level structure. You'll have to keep the state yourself.
 class inputkb : nocopy {
-public:
-	//The 'silent' flag is false if the key was pressed while creating the structure, or if the keyboard is unplugged.
-	//If set, the user should pretend it was that way all along; events bound to state change should, if possible, not fire.
-	//However, the structure may also send events with 'silent' false but 'down' same as last time. The user should treat these as if they have the silent flag set.
-	//
-	//If scancode or libretrocode is -1, it means that the key does not have any assigned value. (Undefined scancodes are extremely rare, though.)
-	//scancode is in the range 0..1023; libretrocode is in the range 1..RETROK_LAST-1. keyboard is in 0..31.
-	//
-	//It is undefined behaviour to poll this object without setting the callback. It is undefined behaviour to set it twice.
-	virtual void set_callback(function<void(unsigned int keyboard, int scancode, unsigned int libretrocode, bool down, bool changed)> key_cb) = 0;
+protected:
+	function<void(unsigned int keyboard, int scancode, unsigned int libretrocode, bool down)> key_cb;
 	
+public:
+	//This callback can be called for no reason, to repeat the state.
+	//It is safe to set it multiple times; the latest one applies. It is also safe to not set it at all, though that makes the structure quite useless.
+	//scancode is in the range -1..1023, and libretrocode is in the range 0..RETROK_LAST-1. keyboard is in 0..31.
+	//If scancode is -1 or libretrocode is 0, it means that the key does not have any assigned value. (Undefined scancodes are extremely rare, though.)
+	void set_kb_cb(function<void(unsigned int keyboard, int scancode, unsigned int libretrocode, bool down)> key_cb) { this->key_cb = key_cb; }
+	
+	//Returns the features this driver supports. Numerically higher is better. (Some flags contradict each other.)
+	enum {
+		f_multi    = 0x0040,//Can differ between multiple keyboards.
+		f_auto     = 0x0020,//poll() is empty, and the callback is called by window_run_*().
+		f_direct   = 0x0010,//Does not go through a separate process, meaning reduced latency.
+		f_public   = 0x0008,//Does not require elevated privileges to use.
+		f_background=0x0004,//Can view input events while the window is not focused. Implies f_auto.
+		f_pollable = 0x0002,//refresh() is implemented.
+		f_remote   = 0x0001,//Compatible with X11 remoting, or equivalent. Implies ~f_direct.
+	};
+	virtual uint32_t features() = 0;
+	
+	//Returns the number of keyboards.
+	//virtual unsigned int numkb() { return 1; }
+	
+	//If f_pollable is set, this calls the callback for all pressed keys.
+	//The implementation is allowed to call it for non-pressed keys.
+	virtual void refresh() {}
+	
+	//If f_auto is not set, this calls the callback for all key states that changed since the last poll().
+	//The implementation is allowed to call it for unchanged keys.
 	virtual void poll() {}
 	
-	virtual ~inputkb() = 0;
+	virtual ~inputkb() {}
 };
-inline inputkb::~inputkb(){}
 
 const char * const * inputkb_supported_backends();
 inputkb* inputkb_create(const char * backend, uintptr_t windowhandle);
@@ -894,6 +913,7 @@ struct minircheats * minircheats_create();
 
 
 struct inputraw {
+uint32_t feat;
 	//If the answer is zero, the implementation cannot differ between different keyboards, and will
 	// return which keys are pressed on any of them.
 	//The return value is guaranteed to be no higher than 32; if it would be, the excess keyboards are ignored.

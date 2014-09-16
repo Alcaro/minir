@@ -8,10 +8,12 @@
 namespace {
 
 class inputkb_x11 : public inputkb {
-	function<void(unsigned int keyboard, int scancode, unsigned int libretrocode, bool down, bool changed)> key_cb;
-	
 public:
 	~inputkb_x11() {}
+	
+	uint32_t features() { return f_public|f_pollable|f_remote; }
+	
+	void refresh() { poll(); }
 	
 	void poll()
 	{
@@ -21,13 +23,8 @@ public:
 		if (!XQueryKeymap(window_x11_get_display()->display, (char*)state)) return;
 		for (unsigned int i=0;i<256;i++)
 		{
-			this->key_cb(0, i, inputkb_translate_scan(i), state[i>>3]&(1<<(i&7)), true);
+			this->key_cb(0, i, inputkb_translate_scan(i), state[i>>3]&(1<<(i&7)));
 		}
-	}
-	
-	void set_callback(function<void(unsigned int keyboard, int scancode, unsigned int libretrocode, bool down, bool changed)> key_cb)
-	{
-		this->key_cb = key_cb;
 	}
 };
 

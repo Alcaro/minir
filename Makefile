@@ -1,7 +1,7 @@
 all: minir_dummy
 
 CC = gcc
-CFLAGS = -g
+CFLAGS =
 CXX = g++
 CXXFLAGS = $(CFLAGS)
 LD = g++

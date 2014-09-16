@@ -21,16 +21,17 @@ public:
 	//char padding[4];
 	GdkDevice* * devices;
 	
-	function<void(unsigned int keyboard, int scancode, unsigned int libretrocode, bool down, bool changed)> key_cb;
-	
 public:
 	inputkb_gdk(uintptr_t windowhandle);
-	void set_callback(function<void(unsigned int keyboard, int scancode, unsigned int libretrocode, bool down, bool changed)> key_cb)
-	{
-		this->key_cb=key_cb;
-	}
-	//void poll(); //do nothing - we're polled through the gtk+ main loop
+	
+	uint32_t features() { return f_multi|f_auto|f_public; }
+	
+	//void refresh(); // we cannot poll the device
+	//void poll(); // we do this through the gtk+ main loop
+	
 	~inputkb_gdk();
+	
+	inline gboolean key_action_p(GtkWidget* widget, GdkEvent* event);
 };
 
 //static void device_add(GdkDeviceManager* object, GdkDevice* device, gpointer user_data)
@@ -78,9 +79,8 @@ static void device_remove(GdkDeviceManager* object, GdkDevice* device, gpointer 
 	}
 }
 
-static gboolean key_action(GtkWidget* widget, GdkEvent* event, gpointer user_data)
+inline gboolean inputkb_gdk::key_action_p(GtkWidget* widget, GdkEvent* event)
 {
-	inputkb_gdk* obj=(struct inputkb_gdk*)user_data;
 	GdkDevice* device=gdk_event_get_source_device(event);
 	
 	if (gdk_device_get_device_type(device)==GDK_DEVICE_TYPE_MASTER) return FALSE;
@@ -88,26 +88,32 @@ static gboolean key_action(GtkWidget* widget, GdkEvent* event, gpointer user_dat
 	//we don't want repeats all, let's just kill them.
 	
 	unsigned int kb=0;
-	while (kb<obj->numdevices && obj->devices[kb]!=device) kb++;
-	if (kb==obj->numdevices)
+	while (kb<this->numdevices && this->devices[kb]!=device) kb++;
+	if (kb==this->numdevices)
 	{
 		kb=0;
-		while (kb<obj->numdevices && obj->devices[kb]) kb++;
-		if (kb==obj->numdevices)
+		while (kb<this->numdevices && this->devices[kb]) kb++;
+		if (kb==this->numdevices)
 		{
-			obj->devices=realloc(obj->devices, sizeof(GdkDevice*)*(obj->numdevices+1));
-			obj->devices[obj->numdevices]=device;
-			obj->numdevices++;
+			this->devices=realloc(this->devices, sizeof(GdkDevice*)*(this->numdevices+1));
+			this->devices[this->numdevices]=device;
+			this->numdevices++;
 		}
-		else obj->devices[kb]=device;
+		else this->devices[kb]=device;
 	}
 	
 	guint16 keycode;
 	gdk_event_get_keycode(event, &keycode);
 	
 //printf("%i: %.2X %.2X\n", kb, keycode, inputkb_translate_scan(keycode));
-	obj->key_cb(kb, keycode, inputkb_translate_scan(keycode), (event->type==GDK_KEY_PRESS), true);
+	this->key_cb(kb, keycode, inputkb_translate_scan(keycode), (event->type==GDK_KEY_PRESS));
 	return FALSE;
+}
+
+static gboolean key_action(GtkWidget* widget, GdkEvent* event, gpointer user_data)
+{
+	inputkb_gdk* obj=(struct inputkb_gdk*)user_data;
+	return obj->key_action_p(widget, event);
 }
 
 inputkb_gdk::~inputkb_gdk()

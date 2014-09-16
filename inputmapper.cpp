@@ -1,3 +1,4 @@
+//TODO: use inputkb::refresh()
 #include "minir.h"
 #include <stdlib.h>
 #include <string.h>
@@ -521,7 +522,7 @@ static void poll(struct inputmapper * this_)
 	}
 }
 
-void inputmapper_kb_cb(void* this_, unsigned int keyboard, int scancode, unsigned int libretrocode, bool down, bool changed)
+void inputmapper_kb_cb(void* this_, unsigned int keyboard, int scancode, unsigned int libretrocode, bool down)
 {
 	struct inputmapper_impl * this=(struct inputmapper_impl*)this_;
 	if (keyboard >= this->kb_nkb)
@@ -541,9 +542,12 @@ void inputmapper_kb_cb(void* this_, unsigned int keyboard, int scancode, unsigne
 	key|=keyboard*0x800;
 	if ((this->kb_state[key]&1) != down)
 	{
-		this->kb_state[key]=(down?1:0) + (changed?4:0);
-		this->kb_anylastframe |= changed;
-		if (changed && !down) this->lastreleased = key;
+		//this->kb_state[key]=(down?1:0) + (changed?4:0);
+		//this->kb_anylastframe |= changed;
+		//if (changed && !down) this->lastreleased = key;
+		this->kb_state[key]=(down?1:0) + 4;
+		this->kb_anylastframe = true;
+		if (!down) this->lastreleased = key;
 	}
 }
 
@@ -575,7 +579,7 @@ static void set_inputkb(struct inputmapper * this_, struct inputkb * kb)
 	reset(this);
 	
 	this->kb=kb;
-	if (this->kb) this->kb->set_callback(bind_ptr(inputmapper_kb_cb, this));
+	if (this->kb) this->kb->set_kb_cb(bind_ptr(inputmapper_kb_cb, this));
 }
 
 static void free_(struct inputmapper * this_)
