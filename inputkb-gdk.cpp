@@ -24,7 +24,7 @@ public:
 public:
 	inputkb_gdk(uintptr_t windowhandle);
 	
-	uint32_t features() { return f_multi|f_auto|f_public; }
+	uint32_t features() { return f_multi|f_delta|f_auto|f_public; }
 	
 	//void refresh(); // we cannot poll the device
 	//void poll(); // we do this through the gtk+ main loop

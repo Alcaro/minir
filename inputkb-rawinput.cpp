@@ -73,7 +73,7 @@ public:
 	inputkb_rawinput(uintptr_t windowhandle);
 	~inputkb_rawinput();
 	
-	uint32_t features() { return f_multi|f_auto|f_direct|f_public|f_background; }
+	uint32_t features() { return f_multi|f_delta|f_auto|f_direct|f_public|f_background; }
 	
 	//void refresh(); // we cannot poll the device
 	//void poll(); // we do this through the windows main loop
@@ -255,6 +255,7 @@ inputkb_rawinput::inputkb_rawinput(uintptr_t windowhandle)
 
 struct inputkb * inputkb_create_rawinput(uintptr_t windowhandle)
 {
+return NULL;
 	return new inputkb_rawinput(windowhandle);
 }
 #endif

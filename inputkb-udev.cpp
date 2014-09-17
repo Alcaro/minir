@@ -63,7 +63,7 @@ public:
 	inputkb_udev() {}
 	bool construct(uintptr_t windowhandle);
 	
-	uint32_t features() { return f_multi|(GLIB_N ? 0 : f_auto)|f_direct|f_background|f_pollable; }
+	uint32_t features() { return f_multi|f_delta|(GLIB_N ? 0 : f_auto)|f_direct|f_background|f_pollable; }
 	
 	void refresh();
 #ifndef GLIB

@@ -270,13 +270,14 @@ public:
 	
 	//Returns the features this driver supports. Numerically higher is better. (Some flags contradict each other.)
 	enum {
-		f_multi    = 0x0040,//Can differ between multiple keyboards.
+		f_multi    = 0x0080,//Can differ between multiple keyboards.
+		f_delta    = 0x0040,//Does not call the callback for unchanged state. Improves processing time.
 		f_auto     = 0x0020,//poll() is empty, and the callback is called by window_run_*().
-		f_direct   = 0x0010,//Does not go through a separate process, meaning reduced latency.
-		f_public   = 0x0008,//Does not require elevated privileges to use.
-		f_background=0x0004,//Can view input events while the window is not focused. Implies f_auto.
-		f_pollable = 0x0002,//refresh() is implemented.
-		f_remote   = 0x0001,//Compatible with X11 remoting, or equivalent. Implies ~f_direct.
+		f_direct   = 0x0010,//Does not go through a separate process. Improves latency.
+		f_background=0x0008,//Can view input events while the window is not focused. Implies f_auto.
+		f_pollable = 0x0004,//refresh() is implemented.
+		f_remote   = 0x0002,//Compatible with X11 remoting, or equivalent. Implies !f_direct.
+		f_public   = 0x0001,//Does not require elevated privileges to use.
 	};
 	virtual uint32_t features() = 0;
 	

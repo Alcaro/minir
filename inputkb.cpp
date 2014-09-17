@@ -12,9 +12,6 @@ static struct inputraw * inputraw_create(const char * backend, uintptr_t windowh
 #ifdef INPUT_XINPUT2
 	if (!strcmp(backend, "XInput2")) return _inputraw_create_xinput2(windowhandle);
 #endif
-#ifdef INPUT_DIRECTINPUT
-	if (!strcmp(backend, "DirectInput")) return _inputraw_create_directinput(windowhandle);
-#endif
 	return NULL;
 }
 
@@ -82,6 +79,9 @@ inputkb* inputkb_create(const char * backend, uintptr_t windowhandle)
 #endif
 #ifdef INPUT_GDK
 	if (!strcmp(backend, "GDK")) return inputkb_create_gdk(windowhandle);
+#endif
+#ifdef INPUT_DIRECTINPUT
+	if (!strcmp(backend, "DirectInput")) return inputkb_create_directinput(windowhandle);
 #endif
 #ifdef INPUT_X11
 	if (!strcmp(backend, "X11")) return inputkb_create_x11(windowhandle);
