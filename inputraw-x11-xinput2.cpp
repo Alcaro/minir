@@ -4,7 +4,6 @@
 //It uses XInput directly for the actual device access. Due to the lack of event loop, it also polls
 // the entire device each frame, instead of checking for changes; I don't like allocations that run
 // each frame, but it seems unavoidable here.
-//(Using GDK entirely for the input could work, but I can't find any dang way to query a GdkDevice at all.)
 #ifdef INPUT_XINPUT2
 #include <X11/extensions/XInput.h>
 #include <X11/extensions/XInput2.h>
