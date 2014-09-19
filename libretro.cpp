@@ -80,7 +80,7 @@ struct libretro_impl {
 	char * rompath;
 	struct libretro_raw raw;
 	
-	struct video * v;
+	struct cvideo * v;
 	struct audio * a;
 	struct libretroinput * in;
 	
@@ -233,7 +233,7 @@ static void initialize(struct libretro_impl * this)
 	}
 }
 
-static void attach_interfaces(struct libretro * this_, struct video * v, struct audio * a, struct libretroinput * i)
+static void attach_interfaces(struct libretro * this_, struct cvideo * v, struct audio * a, struct libretroinput * i)
 {
 	struct libretro_impl * this=(struct libretro_impl*)this_;
 	this->v=v;

@@ -87,7 +87,7 @@ public:
 	string(const string& newstr) { set(newstr.ptr); }
 	~string() { free(ptr); }
 	string& operator=(const char * newstr) { char* prev=ptr; set(newstr); free(prev); return *this; }
-	string& operator=(string newstr) { char* tmp=newstr.ptr; newstr.ptr=ptr; ptr=tmp; return *this; } // my sources tell me this can avoid copying entirely
+	string& operator=(string newstr) { char* tmp=newstr.ptr; newstr.ptr=ptr; ptr=tmp; return *this; } // my sources tell me this can sometimes avoid copying entirely
 	operator const char * () { return ptr; }
 };
 
@@ -106,9 +106,9 @@ struct driverlist {
 // other interfaces may be called.
 //If an interface defines a function to set some state, and a callback for when this state changes,
 // calling that function will not trigger the state callback.
-//No interface may be used from multiple threads, unless otherwise specified; they must be used only
-// by the one creating them. However, it is safe for any thread to create an interface, including
-// having different threads create multiple instances of the same interface.
+//Unless otherwise specified, an interface may only be used from its owner thread (the creator).
+// However, it is safe for any thread to create an interface, including having different threads
+// use multiple instances of the same interface.
 //Don't depend on any pointer being unique; for example, the None interfaces are static. However,
 // even if they are (potentially) non-unique, following the instructed method to free them is safe;
 // either they're owned by the one one giving them to you, or their free() handlers are empty, or
@@ -147,75 +147,90 @@ struct mutex;
 struct rewindstack;
 struct libretro;
 struct libretroinput;
+typedef void(*funcptr)();
 
 
 
-struct video {
-	//Initializes the video system. It will draw on the windowhandle given during creation, at the given bit depth.
-	//The user guarantees that the window is size screen_width*screen_height when This is called, and at
-	// every subsequent call to draw(). If the window is resized, reinit() (or free()) must be called again.
-	//The bit depths may be 32 (XRGB8888), 16 (RGB565), or 15 (0RGB1555).
-	void (*reinit)(struct video * This, unsigned int screen_width, unsigned int screen_height, unsigned int depth, double fps);
+//needed features:
+//                    2d input
+//       3d input   thread move?          2d input
+//             shaders                  direct output
+//   thread move?    direct output
+//separate backend
+//thread moves are optional
+
+//The owner thread of this one is the one calling set_input_*, which may be another than the creator.
+//Additionally, set_output may be called by any thread, but only before the first draw_*, and only if no other thread is currently using it.
+struct retro_hw_render_callback;
+struct video_shader_param;
+class video {
+	//Returns the features this driver supports. Since video drivers can be chained, the flags are in no particular order.
+	enum {
+		f_chain = 0x2000,//set_output can be called with a video*. Only true for some of them; not all have anything to offer in a chained configuration.
+		f_vsync = 0x1000,//This flag only has effect if the output is a window handle.
+		f_shaders=0x0F00,//Each of these bits correspond to 256<<s_glsl/etc.
+		f_3d    = 0x00FF,//Each of these bits correspond to 1<<retro_hw_context_type.
+	};
+	virtual uint32_t features() = 0;
 	
-	//Draws the given data. Size doesn't need to be same as above; if it isn't, nearest neighbor scaling will be used.
-	//pitch is how many bytes to go forward to reach the next scanline.
-	//If data is NULL, the last frame is redrawn, and other arguments are ignored. It will still wait for vsync.
-	void (*draw)(struct video * This, unsigned int width, unsigned int height, const void * data, unsigned int pitch);
+	//Only one of set_input_2d and set_input_3d can be called, and it must be called only once.
+	//The corresponding draw_* must be used.
+	virtual void set_input_2d(unsigned int depth, double fps) = 0;
+	//Asks where to put the video data for best performance. Returning data=NULL means 'I have no opinion, give me whatever'.
+	//If called, the next call to this object must be draw_2d, with the same arguments as draw_2d_where.
+	//However, it is allowed to call draw_2d without draw_2d_where.
+	virtual void draw_2d_where(unsigned int width, unsigned int height, void * * data, unsigned int * pitch) { *data=NULL; *pitch=0; }
+	virtual void draw_2d(unsigned int width, unsigned int height, const void * data, unsigned int pitch) = 0;
 	
-	//Toggles vsync; that is, whether draw() should wait for vblank before doing its stuff and
-	// returning. Defaults to on; does not change on reinit().
-	//Returns the previous state, if syncing is possible; otherwise, returns an undefined value.
-	bool (*set_sync)(struct video * This, bool sync);
+	//The caller will fill in get_current_framebuffer and get_proc_address with something that calls the below two.
+	virtual bool set_input_3d(struct retro_hw_render_callback* input3d) { return false; }
+	virtual uintptr_t input_3d_get_current_framebuffer() { return 0; }
+	virtual funcptr input_3d_get_proc_address(const char *sym) { return NULL; }
+	virtual void draw_3d(unsigned int width, unsigned int height) {}
 	
-	//Whether vsync can be enabled on This item.
-	bool (*has_sync)(struct video * This);
+	virtual void draw_repeat() = 0;//This can be called whether this one is configured as 2d or 3d.
 	
-	//Returns the last frame drawn.
-	//If This video driver doesn't support This, or if there is no previous frame, returns 0,0,NULL,0,16.
-	bool (*repeat_frame)(struct video * This, unsigned int * width, unsigned int * height,
-	                                          const void * * data, unsigned int * pitch, unsigned int * bpp);
+	enum {
+		s_glsl,
+		s_cg,
+		s_hlsl,
+	};
+	virtual bool set_shader(const char * filename) { return false; }
+	virtual video_shader_param* get_shader_params() { return NULL; }
+	virtual void set_shader_param(unsigned int index, double value) {}
 	
-	//Deletes the structure.
-	void (*free)(struct video * This);
+	virtual void set_output(uintptr_t windowhandle, unsigned int screen_width, unsigned int screen_height) {}//Draws to the given window.
+	virtual void set_output(video* backend) {}//Chains the video drivers. Chaining passes bitmaps around.
+	
+	virtual ~video() = 0;
 };
+void video_copy_2d(void* dst, unsigned int dstpitch, void* src, unsigned int srcpitch, unsigned int bytes_per_line, unsigned int height);
 
 //This returns everything that's compiled in, but some may have runtime requirements that are not
 // met. Try them in order until one works. It is guaranteed that at least one of them can
 // successfully be created, but this one may not necessarily be useful.
-const char * const * video_supported_backends();
-struct video * video_create(const char * backend, uintptr_t windowhandle, unsigned int screen_width, unsigned int screen_height,
-                            unsigned int depth, double fps);
+const char * const * video_supported_backends(uint32_t minfeatures);
+video* video_create(const char * backend);
 
 //TODO: D3D11?
 //TODO: D2D? Probably not.
 #ifdef VIDEO_D3D9
-struct video * video_create_d3d9(uintptr_t windowhandle, unsigned int screen_width, unsigned int screen_height,
-                                   unsigned int depth, double fps);
+video* video_create_d3d9();
 #endif
 #ifdef VIDEO_DDRAW
-struct video * video_create_ddraw(uintptr_t windowhandle, unsigned int screen_width, unsigned int screen_height,
-                                  unsigned int depth, double fps);
+video* video_create_ddraw();
 #endif
 #ifdef VIDEO_OPENGL
-struct video * video_create_opengl(uintptr_t windowhandle, unsigned int screen_width, unsigned int screen_height,
-                                   unsigned int depth, double fps);
+video* video_create_opengl();
 #endif
 #ifdef VIDEO_GDI
-struct video * video_create_gdi(uintptr_t windowhandle, unsigned int screen_width, unsigned int screen_height,
-                                unsigned int depth, double fps);
+video* video_create_gdi();
 #endif
 #ifdef VIDEO_XSHM
-struct video * video_create_xshm(uintptr_t windowhandle, unsigned int screen_width, unsigned int screen_height,
-                                 unsigned int depth, double fps);
+video* video_create_xshm();
 #endif
-struct video * video_create_none(uintptr_t windowhandle, unsigned int screen_width, unsigned int screen_height,
-                                 unsigned int depth, double fps);
-
-//It would be cleaner if this one wrapped a struct video, but that'd make it use the video structure
-// from another thread than what created it, which isn't really feasible.
-struct video * video_create_thread(const char * backend, uintptr_t windowhandle,
-                                   unsigned int screen_width, unsigned int screen_height,
-                                   unsigned int depth, double fps);
+video* video_create_none();
+video* video_create_thread();
 
 
 
@@ -262,17 +277,17 @@ protected:
 	function<void(unsigned int keyboard, int scancode, unsigned int libretrocode, bool down)> key_cb;
 	
 public:
-	//This callback can be called for no reason, to repeat the state.
-	//It is safe to set it multiple times; the latest one applies. It is also safe to not set it at all, though that makes the structure quite useless.
+	//It is safe to set this callback multiple times; the latest one applies. It is also safe to not set it at all, though that makes the structure quite useless.
 	//scancode is in the range -1..1023, and libretrocode is in the range 0..RETROK_LAST-1. keyboard is in 0..31.
 	//If scancode is -1 or libretrocode is 0, it means that the key does not have any assigned value. (Undefined scancodes are extremely rare, though.)
+	//It may repeat the current state.
 	void set_kb_cb(function<void(unsigned int keyboard, int scancode, unsigned int libretrocode, bool down)> key_cb) { this->key_cb = key_cb; }
 	
 	//Returns the features this driver supports. Numerically higher is better. (Some flags contradict each other.)
 	enum {
 		f_multi    = 0x0080,//Can differ between multiple keyboards.
-		f_delta    = 0x0040,//Does not call the callback for unchanged state. Improves processing time.
-		f_auto     = 0x0020,//poll() is empty, and the callback is called by window_run_*().
+		f_delta    = 0x0040,//Does not call the callback for unchanged state, except for key repeat events. Improves processing time.
+		f_auto     = 0x0020,//poll() is empty, and the callback is called by window_run_*(). Implies f_delta.
 		f_direct   = 0x0010,//Does not go through a separate process. Improves latency.
 		f_background=0x0008,//Can view input events while the window is not focused. Implies f_auto.
 		f_pollable = 0x0004,//refresh() is implemented.
@@ -388,7 +403,6 @@ char * inputmapper_normalize(const char * descriptor);
 
 
 
-typedef void(*funcptr)();
 struct dylib {
 	bool (*owned)(struct dylib * This);
 	
@@ -559,7 +573,7 @@ struct libretro {
 	//The interface pointers must be valid during every call to run().
 	//It is safe to attach new interfaces without recreating the structure.
 	//It is safe to attach new interfaces if the previous ones are destroyed.
-	void (*attach_interfaces)(struct libretro * This, struct video * v, struct audio * a, struct libretroinput * i);
+	void (*attach_interfaces)(struct libretro * This, struct cvideo * v, struct audio * a, struct libretroinput * i);
 	
 	//data/datalen or filename can be NULL, but not both unless supports_no_game is true. It is allowed for both to be non-NULL.
 	//If load_rom_mem_supported is false, filename must be non-NULL, and data/datalen are unlikely to be used.
@@ -913,32 +927,83 @@ struct minircheats * minircheats_create();
 
 
 
+struct cvideo {
+	//Initializes the video system. It will draw on the windowhandle given during creation, at the given bit depth.
+	//The user guarantees that the window is size screen_width*screen_height when This is called, and at
+	// every subsequent call to draw(). If the window is resized, reinit() (or free()) must be called again.
+	//The bit depths may be 32 (XRGB8888), 16 (RGB565), or 15 (0RGB1555).
+	void (*reinit)(struct cvideo * This, unsigned int screen_width, unsigned int screen_height, unsigned int depth, double fps);
+	
+	//Draws the given data. Size doesn't need to be same as above; if it isn't, nearest neighbor scaling will be used.
+	//pitch is how many bytes to go forward to reach the next scanline.
+	//If data is NULL, the last frame is redrawn, and other arguments are ignored. It will still wait for vsync.
+	void (*draw)(struct cvideo * This, unsigned int width, unsigned int height, const void * data, unsigned int pitch);
+	
+	//Toggles vsync; that is, whether draw() should wait for vblank before doing its stuff and
+	// returning. Defaults to on; does not change on reinit().
+	//Returns the previous state, if syncing is possible; otherwise, returns an undefined value.
+	bool (*set_sync)(struct cvideo * This, bool sync);
+	
+	//Whether vsync can be enabled on This item.
+	bool (*has_sync)(struct cvideo * This);
+	
+	//Returns the last frame drawn.
+	//If This video driver doesn't support This, or if there is no previous frame, returns 0,0,NULL,0,16.
+	bool (*repeat_frame)(struct cvideo * This, unsigned int * width, unsigned int * height,
+	                                          const void * * data, unsigned int * pitch, unsigned int * bpp);
+	
+	//Deletes the structure.
+	void (*free)(struct cvideo * This);
+};
+
+//This returns everything that's compiled in, but some may have runtime requirements that are not
+// met. Try them in order until one works. It is guaranteed that at least one of them can
+// successfully be created, but this one may not necessarily be useful.
+const char * const * cvideo_supported_backends();
+struct cvideo * cvideo_create(const char * backend, uintptr_t windowhandle, unsigned int screen_width, unsigned int screen_height,
+                            unsigned int depth, double fps);
+
+//TODO: D3D11?
+//TODO: D2D? Probably not.
+#ifdef VIDEO_D3D9
+struct cvideo * cvideo_create_d3d9(uintptr_t windowhandle, unsigned int screen_width, unsigned int screen_height,
+                                   unsigned int depth, double fps);
+#endif
+#ifdef VIDEO_DDRAW
+struct cvideo * cvideo_create_ddraw(uintptr_t windowhandle, unsigned int screen_width, unsigned int screen_height,
+                                  unsigned int depth, double fps);
+#endif
+#ifdef VIDEO_OPENGL
+struct cvideo * cvideo_create_opengl(uintptr_t windowhandle, unsigned int screen_width, unsigned int screen_height,
+                                   unsigned int depth, double fps);
+#endif
+#ifdef VIDEO_GDI
+struct cvideo * cvideo_create_gdi(uintptr_t windowhandle, unsigned int screen_width, unsigned int screen_height,
+                                unsigned int depth, double fps);
+#endif
+#ifdef VIDEO_XSHM
+struct cvideo * cvideo_create_xshm(uintptr_t windowhandle, unsigned int screen_width, unsigned int screen_height,
+                                 unsigned int depth, double fps);
+#endif
+struct cvideo * cvideo_create_none(uintptr_t windowhandle, unsigned int screen_width, unsigned int screen_height,
+                                 unsigned int depth, double fps);
+
+//It would be cleaner if this one wrapped a struct video, but that'd make it use the video structure
+// from another thread than what created it, which isn't really feasible.
+struct cvideo * cvideo_create_thread(const char * backend, uintptr_t windowhandle,
+                                   unsigned int screen_width, unsigned int screen_height,
+                                   unsigned int depth, double fps);
+
+
+
 struct inputraw {
 uint32_t feat;
-	//If the answer is zero, the implementation cannot differ between different keyboards, and will
-	// return which keys are pressed on any of them.
-	//The return value is guaranteed to be no higher than 32; if it would be, the excess keyboards are ignored.
-	//It is guaranteed that the answer will never switch between zero and nonzero. If the implementation can differ
-	// between keyboards, and none are attached, it should lie and say 1; it's allowed for polling on this keyboard to fail.
-	//If a keyboard is attached or detached, it is implementation defined whether this is noticed
-	// instantly, or if it remains the same until next time keyboard 0 is polled.
 	unsigned int (*keyboard_num_keyboards)(struct inputraw * This);
-	
-	//Returns which keyboard keys are pressed on the given keyboard. keys[] must be keyboard_num_keys()
-	// bytes long.
-	//If a key is not pressed, the return value in this array is 0. If it is pressed, it's something
-	// else; it's implementation defined what, and not guaranteed to be the same between different
-	// keys or different pollings. If polling fails for any reason, the user should pretend all keys
-	// are released.
-	//It is allowed for an implementation to cache the answers and only update when being polled for kb_id=0.
 	bool (*keyboard_poll)(struct inputraw * This, unsigned int kb_id, unsigned char * keys);
-	
 	void (*free)(struct inputraw * This);
 };
 struct inputraw * _inputraw_create_xinput2(uintptr_t windowhandle);
 void _inputraw_x11_keyboard_create_shared(struct inputraw * This);
-struct inputraw * _inputraw_create_directinput(uintptr_t windowhandle);
-void _inputraw_windows_keyboard_create_shared(struct inputraw * This);
 unsigned int _inputraw_translate_key(unsigned int keycode);
 
 
@@ -1011,11 +1076,12 @@ enum retro_variable_type
 
 enum retro_variable_change
 {
-   RETRO_VARIABLE_CHANGE_INSTANT,    // Changes take effect at the next retro_run.
-   RETRO_VARIABLE_CHANGE_DELAYED,    // Changes take effect during retro_run, but not instantly; for example, it may be delayed until the next level is loaded.
-   RETRO_VARIABLE_CHANGE_RESET,      // Only used during retro_load_game, or possibly retro_reset.
-   RETRO_VARIABLE_CHANGE_WRONG_OPTS, // This variable is not usable now; it is only usable if other options are changed first.
-   RETRO_VARIABLE_CHANGE_WRONG_GAME, // This variable is not usable for this game.
+   RETRO_VARIABLE_CHANGE_INSTANT,     // Changes take effect at the next retro_run.
+   RETRO_VARIABLE_CHANGE_DELAYED,     // Changes take effect during retro_run, but not instantly; for example, it may be delayed until the next level is loaded.
+   RETRO_VARIABLE_CHANGE_RESET,       // Only used during retro_load_game, or possibly retro_reset.
+   RETRO_VARIABLE_CHANGE_WRONG_OPTS,  // This variable is not usable now; it is only usable if other options are changed first.
+   RETRO_VARIABLE_CHANGE_WRONG_STATE, // This variable is not usable now; it is only usable once you've progressed further in the game.
+   RETRO_VARIABLE_CHANGE_WRONG_GAME,  // This variable is not usable for this game.
 };
 
 struct retro_variable_new
@@ -1028,7 +1094,7 @@ struct retro_variable_new
    const char *description;           // Variable description. Suitable as a second line in GUIs. Example: Emulate fake colors on black&white games.
    void *values;                      // Possible values. See enum retro_variable_type for what type it has. Example: "Enabled\nDisabled"
    
-   //Called by the frontend every time this variable changes, or NULL to ignore. Can be different for different variables. ID is the index to the array given to RETRO_ENVIRONMENT_SET_VARIABLES_NEW. Separators have IDs.
+   //Called by the frontend every time this variable changes, or NULL to ignore. Can be different for different variables. ID is the index to the array given to RETRO_ENVIRONMENT_SET_VARIABLES_NEW. Separators have IDs, but their value must not be set.
    void (*change_notify)(unsigned int id, void *value);
 };
 */

@@ -1,5 +1,6 @@
 #include "minir.h"
 #ifdef VIDEO_XSHM
+#define video cvideo
 #include <stdlib.h>
 //#include <sys/ipc.h>
 #include <sys/shm.h>
@@ -124,7 +125,7 @@ static void free_(struct video * this_)
 	free(this);
 }
 
-struct video * video_create_xshm(uintptr_t windowhandle, unsigned int screen_width, unsigned int screen_height,
+struct video * cvideo_create_xshm(uintptr_t windowhandle, unsigned int screen_width, unsigned int screen_height,
                                  unsigned int depth, double fps)
 {
 	struct video_xshm * this=malloc(sizeof(struct video_xshm));

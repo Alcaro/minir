@@ -1,4 +1,5 @@
 #include "minir.h"
+#define video cvideo
 #include <stdlib.h>
 #include <string.h>
 
@@ -84,7 +85,7 @@ struct video_thread {
 static void threadproc(void* userdata)
 {
 	struct video_thread * this=(struct video_thread*)userdata;
-	this->child=video_create(this->backend, this->windowhandle, this->screen_width, this->screen_height, this->depth, this->fps);
+	this->child=cvideo_create(this->backend, this->windowhandle, this->screen_width, this->screen_height, this->depth, this->fps);
 	
 	if (!this->child)
 	{
@@ -285,7 +286,7 @@ static void free_(struct video * this_)
 	free(this);
 }
 
-struct video * video_create_thread(const char * backend, uintptr_t windowhandle,
+struct video * cvideo_create_thread(const char * backend, uintptr_t windowhandle,
                                    unsigned int screen_width, unsigned int screen_height,
                                    unsigned int depth, double fps)
 {

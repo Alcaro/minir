@@ -1,5 +1,6 @@
 #include "minir.h"
 #ifdef VIDEO_OPENGL
+#define video cvideo
 #include <stdlib.h>
 
 #define this This
@@ -380,7 +381,7 @@ static Bool glx_wait_for_map_notify(Display* d, XEvent* e, char* arg) {
 }
 #endif
 
-struct video * video_create_opengl(uintptr_t windowhandle, unsigned int screen_width, unsigned int screen_height,
+struct video * cvideo_create_opengl(uintptr_t windowhandle, unsigned int screen_width, unsigned int screen_height,
                                    unsigned int depth, double fps)
 {
 	struct video_opengl * this=malloc(sizeof(struct video_opengl));

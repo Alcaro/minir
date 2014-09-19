@@ -1,5 +1,6 @@
 #include "minir.h"
 #ifdef VIDEO_D3D9
+#define video cvideo
 #define CINTERFACE
 #undef bind
 #include <D3D9.h>
@@ -336,7 +337,7 @@ static void libRelease()
 	FreeLibrary(hD3D9);
 }
 
-struct video * video_create_d3d9(uintptr_t windowhandle, unsigned int screen_width, unsigned int screen_height,
+struct video * cvideo_create_d3d9(uintptr_t windowhandle, unsigned int screen_width, unsigned int screen_height,
                                  unsigned int depth, double fps)
 
 {

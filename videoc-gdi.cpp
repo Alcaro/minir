@@ -1,5 +1,6 @@
 #include "minir.h"
 #ifdef VIDEO_GDI
+#define video cvideo
 #undef bind
 #include <windows.h>
 #define bind BIND_CB
@@ -152,7 +153,7 @@ static void free_(struct video * this_)
 	free(this);
 }
 
-struct video * video_create_gdi(uintptr_t windowhandle, unsigned int screen_width, unsigned int screen_height,
+struct video * cvideo_create_gdi(uintptr_t windowhandle, unsigned int screen_width, unsigned int screen_height,
                                    unsigned int depth, double fps)
 {
 	struct video_gdi * this=malloc(sizeof(struct video_gdi));

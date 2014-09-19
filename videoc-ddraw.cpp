@@ -1,5 +1,6 @@
 #include "minir.h"
 #ifdef VIDEO_DDRAW
+#define video cvideo
 #undef bind
 #include <windows.h>
 #define bind BIND_CB
@@ -61,7 +62,7 @@ static void free_(struct video * this_)
 	free(this);
 }
 
-struct video * video_create_ddraw(uintptr_t windowhandle, unsigned int screen_width, unsigned int screen_height,
+struct video * cvideo_create_ddraw(uintptr_t windowhandle, unsigned int screen_width, unsigned int screen_height,
                                    unsigned int depth, double fps)
 {
 	struct video_ddraw * this=malloc(sizeof(struct video_ddraw));

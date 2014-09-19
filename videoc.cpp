@@ -1,9 +1,10 @@
 #include "minir.h"
+#define video cvideo
 #include <string.h>
 
 #define this This
 
-const char * const * video_supported_backends()
+const char * const * cvideo_supported_backends()
 {
 	static const char * backends[]={
 #ifdef VIDEO_D3D9
@@ -44,31 +45,31 @@ static bool repeat_frame(struct video * this_, unsigned int * width, unsigned in
 	return false;
 }
 
-struct video * video_create_none(uintptr_t windowhandle, unsigned int screen_width, unsigned int screen_height,
+struct video * cvideo_create_none(uintptr_t windowhandle, unsigned int screen_width, unsigned int screen_height,
                                  unsigned int depth, double fps)
 {
 	static struct video this={ reinit, draw, set_sync, has_sync, repeat_frame, free_ };
 	return &this;
 }
 
-struct video * video_create(const char * backend, uintptr_t windowhandle, unsigned int screen_width, unsigned int screen_height,
+struct video * cvideo_create(const char * backend, uintptr_t windowhandle, unsigned int screen_width, unsigned int screen_height,
                             unsigned int depth, double fps)
 {
 #ifdef VIDEO_D3D9
-	if (!strcasecmp(backend, "Direct3D")) return video_create_d3d9(windowhandle, screen_width, screen_height, depth, fps);
+	if (!strcasecmp(backend, "Direct3D")) return cvideo_create_d3d9(windowhandle, screen_width, screen_height, depth, fps);
 #endif
 #ifdef VIDEO_DDRAW
-	if (!strcasecmp(backend, "DirectDraw")) return video_create_ddraw(windowhandle, screen_width, screen_height, depth, fps);
+	if (!strcasecmp(backend, "DirectDraw")) return cvideo_create_ddraw(windowhandle, screen_width, screen_height, depth, fps);
 #endif
 #ifdef VIDEO_OPENGL
-	if (!strcasecmp(backend, "OpenGL")) return video_create_opengl(windowhandle, screen_width, screen_height, depth, fps);
+	if (!strcasecmp(backend, "OpenGL")) return cvideo_create_opengl(windowhandle, screen_width, screen_height, depth, fps);
 #endif
 #ifdef VIDEO_GDI
-	if (!strcasecmp(backend, "GDI")) return video_create_gdi(windowhandle, screen_width, screen_height, depth, fps);
+	if (!strcasecmp(backend, "GDI")) return cvideo_create_gdi(windowhandle, screen_width, screen_height, depth, fps);
 #endif
 #ifdef VIDEO_XSHM
-	if (!strcasecmp(backend, "XShm")) return video_create_xshm(windowhandle, screen_width, screen_height, depth, fps);
+	if (!strcasecmp(backend, "XShm")) return cvideo_create_xshm(windowhandle, screen_width, screen_height, depth, fps);
 #endif
-	if (!strcasecmp(backend, "None")) return video_create_none(windowhandle, screen_width, screen_height, depth, fps);
+	if (!strcasecmp(backend, "None")) return cvideo_create_none(windowhandle, screen_width, screen_height, depth, fps);
 	return NULL;
 }

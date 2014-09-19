@@ -58,7 +58,7 @@ void* rawsamples;
 unsigned int sample_pos;
 unsigned int samples_tot;
 
-unsigned int samples_to_play;
+unsigned int g_samples_to_play;
 unsigned int sample_rate;
 
 enum { st_off, st_on, st_auto } state;
@@ -66,8 +66,11 @@ enum { st_off, st_on, st_auto } state;
 #include<stdio.h>
 static void emit_audio()
 {
+	unsigned int samples_to_play;
 	if (state==st_off) return;
 	if (state==st_on) samples_to_play=BUFSIZE;
+	if (state==st_auto) samples_to_play=g_samples_to_play;//no locking here, despite threading; if we touch this variable, threading is off.
+	unsigned int samples_played=0;
 	while (samples_to_play >= BUFSIZE)
 	{
 		unsigned int samples_to_read=samples_to_play;
@@ -98,9 +101,12 @@ static void emit_audio()
 		
 		unsigned int played = audio_batch_cb(samples, BUFSIZE);
 		sample_pos += played;
+		samples_played += played;
+		if (samples_to_play < played) break;
 		samples_to_play -= played;
 		if (played != BUFSIZE) break;
 	}
+	if (state==st_auto) g_samples_to_play-=samples_played;
 }
 
 static void enable_audio(bool enabled) { state=enabled; }
@@ -139,7 +145,7 @@ EXPORT void retro_get_system_av_info(struct retro_system_av_info* info)
 }
 
 EXPORT void retro_set_controller_port_device(unsigned port, unsigned device) {}
-EXPORT void retro_reset(void) { sample_pos=0; }
+EXPORT void retro_reset(void) { sample_pos=0; g_samples_to_play=0; }
 
 EXPORT void retro_run(void)
 {
@@ -147,7 +153,7 @@ EXPORT void retro_run(void)
 	
 	if (state==st_auto)
 	{
-		samples_to_play+=head.SampleRate/60.0;
+		g_samples_to_play+=head.SampleRate/60.0;
 		emit_audio();
 	}
 	

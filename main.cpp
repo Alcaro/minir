@@ -61,7 +61,7 @@ static inline void shutupgcc(int x){}
 #define asprintf(...) shutupgcc(asprintf(__VA_ARGS__))
 #endif
 
-struct video * vid;
+struct cvideo * vid;
 struct audio * aud;
 struct inputmapper * inp;
 struct libretroinput * retroinp;
@@ -137,7 +137,7 @@ struct configdata config;
 bool try_create_interface_video(const char * interface, unsigned int videowidth, unsigned int videoheight,
                                                         unsigned int videodepth, double videofps)
 {
-	vid=(config.video_thread ? video_create_thread : video_create)(interface, draw->get_window_handle(),
+	vid=(config.video_thread ? cvideo_create_thread : cvideo_create)(interface, draw->get_window_handle(),
 	                   videowidth*config.video_scale, videoheight*config.video_scale, videodepth, videofps);
 //printf("create %s = %p\n",interface,vid);
 	if (vid)
@@ -191,7 +191,7 @@ void create_interfaces(unsigned int videowidth, unsigned int videoheight, unsign
 	
 	if (!config.driver_video || !try_create_interface_video(config.driver_video, videowidth, videoheight, videodepth, videofps))
 	{
-		const char * const * drivers=video_supported_backends();
+		const char * const * drivers=cvideo_supported_backends();
 		while (true)
 		{
 			if (try_create_interface_video(*drivers, videowidth, videoheight, videodepth, videofps)) break;
