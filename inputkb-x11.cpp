@@ -17,7 +17,7 @@ public:
 	
 	void poll()
 	{
-		unsigned char state[32];
+		uint8_t state[32];
 		//this one always succeeds, so this check is pointless, but it feels better that way
 		//http://cgit.freedesktop.org/xorg/lib/libX11/tree/src/QuKeybd.c
 		if (!XQueryKeymap(window_x11_get_display()->display, (char*)state)) return;
@@ -30,7 +30,7 @@ public:
 
 }
 
-inputkb* inputkb_create_x11(unsigned long windowhandle)
+inputkb* inputkb_create_x11(uintptr_t windowhandle)
 {
 	return new inputkb_x11();
 }
