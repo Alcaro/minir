@@ -5,7 +5,7 @@ minir is a libretro frontend intended to complement RetroArch, by focusing on th
 ----- | ----- | ------
 Prefered setup | HTPC or equivalent, preferably fullscreen | Desktop computers, windowed mode
 Input method | Preferably a controller (DualShock, Xbox, etc); use with keyboard and mouse is awkward | Keyboard and mouse, controllers not supported (yet)
-Menues | Custom | System native
+Menus | Custom | System native
 Core support | Full | Limited (currently)
 Automatic core selection | ? (it's been mentioned) | Yes
 Major features | Real-time rewind, Dynamic Rate Control, user-defined shaders, netplay, low-latency fullscreen, ... | Real-time rewind, maximally configurable hotkeys, (more to come)
