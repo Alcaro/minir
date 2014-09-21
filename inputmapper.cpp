@@ -7,6 +7,8 @@
 #include "libretro.h"
 //static void dump_buttons(const unsigned int * buttons){for(int i=0;buttons[i];i++)printf("%.8X,",buttons[i]);puts("00000000");}
 
+namespace {
+
 #define MINIZ_HEADER_FILE_ONLY
 #include "miniz.c"
 
@@ -247,15 +249,6 @@ static char * create_chain_descriptor(uint32_t ** buttons)
 		buttons++;
 	}
 	return out;
-}
-
-char * inputmapper_normalize(const char * descriptor)
-{
-	uint32_t ** keys=parse_chain_descriptor(descriptor);
-	if (!keys) return NULL;
-	char * newdesc=create_chain_descriptor(keys);
-	delete_chain_rule(keys);
-	return newdesc;
 }
 
 
@@ -587,6 +580,17 @@ static void free_(struct inputmapper * this_)
 	struct inputmapper_impl * this=(struct inputmapper_impl*)this_;
 	reset(this);
 	free(this);
+}
+
+}
+
+char * inputmapper_normalize(const char * descriptor)
+{
+	uint32_t ** keys=parse_chain_descriptor(descriptor);
+	if (!keys) return NULL;
+	char * newdesc=create_chain_descriptor(keys);
+	delete_chain_rule(keys);
+	return newdesc;
 }
 
 struct inputmapper inputmapper_iface = {

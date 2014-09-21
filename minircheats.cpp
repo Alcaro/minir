@@ -16,6 +16,8 @@
 #define z "z"
 #endif
 
+namespace {
+
 enum cheat_compto { cht_prev, cht_cur, cht_curptr };
 enum cheat_dattype { cht_unsign, cht_sign, cht_hex };
 struct minircheatdetail;
@@ -754,6 +756,8 @@ static void free_(struct minircheats * this_)
 	this->model->free(this->model);
 	
 	free(this);
+}
+
 }
 
 struct minircheats * minircheats_create()
