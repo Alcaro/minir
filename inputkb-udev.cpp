@@ -2,8 +2,9 @@
 #ifdef INPUT_UDEV
 #include <sys/inotify.h>
 #include <linux/input.h>
+#include <sys/stat.h>
 #include <string.h>
-
+//#include <sys/types.h>
 #ifdef WINDOW_GTK3
 #define GLIB
 #endif
@@ -17,15 +18,18 @@
 
 namespace {
 
-static const char * udevpath="/dev/input/";
+#define udevpath "/dev/input/"
 
 #define test_bit(buf, bit) ((buf)[(bit)>>3] & 1<<((bit)&7))
 
+enum { ty_kb, ty_mouse, ty_last, ty_free=0xFF, ty_special=0xFF };//special can only exist on inputkb_udev::fd[0]
 struct fdinfo {
 	int fd;
-	char state;//0 - free (can be reused)
-	           //1 - used but inactive (no allocated keyboard ID; can be moved)
-	           //2 - active (must stay there)
+	uint8_t type;//255 - special (inotify)
+	             //0 - keyboard
+	             //1 - mouse
+	             //(more to come)
+	uint8_t id;//index to fd_for_type
 #ifdef GLIB
 	guint watchid;
 #else
@@ -43,7 +47,11 @@ class inputkb_udev : public inputkb {
 public:
 	//fd[0] is the inotify instance
 	struct fdinfo * fd;
-	unsigned int numfd;
+	uint8_t numfd;
+	//char padding[5];
+	
+	uint8_t n_of_type[ty_last];
+	uint8_t* fd_for_type[ty_last];
 	
 public:
 	int linuxcode_to_scan(int fd, unsigned int code)
@@ -51,10 +59,10 @@ public:
 		if (code<=255) return code+8;//I have zero clue where this 8 comes from.
 		else return -1;
 	}
-	void fd_watch(int fd);
+	void fd_watch(int fd, uint8_t type);
 	void fd_unwatch(unsigned int id);
 	
-	unsigned int alloc_id(int fd);
+	uint8_t alloc_id_for(uint8_t type);
 	
 	bool openpath(const char * fname);
 	void fd_activity(int fd);
@@ -67,81 +75,62 @@ public:
 	
 	void refresh();
 #ifndef GLIB
-	void poll(); // we do this through the gtk+ main loop if we can, but if there is no gtk+ main loop, we can poll
+	void poll(); // we do this through the gtk+ main loop if we can, but if there is no gtk+ main loop, we'll have to poll
 #endif
 	
 	~inputkb_udev();
 };
 
-unsigned int inputkb_udev::alloc_id(int fd)
+uint8_t inputkb_udev::alloc_id_for(uint8_t type)
 {
-	//allocate IDs as lazily as possible - we don't want to hand out a keyboard ID because the mouse is doing something.
-	unsigned int id;
-	for (id=0;fd!=this->fd[id].fd;id++) {}
-	if (this->fd[id].state==1)
+//for(int i=0;i<this->n_of_type[type];i++)printf("/%.2X/",this->fd_for_type[type][i]);puts("#");
+	unsigned int id=0;
+	while (id<this->n_of_type[type] && this->fd_for_type[type][id]!=ty_free) id++;
+	if (id==this->n_of_type[type])
 	{
-		unsigned int firstfree;
-		for (firstfree=0;this->fd[firstfree].state==2;firstfree++) {}//this won't go out of bounds - we can hit ourselves
-		
-		struct fdinfo tmp=this->fd[firstfree];
-		this->fd[firstfree]=this->fd[id];
-		this->fd[id]=tmp;
-		id=firstfree;
-		this->fd[id].state=2;
+		unsigned int newlen;
+		if (id==0) newlen=4;
+		else newlen=id*2;
+		this->n_of_type[type]=newlen;
+		this->fd_for_type[type]=realloc(this->fd_for_type[type], sizeof(uint8_t)*newlen);
+		for (unsigned int i=id;i<newlen;i++) this->fd_for_type[type][i]=ty_free;
 	}
 	return id;
 }
 
-//return value is whether we have access to this device; it's true even if the device is rejected for not being a keyboard
+//return value is whether we have access to this device; it's true even if the device is rejected for not being usable
 bool inputkb_udev::openpath(const char * fname)
 {
 	char path[512];
-	strcpy(path, udevpath); strcat(path, fname);
+	strcpy(path, udevpath); strcpy(path+strlen(udevpath), fname);
 	int fd=open(path, O_RDONLY|O_NONBLOCK);
 	if (fd<0) return false;
 	
+	//let's check if this one is anything we're interested in
 	uint8_t events[EV_MAX];
 	memset(events, 0, sizeof(events));
-	ioctl(fd, EVIOCGBIT(0, EV_MAX), events);
-	
-	if (!test_bit(events, EV_KEY))//trim off anything that doesn't have any buttons (still captures mouse buttons though...)
+	if (ioctl(fd, EVIOCGBIT(0, EV_MAX), events) < 0)
 	{
+		//directories don't know what an EVIOCGBIT is
 		close(fd);
-		return true;
+		return false;
 	}
 	
-	this->fd_watch(fd);
+	if (test_bit(events, EV_KEY))
+	{
+		memset(events, 0, 4);
+		ioctl(fd, EVIOCGBIT(EV_KEY, 4), events);//the real max value is KEY_MAX, but we only want the first four bytes.
+		if (events[0]>=0xFE && events[1]==0xFF && events[2]==0xFF && events[3]==0xFF)
+		{
+			//it's got ESC, numbers, and Q through D - it's a keyboard
+			//(rule stolen from https://github.com/gentoo/eudev/blob/master/src/udev/udev-builtin-input_id.c#L186 )
+			this->fd_watch(fd, ty_kb);
+			return true;
+		}
+	}
 	
-	//for (int i=0;i<256;i++)
-	//{
-	//	struct input_keymap_entry km;
-	//	memset(&km, 0, sizeof(km));
-	//	km.flags=INPUT_KEYMAP_BY_INDEX;
-	//	km.index=i;
-	//	
-	//	if (!ioctl(fd, EVIOCGKEYCODE_V2, &km))
-	//	{
-	//		printf("%s/%.2X: %.2X %.2X %.4X %.8X ", fname,i, km.flags,km.len,km.index,km.keycode);
-	//		for (unsigned int i=0;i<km.len;i++) printf("%.2X",km.scancode[i]);
-	//		puts("");
-	//	}
-	//}
-	
-//	for (unsigned int bit=0;bit<EV_MAX;bit++)
-//	{
-//		if (events[bit>>3] & 1<<(bit&7))
-//		{
-//			printf("support %i\n",bit);
-//		}
-//	}
-//
-//for (yalv = 0; yalv < ; yalv++) {
-//    if (test_bit(yalv, evtype_b)) {
-//	memset(evtype_b, 0, sizeof(evtype_b));
-//	if (ioctl(fd, EVIOCGBIT(0, EV_MAX), evtype_b) < 0) {
-//	    perror("evdev ioctl");
-//	}
-	
+	//not interested - however, we did manage to open an udev device, so we have access to them and can use this driver
+	close(fd);
 	return true;
 }
 
@@ -169,7 +158,8 @@ void inputkb_udev::fd_activity(int fd)
 	}
 	else
 	{
-		int id=-1;
+		unsigned int id;
+		for (id=0;this->fd[id].fd!=fd;id++) {}
 		
 		struct input_event ev;
 		//https://www.kernel.org/doc/Documentation/input/input.txt says
@@ -181,9 +171,9 @@ void inputkb_udev::fd_activity(int fd)
 			{
 				int scan=linuxcode_to_scan(fd, ev.code);
 				if (scan<0) continue;
-				if (id==-1) id=this->alloc_id(fd);
 //printf("evc=%.2X sc=%.2X\n",ev.code,scan);
-				this->key_cb(id-1, scan, inputkb_translate_scan(scan), (ev.value!=0));//ev.value==2 means repeated
+				this->key_cb(this->fd[id].id,
+				             scan, inputkb_translate_scan(scan), (ev.value!=0));//ev.value==2 means repeated
 			}
 		}
 	}
@@ -201,16 +191,25 @@ static gboolean fd_activity_glib(gint fd, GIOCondition condition, gpointer user_
 //static void fd_
 //epoll_create1(0);
 
-void inputkb_udev::fd_watch(int fd)
+void inputkb_udev::fd_watch(int fd, uint8_t type)
 {
-	unsigned int id=0;
-	while (id<this->numfd && this->fd[id].state) id++;
+	unsigned int id=1;
+	while (id<this->numfd && this->fd[id].type!=ty_free) id++;
+	if (type==ty_special) id=0;
 	if (id==this->numfd)
 	{
 		this->fd=realloc(this->fd, sizeof(struct fdinfo)*(++this->numfd));
 	}
 	this->fd[id].fd=fd;
-	this->fd[id].state=1;
+	this->fd[id].type=type;
+	
+	if (type!=ty_special)
+	{
+		unsigned int type_id=alloc_id_for(type);
+		this->fd[id].id=type_id;
+		this->fd_for_type[type][type_id]=id;
+	}
+	
 #ifdef GLIB
 	this->fd[id].watchid=g_unix_fd_add(fd, G_IO_IN/*|G_IO_HUP*/, fd_activity_glib, this);
 #else
@@ -225,7 +224,7 @@ void inputkb_udev::fd_unwatch(unsigned int id)
 #else
 #error
 #endif
-	this->fd[id].state=0;
+	this->fd[id].type=ty_free;
 	this->fd[id].fd=-1;
 }
 
@@ -243,8 +242,7 @@ void inputkb_udev::refresh()
 			{
 				int scan=this->linuxcode_to_scan(this->fd[id].fd, bit);
 				if (scan<0) continue;
-				unsigned int kbid=this->alloc_id(this->fd[id].fd);
-				this->key_cb(kbid-1, scan, inputkb_translate_scan(scan), true);
+				this->key_cb(this->fd[id].id, scan, inputkb_translate_scan(scan), true);
 			}
 		}
 	}
@@ -262,15 +260,20 @@ int epoll_wait(int epfd, struct epoll_event *events,
 
 inputkb_udev::~inputkb_udev()
 {
-	for (unsigned int i=0;i<this->numfd;i++)
+	for (unsigned int i=1;i<this->numfd;i++)
 	{
-		if (this->fd[i].state)
+		if (this->fd[i].type!=ty_free)
 		{
-			close(this->fd[i].fd);
+			int fd=this->fd[i].fd;
 			this->fd_unwatch(i);
+			close(fd);
 		}
 	}
+	int fd=this->fd[0].fd;
+	this->fd_unwatch(0);
+	close(fd);
 	free(this->fd);
+	for (unsigned int i=0;i<ty_last;i++) free(this->fd_for_type[i]);
 }
 
 bool inputkb_udev::construct(uintptr_t windowhandle)
@@ -278,10 +281,15 @@ bool inputkb_udev::construct(uintptr_t windowhandle)
 	this->fd=NULL;
 	this->numfd=0;
 	
+	for (unsigned int i=0;i<ty_last;i++)
+	{
+		this->fd_for_type[i]=NULL;
+		this->n_of_type[i]=0;
+	}
+	
 	int inotify=inotify_init1(IN_NONBLOCK);
 	if (inotify<0) goto cancel;
-	this->fd_watch(inotify);
-	this->fd[0].state=2;
+	this->fd_watch(inotify, ty_special);
 	inotify_add_watch(inotify, udevpath, IN_CREATE);
 	
 	bool access; access=false;
@@ -292,27 +300,31 @@ bool inputkb_udev::construct(uintptr_t windowhandle)
 		{
 			struct dirent * ent=readdir(dir);
 			if (!ent) break;
+			//d_type can be DT_UNKNOWN and hide a directory, but that'll be blocked later because they don't respond to our ioctls.
 			if (ent->d_type==DT_DIR) continue;
 			access|=this->openpath(ent->d_name);
 		}
 		closedir(dir);
 		
 		//if anything happened, let's just throw it out and try again because we don't know if we got that file open.
+		//There doesn't seem to be any way to check if two fds are equivalent.
 		char buf[4096];
 		ssize_t len=read(this->fd[0].fd, buf, sizeof(buf));
 		if (len<0) break;
-		for (unsigned int i=0;i<this->numfd;i++)
+		for (unsigned int i=1;i<this->numfd;i++)
 		{
-			if (this->fd[i].state)
+			if (this->fd[i].fd!=-1)
 			{
-				close(this->fd[i].fd);
+				int fd=this->fd[i].fd;
 				this->fd_unwatch(i);
+				close(fd);
 			}
 		}
 	}
 	
-	if (!access) goto cancel;//couldn't open any devices? we probably can't access them, let's abort.
-	                         //this could be due to not having any input device plugged in, but that's not likely.
+	if (!access) goto cancel;//if we can't access anything (not even non-devices), let's abort
+	                         //there is a theoretical possibility that /dev/input/ is empty,
+	                         //but in practice, everything has at least a Power Button.
 	
 	return true;
 	
