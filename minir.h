@@ -154,25 +154,28 @@ typedef void(*funcptr)();
 //needed features:
 //                    2d input
 //       3d input   thread move?          2d input
-//             shaders                  direct output
-//   thread move?    direct output
+//             shaders                  thread move?
+//   thread move?    direct output      direct output
 //separate backend
 //thread moves are optional
 
 //The owner thread of this one is the one calling set_input_*, which may be another than the creator.
-//Additionally, set_output may be called by any thread, but only before the first draw_*, and only if no other thread is currently using it.
+//Additionally, set_output may be called by any thread, but only before the set_input_*.
 struct retro_hw_render_callback;
 struct video_shader_param;
 class video {
 	//Returns the features this driver supports. Since video drivers can be chained, the flags are in no particular order.
 	enum {
-		f_chain = 0x2000,//set_output can be called with a video*. Only true for some of them; not all have anything to offer in a chained configuration.
+		f_output= 0x4000,//set_output can be called with a uintptr_t. The threading and null drivers don't know what that does.
+		f_chain = 0x2000,//set_output can be called with a video*. Not all have anything to offer in a chained configuration.
 		f_vsync = 0x1000,//This flag only has effect if the output is a window handle.
-		f_shaders=0x0F00,//Each of these bits correspond to 256<<s_glsl/etc.
+		f_shaders=0x0F00,//Each of these bits correspond to 256<<shadertype.
 		f_3d    = 0x00FF,//Each of these bits correspond to 1<<retro_hw_context_type.
 	};
 	virtual uint32_t features() = 0;
 	
+	//The video chain must be fully constructed before this is done, including the final one with the window handle.
+	//set_input must be called only on the first one in the chain; it will call the others.
 	//Only one of set_input_2d and set_input_3d can be called, and it must be called only once.
 	//The corresponding draw_* must be used.
 	virtual void set_input_2d(unsigned int depth, double fps) = 0;
@@ -190,47 +193,54 @@ class video {
 	
 	virtual void draw_repeat() = 0;//This can be called whether this one is configured as 2d or 3d.
 	
-	enum {
-		s_glsl,
-		s_cg,
-		s_hlsl,
+	enum shadertype {
+		sh_glsl,
+		sh_cg,
+		sh_hlsl,
 	};
-	virtual bool set_shader(const char * filename) { return false; }
+	//TODO: maybe set each pass separately?
+	virtual bool set_shader(shadertype type, const char * filename) { return false; }
 	virtual video_shader_param* get_shader_params() { return NULL; }
 	virtual void set_shader_param(unsigned int index, double value) {}
 	
-	virtual void set_output(uintptr_t windowhandle, unsigned int screen_width, unsigned int screen_height) {}//Draws to the given window.
+	//Returns the last input to this object.
+	//TODO: Fill in arguments
+	virtual bool get_screenshot() { return false; }
+	//Returns the last output from this object. If shaders aren't supported or configured, it's same as input.
+	virtual bool get_screenshot_after() { return get_screenshot(); }
+	
+	virtual void set_output(unsigned int screen_width, unsigned int screen_height) {}//Draws to the window it was created with.
 	virtual void set_output(video* backend) {}//Chains the video drivers. Chaining passes bitmaps around.
 	
 	virtual ~video() = 0;
 };
-void video_copy_2d(void* dst, unsigned int dstpitch, void* src, unsigned int srcpitch, unsigned int bytes_per_line, unsigned int height);
+void video_copy_2d(void* dst, size_t dstpitch, void* src, size_t srcpitch, size_t bytes_per_line, uint32_t height);
 
 //This returns everything that's compiled in, but some may have runtime requirements that are not
 // met. Try them in order until one works. It is guaranteed that at least one of them can
 // successfully be created, but this one may not necessarily be useful.
 const char * const * video_supported_backends(uint32_t minfeatures);
-video* video_create(const char * backend);
+video* video_create(const char * backend, uintptr_t windowhandle);
 
 //TODO: D3D11?
 //TODO: D2D? Probably not.
 #ifdef VIDEO_D3D9
-video* video_create_d3d9();
+video* video_create_d3d9(uintptr_t windowhandle);
 #endif
 #ifdef VIDEO_DDRAW
-video* video_create_ddraw();
+video* video_create_ddraw(uintptr_t windowhandle);
 #endif
 #ifdef VIDEO_OPENGL
-video* video_create_opengl();
+video* video_create_opengl(uintptr_t windowhandle);
 #endif
 #ifdef VIDEO_GDI
-video* video_create_gdi();
+video* video_create_gdi(uintptr_t windowhandle);
 #endif
 #ifdef VIDEO_XSHM
-video* video_create_xshm();
+video* video_create_xshm(uintptr_t windowhandle);
 #endif
-video* video_create_none();
-video* video_create_thread();
+video* video_create_none(uintptr_t windowhandle);
+video* video_create_thread(uintptr_t windowhandle);
 
 
 

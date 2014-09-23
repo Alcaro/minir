@@ -666,7 +666,7 @@ static bool environment(unsigned cmd, void* data)
 		logcb->log=log_callback;
 		return true;
 	}
-	//28 GET_PERF_INTERFACE, ignored because (besides get_cpu_features), its only uses seem to be debugging and breaking fastforward.
+	//28 GET_PERF_INTERFACE, ignored because (besides get_cpu_features) its only uses seem to be debugging and breaking fastforward.
 	//29 GET_LOCATION_INTERFACE, ignored because we're not a phone.
 	//30 GET_CONTENT_DIRECTORY, see 9.
 	if (cmd==RETRO_ENVIRONMENT_GET_SAVE_DIRECTORY) //31
