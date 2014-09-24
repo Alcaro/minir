@@ -576,8 +576,6 @@ const char * search_get_cell(void* this_, int column, size_t row)
 
 
 
-const char * list_get_cell(struct widget_listbox * subject, size_t row, int column, void* userdata);
-
 static void list_update(struct minircheats_impl * this)
 {
 	if (this->wndlist_listbox)

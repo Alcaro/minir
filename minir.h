@@ -164,6 +164,7 @@ typedef void(*funcptr)();
 struct retro_hw_render_callback;
 struct video_shader_param;
 class video {
+public:
 	//Returns the features this driver supports. Since video drivers can be chained, the flags are in no particular order.
 	enum {
 		f_output= 0x4000,//set_output can be called with a uintptr_t. The threading and null drivers don't know what that does.
@@ -174,7 +175,7 @@ class video {
 	};
 	virtual uint32_t features() = 0;
 	
-	//The video chain must be fully constructed before this is done, including the final one with the window handle.
+	//The video chain must be fully constructed (set_output()) before this is done, including the final one with the window handle.
 	//set_input must be called only on the first one in the chain; it will call the others.
 	//Only one of set_input_2d and set_input_3d can be called, and it must be called only once.
 	//The corresponding draw_* must be used.
