@@ -172,7 +172,6 @@ bool try_set_interface_input(unsigned int id, uintptr_t windowhandle)
 {
 	inputkb* device=list_inputkb[id].create(windowhandle);
 	if (!device) return false;
-printf("using %i %s\n",id,list_inputkb[id].name);
 	if (!config.driver_inputkb || strcasecmp(config.driver_inputkb, list_inputkb[id].name))
 	{
 		free(config.driver_inputkb);
@@ -184,27 +183,19 @@ printf("using %i %s\n",id,list_inputkb[id].name);
 
 void create_interface_input(uintptr_t windowhandle)
 {
-puts("a");
 	if (config.driver_inputkb)
 	{
-puts("b");
 		for (unsigned int i=0;list_inputkb[i].name;i++)
 		{
-puts("c");
-printf("%s%s\n",config.driver_inputkb, list_inputkb[i].name);
 			if (!strcasecmp(config.driver_inputkb, list_inputkb[i].name))
 			{
-puts("d");
 				if (try_set_interface_input(i, windowhandle)) return;
-puts("e");
 				break;
 			}
 		}
 	}
-puts("f");
 	for (unsigned int id=0;true;id++)
 	{
-puts("g");
 		if (try_set_interface_input(id, windowhandle)) return;
 	}
 }
