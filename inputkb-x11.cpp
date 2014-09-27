@@ -9,8 +9,6 @@ namespace {
 
 class inputkb_x11 : public inputkb {
 public:
-	~inputkb_x11() {}
-	
 	static const uint32_t features = f_public|f_pollable|f_remote;
 	
 	void refresh() { poll(); }
@@ -26,6 +24,8 @@ public:
 			this->key_cb(0, i, inputkb_translate_scan(i), state[i>>3]&(1<<(i&7)));
 		}
 	}
+	
+	~inputkb_x11() {}
 };
 
 static inputkb* inputkb_create_x11(uintptr_t windowhandle)
