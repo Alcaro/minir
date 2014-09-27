@@ -7,7 +7,8 @@
 
 namespace {
 
-static struct inputraw * inputraw_create(const char * backend, uintptr_t windowhandle)
+/*
+struct inputraw * inputraw_create(const char * backend, uintptr_t windowhandle)
 {
 #ifdef INPUT_XINPUT2
 	if (!strcmp(backend, "XInput2")) return _inputraw_create_xinput2(windowhandle);
@@ -48,7 +49,8 @@ inputkb_compat::~inputkb_compat()
 	this->ir->free(this->ir);
 }
 
-static unsigned int return1(struct inputraw * This) { return 1; }
+unsigned int return1(struct inputraw * This) { return 1; }
+*/
 
 
 
@@ -56,9 +58,43 @@ class inputkb_none : public inputkb {
 	~inputkb_none(){}
 	uint32_t features() { return 0; }
 };
-
+inputkb* inputkb_create_none(uintptr_t windowhandle) { return new inputkb_none(); }
 };
 
+const driver_inputkb inputkb_none_desc={ "None", inputkb_create_none, 0 };
+
+extern const driver_inputkb inputkb_rawinput_desc;
+extern const driver_inputkb inputkb_udev_desc;
+extern const driver_inputkb inputkb_gdk_desc;
+extern const driver_inputkb inputkb_x11_xinput2_desc;
+extern const driver_inputkb inputkb_directinput_desc;
+extern const driver_inputkb inputkb_x11_desc;
+extern const driver_inputkb inputkb_none_desc;
+
+const driver_inputkb list_inputkb[]={
+#ifdef INPUT_RAWINPUT
+	inputkb_rawinput_desc,
+#endif
+#ifdef INPUT_UDEV
+	inputkb_udev_desc,
+#endif
+#ifdef INPUT_GDK
+	inputkb_gdk_desc,
+#endif
+//#ifdef INPUT_XINPUT2
+	//inputkb_x11_xinput2_desc,
+//#endif
+#ifdef INPUT_DIRECTINPUT
+	inputkb_directinput_desc,
+#endif
+#ifdef INPUT_X11
+	inputkb_x11_desc,
+#endif
+	inputkb_none_desc,
+	{}
+};
+
+/*
 void _inputraw_x11_keyboard_create_shared(struct inputraw * This)
 {
 	This->keyboard_num_keyboards=return1;
@@ -93,8 +129,6 @@ inputkb* inputkb_create(const char * backend, uintptr_t windowhandle)
 	return new inputkb_compat(raw);
 }
 
-inputkb* inputkb_create_none(uintptr_t windowhandle) { return new inputkb_none(); }
-
 
 
 //Keyboard driver features (in order of importance to have or not have):
@@ -127,10 +161,11 @@ const char * const * inputkb_supported_backends()
 		"X11",//no-multi no-auto initial
 #endif
 #ifdef INPUT_DIRECTINPUT
-		"DirectInput",//no-multi no-auto initial no-inputkb
+		"DirectInput",//no-multi no-auto initial
 #endif
 		"None",
 		NULL
 	};
 	return backends;
 }
+*/

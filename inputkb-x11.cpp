@@ -11,7 +11,7 @@ class inputkb_x11 : public inputkb {
 public:
 	~inputkb_x11() {}
 	
-	uint32_t features() { return f_public|f_pollable|f_remote; }
+	static const uint32_t features = f_public|f_pollable|f_remote;
 	
 	void refresh() { poll(); }
 	
@@ -28,10 +28,12 @@ public:
 	}
 };
 
-}
-
-inputkb* inputkb_create_x11(uintptr_t windowhandle)
+static inputkb* inputkb_create_x11(uintptr_t windowhandle)
 {
 	return new inputkb_x11();
 }
+
+}
+
+extern const driver_inputkb inputkb_x11_desc={ "X11", inputkb_create_x11, inputkb_x11::features };
 #endif

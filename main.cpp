@@ -168,20 +168,36 @@ bool try_create_interface_audio(const char * interface)
 	return false;
 }
 
-bool try_create_interface_inputkb(const char * interface)
+bool try_set_interface_input(unsigned int id, uintptr_t windowhandle)
 {
-	struct inputkb * inpkb=inputkb_create(interface, draw->get_window_handle());
-	if (inpkb)
+	inputkb* device=list_inputkb[id].create(windowhandle);
+	if (!device) return false;
+	if (!config.driver_inputkb || !strcasecmp(config.driver_inputkb, list_inputkb[id].name))
 	{
-		if (interface!=config.driver_inputkb)
-		{
-			free(config.driver_inputkb);
-			config.driver_inputkb=strdup(interface);
-		}
-		inp->set_keyboard(inp, inpkb);
-		return true;
+		free(config.driver_inputkb);
+		config.driver_inputkb=strdup(list_inputkb[id].name);
 	}
-	return false;
+	inp->set_keyboard(inp, device);
+	return true;
+}
+
+void create_interface_input(uintptr_t windowhandle)
+{
+	if (config.driver_inputkb)
+	{
+		for (unsigned int i=0;list_inputkb[i].name;i++)
+		{
+			if (!strcasecmp(config.driver_inputkb, list_inputkb[i].name))
+			{
+				if (try_set_interface_input(i, windowhandle)) return;
+				break;
+			}
+		}
+	}
+	for (unsigned int id=0;true;id++)
+	{
+		if (try_set_interface_input(id, windowhandle)) return;
+	}
 }
 
 void create_interfaces(unsigned int videowidth, unsigned int videoheight, unsigned int videodepth, double videofps)
@@ -208,16 +224,7 @@ void create_interfaces(unsigned int videowidth, unsigned int videoheight, unsign
 			drivers++;
 		}
 	}
-	
-	if (!config.driver_inputkb || !try_create_interface_inputkb(config.driver_inputkb))
-	{
-		const char * const * drivers=inputkb_supported_backends();
-		while (true)
-		{
-			if (try_create_interface_inputkb(*drivers)) break;
-			drivers++;
-		}
-	}
+	create_interface_input(draw->get_window_handle());
 }
 
 void reset_config()

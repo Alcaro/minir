@@ -24,7 +24,7 @@ public:
 public:
 	inputkb_gdk(uintptr_t windowhandle);
 	
-	uint32_t features() { return f_multi|f_delta|f_auto|f_public; }
+	static const uint32_t features = f_multi|f_delta|f_auto|f_public;
 	
 	//void refresh(); // we cannot poll the device
 	//void poll(); // we do this through the gtk+ main loop
@@ -182,10 +182,12 @@ inputkb_gdk::inputkb_gdk(uintptr_t windowhandle)
 	//}
 }
 
-}
-
-struct inputkb * inputkb_create_gdk(uintptr_t windowhandle)
+static struct inputkb * inputkb_create_gdk(uintptr_t windowhandle)
 {
 	return new inputkb_gdk(windowhandle);
 }
+
+}
+
+extern const driver_inputkb inputkb_gdk_desc={ "GDK", inputkb_create_gdk, inputkb_gdk::features };
 #endif

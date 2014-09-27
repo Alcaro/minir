@@ -159,11 +159,18 @@ typedef void(*funcptr)();
 //separate backend
 //thread moves are optional
 
+class video;
+struct driver_video {
+	const char * name;
+	video* create(uintptr_t windowhandle);
+	uint32_t features;
+};
+
 //The owner thread of this one is the one calling set_input_*, which may be another than the creator.
 //Additionally, set_output may be called by any thread, but only before the set_input_*.
 struct retro_hw_render_callback;
 struct video_shader_param;
-class video {
+class video : nocopy {
 public:
 	//Returns the features this driver supports. Since video drivers can be chained, the flags are in no particular order.
 	enum {
@@ -215,6 +222,7 @@ public:
 	
 	virtual ~video() = 0;
 };
+inline video::~video(){}
 void video_copy_2d(void* dst, size_t dstpitch, void* src, size_t srcpitch, size_t bytes_per_line, uint32_t height);
 
 //This returns everything that's compiled in, but some may have runtime requirements that are not
@@ -282,6 +290,13 @@ struct audio * audio_create_none(uintptr_t windowhandle, double samplerate, doub
 
 
 
+class inputkb;
+struct driver_inputkb {
+	const char * name;
+	inputkb* (*create)(uintptr_t windowhandle);
+	uint32_t features;
+};
+
 //inputkb is a quite low-level structure. You'll have to keep the state yourself.
 class inputkb : nocopy {
 protected:
@@ -305,7 +320,7 @@ public:
 		f_remote   = 0x0002,//Compatible with X11 remoting, or equivalent. Implies !f_direct.
 		f_public   = 0x0001,//Does not require elevated privileges to use.
 	};
-	virtual uint32_t features() = 0;
+	//virtual uint32_t features() = 0;
 	
 	//Returns the number of keyboards.
 	//virtual unsigned int numkb() { return 1; }
@@ -318,9 +333,13 @@ public:
 	//The implementation is allowed to call it for unchanged keys.
 	virtual void poll() {}
 	
-	virtual ~inputkb() {}
+	virtual ~inputkb() = 0;
 };
+inline inputkb::~inputkb(){}
 
+extern const driver_inputkb list_inputkb[];
+
+/*
 const char * const * inputkb_supported_backends();
 inputkb* inputkb_create(const char * backend, uintptr_t windowhandle);
 
@@ -347,13 +366,14 @@ struct inputkb* inputkb_create_rawinput(uintptr_t windowhandle);
 struct inputkb* inputkb_create_directinput(uintptr_t windowhandle);
 #endif
 
+inputkb* inputkb_create_none(uintptr_t windowhandle);
+*/
+
 //These translate hardware scancodes or virtual keycodes to libretro cores. Can return RETROK_UNKNOWN.
 //Note that "virtual keycode" is platform dependent, and because they're huge on X11, they don't exist at all there.
-void inputkb_translate_init();
+//void inputkb_translate_init();
 unsigned inputkb_translate_scan(unsigned int scancode);
 unsigned inputkb_translate_vkey(unsigned int vkey);
-
-inputkb* inputkb_create_none(uintptr_t windowhandle);
 
 
 

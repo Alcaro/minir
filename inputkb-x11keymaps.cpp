@@ -83,7 +83,7 @@ struct {
 	{ RETROK_KP_PERIOD, XK_KP_Decimal },
 };
 
-void inputkb_translate_init()
+static void init()
 {
 	if (initialized) return;
 	memset(libretrofor, 0, sizeof(libretrofor));
@@ -91,17 +91,9 @@ void inputkb_translate_init()
 	Display* display=window_x11_get_display()->display;
 	
 	
-	//This allocation may look wasteful, but we need a way to go from keysym to libretro code.
-	//Our options are allocating an array, or looping each time we need to look up something.
-	//Looping each time means map length * number of mapped keysyms = 139 * 855 (for me) = 118845. Not good.
-	//
-	//On the other hand, the cost for allocating is less than expected:
-	//Since we only use keysyms 0000..FFFF, we can ignore the rest, reducing it to 128KB.
-	//Additionally, only a few areas are written:
-	//0020..007A: various items from the ASCII table
-	//20AC: XK_EuroSign
-	//FE03..FFFF: modifier keys (Shift, Ctrl) and other nontyping keys (Insert, End, numpad)
-	//allowing the kernel can map in the zero page for the rest, for a total cost of 12KB - completely reasonable.
+	//128KB for something this simple and sparse may look weird, but the alternative is a huge loop -
+	//the iteration count is map length * number of mapped keysyms = 139 * 855 (for me) = 118845. Not good.
+	//Additionally, the sparseness allows the kernel to give us a zero page.
 	uint16_t* sym_to_libretro=calloc(65536, sizeof(uint16_t));
 	unsigned int i=sizeof(map)/sizeof(*map);
 	while (i--) sym_to_libretro[map[i].xkey]=map[i].libretro;
@@ -119,9 +111,9 @@ void inputkb_translate_init()
 	i=sym_per_code*(maxkc-minkc);
 	while (i--)
 	{
-		if (sym[i]&~0xFFFF) continue;//We don't use the extended (not-0x0000xxxx) keysyms, let's just ignore them.
+		if (sym[i]&~0xFFFF) continue;//We don't use the extended (non-0x0000xxxx) keysyms, let's just ignore them.
 		                             //If we do use them, gcc will throw a warning for constant truncation.
-		if (sym_to_libretro[sym[i]])//Ignore blanks - may yield better results on weird keyboard layouts.
+		if (sym_to_libretro[sym[i]])//Ignore blanks - may yield better results on weird keyboard layouts (e.g. Cyrillic normally, but Latin on AltGr).
 		{
 			libretrofor[minkc + i/sym_per_code]=sym_to_libretro[sym[i]];
 		}
@@ -136,6 +128,7 @@ void inputkb_translate_init()
 
 unsigned int inputkb_translate_scan(unsigned int scancode)
 {
+	if (!initialized) init();
 	return libretrofor[scancode];
 }
 

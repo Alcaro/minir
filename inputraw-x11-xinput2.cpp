@@ -4,7 +4,7 @@
 //It uses XInput directly for the actual device access. Due to the lack of event loop, it also polls
 // the entire device each frame, instead of checking for changes; I don't like allocations that run
 // each frame, but it seems unavoidable here.
-#ifdef INPUT_XINPUT2
+#ifdef INPUT_XINPUT2ggg
 #include <X11/extensions/XInput.h>
 #include <X11/extensions/XInput2.h>
 //#include <X11/extensions/XKB.h>
@@ -15,11 +15,9 @@
 #include <gdk/gdkx.h>
 #endif
 
-#define this This
+//features=f_multi|f_pollable|f_remote|f_public
 
-struct inputraw_xinput2 {
-	struct inputraw i;
-	
+class inputkb_xinput2 : nocopy {
 	Display* display;
 	Window windowhandle;
 	
@@ -31,6 +29,27 @@ struct inputraw_xinput2 {
 	unsigned int numvaliddevices;
 	int* deviceids;
 	XDevice* * devices;
+	
+public:
+	void refresh() { poll(); }
+	
+	//If f_auto is not set, this calls the callback for all key states that changed since the last poll().
+	//The implementation is allowed to call it for unchanged keys.
+	void poll()
+	{
+		
+	}
+	
+	inputkb_xinput2(uintptr_t windowhandle)
+	{
+		
+	}
+	
+	~inputkb_xinput2() {}
+};
+
+struct inputraw_xinput2 {
+	struct inputraw i;
 };
 
 static bool keyboard_poll(struct inputraw * this_, unsigned int kb_id, unsigned char * keys);
@@ -234,17 +253,8 @@ static void free_(struct inputraw * this_)
 	free(this);
 }
 
-struct inputraw * _inputraw_create_xinput2(uintptr_t windowhandle)
+inputkb* inputkb_create_xinput2(uintptr_t windowhandle)
 {
-	struct inputraw_xinput2 * this=malloc(sizeof(struct inputraw_xinput2));
-this->i.feat=inputkb::f_multi|inputkb::f_public|inputkb::f_pollable|inputkb::f_remote;
-	_inputraw_x11_keyboard_create_shared((struct inputraw*)this);
-	this->i.keyboard_num_keyboards=keyboard_num_keyboards;
-	//this->i.keyboard_num_keys=keyboard_num_keys;
-	this->i.keyboard_poll=keyboard_poll;
-	//this->i.keyboard_get_map=keyboard_get_map;
-	this->i.free=free_;
-	
 	this->display=window_x11_get_display()->display;
 	this->windowhandle=(Window)windowhandle;
 	this->numdevices=0;

@@ -71,7 +71,7 @@ public:
 	inputkb_udev() {}
 	bool construct(uintptr_t windowhandle);
 	
-	uint32_t features() { return f_multi|f_delta|(GLIB_N ? 0 : f_auto)|f_direct|f_background|f_pollable; }
+	static const uint32_t features = f_multi|f_delta|(GLIB_N ? 0 : f_auto)|f_direct|f_background|f_pollable;
 	
 	void refresh();
 #ifndef GLIB
@@ -296,6 +296,7 @@ bool inputkb_udev::construct(uintptr_t windowhandle)
 	while (true)
 	{
 		DIR* dir=opendir(udevpath);
+		//order seems to be reverse insertion order
 		while (true)
 		{
 			struct dirent * ent=readdir(dir);
@@ -332,9 +333,7 @@ cancel:
 	return false;
 }
 
-}
-
-inputkb* inputkb_create_udev(uintptr_t windowhandle)
+static inputkb* inputkb_create_udev(uintptr_t windowhandle)
 {
 	inputkb_udev* obj=new inputkb_udev();
 	if (!obj->construct(windowhandle))
@@ -344,4 +343,8 @@ inputkb* inputkb_create_udev(uintptr_t windowhandle)
 	}
 	return obj;
 }
+
+}
+
+extern const driver_inputkb inputkb_udev_desc={ "udev", inputkb_create_udev, inputkb_udev::features };
 #endif
