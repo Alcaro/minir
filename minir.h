@@ -1082,10 +1082,10 @@ struct retro_variable
    const char *value;      // Value to be obtained. If key does not exist, it is set to NULL.
 };
 
-//Proposed addition (ID and names can be changed):
+//Proposed replacement:
 
-#define RETRO_ENVIRONMENT_SET_VARIABLES_NEW -1 | RETRO_ENVIRONMENT_EXPERIMENTAL
-                                           // const struct retro_variables_new * --
+#define RETRO_ENVIRONMENT_SET_VARIABLES -1
+                                           // const struct retro_variable * --
                                            // Interface to acquire user-defined information from environment
                                            // that cannot feasibly be supported in a multi-system way.
                                            // 
@@ -1093,39 +1093,49 @@ struct retro_variable
                                            // If the frontend acknowledges this, an implementation may not use RETRO_ENVIRONMENT_SET_VARIABLES or RETRO_ENVIRONMENT_GET_VARIABLE_UPDATE. 
                                            // However, RETRO_ENVIRONMENT_GET_VARIABLE will still work.
                                            // Additionally, the core may call RETRO_ENVIRONMENT_SET_VARIABLES_NEW again during retro_run, retro_load_game, and retro_variable_new::change_notify, and may have changed some of the entries.
-                                           // However, 'name' and 'values' must be the same as for the initial call.
+                                           // However, each 'name', 'values' and 'initial' must be the same as for the initial call.
+                                           // 
+#define RETRO_ENVIRONMENT_GET_VARIABLE -1
+                                           // struct retro_variable * --
+                                           // Asks the frontend what value a variable has.
                                            // 
 
 enum retro_variable_type
 {
    RETRO_VARIABLE_TYPE_TERMINATOR, // Tells that the variable list has ended.
    RETRO_VARIABLE_TYPE_SEPARATOR,  // A separator in the list. Use to group them together. All other members are ignored for items of this type.
-   RETRO_VARIABLE_TYPE_ENUM,       // Enumeration. 'values' is const char *, with each entry separated by \n. The first value is the default. change_notify gets an unsigned int * containing the index of the relevant string.
-   RETRO_VARIABLE_TYPE_INT,        // Integer. 'values' is const int *; the first entry is the lowest valid value, the second is the highest valid value, and the third is the default value.
-   RETRO_VARIABLE_TYPE_FLOAT,      // Floating point. 'values' is const float *; same format as RETRO_VARIABLE_INT.
+   RETRO_VARIABLE_TYPE_ENUM,       // Enumeration. 'values' is const char *, with each entry separated by \n. 'initial' is a const unsigned int * containing the index of the default value.
+   RETRO_VARIABLE_TYPE_INT,        // Integer. 'values' is const int *; the first entry is the lowest valid value, the second is the highest valid value. 'initial' is also a const int *.
+   RETRO_VARIABLE_TYPE_FLOAT,      // Floating point. Same as RETRO_VARIABLE_INT, except with 'float' instead of 'int'. The frontend is responsible for calculating a reasonable step size.
+#error TODO: Decide whether FLOAT should be float or double, and if double, whether it should be named FLOAT or DOUBLE.
 };
 
 enum retro_variable_change
 {
-   RETRO_VARIABLE_CHANGE_INSTANT,     // Changes take effect at the next retro_run.
-   RETRO_VARIABLE_CHANGE_DELAYED,     // Changes take effect during retro_run, but not instantly; for example, it may be delayed until the next level is loaded.
-   RETRO_VARIABLE_CHANGE_RESET,       // Only used during retro_load_game, or possibly retro_reset.
-   RETRO_VARIABLE_CHANGE_WRONG_OPTS,  // This variable is not usable now; it is only usable if other options are changed first.
-   RETRO_VARIABLE_CHANGE_WRONG_STATE, // This variable is not usable now; it is only usable once you've progressed further in the game.
-   RETRO_VARIABLE_CHANGE_WRONG_GAME,  // This variable is not usable for this game.
+   RETRO_VARIABLE_CHANGE_INSTANT,    // Changes take effect at the next retro_run.
+   RETRO_VARIABLE_CHANGE_DELAYED,    // Changes take effect during retro_run, but not instantly; for example, it may be delayed until the next level is loaded.
+   RETRO_VARIABLE_CHANGE_RESET,      // Only used during retro_load_game, or possibly retro_reset.
+   RETRO_VARIABLE_CHANGE_WRONG_OPTS, // This variable is currently ignored; it is only usable if other options are changed first.
+   RETRO_VARIABLE_CHANGE_WRONG_GAME, // This variable is not applicable for this game.
 };
 
-struct retro_variable_new
+struct retro_variable
 {
    enum retro_variable_type type;     // Variable type. See above.
-   enum retro_variable_change change; // When the implementation will acknowledge changes to this variable.
+   enum retro_variable_change change; // When the implementation will acknowledge changes to this variable. Note that the front is allowed to change variables marked currently unusable.
 
    const char *name;                  // Variable name, to be used internally. Suitable for saving to configuration files. Example: gb_colorize
    const char *pub_name;              // Variable name, to show the user. Suitable for GUIs. Example: Game Boy colorization
    const char *description;           // Variable description. Suitable as a second line in GUIs. Example: Emulate fake colors on black&white games.
    void *values;                      // Possible values. See enum retro_variable_type for what type it has. Example: "Enabled\nDisabled"
-   
-   //Called by the frontend every time this variable changes, or NULL to ignore. Can be different for different variables. ID is the index to the array given to RETRO_ENVIRONMENT_SET_VARIABLES_NEW. Separators have IDs, but their value must not be set.
+   void *initial;                     // Default value. Example: 1
+
+   //Called by the frontend every time this variable changes, or NULL to ignore.
+   //Can be different for different variables.
+   //ID is the index to the array given to RETRO_ENVIRONMENT_SET_VARIABLES_NEW.
+   //Separators have IDs, but their value must not be set.
+   //'value' has the same type as 'default'.
+   //Can be called during RETRO_ENVIRONMENT_SET_VARIABLES.
    void (*change_notify)(unsigned int id, void *value);
 };
 */
