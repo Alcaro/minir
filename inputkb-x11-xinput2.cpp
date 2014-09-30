@@ -257,15 +257,13 @@ public:
 //	XIFreeDeviceInfo(devices);
 //}
 
-inputkb* inputkb_create_xinput2(uintptr_t windowhandle)
+static inputkb* inputkb_create_xinput2(uintptr_t windowhandle)
 {
 	int xi_opcode;
 	int event;
 	int error;
-puts("BACON");
 	if (!XQueryExtension(window_x11_get_display()->display, "XInputExtension", &xi_opcode, &event, &error)) return NULL;
 	
-puts("Eggs");
 	return new inputkb_xinput2(windowhandle);
 }
 

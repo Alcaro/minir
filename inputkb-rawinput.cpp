@@ -70,10 +70,10 @@ public:
 	void handle_event(RAWINPUT* input);
 	
 public:
+	static const uint32_t features = f_multi|f_delta|f_auto|f_direct|f_public|f_background;
+	
 	inputkb_rawinput(uintptr_t windowhandle);
 	~inputkb_rawinput();
-	
-	uint32_t features() { return f_multi|f_delta|f_auto|f_direct|f_public|f_background; }
 	
 	//void refresh(); // we cannot poll the device
 	//void poll(); // we do this through the windows main loop
@@ -251,11 +251,12 @@ inputkb_rawinput::inputkb_rawinput(uintptr_t windowhandle)
 	RegisterRawInputDevices(device, 1, sizeof(RAWINPUTDEVICE));
 }
 
-}
-
-struct inputkb * inputkb_create_rawinput(uintptr_t windowhandle)
+static inputkb* inputkb_create_rawinput(uintptr_t windowhandle)
 {
-return NULL;
 	return new inputkb_rawinput(windowhandle);
 }
+
+}
+
+extern const driver_inputkb inputkb_rawinput_desc={ "RawInput", inputkb_create_rawinput, inputkb_rawinput::features };
 #endif

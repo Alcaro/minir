@@ -182,7 +182,7 @@ inputkb_gdk::inputkb_gdk(uintptr_t windowhandle)
 	//}
 }
 
-static struct inputkb * inputkb_create_gdk(uintptr_t windowhandle)
+static inputkb* inputkb_create_gdk(uintptr_t windowhandle)
 {
 	return new inputkb_gdk(windowhandle);
 }

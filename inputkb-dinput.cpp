@@ -31,6 +31,8 @@ class inputkb_dinput : public inputkb {
 	HMODULE hDInput;
 	LPDIRECTINPUTDEVICE8 keyboard;
 public:
+	static const uint32_t features = f_public|f_pollable;
+	
 	bool construct(uintptr_t windowhandle)
 	{
 		this->keyboard=NULL;
@@ -62,8 +64,6 @@ public:
 		if (this->hDInput) FreeLibrary(this->hDInput);
 	}
 	
-	uint32_t features() { return f_public|f_pollable; }
-	
 	void refresh() { poll(); }
 	
 	void poll()
@@ -81,9 +81,7 @@ public:
 	}
 };
 
-}
-
-inputkb* inputkb_create_directinput(uintptr_t windowhandle)
+static inputkb* inputkb_create_dinput(uintptr_t windowhandle)
 {
 	inputkb_dinput* ret=new inputkb_dinput();
 	if (!ret->construct(windowhandle))
@@ -93,4 +91,8 @@ inputkb* inputkb_create_directinput(uintptr_t windowhandle)
 	}
 	return ret;
 }
+
+}
+
+extern const driver_inputkb inputkb_directinput_desc={ "DirectInput", inputkb_create_dinput, inputkb_dinput::features };
 #endif

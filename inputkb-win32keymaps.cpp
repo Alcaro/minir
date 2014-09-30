@@ -103,10 +103,8 @@ static bool initialized=false;
 static unsigned int sc_to_libretro[256];
 static unsigned int vk_to_libretro[256];
 
-void inputkb_translate_init()
+static void init()
 {
-	if (initialized) return;
-	
 	for (unsigned int i=0;i<256;i++) sc_to_libretro[i]=0;
 	for (unsigned int i=0;i<256;i++) vk_to_libretro[i]=0;
 	
@@ -126,11 +124,13 @@ void inputkb_translate_init()
 
 unsigned int inputkb_translate_scan(unsigned int scancode)
 {
+	if (!initialized) init();
 	return sc_to_libretro[scancode];
 }
 
 unsigned int inputkb_translate_vkey(unsigned int vkey)
 {
+	if (!initialized) init();
 	return vk_to_libretro[vkey];
 }
 #endif

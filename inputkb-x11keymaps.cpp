@@ -85,7 +85,6 @@ struct {
 
 static void init()
 {
-	if (initialized) return;
 	memset(libretrofor, 0, sizeof(libretrofor));
 	
 	Display* display=window_x11_get_display()->display;
@@ -93,7 +92,7 @@ static void init()
 	
 	//128KB for something this simple and sparse may look weird, but the alternative is a huge loop -
 	//the iteration count is map length * number of mapped keysyms = 139 * 855 (for me) = 118845. Not good.
-	//Additionally, the sparseness allows the kernel to give us a zero page.
+	//Additionally, the sparseness allows the kernel to give us a zero page a couple of times.
 	uint16_t* sym_to_libretro=calloc(65536, sizeof(uint16_t));
 	unsigned int i=sizeof(map)/sizeof(*map);
 	while (i--) sym_to_libretro[map[i].xkey]=map[i].libretro;
