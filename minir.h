@@ -1090,9 +1090,7 @@ struct retro_variable
                                            // that cannot feasibly be supported in a multi-system way.
                                            // 
                                            // The first call must be from retro_set_environment or retro_init.
-                                           // If the frontend acknowledges this, an implementation may not use RETRO_ENVIRONMENT_SET_VARIABLES or RETRO_ENVIRONMENT_GET_VARIABLE_UPDATE. 
-                                           // However, RETRO_ENVIRONMENT_GET_VARIABLE will still work.
-                                           // Additionally, the core may call RETRO_ENVIRONMENT_SET_VARIABLES_NEW again during retro_run, retro_load_game, and retro_variable_new::change_notify, and may have changed some of the entries.
+                                           // Additionally, the core may call RETRO_ENVIRONMENT_SET_VARIABLES again during retro_run, retro_load_game, and retro_variable_new::change_notify, and may have changed some of the entries.
                                            // However, each 'name', 'values' and 'initial' must be the same as for the initial call.
                                            // 
 #define RETRO_ENVIRONMENT_GET_VARIABLE -1
@@ -1115,7 +1113,7 @@ enum retro_variable_change
    RETRO_VARIABLE_CHANGE_INSTANT,    // Changes take effect at the next retro_run.
    RETRO_VARIABLE_CHANGE_DELAYED,    // Changes take effect during retro_run, but not instantly; for example, it may be delayed until the next level is loaded.
    RETRO_VARIABLE_CHANGE_RESET,      // Only used during retro_load_game, or possibly retro_reset.
-   RETRO_VARIABLE_CHANGE_WRONG_OPTS, // This variable is currently ignored; it is only usable if other options are changed first.
+   RETRO_VARIABLE_CHANGE_WRONG_OPTS, // This variable is currently ignored; it is only usable if other options are changed first. If they are, RETRO_ENVIRONMENT_SET_VARIABLES must be called again.
    RETRO_VARIABLE_CHANGE_WRONG_GAME, // This variable is not applicable for this game.
 };
 
@@ -1127,12 +1125,12 @@ struct retro_variable
    const char *name;                  // Variable name, to be used internally. Suitable for saving to configuration files. Example: gb_colorize
    const char *pub_name;              // Variable name, to show the user. Suitable for GUIs. Example: Game Boy colorization
    const char *description;           // Variable description. Suitable as a second line in GUIs. Example: Emulate fake colors on black&white games.
-   void *values;                      // Possible values. See enum retro_variable_type for what type it has. Example: "Enabled\nDisabled"
+   void *values;                      // Possible values. See enum retro_variable_type for what type it has. Example: Enabled\nDisabled
    void *initial;                     // Default value. Example: 1
 
    //Called by the frontend every time this variable changes, or NULL to ignore.
    //Can be different for different variables.
-   //ID is the index to the array given to RETRO_ENVIRONMENT_SET_VARIABLES_NEW.
+   //ID is the index to the array given to RETRO_ENVIRONMENT_SET_VARIABLES.
    //Separators have IDs, but their value must not be set.
    //'value' has the same type as 'default'.
    //Can be called during RETRO_ENVIRONMENT_SET_VARIABLES.
