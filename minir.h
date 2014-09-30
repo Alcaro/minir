@@ -1094,7 +1094,7 @@ struct retro_variable
                                            // However, each 'name', 'values' and 'initial' must be the same as for the initial call.
                                            // 
 #define RETRO_ENVIRONMENT_GET_VARIABLE -1
-                                           // struct retro_variable * --
+                                           // struct retro_variable_query * --
                                            // Asks the frontend what value a variable has.
                                            // 
 
@@ -1135,5 +1135,11 @@ struct retro_variable
    //'value' has the same type as 'default'.
    //Can be called during RETRO_ENVIRONMENT_SET_VARIABLES.
    void (*change_notify)(unsigned int id, void *value);
+};
+
+struct retro_variable_query
+{
+   unsigned int id; // Same ID as in change_notify. Core sets this before calling GET_VARIABLE.
+   void *value;     // Same type as initial and change_notify. Front sets this.
 };
 */
