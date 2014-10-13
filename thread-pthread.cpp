@@ -12,13 +12,12 @@
 //list of synchronization points: http://pubs.opengroup.org/onlinepubs/009695399/basedefs/xbd_chap04.html#tag_04_10
 
 struct threaddata_pthread {
-	void(*startpos)(void* userdata);
-	void* userdata;
+	function<void()> func;
 };
 static void * threadproc(void * userdata)
 {
 	struct threaddata_pthread * thdat=(struct threaddata_pthread*)userdata;
-	thdat->startpos(thdat->userdata);
+	thdat->func();
 	free(thdat);
 	return NULL;
 }

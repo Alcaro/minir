@@ -1,8 +1,6 @@
 #include "minir.h"
 #include <stdlib.h>
 
-#define this This
-
 #ifdef DYLIB_POSIX
 #include <dlfcn.h>
 #endif
@@ -15,79 +13,48 @@
 #define bind BIND_CB
 #endif
 
-struct dylib_impl {
-	struct dylib i;
-	
-#ifdef DYLIB_POSIX
-	void* lib;
-#endif
-#ifdef DYLIB_WIN32
-	HMODULE lib;
-#endif
-	bool owned;
-};
-
-static bool void_true(struct dylib * this)
+void* dylib::sym_ptr(const char * name)
 {
-	return true;
-}
-
-static bool void_false(struct dylib * this)
-{
-	return false;
-}
-
-static void* sym_ptr(struct dylib * this_, const char * name)
-{
-	struct dylib_impl * this=(struct dylib_impl*)this_;
 #ifdef DYLIB_POSIX
 	return dlsym(this->lib, name);
 #endif
 #ifdef DYLIB_WIN32
-	return (void*)GetProcAddress(this->lib, name);
+	return (void*)GetProcAddress((HMODULE)this->lib, name);
 #endif
 }
 
-static funcptr sym_func(struct dylib * this_, const char * name)
+funcptr dylib::sym_func(const char * name)
 {
-	struct dylib_impl * this=(struct dylib_impl*)this_;
 #ifdef DYLIB_POSIX
 	funcptr ret;
 	*(void**)(&ret)=dlsym(this->lib, name);
 	return ret;
 #endif
 #ifdef DYLIB_WIN32
-	return (funcptr)GetProcAddress(this->lib, name);
+	return (funcptr)GetProcAddress((HMODULE)this->lib, name);
 #endif
 }
 
-static void free_(struct dylib * this_)
+dylib::~dylib()
 {
-	struct dylib_impl * this=(struct dylib_impl*)this_;
 #ifdef DYLIB_POSIX
 	if (this->lib) dlclose(this->lib);
 #endif
 #ifdef DYLIB_WIN32
-	if (this->lib) FreeLibrary(this->lib);
+	if (this->lib) FreeLibrary((HMODULE)this->lib);
 #endif
-	free(this);
 }
 
-struct dylib * dylib_create(const char * filename)
+dylib::dylib(const char * filename)
 {
-	struct dylib_impl * this=malloc(sizeof(struct dylib_impl));
-	this->i.sym_ptr=sym_ptr;
-	this->i.sym_func=sym_func;
-	this->i.free=free_;
-	
 #ifdef DYLIB_POSIX
 	this->lib=dlopen(filename, RTLD_LAZY|RTLD_NOLOAD);
-	this->i.owned=(this->lib ? void_false : void_true);
+	this->owned_=(!this->lib);
 	if (!this->lib) this->lib=dlopen(filename, RTLD_LAZY);
 #endif
 #ifdef DYLIB_WIN32
-	if (!GetModuleHandleEx(0, filename, &this->lib)) this->lib=NULL;
-	this->i.owned=(this->lib ? void_false : void_true);
+	if (!GetModuleHandleEx(0, filename, (HMODULE*)&this->lib)) this->lib=NULL;
+	this->owned_=(!this->lib);
 	
 	if (!this->lib)
 	{
@@ -99,17 +66,21 @@ struct dylib * dylib_create(const char * filename)
 		SetDllDirectory(filename_copy);
 		free(filename_copy);
 		
-		if (!this->lib) this->lib=LoadLibrary(filename);
+		if (!this->lib) this->lib=(HMODULE)LoadLibrary(filename);
 		SetDllDirectory(NULL);
 	}
 #endif
-	
-	if (!this->lib) goto cancel;
-	return (struct dylib*)this;
-	
-cancel:
-	free_((struct dylib*)this);
-	return NULL;
+}
+
+dylib* dylib_create(const char * filename)
+{
+	dylib* ret=new dylib(filename);
+	if (!ret->lib)
+	{
+		delete ret;
+		return NULL;
+	}
+	return ret;
 }
 
 const char * dylib_ext()

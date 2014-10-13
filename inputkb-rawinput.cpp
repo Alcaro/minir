@@ -130,6 +130,7 @@ void inputkb_rawinput::handle_event(RAWINPUT* input)
 		USHORT flags=input->data.keyboard.Flags;
 		USHORT vkey=input->data.keyboard.VKey;
 		
+//printf("%.4X %.4X %.4X\n",scan,flags,vkey);
 		//mostly copypasta from http://molecularmusings.wordpress.com/2011/09/05/properly-handling-keyboard-input/
 		//ignore vkey=0xFF scan=0x45, we get one with vkey=VK_PAUSE scan=0x1D at the same time which we do handle.
 		if (vkey!=0xFF)
@@ -166,6 +167,7 @@ void inputkb_rawinput::handle_event(RAWINPUT* input)
 				if (vkey==VK_CLEAR) vkey=VK_NUMPAD5;
 			}
 			
+			//TODO: figure out if happy dude key can be sent here while ignoring fake keys from SysRq/Pause/Ins/Del/etc.
 			this->key_cb(deviceid, scan, inputkb_translate_vkey(vkey), !(flags&RI_KEY_BREAK));
 		}
 		

@@ -6,26 +6,22 @@
 #include <stdlib.h>
 #include <string.h>
 
-#define this This
-
 //list of synchronization points: http://msdn.microsoft.com/en-us/library/windows/desktop/ms686355%28v=vs.85%29.aspx
 
 struct threaddata_win32 {
-	void(*startpos)(void* userdata);
-	void* userdata;
+	function<void()> func;
 };
 static DWORD WINAPI ThreadProc(LPVOID lpParameter)
 {
 	struct threaddata_win32 * thdat=(struct threaddata_win32*)lpParameter;
-	thdat->startpos(thdat->userdata);
+	thdat->func();
 	free(thdat);
 	return 0;
 }
-void thread_create(void(*startpos)(void* userdata), void* userdata)
+void thread_create(function<void()> func)
 {
 	struct threaddata_win32 * thdat=malloc(sizeof(struct threaddata_win32));
-	thdat->startpos=startpos;
-	thdat->userdata=userdata;
+	thdat->func=func;
 	
 	//CreateThread is not listed as a synchronization point; it probably is, but I'd rather use a pointless
 	// operation than risk a really annoying bug. It's lightweight compared to creating a thread, anyways.
@@ -40,19 +36,6 @@ void thread_create(void(*startpos)(void* userdata), void* userdata)
 	CloseHandle(h);
 }
 
-/*
-#include <process.h>
-void thread_create(void(*startpos)(void* userdata), void* userdata)
-{
-	//MemoryBarrier();//gcc lacks this, and msvc lacks the gcc builtin I could use instead.
-	//And of course my gcc supports only ten out of the 137 InterlockedXxx functions. Let's pick the simplest one...
-	LONG ignored=0;
-	InterlockedIncrement(&ignored);
-	
-	_beginthread(startpos, 0, userdata);
-}
-*/
-
 unsigned int thread_ideal_count()
 {
 	SYSTEM_INFO sysinf;
@@ -61,122 +44,62 @@ unsigned int thread_ideal_count()
 }
 
 
-struct mutex_win32 {
-	struct mutex i;
-	
-	CRITICAL_SECTION cs;
-};
 
-static void mutex_lock(struct mutex * this_)
+mutex::mutex()
 {
-	struct mutex_win32 * this=(struct mutex_win32*)this_;
-	EnterCriticalSection(&this->cs);
+	this->data=malloc(sizeof(CRITICAL_SECTION));
+	InitializeCriticalSection((CRITICAL_SECTION*)this->data);
 }
 
-static bool mutex_try_lock(struct mutex * this_)
-{
-	struct mutex_win32 * this=(struct mutex_win32*)this_;
-	return TryEnterCriticalSection(&this->cs);
-}
+void mutex::lock() { EnterCriticalSection((CRITICAL_SECTION*)this->data); }
+bool mutex::try_lock() { return TryEnterCriticalSection((CRITICAL_SECTION*)this->data); }
+void mutex::unlock() { LeaveCriticalSection((CRITICAL_SECTION*)this->data); }
 
-static void mutex_unlock(struct mutex * this_)
+mutex::~mutex()
 {
-	struct mutex_win32 * this=(struct mutex_win32*)this_;
-	LeaveCriticalSection(&this->cs); 
-}
-
-static void mutex_free_(struct mutex * this_)
-{
-	struct mutex_win32 * this=(struct mutex_win32*)this_;
-	DeleteCriticalSection(&this->cs);
-	free(this);
-}
-
-const struct mutex mutex_win32_base = {
-	mutex_lock, mutex_try_lock, mutex_unlock, mutex_free_
-};
-struct mutex * mutex_create()
-{
-	struct mutex_win32 * this=malloc(sizeof(struct mutex_win32));
-	memcpy(&this->i, &mutex_win32_base, sizeof(struct mutex));
-	
-	InitializeCriticalSection(&this->cs);
-	
-	return (struct mutex*)this;
+	DeleteCriticalSection((CRITICAL_SECTION*)this->data);
+	free(this->data);
 }
 
 
-struct event_win32 {
-	struct event i;
-	
-	HANDLE h;
-	LONG count;
-};
+event::event() { data=(void*)CreateEvent(NULL, false, false, NULL); }
+void event::signal() { SetEvent((HANDLE)this->data); }
+void event::wait() { WaitForSingleObject((HANDLE)this->data, INFINITE); }
+bool event::signalled() { if (WaitForSingleObject((HANDLE)this->data, 0)==WAIT_OBJECT_0) { SetEvent((HANDLE)this->data); return true; } else return false; }
+event::~event() { CloseHandle((HANDLE)this->data); }
 
-static void event_signal(struct event * this_)
+
+multievent::multievent()
 {
-	struct event_win32 * this=(struct event_win32*)this_;
-	InterlockedIncrement(&this->count);
-	ReleaseSemaphore(this->h, 1, NULL);
+	this->data=(void*)CreateSemaphore(NULL, 0, 127, NULL);
+	this->n_count=0;
 }
 
-static void event_wait(struct event * this_)
+void multievent::signal(unsigned int count)
 {
-	struct event_win32 * this=(struct event_win32*)this_;
-	InterlockedDecrement(&this->count);
-	WaitForSingleObject(this->h, INFINITE);
+	InterlockedExchangeAdd((volatile unsigned int*)&this->n_count, count);
+	ReleaseSemaphore((HANDLE)this->data, count, NULL);
 }
 
-static void event_multisignal(struct event * this_, unsigned int count)
+void multievent::wait(unsigned int count)
 {
-	struct event_win32 * this=(struct event_win32*)this_;
-	if (!count) return;
-	InterlockedExchangeAdd(&this->count, count);
-	ReleaseSemaphore(this->h, count, NULL);
-}
-
-static void event_multiwait(struct event * this_, unsigned int count)
-{
-	struct event_win32 * this=(struct event_win32*)this_;
-	InterlockedExchangeAdd(&this->count, -(LONG)count);
+	InterlockedExchangeAdd((volatile unsigned int*)&this->n_count, -(LONG)count);
 	while (count)
 	{
-		WaitForSingleObject(this->h, INFINITE);
+		WaitForSingleObject((HANDLE)this->data, INFINITE);
 		count--;
 	}
 }
 
-static int event_count(struct event * this_)
+signed int multievent::count()
 {
-	struct event_win32 * this=(struct event_win32*)this_;
-	return InterlockedCompareExchange(&this->count, 0, 0);
+	return InterlockedCompareExchange((volatile unsigned int*)&this->n_count, 0, 0);
 }
 
-static void event_free_(struct event * this_)
-{
-	struct event_win32 * this=(struct event_win32*)this_;
-	CloseHandle(this->h);
-	free(this);
-}
-
-struct event * event_create()
-{
-	struct event_win32 * this=malloc(sizeof(struct event_win32));
-	this->i.signal=event_signal;
-	this->i.wait=event_wait;
-	this->i.multisignal=event_multisignal;
-	this->i.multiwait=event_multiwait;
-	this->i.count=event_count;
-	this->i.free=event_free_;
-	
-	this->h=CreateSemaphore(NULL, 0, 127, NULL);
-	this->count=0;
-	
-	return (struct event*)this;
-}
+multievent::~multievent() { CloseHandle((HANDLE)this->data); }
 
 
-unsigned int lock_incr(unsigned int * val) { return InterlockedIncrement((LONG*)val)-1; }
-unsigned int lock_decr(unsigned int * val) { return InterlockedDecrement((LONG*)val)+1; }
-unsigned int lock_read(unsigned int * val) { return InterlockedCompareExchange((LONG*)val, 0, 0); }
+uint32_t lock_incr(uint32_t * val) { return InterlockedIncrement((LONG*)val)-1; }
+uint32_t lock_decr(uint32_t * val) { return InterlockedDecrement((LONG*)val)+1; }
+uint32_t lock_read(uint32_t * val) { return InterlockedCompareExchange((LONG*)val, 0, 0); }
 #endif

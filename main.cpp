@@ -7,46 +7,16 @@
 #include <ctype.h>
 #include <time.h>
 
-#define VERSION "0.90"
+#define VERSION "0.91"
 
 //yes, this file is a mess; the plan is to rewrite it from scratch.
 
-extern void unalign_lock();
-extern void unalign_unlock();
-#if __x86_64__
-__asm__(
-	"unalign_lock:\n"
-	"pushf\n"
-	"movl $(1<<18),%eax\n"
-	"orl %eax,(%rsp)\n"
-	"popf\n"
-	"ret\n"
-	
-	"unalign_unlock:\n"
-	"pushf\n"
-	"movl $(~(1<<18)),%eax\n"
-	"andl %eax,(%rsp)\n"
-	"popf\n"
-	"ret\n"
-	);
-#elif __i386__
-__asm__(
-	"_unalign_lock:\n"
-	"pushf\n"
-	"movl $(1<<18),%eax\n"
-	"orl %eax,(%esp)\n"
-	"popf\n"
-	"ret\n"
-	
-	"_unalign_unlock:\n"
-	"pushf\n"
-	"movl $(~(1<<18)),%eax\n"
-	"andl %eax,(%esp)\n"
-	"popf\n"
-	"ret\n"
-	);
+#if __i386__ || __x86_64__
+#include <x86intrin.h>
+void unalign_lock()   { __writeeflags(__readeflags()| (1<<18)); }
+void unalign_unlock() { __writeeflags(__readeflags()&~(1<<18)); }
 #else
-void unalign_lock() {}
+void unalign_lock()   {}
 void unalign_unlock() {}
 #endif
 
@@ -61,7 +31,7 @@ static inline void shutupgcc(int x){}
 #define asprintf(...) shutupgcc(asprintf(__VA_ARGS__))
 #endif
 
-struct cvideo * vid;
+video* vid;
 struct audio * aud;
 struct inputmapper * inp;
 struct libretroinput * retroinp;
@@ -134,22 +104,48 @@ struct configdata config;
 
 
 
-bool try_create_interface_video(const char * interface, unsigned int videowidth, unsigned int videoheight,
-                                                        unsigned int videodepth, double videofps)
+bool try_set_interface_video(unsigned int id, uintptr_t windowhandle,
+                             unsigned int videowidth, unsigned int videoheight, unsigned int videodepth, double videofps)
 {
-	vid=(config.video_thread ? cvideo_create_thread : cvideo_create)(interface, draw->get_window_handle(),
-	                   videowidth*config.video_scale, videoheight*config.video_scale, videodepth, videofps);
-//printf("create %s = %p\n",interface,vid);
-	if (vid)
+	video* device=list_video[id].create(windowhandle);
+	if (!device) return false;
+	if (!config.driver_video || strcasecmp(config.driver_video, list_video[id].name))
 	{
-		if (interface!=config.driver_video)//yes, this should compare pointers instead of pointer contents; config.driver_video can be NULL, and setting a string to itself does no harm
-		{
-			free(config.driver_video);
-			config.driver_video=strdup(interface);
-		}
-		return true;
+		free(config.driver_video);
+		config.driver_video=strdup(list_video[id].name);
 	}
-	return false;
+	vid=device;
+	
+	vid->set_output(videowidth*config.video_scale, videoheight*config.video_scale);
+	if (config.video_thread)
+	{
+		video* outer=video_create_thread();
+		outer->set_output(vid);
+		vid=outer;
+	}
+	vid->set_input_2d(videodepth, videofps);
+	
+	return true;
+}
+
+void create_interface_video(uintptr_t windowhandle, unsigned int videowidth, unsigned int videoheight,
+                                                    unsigned int videodepth, double videofps)
+{
+	if (config.driver_video)
+	{
+		for (unsigned int i=0;list_video[i].name;i++)
+		{
+			if (!strcasecmp(config.driver_video, list_video[i].name))
+			{
+				if (try_set_interface_video(i, windowhandle, videowidth, videoheight, videodepth, videofps)) return;
+				break;
+			}
+		}
+	}
+	for (unsigned int id=0;true;id++)
+	{
+		if (try_set_interface_video(id, windowhandle, videowidth, videoheight, videodepth, videofps)) return;
+	}
 }
 
 bool try_create_interface_audio(const char * interface)
@@ -202,18 +198,10 @@ void create_interface_input(uintptr_t windowhandle)
 
 void create_interfaces(unsigned int videowidth, unsigned int videoheight, unsigned int videodepth, double videofps)
 {
-	if (vid) vid->free(vid); vid=NULL;
+	if (vid) delete vid; vid=NULL;
 	if (aud) aud->free(aud); aud=NULL;
 	
-	if (!config.driver_video || !try_create_interface_video(config.driver_video, videowidth, videoheight, videodepth, videofps))
-	{
-		const char * const * drivers=cvideo_supported_backends();
-		while (true)
-		{
-			if (try_create_interface_video(*drivers, videowidth, videoheight, videodepth, videofps)) break;
-			drivers++;
-		}
-	}
+	create_interface_video(draw->get_window_handle(), videowidth, videoheight, videodepth, videofps);
 	
 	if (!config.driver_audio || !try_create_interface_audio(config.driver_audio))
 	{
@@ -251,7 +239,7 @@ void reset_config()
 printf("Chosen drivers: %s, %s, %s\n", config.driver_video, config.driver_audio, config.driver_inputkb);
 	
 	aud->set_sync(aud, config.audio_sync);
-	vid->set_sync(vid, config.video_sync);
+	vid->set_vsync(config.video_sync);
 	
 	if (config.savestate_disable || !config.rewind_enable)
 	{
@@ -860,10 +848,19 @@ const char * get_screenshot_path()
 }
 
 bool create_screenshot()
-{{
+{
+	void* freethis=NULL;
+{
 	struct image img;
-	vid->repeat_frame(vid, &img.width, &img.height, (const void**)&img.pixels, &img.pitch, &img.bpp);
-	if (!img.pixels) goto bad;
+	size_t minsize=0;
+	video::screenshottype ret=vid->get_screenshot(&img.width, &img.height, &img.pitch, &img.bpp, &img.pixels, &minsize);
+	if (ret==video::sc_toosmall)
+	{
+		img.pixels=malloc(minsize);
+		freethis=img.pixels;
+		ret=vid->get_screenshot(&img.width, &img.height, &img.pitch, &img.bpp, &img.pixels, &minsize);
+	}
+	if (ret!=video::sc_false) goto bad;
 	void* pngdata;
 	unsigned int pnglen;
 	
@@ -875,23 +872,21 @@ bool create_screenshot()
 	         "minir v"VERSION"\ncore: %s (%s)\ngame: %s (%s)",
 	         config.corename, coreloaded, config.gamename, romloaded);
 	
-	if (!png_encode(&img, comments, &pngdata, &pnglen))
-	{
-		free((char*)comments[1]);
-		goto bad;
-	}
+	bool ok;
+	ok=png_encode(&img, comments, &pngdata, &pnglen);
 	free((char*)comments[1]);
-	if (!file_write(get_screenshot_path(), pngdata, pnglen))
-	{
-		free(pngdata);
-		goto bad;
-	}
-	free(pngdata);
+	if (!ok) goto bad;
 	
+	ok=file_write(get_screenshot_path(), pngdata, pnglen);
+	free(pngdata);
+	if (!ok) goto bad;
+	
+	free(freethis);
 	set_status_bar("Screenshot saved");
 	return true;
 }
 bad:
+	free(freethis);
 	set_status_bar("Couldn't save screenshot");
 	return false;
 }
@@ -1135,7 +1130,7 @@ void do_hotkeys(bool * skip_frame, bool * count_skipped_frame)
 	if (turbo!=lastturbo)
 	{
 		aud->set_sync(aud, config.audio_sync && !turbo);
-		vid->set_sync(vid, config.video_sync && !turbo);
+		vid->set_vsync(config.video_sync && !turbo);
 		
 		if (turbo) rewind_timer=config.rewind_granularity_turbo;
 		else rewind_timer=config.rewind_granularity;
@@ -1172,7 +1167,7 @@ void do_hotkeys(bool * skip_frame, bool * count_skipped_frame)
 	if (speed_change>0 && !*skip_frame)
 	{
 		speed_change_num_blanks=(speed_change_num_blanks+1)%(speed_change+1);
-		if (!turbo) vid->set_sync(vid, (speed_change_num_blanks==0) && config.video_sync);
+		if (!turbo) vid->set_vsync((speed_change_num_blanks==0) && config.video_sync);
 	}
 	
 	if (inp->button(inp, input_savestate_manager, true)) create_state_manager();
@@ -1232,11 +1227,7 @@ if(skip_frame&&!count_skipped_frame)i--;
 			}
 			else
 			{
-				unsigned int width;
-				unsigned int height;
-				unsigned int pitch;
-				vid->repeat_frame(vid, &width, &height, NULL, &pitch, NULL);
-				vid->draw(vid, width, height, NULL, pitch);//skip reuploading the texture; why would we?
+				vid->draw_repeat();
 			}
 		}
 		
@@ -1284,7 +1275,7 @@ void deinit()
 	
 	free(state_buf);
 	
-	vid->free(vid); vid=NULL;
+	delete vid; vid=NULL;
 	aud->free(aud); aud=NULL;
 	inp->free(inp); inp=NULL;
 	retroinp->free(retroinp); retroinp=NULL;

@@ -381,4 +381,11 @@ cancel:
 	free_((struct video*)this);
 	return NULL;
 }
+
+#undef video
+static video* video_create_d3d9(uintptr_t windowhandle)
+{
+	return video_create_compat(bind(cvideo_create_d3d9), windowhandle);
+}
+extern const driver_video video_d3d9_desc = {"Direct3D", video_create_d3d9, video::f_vsync};
 #endif

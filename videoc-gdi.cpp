@@ -181,4 +181,11 @@ cancel:
 	free_((struct video*)this);
 	return NULL;
 }
+
+#undef video
+static video* video_create_gdi(uintptr_t windowhandle)
+{
+	return video_create_compat(bind(cvideo_create_gdi), windowhandle);
+}
+extern const driver_video video_gdi_desc = {"GDI", video_create_gdi, 0};
 #endif

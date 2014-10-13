@@ -2,10 +2,10 @@
 //with a number of changes:
 //- Callback was renamed to function, and the namespace was removed.
 //- BIND_FREE_CB/BIND_MEM_CB were combined to a single bind(), by using the C99 preprocessor's __VA_ARGS__.
-//- Instead of the thousand lines of copypasta, the implementations were merged by using some preprocessor macros.
+//- Instead of the thousand lines of copypasta, the implementations were merged by using some preprocessor macros and having the file include itself.
 //- The Arity, ReturnType and ParamNType constants/typedefs were removed.
 //- NullCallback was replaced with support for plain NULL, by implicitly casting the NULL to a pointer to a private class.
-//- BoundCallbackFactory and bind_arg was added, as a compatibility aid for the C++ conversion.
+//- BoundCallbackFactory and bind_arg was added. It's useful for legacy C-like code, and some other cases.
 //- Made it safe to call an unassigned object. (Unassigned objects are still false.)
 
 //List of libraries that do roughly the same thing:
@@ -26,6 +26,7 @@
 #define BIND_CB_PTR(func, arg) (GetBoundCallbackFactory(func).Bind<func>(arg))
 #define bind BIND_CB
 #define bind_ptr BIND_CB_PTR
+#define bind_this(func) BIND_CB(func, this)
 
 template<typename FuncSignature> class function;
 

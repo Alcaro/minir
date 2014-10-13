@@ -92,12 +92,8 @@ public:
 };
 
 
-struct driverlist {
-	const char * name;
-};
-
-
 #include "window.h"
+#include "image.h"
 
 //If an interface specifies cases where only a subset of the functions may be called, free() is
 // always allowed, unless it specifically mentions free().
@@ -162,24 +158,26 @@ typedef void(*funcptr)();
 class video;
 struct driver_video {
 	const char * name;
-	video* create(uintptr_t windowhandle);
+	video* (*create)(uintptr_t windowhandle);
 	uint32_t features;
 };
 
 //The owner thread of this one is the one calling set_input_*, which may be another than the creator.
-//Additionally, set_output may be called by any thread, but only before the set_input_*.
+//Additionally, set_output may be called by any thread, but only before the set_input_*. set_output must, of course, return before entry to set_input.
 struct retro_hw_render_callback;
 struct video_shader_param;
 class video : nocopy {
 public:
-	//Returns the features this driver supports. Since video drivers can be chained, the flags are in no particular order.
+	//Returns the features this driver supports. Since video drivers can be chained, no combination is superior, and the flags are in no particular order.
 	enum {
-		f_output= 0x4000,//set_output can be called with a uintptr_t. The threading and null drivers don't know what that does.
-		f_chain = 0x2000,//set_output can be called with a video*. Not all have anything to offer in a chained configuration.
-		f_vsync = 0x1000,//This flag only has effect if the output is a window handle.
-		f_shaders=0x0F00,//Each of these bits correspond to 256<<shadertype.
-		f_3d    = 0x00FF,//Each of these bits correspond to 1<<retro_hw_context_type.
+		f_sshot_f=0x00008000,//get_screenshot will return a pointer, and not copy stuff. This is faster.
+		f_sshot = 0x00004000,//get_screenshot is implemented. If f_shaders is set, get_screenshot_after is also implemented.
+		f_chain = 0x00002000,//set_output can be called with a video*. Some of them can't do any filtering, so they refuse to be chained.
+		f_vsync = 0x00001000,//Can vsync. Only applies if the output is a window handle.
+		f_shaders=0x00000F00,//Each of these bits correspond to 256<<shadertype.
+		f_3d    = 0x000000FF,//Each of these bits correspond to 1<<retro_hw_context_type.
 	};
+	//Some features may claim to be implemented in the specification array, but depend on better runtime libraries than they actually have.
 	virtual uint32_t features() = 0;
 	
 	//The video chain must be fully constructed (set_output()) before this is done, including the final one with the window handle.
@@ -199,8 +197,16 @@ public:
 	virtual funcptr input_3d_get_proc_address(const char *sym) { return NULL; }
 	virtual void draw_3d(unsigned int width, unsigned int height) {}
 	
-	virtual void draw_repeat() = 0;//This can be called whether this one is configured as 2d or 3d.
+	//This repeats the last drawn frame until the next vblank. If the device does not vsync, it does nothing.
+	//It can be called whether this one is configured as 2d or 3d.
+	virtual void draw_repeat() = 0;
 	
+	//This should be called on the front device. Chaining devices should pass it on.
+	//A thread-pass device must switch to the destination thread before calling this.
+	//Defaults to off.
+	virtual void set_vsync(bool sync) {}
+	
+	//Shaders can only be set once the driver chain is created.
 	enum shadertype {
 		sh_glsl,
 		sh_cg,
@@ -211,20 +217,40 @@ public:
 	virtual video_shader_param* get_shader_params() { return NULL; }
 	virtual void set_shader_param(unsigned int index, double value) {}
 	
-	//Returns the last input to this object.
-	//TODO: Fill in arguments
-	virtual bool get_screenshot() { return false; }
-	//Returns the last output from this object. If shaders aren't supported or configured, it's same as input.
-	virtual bool get_screenshot_after() { return get_screenshot(); }
+	//Returns the last input to this object. If the input is 3d, it's flattened to 2d before being returned.
+	//If the object already has a copy of the image data, *data is set to that pointer.
+	//Otherwise, the object checks if datasize is sufficient for the screenshot, and if it is, *data is reused.
+	//If not, *datasize is set to the minimum required size, and sc_toosmall is returned.
+	//It is safe to set any parameter to NULL if you don't want it.
+	enum screenshottype { sc_false, sc_nocopy, sc_ok, sc_toosmall };
+	virtual screenshottype get_screenshot(unsigned int * width, unsigned int * height, unsigned int * pitch, unsigned int * depth,
+	                                      void * * data, size_t * datasize) { *data=NULL; *datasize=0; return sc_false; }
+	//Returns the screenshot after processing shaders. If there are no shaders, results are same as get_screenshot.
+	virtual screenshottype get_screenshot_after(unsigned int * width, unsigned int * height, unsigned int * pitch, unsigned int * depth,
+	                                            void * * data, size_t * datasize) { return get_screenshot(width, height, pitch, depth, data, datasize); }
 	
 	virtual void set_output(unsigned int screen_width, unsigned int screen_height) {}//Draws to the window it was created with.
-	virtual void set_output(video* backend) {}//Chains the video drivers. Chaining passes bitmaps around.
+	virtual void set_output(video* backend) {}//Chains the video drivers. Chaining passes bitmaps around. 3D input can not be chained.
 	
 	virtual ~video() = 0;
 };
 inline video::~video(){}
-void video_copy_2d(void* dst, size_t dstpitch, void* src, size_t srcpitch, size_t bytes_per_line, uint32_t height);
 
+extern const driver_video list_video[];
+
+static inline void video_copy_2d(void* dst, size_t dstpitch, const void* src, size_t srcpitch, size_t bytes_per_line, uint32_t height)
+{
+	if (srcpitch==dstpitch) memcpy(dst, src, srcpitch*(height-1)+bytes_per_line);
+	else
+	{
+		for (unsigned int i=0;i<height;i++)
+		{
+			memcpy((uint8_t*)dst + dstpitch*i, (uint8_t*)src + srcpitch*i, bytes_per_line);
+		}
+	}
+}
+
+/*
 //This returns everything that's compiled in, but some may have runtime requirements that are not
 // met. Try them in order until one works. It is guaranteed that at least one of them can
 // successfully be created, but this one may not necessarily be useful.
@@ -249,7 +275,14 @@ video* video_create_gdi(uintptr_t windowhandle);
 video* video_create_xshm(uintptr_t windowhandle);
 #endif
 video* video_create_none(uintptr_t windowhandle);
-video* video_create_thread(uintptr_t windowhandle);
+*/
+
+//This driver cannot draw anything; instead, it copies the input data and calls the next
+// driver on another thread, while allowing the caller to do something else in the meanwhile.
+//This means that the chain creator will not own the subsequent items in the chain, and can therefore not ask for either vsync,
+// shaders, nor screenshots. Instead, they must be called on this object; the calls will be passed on to the real driver.
+//Due to its special properties, it is not included in the list of drivers.
+video* video_create_thread();
 
 
 
@@ -434,26 +467,34 @@ char * inputmapper_normalize(const char * descriptor);
 
 
 
-struct dylib {
-	bool (*owned)(struct dylib * This);
+class dylib : private nocopy {
+public:
+	bool owned() { return owned_; }
 	
-	void* (*sym_ptr)(struct dylib * This, const char * name);
-	funcptr (*sym_func)(struct dylib * This, const char * name);
+	void* sym_ptr(const char * name);
+	funcptr sym_func(const char * name);
 	
-	void (*free)(struct dylib * This);
+	dylib(const char * filename);
+	~dylib();
+	
+private:
+	void* lib;
+	bool owned_;
+	
+	friend dylib* dylib_create(const char * filename);
 };
-struct dylib * dylib_create(const char * filename);
+dylib* dylib_create(const char * filename);
 
 //Returns ".dll", ".so", ".dylib", or whatever is standard on this OS. The return value is lowercase.
 const char * dylib_ext();
 
 
 
-//Any data associated with this thread is freed once the thread procedure returns, with the possible exception of the userdata.
+//Any data associated with this thread is freed once the thread procedure returns.
 //It is safe to malloc() something in one thread and free() it in another.
 //It is not safe to call window_run_*() from within another thread than the one entering main().
 //A thread is rather heavy; for short-running jobs, use thread_create_short or thread_split.
-void thread_create(void(*startpos)(void* userdata), void* userdata);
+void thread_create(function<void()> startpos);
 
 //Returns the number of threads to create to utilize the system resources optimally.
 unsigned int thread_ideal_count();
@@ -467,14 +508,17 @@ unsigned int thread_ideal_count();
 //However, it it allowed to hold multiple locks simultaneously.
 //lock() is not guaranteed to yield the CPU if it can't grab the lock. It may be implemented as a busy loop.
 //Remember to create all relevant mutexes before creating a thread.
-struct mutex {
-	void (*lock)(struct mutex * This);
-	bool (*try_lock)(struct mutex * This);
-	void (*unlock)(struct mutex * This);
+class mutex {
+public:
+	mutex();
+	~mutex();
 	
-	void (*free)(struct mutex * This);
+	void lock();
+	bool try_lock();
+	void unlock();
+private:
+	void* data;
 };
-struct mutex * mutex_create();
 
 //This one lets one thread wake another.
 //The conceptual difference between this and a mutex is that while a mutex is intended to protect a
@@ -485,30 +529,71 @@ struct mutex * mutex_create();
 // and another thread processes them at 100 items per second, then there will soon be a lot of
 // waiting items. An event allows the consumer to ask the producer to get to work, so it'll spend
 // half of its time sleeping, instead of filling the system memory.
-//If the consumer is the faster one, the excess signals will be piled up. If you prefer dropping them,
-// you can check count() and only signal() if the count is <= 0.
-//If two threads wait() on the same event, a random one will return for each call to signal().
-//count() is guaranteed to remain within [-128, 127]. If anything would put it outside that, it's undefined behaviour.
-//Signalling or waiting multiple times may make count() return intermediate values, if applicable.
-struct event {
-	void (*signal)(struct event * This);
-	void (*wait)(struct event * This);
-	//The multi functions are equivalent to calling their associated function 'count' times.
-	void (*multisignal)(struct event * This, unsigned int count);
-	void (*multiwait)(struct event * This, unsigned int count);
+//An event is boolean; calling signal() twice will drop the extra signal. It is created in the unsignalled state.
+//Can be used by multiple threads, but each of signal(), wait() and signalled() should only be used by one thread.
+class event {
+public:
+	event();
+	~event();
+	
+	void signal();
+	void wait();
+	bool signalled();
+	
+private:
+	void* data;
+};
+
+//This is like event, but it allows setting the event multiple times.
+class multievent {
+public:
+	multievent();
+	~multievent();
+	
+	//count is how many times to signal or wait. It is equivalent to calling it multiple times with count=1.
+	void signal(unsigned int count=1);
+	void wait(unsigned int count=1);
 	//This is how many signals are waiting to be wait()ed for. Can be below zero if something is currently waiting for this event.
 	//Alternate explaination: Increased for each entry to signal() and decreased for each entry to wait().
-	int (*count)(struct event * This);
-	
-	void (*free)(struct event * This);
+	signed int count();
+private:
+	void* data;
+	signed int n_count;//Not used by all implementations.
 };
-struct event * event_create();
 
 //Increments or decrements a variable, while guaranteeing atomicity relative to other threads. lock_read() just reads the value.
 //Returns the value before changing it.
-unsigned int lock_incr(unsigned int * val);
-unsigned int lock_decr(unsigned int * val);
-unsigned int lock_read(unsigned int * val);
+uint32_t lock_incr(uint32_t* val);
+uint32_t lock_decr(uint32_t* val);
+uint32_t lock_read(uint32_t* val);
+void lock_write(uint32_t* val, uint32_t value);
+//Writes 'newval' to *val only if it currently equals 'old'. Returns the old value of *val, which can be compared with 'old'.
+uint32_t lock_write_eq(uint32_t* val, uint32_t old, uint32_t newval);
+
+//For various data sizes.
+uint8_t lock_incr(uint8_t* val);
+uint8_t lock_decr(uint8_t* val);
+uint8_t lock_read(uint8_t* val);
+void lock_write(uint8_t* val, uint8_t value);
+uint8_t lock_write_eq(uint8_t* val, uint8_t old, uint8_t newval);
+
+uint16_t lock_incr(uint16_t* val);
+uint16_t lock_decr(uint16_t* val);
+uint16_t lock_read(uint16_t* val);
+void lock_write(uint16_t* val, uint16_t value);
+uint16_t lock_write_eq(uint16_t* val, uint16_t old, uint16_t newval);
+
+uint64_t lock_incr(uint64_t* val);
+uint64_t lock_decr(uint64_t* val);
+uint64_t lock_read(uint64_t* val);
+void lock_write(uint64_t* val, uint64_t value);
+uint64_t lock_write_eq(uint64_t* val, uint64_t old, uint64_t newval);
+
+void* lock_incr(void** val);
+void* lock_decr(void** val);
+void* lock_read(void** val);
+void lock_write(void** val, void* value);
+void* lock_write_eq(void** val, void* old, void* newval);
 
 //This one creates 'count' threads, calls startpos() in each of them with 'id' from 0 to 'count'-1, and
 // returns once each thread has returned.
@@ -604,7 +689,7 @@ struct libretro {
 	//The interface pointers must be valid during every call to run().
 	//It is safe to attach new interfaces without recreating the structure.
 	//It is safe to attach new interfaces if the previous ones are destroyed.
-	void (*attach_interfaces)(struct libretro * This, struct cvideo * v, struct audio * a, struct libretroinput * i);
+	void (*attach_interfaces)(struct libretro * This, video* v, struct audio * a, struct libretroinput * i);
 	
 	//data/datalen or filename can be NULL, but not both unless supports_no_game is true. It is allowed for both to be non-NULL.
 	//If load_rom_mem_supported is false, filename must be non-NULL, and data/datalen are unlikely to be used.
@@ -952,8 +1037,6 @@ struct minircheats * minircheats_create();
 
 
 
-#include "image.h"
-
 
 
 
@@ -1016,23 +1099,6 @@ struct cvideo * cvideo_create_gdi(uintptr_t windowhandle, unsigned int screen_wi
 struct cvideo * cvideo_create_xshm(uintptr_t windowhandle, unsigned int screen_width, unsigned int screen_height,
                                  unsigned int depth, double fps);
 #endif
-struct cvideo * cvideo_create_none(uintptr_t windowhandle, unsigned int screen_width, unsigned int screen_height,
-                                 unsigned int depth, double fps);
 
-//It would be cleaner if this one wrapped a struct video, but that'd make it use the video structure
-// from another thread than what created it, which isn't really feasible.
-struct cvideo * cvideo_create_thread(const char * backend, uintptr_t windowhandle,
-                                   unsigned int screen_width, unsigned int screen_height,
-                                   unsigned int depth, double fps);
-
-
-
-struct inputraw {
-uint32_t feat;
-	unsigned int (*keyboard_num_keyboards)(struct inputraw * This);
-	bool (*keyboard_poll)(struct inputraw * This, unsigned int kb_id, unsigned char * keys);
-	void (*free)(struct inputraw * This);
-};
-struct inputraw * _inputraw_create_xinput2(uintptr_t windowhandle);
-void _inputraw_x11_keyboard_create_shared(struct inputraw * This);
-unsigned int _inputraw_translate_key(unsigned int keycode);
+video* video_create_compat(function<cvideo*(uintptr_t windowhandle, unsigned int screen_width, unsigned int screen_height,
+                   unsigned int depth, double fps)> create, uintptr_t windowhandle);

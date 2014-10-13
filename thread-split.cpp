@@ -1,44 +1,48 @@
 #include "minir.h"
 
+namespace {
+
 #define this This
 
 //TODO: there is no procedure for destroying threads
 struct threadpool {
-	struct mutex * lock;
+	mutex* lock;
 	
-	struct event * wake;
-	struct event * started;
-	unsigned int numthreads;
-	unsigned int numidle;
+	multievent* wake;
+	multievent* started;
+	uint32_t numthreads;
+	uint32_t numidle;
 	
 	//these vary between each piece of work
 	void(*work)(unsigned int id, void* userdata);
-	unsigned int id;
+	uint32_t id;
 	void* userdata;
-	struct event * done;
+	multievent* done;
 };
 
 static struct threadpool * pool;
 
-static void threadproc(void* userdata)
+void threadproc(void* userdata)
 {
 	struct threadpool * this=(struct threadpool*)userdata;
 	
 	while (true)
 	{
-		this->wake->wait(this->wake);
+		this->wake->wait();
 		lock_decr(&this->numidle);
 		
 		void(*work)(unsigned int id, void* userdata) = this->work;
 		unsigned int id = lock_incr(&this->id);
 		void* userdata = this->userdata;
-		struct event * done = this->done;
+		multievent* done = this->done;
 		
-		this->started->signal(this->started);
+		this->started->signal();
 		work(id, userdata);
-		done->signal(done);
+		done->signal();
 		lock_incr(&this->numidle);
 	}
+}
+
 }
 
 void thread_split(unsigned int count, void(*work)(unsigned int id, void* userdata), void* userdata)
@@ -54,16 +58,16 @@ void thread_split(unsigned int count, void(*work)(unsigned int id, void* userdat
 	{
 		this=malloc(sizeof(struct threadpool));
 		pool=this;
-		this->lock=mutex_create();
-		this->wake=event_create();
-		this->started=event_create();
+		this->lock=new mutex();
+		this->wake=new multievent();
+		this->started=new multievent();
 		this->numthreads=0;
 		this->numidle=0;
 		
 		//thread_create(threadproc, this);
 	}
-	this->lock->lock(this->lock);
-	struct event * done=event_create();
+	this->lock->lock();
+	multievent* done=new multievent();
 	
 	this->work=work;
 	this->id=1;
@@ -74,21 +78,15 @@ void thread_split(unsigned int count, void(*work)(unsigned int id, void* userdat
 	{
 		this->numthreads++;
 		lock_incr(&this->numidle);
-		thread_create(threadproc, this);
+		thread_create(bind_ptr(threadproc, this));
 	}
 	
-	this->wake->multisignal(this->wake, count-1);
-	this->started->multiwait(this->started, count-1);
-	this->lock->unlock(this->lock);
+	this->wake->signal(count-1);
+	this->started->wait(count-1);
+	this->lock->unlock();
 	
 	work(0, userdata);
 	
-	done->multiwait(done, count-1);
-	done->free(done);
+	done->wait(count-1);
+	delete done;
 }
-
-
-
-
-
-

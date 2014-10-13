@@ -80,7 +80,7 @@ struct libretro_impl {
 	char * rompath;
 	struct libretro_raw raw;
 	
-	struct cvideo * v;
+	video* v;
 	struct audio * a;
 	struct libretroinput * in;
 	
@@ -233,7 +233,7 @@ static void initialize(struct libretro_impl * this)
 	}
 }
 
-static void attach_interfaces(struct libretro * this_, struct cvideo * v, struct audio * a, struct libretroinput * i)
+static void attach_interfaces(struct libretro * this_, video* v, struct audio * a, struct libretroinput * i)
 {
 	struct libretro_impl * this=(struct libretro_impl*)this_;
 	this->v=v;
@@ -757,7 +757,9 @@ static bool environment(unsigned cmd, void* data)
 
 static void video_refresh(const void * data, unsigned width, unsigned height, size_t pitch)
 {
-	g_this->v->draw(g_this->v, width, height, data, pitch);
+	if (data==RETRO_HW_FRAME_BUFFER_VALID) g_this->v->draw_3d(width, height);
+	else if (data) g_this->v->draw_2d(width, height, data, pitch);
+	else g_this->v->draw_repeat();
 }
 
 static void audio_sample(int16_t left, int16_t right)
