@@ -1,0 +1,28 @@
+|-------------------|-------------------|-------------------|-------------------|
+^child drawn
+ ^release parent
+  ^input polled --- |
+   ^frame drawn
+    ^data copied
+     ^release parent
+      ^input poll --------------------- |
+       ^frame drawn
+        ^(child busy)
+                    ^child drawn
+                     ^data copied
+                      ^release parent
+                       ^input poll ------------------------ |
+
+|-------------------|-------------------|-------------------|-------------------|
+^child drawn
+ ^(child busy)      |
+                    ^release parent
+                     ^release parent
+                      ^input polled --- |
+                       ^frame drawn
+                        ^data copied
+                         ^(child busy)  |
+                                        ^release parent
+                                         ^input polled      |
+
+Conclusion: The parent must wait until child->draw returns.

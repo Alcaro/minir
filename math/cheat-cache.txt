@@ -1,0 +1,14 @@
+start=0 select=F0 [addr=0_] addr=08 -> cache=00-0F
+start=0 select=0F [addr=_0] addr=80 -> cache=80-80
+start=10 select=0F [addr=1_] addr=10 -> cache=10-1F
+start=10 select=0F [addr=1_] addr=1F -> cache=10-1F
+start=10 select=0F disc=08 [addr=1_] addr=1F -> cache=18-1F
+start=7E0000 len=20000 addr=7E0000 -> cache=7E0000-7FFFFF
+start=7E0000 len=20000 addr=7F0000 -> cache=7E0000-7FFFFF
+start=7E0000 len=18000 addr=7E0000 -> cache=7E0000-7EFFFF
+start=7E0000 len=18000 addr=7F0000 -> cache=7F0000-7F7FFF
+start=7E0000 len=18000 addr=7F8000 -> cache=7F8000-7FFFFF
+
+cachesize=(select|disconnect)&-(select|disconnect)
+cachestart=start
+cacheend=cachestart+cachesize-1
