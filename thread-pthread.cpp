@@ -7,8 +7,6 @@
 #include <string.h>
 #include <unistd.h>
 
-#define this This
-
 //list of synchronization points: http://pubs.opengroup.org/onlinepubs/009695399/basedefs/xbd_chap04.html#tag_04_10
 
 struct threaddata_pthread {
@@ -22,11 +20,10 @@ static void * threadproc(void * userdata)
 	return NULL;
 }
 
-void thread_create(void(*startpos)(void* userdata), void* userdata)
+void thread_create(function<void()> func)
 {
 	struct threaddata_pthread * thdat=malloc(sizeof(struct threaddata_pthread));
-	thdat->startpos=startpos;
-	thdat->userdata=userdata;
+	thdat->func=func;
 	pthread_t thread;
 	if (pthread_create(&thread, NULL, threadproc, thdat)) abort();
 	pthread_detach(thread);
@@ -40,114 +37,65 @@ unsigned int thread_ideal_count()
 }
 
 
-struct mutex_pthread {
-	struct mutex i;
-	
-	pthread_mutex_t lock;
-};
-
-static void mutex_lock(struct mutex * this_)
+void mutex::lock()
 {
-	struct mutex_pthread * this=(struct mutex_pthread*)this_;
-	pthread_mutex_lock(&this->lock);
+	pthread_mutex_lock((pthread_mutex_t*)this->data);
 }
 
-static bool mutex_try_lock(struct mutex * this_)
+bool mutex::try_lock()
 {
-	struct mutex_pthread * this=(struct mutex_pthread*)this_;
-	return (pthread_mutex_trylock(&this->lock)==0);
+	return (pthread_mutex_trylock((pthread_mutex_t*)this->data)==0);
 }
 
-static void mutex_unlock(struct mutex * this_)
+void mutex::unlock()
 {
-	struct mutex_pthread * this=(struct mutex_pthread*)this_;
-	pthread_mutex_unlock(&this->lock); 
+	pthread_mutex_unlock((pthread_mutex_t*)this->data); 
 }
 
-static void mutex_free_(struct mutex * this_)
+mutex::~mutex()
 {
-	struct mutex_pthread * this=(struct mutex_pthread*)this_;
-	pthread_mutex_destroy(&this->lock);
-	free(this);
+	pthread_mutex_destroy((pthread_mutex_t*)this->data);
+	free(this->data);
 }
 
-const struct mutex mutex_pthread_base = {
-	mutex_lock, mutex_try_lock, mutex_unlock, mutex_free_
-};
-struct mutex * mutex_create()
+mutex::mutex()
 {
-	struct mutex_pthread * this=malloc(sizeof(struct mutex_pthread));
-	memcpy(&this->i, &mutex_pthread_base, sizeof(struct mutex));
-	
-	pthread_mutex_init(&this->lock, NULL);
-	
-	return (struct mutex*)this;
+	this->data=malloc(sizeof(pthread_mutex_t));
+	pthread_mutex_init((pthread_mutex_t*)this->data, NULL);
 }
 
 
-struct event_pthread {
-	struct event i;
-	
-	sem_t ev;
-};
-
-static void event_signal(struct event * this_)
+void multievent::signal(unsigned int count)
 {
-	struct event_pthread * this=(struct event_pthread*)this_;
-	sem_post(&this->ev);
+	while (count--) sem_post((sem_t*)this->data);
 }
 
-static void event_wait(struct event * this_)
+void multievent::wait(unsigned int count)
 {
-	struct event_pthread * this=(struct event_pthread*)this_;
-	while (sem_wait(&this->ev)==EINTR) {} //the more plentiful one of user and implementation shall be
-	                                      // simpler (minimizes the bug risk), so why does EINTR exist
-}
-
-static void event_multisignal(struct event * this_, unsigned int count)
-{
-	struct event_pthread * this=(struct event_pthread*)this_;
-	while (count--) sem_post(&this->ev);
-}
-
-static void event_multiwait(struct event * this_, unsigned int count)
-{
-	struct event_pthread * this=(struct event_pthread*)this_;
 	while (count--)
 	{
-		while (sem_wait(&this->ev)==EINTR) {} //the more plentiful one of user and implementation shall be
-		                                      // simpler (minimizes the bug risk), so why does EINTR exist
+		while (sem_wait((sem_t*)this->data)==EINTR) {} //the more plentiful one of user and implementation shall be
+		                                               // simpler (minimizes the bug risk), so why does EINTR exist
 	}
 }
 
-static int event_count(struct event * this_)
+signed int multievent::count()
 {
-	struct event_pthread * this=(struct event_pthread*)this_;
 	int active;
-	sem_getvalue(&this->ev, &active);
+	sem_getvalue((sem_t*)this->data, &active);
 	return active;
 }
 
-static void event_free_(struct event * this_)
+multievent::~multievent()
 {
-	struct event_pthread * this=(struct event_pthread*)this_;
-	sem_destroy(&this->ev);
-	free(this);
+	sem_destroy((sem_t*)this->data);
+	free(this->data);
 }
 
-struct event * event_create()
+multievent::multievent()
 {
-	struct event_pthread * this=malloc(sizeof(struct event_pthread));
-	this->i.signal=event_signal;
-	this->i.wait=event_wait;
-	this->i.multisignal=event_multisignal;
-	this->i.multiwait=event_multiwait;
-	this->i.count=event_count;
-	this->i.free=event_free_;
-	
-	sem_init(&this->ev, 0, 0);
-	
-	return (struct event*)this;
+	this->data=malloc(sizeof(sem_t));
+	sem_init((sem_t*)this->data, 0, 0);
 }
 
 //this is gcc, not pthread, but it works.
