@@ -114,7 +114,7 @@ public:
 //"Implementation" means the implementation of the interfaces; the blocks of code that are called
 // when a function is called on an interface.
 //"User" means the one using the interfaces. Some interface implementations are users of other
-// interfaces; for example, an implementation of libretro is also the user of a a dylib.
+// interfaces; for example, an implementation of libretro is also the user of a dylib.
 //An implementation may, at its sole discretion, choose to define any implementation of undefined
 // behaviour. After all, any result, including something well defined, is a valid interpretation of
 // undefined behaviour. The user may, of course, not rely on that.
@@ -128,18 +128,19 @@ public:
 //This file, and many other parts of minir, uses a weird mix between Windows- and Linux-style
 // filenames and paths. This is intentional; the author prefers Linux-style paths and directory
 // structures, but Windows file extensions. .exe is less ambigous than no extension, and Windows'
-// insistence on overloading the escape character is irritating. The rest is personal preference.
+// insistence on overloading the escape character is irritating. Since this excludes following
+// any single OS, the rest is personal preference.
 
 
 
-struct video;
+class video;
 struct audio;
-struct inputkb;
+class inputkb;
 struct inputmouse;
 struct inputjoy;
 struct inputmapper;
-struct dylib;
-struct mutex;
+class dylib;
+class mutex;
 struct rewindstack;
 struct libretro;
 struct libretroinput;
@@ -156,55 +157,58 @@ typedef void(*funcptr)();
 //thread moves are optional
 
 class video;
+struct retro_hw_render_callback;
 struct driver_video {
 	const char * name;
-	video* (*create)(uintptr_t windowhandle);
+	
+	//The returned objects can only use their corresponding 2d or 3d functions; calling the other is undefined behaviour.
+	//depth can be either 15, 16 or 32. This one can not fail.
+	video* (*create2d)(uintptr_t windowhandle, unsigned int depth);
+	//The caller will fill in get_current_framebuffer and get_proc_address with something that calls get_current_framebuffer and get_proc_address.
+	//On failure, the descriptor is guaranteed to remain untouched.
+	video* (*create3d)(uintptr_t windowhandle, struct retro_hw_render_callback * desc);
+	
 	uint32_t features;
 };
 
-//The owner thread of this one is the one calling set_input_*, which may be another than the creator.
-//Additionally, set_output may be called by any thread, but only before the set_input_*. set_output must, of course, return before entry to set_input.
-struct retro_hw_render_callback;
+//The owner thread of this one is the one calling finalize_*, which may be another than the creator.
+//Additionally, set_chain may be called by any thread, but only before the finalize_*. set_chain must return before entry to finalize.
 struct video_shader_param;
 class video : nocopy {
 public:
 	//Returns the features this driver supports. Since video drivers can be chained, no combination is superior, and the flags are in no particular order.
 	enum {
-		f_sshot_f=0x00008000,//get_screenshot will return a pointer, and not copy stuff. This is faster.
-		f_sshot = 0x00004000,//get_screenshot is implemented. If f_shaders is set, get_screenshot_after is also implemented.
-		f_chain = 0x00002000,//set_output can be called with a video*. Some of them can't do any filtering, so they refuse to be chained.
-		f_vsync = 0x00001000,//Can vsync. Only applies if the output is a window handle.
+		f_sshot_f=0x00010000,//get_screenshot will return a pointer, and not copy stuff. This is faster.
+		f_sshot = 0x00008000,//get_screenshot is implemented. If f_shaders is set, get_screenshot_after is also implemented.
+		f_chain = 0x00004000,//set_output can be called with a video*. Some of them can't do any filtering, so they refuse to be chained.
+		f_v_vsync=0x00002000,//Can vsync with a framerate different from 60.
+		f_vsync = 0x00001000,//Can vsync.
 		f_shaders=0x00000F00,//Each of these bits correspond to 256<<shadertype.
 		f_3d    = 0x000000FF,//Each of these bits correspond to 1<<retro_hw_context_type.
 	};
-	//Some features may claim to be implemented in the specification array, but depend on better runtime libraries than they actually have.
+	//Some features may claim to be implemented in the specification array, but depend on better runtime libraries than what's actually present.
 	virtual uint32_t features() = 0;
 	
-	//The video chain must be fully constructed (set_output()) before this is done, including the final one with the window handle.
-	//set_input must be called only on the first one in the chain; it will call the others.
-	//Only one of set_input_2d and set_input_3d can be called, and it must be called only once.
-	//The corresponding draw_* must be used.
-	virtual void set_input_2d(unsigned int depth, double fps) = 0;
+	//The video chain must be fully constructed (set_chain()) before this is called.
+	//finalize() must be called only on the first one in the chain; it will call the others.
+	virtual void finalize_2d(unsigned int base_width, unsigned int base_height) = 0;
 	//Asks where to put the video data for best performance. Returning data=NULL means 'I have no opinion, give me whatever'.
 	//If called, the next call to this object must be draw_2d, with the same arguments as draw_2d_where.
 	//However, it is allowed to call draw_2d without draw_2d_where.
 	virtual void draw_2d_where(unsigned int width, unsigned int height, void * * data, unsigned int * pitch) { *data=NULL; *pitch=0; }
 	virtual void draw_2d(unsigned int width, unsigned int height, const void * data, unsigned int pitch) = 0;
 	
-	//The caller will fill in get_current_framebuffer and get_proc_address with something that calls the below two.
-	virtual bool set_input_3d(struct retro_hw_render_callback* input3d) { return false; }
+	virtual void finalize_3d() {}
 	virtual uintptr_t input_3d_get_current_framebuffer() { return 0; }
-	virtual funcptr input_3d_get_proc_address(const char *sym) { return NULL; }
+	virtual funcptr input_3d_get_proc_address(const char * sym) { return NULL; }
 	virtual void draw_3d(unsigned int width, unsigned int height) {}
 	
 	//This repeats the last drawn frame until the next vblank. If the device does not vsync, it does nothing.
 	//It can be called whether this one is configured as 2d or 3d.
-	virtual void draw_repeat() = 0;
+	virtual void draw_repeat() {}
 	
-	//This should be called on the front device. Chaining devices should pass it on.
-	//A thread-pass device must switch to the destination thread before calling this.
-	//Defaults to off.
-	virtual void set_vsync(bool sync) {}
+	//This only has effect on the last device. 0 means off, and is the default.
+	virtual void set_vsync(double fps) {}
 	
 	//Shaders can only be set once the driver chain is created.
 	enum shadertype {
@@ -217,20 +221,25 @@ public:
 	virtual video_shader_param* get_shader_params() { return NULL; }
 	virtual void set_shader_param(unsigned int index, double value) {}
 	
-	//Returns the last input to this object. If the input is 3d, it's flattened to 2d before being returned.
-	//If the object already has a copy of the image data, *data is set to that pointer.
-	//Otherwise, the object checks if datasize is sufficient for the screenshot, and if it is, *data is reused.
-	//If not, *datasize is set to the minimum required size, and sc_toosmall is returned.
-	//It is safe to set any parameter to NULL if you don't want it.
-	enum screenshottype { sc_false, sc_nocopy, sc_ok, sc_toosmall };
-	virtual screenshottype get_screenshot(unsigned int * width, unsigned int * height, unsigned int * pitch, unsigned int * depth,
-	                                      void * * data, size_t * datasize) { *data=NULL; *datasize=0; return sc_false; }
-	//Returns the screenshot after processing shaders. If there are no shaders, results are same as get_screenshot.
-	virtual screenshottype get_screenshot_after(unsigned int * width, unsigned int * height, unsigned int * pitch, unsigned int * depth,
-	                                            void * * data, size_t * datasize) { return get_screenshot(width, height, pitch, depth, data, datasize); }
+	//The base size is the input size multiplied by whatever the shaders do (same as input if there are no shaders).
+	//Without shaders, integer multiples of the base size (except 0) are guaranteed to work.
+	//With shaders, everything works, but sticking to the same aspect ratio is recommended.
+	virtual void get_base_size(unsigned int * width, unsigned int * height) = 0;
+	virtual void set_size(unsigned int width, unsigned int height) = 0;
 	
-	virtual void set_output(unsigned int screen_width, unsigned int screen_height) {}//Draws to the window it was created with.
-	virtual void set_output(video* backend) {}//Chains the video drivers. Chaining passes bitmaps around. 3D input can not be chained.
+	//Declares that this video driver should instead send a bitmap to the next driver.
+	virtual void set_chain(video* backend) {}
+	
+	//Returns the last input to this object. If the input is 3d, it's flattened to 2d before being returned.
+	//The returned integer can only be used as boolean, or sent to release_screenshot(). It can vary depending on whether the object allocated a new buffer.
+	//It is safe to release with ret=0; this will do nothing.
+	virtual int get_screenshot(unsigned int * width, unsigned int * height, unsigned int * pitch, unsigned int * depth,
+	                           void* * data, size_t datasize) { *data=NULL; return 0; }
+	//Returns the last output of this object. This is different from input if shaders are present.
+	virtual int get_screenshot_out(unsigned int * width, unsigned int * height, unsigned int * pitch, unsigned int * depth,
+	                               void* * data, size_t datasize) { return get_screenshot(width, height, pitch, depth, data, datasize); }
+	//Frees the data returned from the above.
+	virtual void release_screenshot(int ret, void* data) {}
 	
 	virtual ~video() = 0;
 };
@@ -238,7 +247,8 @@ inline video::~video(){}
 
 extern const driver_video list_video[];
 
-static inline void video_copy_2d(void* dst, size_t dstpitch, const void* src, size_t srcpitch, size_t bytes_per_line, uint32_t height)
+//Used by various video drivers and other devices.
+static inline void video_copy_2d(void* dst, size_t dstpitch, const void* src, size_t srcpitch, size_t bytes_per_line, uint32_t height, bool full_write=false)
 {
 	if (srcpitch==dstpitch) memcpy(dst, src, srcpitch*(height-1)+bytes_per_line);
 	else
@@ -246,43 +256,17 @@ static inline void video_copy_2d(void* dst, size_t dstpitch, const void* src, si
 		for (unsigned int i=0;i<height;i++)
 		{
 			memcpy((uint8_t*)dst + dstpitch*i, (uint8_t*)src + srcpitch*i, bytes_per_line);
+			if (full_write && dstpitch>bytes_per_line) memset((uint8_t*)dst + dstpitch*i + bytes_per_line, 0, dstpitch-bytes_per_line);
 		}
 	}
 }
 
-/*
-//This returns everything that's compiled in, but some may have runtime requirements that are not
-// met. Try them in order until one works. It is guaranteed that at least one of them can
-// successfully be created, but this one may not necessarily be useful.
-const char * const * video_supported_backends(uint32_t minfeatures);
-video* video_create(const char * backend, uintptr_t windowhandle);
-
-//TODO: D3D11?
-//TODO: D2D? Probably not.
-#ifdef VIDEO_D3D9
-video* video_create_d3d9(uintptr_t windowhandle);
-#endif
-#ifdef VIDEO_DDRAW
-video* video_create_ddraw(uintptr_t windowhandle);
-#endif
-#ifdef VIDEO_OPENGL
-video* video_create_opengl(uintptr_t windowhandle);
-#endif
-#ifdef VIDEO_GDI
-video* video_create_gdi(uintptr_t windowhandle);
-#endif
-#ifdef VIDEO_XSHM
-video* video_create_xshm(uintptr_t windowhandle);
-#endif
-video* video_create_none(uintptr_t windowhandle);
-*/
-
-//This driver cannot draw anything; instead, it copies the input data and calls the next
-// driver on another thread, while allowing the caller to do something else in the meanwhile.
+//This driver cannot draw anything; instead, it copies the input data and calls the next driver on
+// another thread, while allowing the caller to do something else in the meanwhile (assuming vsync is off).
 //This means that the chain creator will not own the subsequent items in the chain, and can therefore not ask for either vsync,
 // shaders, nor screenshots. Instead, they must be called on this object; the calls will be passed on to the real driver.
 //Due to its special properties, it is not included in the list of drivers.
-video* video_create_thread();
+video* video_create_thread(unsigned int depth);
 
 
 
@@ -470,17 +454,19 @@ char * inputmapper_normalize(const char * descriptor);
 class dylib : private nocopy {
 public:
 	bool owned() { return owned_; }
+	bool all_ok() { return all_ok_; }
 	
 	void* sym_ptr(const char * name);
 	funcptr sym_func(const char * name);
 	
-	dylib(const char * filename);
 	~dylib();
 	
 private:
 	void* lib;
 	bool owned_;
+	bool all_ok_;
 	
+	dylib(const char * filename);
 	friend dylib* dylib_create(const char * filename);
 };
 dylib* dylib_create(const char * filename);
@@ -595,6 +581,35 @@ void* lock_read(void** val);
 void lock_write(void** val, void* value);
 void* lock_write_eq(void** val, void* old, void* newval);
 
+//This one lets two threads wait for each other, making sure that one (or both) is not faster than the other.
+class wakelock {
+public:
+	//This will create the child thread at the given entry point.
+	//Note that the child object will not necessarily be the same as the one returned from new(). Each thread must use its own object.
+	wakelock(function<void(wakelock* obj)> threadproc);
+	
+	//Marks the object busy. If the object already is busy, waits until it's not.
+	//If wait=true, will wait until the partner thread calls unlock(release=true).
+	//For a freshly created object, both threads will block.
+	//If takesignal=false, a release signal will not be consumed by this call.
+	void lock(bool wait, bool takesignal=true);
+	//Marks the object not busy. If release is true, the partner thread will be allowed to leave a lock(wait=true).
+	void unlock(bool release);
+	
+	~wakelock();
+	
+private:
+	wakelock* other;//this->other->other == this
+	mutex* block;   //this->block == this->other->block
+	bool release;   //if set, enter_wait() will do something
+	event* wake;    //this->wake == this->other->wake
+	wakelock() {}
+	
+	struct createdata;
+	static inline void threadproc(void* userdata);
+	friend inline void wakelock_threadproc(void* userdata);//some ugly shenanigans because bind_ptr can't handle private member functions
+};
+
 //This one creates 'count' threads, calls startpos() in each of them with 'id' from 0 to 'count'-1, and
 // returns once each thread has returned.
 //Unlike thread_create, thread_split is expected to be called often, for short-running tasks. The threads may be reused.
@@ -690,6 +705,9 @@ struct libretro {
 	//It is safe to attach new interfaces without recreating the structure.
 	//It is safe to attach new interfaces if the previous ones are destroyed.
 	void (*attach_interfaces)(struct libretro * This, video* v, struct audio * a, struct libretroinput * i);
+	
+	//This object will own the returned item and delete it when it's no longer used.
+	void (*enable_3d)(struct libretro * This, function<video*(struct retro_hw_render_callback * desc)> creator);
 	
 	//data/datalen or filename can be NULL, but not both unless supports_no_game is true. It is allowed for both to be non-NULL.
 	//If load_rom_mem_supported is false, filename must be non-NULL, and data/datalen are unlikely to be used.
@@ -1101,4 +1119,4 @@ struct cvideo * cvideo_create_xshm(uintptr_t windowhandle, unsigned int screen_w
 #endif
 
 video* video_create_compat(function<cvideo*(uintptr_t windowhandle, unsigned int screen_width, unsigned int screen_height,
-                   unsigned int depth, double fps)> create, uintptr_t windowhandle);
+                   unsigned int depth, double fps)> create, uintptr_t windowhandle, unsigned int depth);

@@ -1,21 +1,18 @@
 #include "minir.h"
-#ifdef VIDEO_OPENGLgg
+#ifdef VIDEO_OPENGLg
 #undef bind
 #include <gl/gl.h>
 #include <gl/glext.h>
 #ifdef _WIN32
 #include <gl/wglext.h>
-#define GLLibPath "opengl32.dll"
-#define PSYM(name) RSYM(w##name, "wgl"#name)
 #endif
 #define bind BIND_CB
 #include "libretro.h"
 
 namespace {
 struct {
-	dylib* lib;
-	
 #ifdef _WIN32
+	HMODULE lib;
   //WINGDIAPI WINBOOL WINAPI wglCopyContext(HGLRC,HGLRC,UINT);
   //WINGDIAPI HGLRC WINAPI wglCreateContext(HDC);
   //WINGDIAPI HGLRC WINAPI wglCreateLayerContext(HDC,int);
@@ -28,30 +25,37 @@ struct {
   //WINGDIAPI WINBOOL WINAPI wglUseFontBitmapsA(HDC,DWORD,DWORD,DWORD);
   //WINGDIAPI WINBOOL WINAPI wglUseFontBitmapsW(HDC,DWORD,DWORD,DWORD);
   //WINGDIAPI WINBOOL WINAPI SwapBuffers(HDC);
-	WINBOOL (WINAPI * wCreateContext)(HDC hdc);
-	WINBOOL (WINAPI * wMakeCurrent)(HDC hdc, HGLRC hglrc);
-	WINBOOL (WINAPI * wDeleteContext)(HGLRC hglrc);
+	WINBOOL (WINAPI * CreateContext)(HDC hdc);
+	WINBOOL (WINAPI * MakeCurrent)(HDC hdc, HGLRC hglrc);
+	WINBOOL (WINAPI * DeleteContext)(HGLRC hglrc);
+	PROC (WINAPI * GetProcAddress)(LPCSTR lpszProc);
 #endif
-} static gl;
+} static p_gl;
 
-bool InitGLFunctions()
+struct glSyms {
+	
+};
+
+bool InitGlobalGLFunctions()
 {
-	dylib* lib=dylib_create(GLLibPath);
-	gl.lib=lib;
-	if (!lib) return false;
-#define RSYM(name, symbol) gl.name=lib->sym_func(symbol); if (!gl.name) return false
-#define SYM(name) RSYM(
 #ifdef _WIN32
-	PSYM(CreateContext);
-	PSYM(MakeCurrent);
-	PSYM(DeleteContext);
+	p_gl.lib=LoadLibrary("opengl32.dll");
+	if (!p_gl.lib) return false;
+#define sym(name) *(funcptr*)&p_gl.name = (funcptr)GetProcAddress(p_gl.lib, "wgl"#name); if (!p_gl.name) return false;
+	sym(CreateContext);
+	sym(MakeCurrent);
+	sym(DeleteContext);
+	sym(GetProcAddress);
+#undef sym
 #endif
 	return true;
 }
 
-void DeinitGLFunctions()
+void DeinitGlobalGLFunctions()
 {
-	delete gl.lib;
+#ifdef _WIN32
+	FreeLibrary(p_gl.lib);
+#endif
 }
 
 class video_opengl : public video {
@@ -70,6 +74,8 @@ public:
 		if (features!=0) return features;
 		features|=f_sshot|f_chain;
 #ifndef _WIN32
+		//we could poke DwmIsCompositionEnabled (http://msdn.microsoft.com/en-us/library/windows/desktop/aa969518%28v=vs.85%29.aspx),
+		//but it can be assumed always on in Windows 7 and I don't care about the others.
 		features|=v_vsync;
 #endif
 		return features;
@@ -80,6 +86,19 @@ public:
 	HDC hdc;
 	HGLRC hglrc;
 #endif
+	
+	glSyms gl;
+	
+	/*private*/ bool load_gl_functions()
+	{
+#define sym(name) *(funcptr*)&gl->name = p_gl.GetProcAddress("gl"#name); if (!gl->name) return false;
+//		sym(CreateContext);
+//		sym(MakeCurrent);
+//		sym(DeleteContext);
+//		sym(GetProcAddress);
+#undef sym
+		return true;
+	}
 	
 	void set_input_2d(unsigned int depth, double fps)
 	{
@@ -95,36 +114,38 @@ public:
 	
 	/*private*/ bool construct(uintptr_t windowhandle)
 	{
-		if (!InitGLFunctions()) return false;
+		if (!InitGlobalGLFunctions()) return false;
 		//TODO: clone the hwnd, so I won't need to set pixel format twice
 		this->hwnd=(HWND)windowhandle;
 		this->hdc=GetDC(this->hwnd);
-		/*
-		PIXELFORMATDESCRIPTOR pfd;
-		memset(pfd, 0, sizeof(PIXELFORMATDESCRIPTOR));
-		pfd.nSize=sizeof(PIXELFORMATDESCRIPTOR);
-		pfd.nVersion=1;
-		pfd.nFlags=PFD_DRAW_TO_WINDOW|PFD_SUPPORT_OPENGL|PFD_DOUBLEBUFFER;
-		pfd.iPixelType=PFD_TYPE_RGBA;
-		pfd.cColorBits=24;
-		pfd.cAlphaBits=0;
-		pfd.cAccumBits=0;
-		pfd.cDepthBits=0;
-		pfd.cStencilBits=0;
-		pfd.cAuxBuffers=0;
-		pfd.iLayerType=PFD_MAIN_PLANE;
-		SetPixelFormat(this->hdc, ChoosePixelFormat(this->hdc, &pfd), &pfd);
-		*/
+		//PIXELFORMATDESCRIPTOR pfd;
+		//memset(pfd, 0, sizeof(PIXELFORMATDESCRIPTOR));
+		//pfd.nSize=sizeof(PIXELFORMATDESCRIPTOR);
+		//pfd.nVersion=1;
+		//pfd.nFlags=PFD_DRAW_TO_WINDOW|PFD_SUPPORT_OPENGL|PFD_DOUBLEBUFFER;
+		//pfd.iPixelType=PFD_TYPE_RGBA;
+		//pfd.cColorBits=24;
+		//pfd.cAlphaBits=0;
+		//pfd.cAccumBits=0;
+		//pfd.cDepthBits=0;
+		//pfd.cStencilBits=0;
+		//pfd.cAuxBuffers=0;
+		//pfd.iLayerType=PFD_MAIN_PLANE;
+		//SetPixelFormat(this->hdc, ChoosePixelFormat(this->hdc, &pfd), &pfd);
 		this->hglrc=wglCreateContext(this->hdc);
 		wglMakeCurrent(this->hdc, this->hglrc);
+		
+		if (!load_gl_functions()) return false;
+		
 		return true;
 	}
 	
 	~video_opengl()
 	{
 		wglMakeCurrent(NULL, NULL);
-		wglDeleteContext(this->hglrc);
-		ReleaseDC(this->hwnd, this->hdc);
+		if (this->hglrc) wglDeleteContext(this->hglrc);
+		if (this->hdc) ReleaseDC(this->hwnd, this->hdc);
+		DeinitGlobalGLFunctions();
 	}
 };
 
@@ -145,5 +166,5 @@ video* video_create_opengl(uintptr_t windowhandle)
 extern const driver_video video_opengl_desc = { "OpenGL", video_create_opengl, video_opengl::max_features };
 #endif
 
-video* video_create_opengl(uintptr_t windowhandle) { return NULL; }
-extern const driver_video video_opengl_desc = { "OpenGL", video_create_opengl, 0 };
+video* video_create_opengl(uintptr_t windowhandle, unsigned int depth) { return NULL; }
+extern const driver_video video_opengl_desc = { "OpenGL", video_create_opengl, NULL, 0 };

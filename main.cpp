@@ -146,7 +146,7 @@ struct configdata config;
 bool try_set_interface_video(unsigned int id, uintptr_t windowhandle,
                              unsigned int videowidth, unsigned int videoheight, unsigned int videodepth, double videofps)
 {
-	video* device=list_video[id].create(windowhandle);
+	video* device=list_video[id].create2d(windowhandle, videodepth);
 	if (!device) return false;
 	if (!config.driver_video || strcasecmp(config.driver_video, list_video[id].name))
 	{
@@ -155,14 +155,14 @@ bool try_set_interface_video(unsigned int id, uintptr_t windowhandle,
 	}
 	vid=device;
 	
-	vid->set_output(videowidth*config.video_scale, videoheight*config.video_scale);
 	if (config.video_thread)
 	{
-		video* outer=video_create_thread();
-		outer->set_output(vid);
+		video* outer=video_create_thread(videodepth);
+		outer->set_chain(vid);
 		vid=outer;
 	}
-	vid->set_input_2d(videodepth, videofps);
+	vid->finalize_2d(videowidth, videoheight);
+	vid->set_size(videowidth*config.video_scale, videoheight*config.video_scale);
 	
 	return true;
 }
@@ -888,18 +888,14 @@ const char * get_screenshot_path()
 
 bool create_screenshot()
 {
-	void* freethis=NULL;
+	void* data=NULL;
+	int scret=0;
 {
 	struct image img;
-	size_t minsize=0;
-	video::screenshottype ret=vid->get_screenshot(&img.width, &img.height, &img.pitch, &img.bpp, &img.pixels, &minsize);
-	if (ret==video::sc_toosmall)
-	{
-		img.pixels=malloc(minsize);
-		freethis=img.pixels;
-		ret=vid->get_screenshot(&img.width, &img.height, &img.pitch, &img.bpp, &img.pixels, &minsize);
-	}
-	if (ret!=video::sc_false) goto bad;
+	scret=vid->get_screenshot(&img.width, &img.height, &img.pitch, &img.bpp, &img.pixels, 0);
+	data=img.pixels;
+	if (!scret) goto bad;
+	
 	void* pngdata;
 	unsigned int pnglen;
 	
@@ -914,18 +910,20 @@ bool create_screenshot()
 	bool ok;
 	ok=png_encode(&img, comments, &pngdata, &pnglen);
 	free((char*)comments[1]);
-	if (!ok) goto bad;
+	if (!ok) goto bad_clean;
+	
+	vid->release_screenshot(scret, data);
 	
 	ok=file_write(get_screenshot_path(), pngdata, pnglen);
 	free(pngdata);
 	if (!ok) goto bad;
 	
-	free(freethis);
 	set_status_bar("Screenshot saved");
 	return true;
 }
+bad_clean:
+	vid->release_screenshot(scret, data);
 bad:
-	free(freethis);
 	set_status_bar("Couldn't save screenshot");
 	return false;
 }

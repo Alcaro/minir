@@ -4,30 +4,6 @@
 
 #define this This
 
-const char * const * cvideo_supported_backends()
-{
-	static const char * backends[]={
-#ifdef VIDEO_D3D9
-		"Direct3D",
-#endif
-#ifdef VIDEO_DDRAW
-		"DirectDraw",
-#endif
-#ifdef VIDEO_OPENGL
-		"OpenGL",
-#endif
-#ifdef VIDEO_GDI
-		"GDI",
-#endif
-#ifdef VIDEO_XSHM
-		"XShm",
-#endif
-		"None",
-		NULL
-	};
-	return backends;
-}
-
 static void reinit(struct video * this, unsigned int screen_width, unsigned int screen_height, unsigned int depth, double fps) {}
 static void draw(struct video * this, unsigned int width, unsigned int height, const void * data, unsigned int pitch) {}
 static bool set_sync(struct video * this, bool sync) { return false; }
@@ -61,15 +37,11 @@ struct video * cvideo_create(const char * backend, uintptr_t windowhandle, unsig
 #ifdef VIDEO_DDRAW
 	if (!strcasecmp(backend, "DirectDraw")) return cvideo_create_ddraw(windowhandle, screen_width, screen_height, depth, fps);
 #endif
-#ifdef VIDEO_OPENGL
-	if (!strcasecmp(backend, "OpenGL")) return cvideo_create_opengl(windowhandle, screen_width, screen_height, depth, fps);
-#endif
 #ifdef VIDEO_GDI
 	if (!strcasecmp(backend, "GDI")) return cvideo_create_gdi(windowhandle, screen_width, screen_height, depth, fps);
 #endif
 #ifdef VIDEO_XSHM
 	if (!strcasecmp(backend, "XShm")) return cvideo_create_xshm(windowhandle, screen_width, screen_height, depth, fps);
 #endif
-	if (!strcasecmp(backend, "None")) return cvideo_create_none(windowhandle, screen_width, screen_height, depth, fps);
 	return NULL;
 }

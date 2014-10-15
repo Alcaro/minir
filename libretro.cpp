@@ -36,13 +36,9 @@ struct libretro_raw {
 	size_t (*get_memory_size)(unsigned id);
 };
 
-static bool load_raw_iface(struct dylib * lib, struct libretro_raw * interface)
+static bool load_raw_iface(dylib* lib, struct libretro_raw * interface)
 {
-#if defined(__GNUC__)
-#define sym(name) interface->name=(__typeof(interface->name))lib->sym_func(lib, "retro_"#name); if (!interface->name) return false;
-#else
-#define sym(name) *(void(**)())&interface->name = (void(*)())lib->sym_func(lib, "retro_"#name); if (!interface->name) return false;
-#endif
+#define sym(name) *(void(**)())&interface->name = (void(*)())lib->sym_func("retro_"#name); if (!interface->name) return false;
 	sym(set_environment);
 	sym(set_video_refresh);
 	sym(set_audio_sample);
@@ -75,14 +71,19 @@ static bool load_raw_iface(struct dylib * lib, struct libretro_raw * interface)
 struct libretro_impl {
 	struct libretro i;
 	
-	struct dylib * lib;
+	dylib* lib;
 	char * libpath;
 	char * rompath;
 	struct libretro_raw raw;
 	
+	video* v2d;
+	video* v3d;
+	
 	video* v;
 	struct audio * a;
 	struct libretroinput * in;
+	
+	function<video*(struct retro_hw_render_callback * desc)> create3d;
 	
 	void (*message_cb)(int severity, const char * message);
 	
@@ -236,9 +237,16 @@ static void initialize(struct libretro_impl * this)
 static void attach_interfaces(struct libretro * this_, video* v, struct audio * a, struct libretroinput * i)
 {
 	struct libretro_impl * this=(struct libretro_impl*)this_;
-	this->v=v;
+	this->v2d=v;
+	if (!this->v3d) this->v=v;
 	this->a=a;
 	this->in=i;
+}
+
+static void enable_3d(struct libretro * this_, function<video*(struct retro_hw_render_callback * desc)> creator)
+{
+	struct libretro_impl * this=(struct libretro_impl*)this_;
+	this->create3d=creator;
 }
 
 //TODO: remove this once rarch megapack updates and its s9x exports the mmaps, alternatively once I get unlazy enough to compile s9x myself
@@ -282,6 +290,10 @@ static bool load_rom(struct libretro * this_, const char * data, size_t datalen,
 	initialize(this);
 	
 	bool gameless=this->i.supports_no_game((struct libretro*)this);
+	
+	delete this->v3d;
+	this->v3d=NULL;
+	this->v=this->v2d;
 	
 	if (filename)
 	{
@@ -465,7 +477,8 @@ static void free_(struct libretro * this_)
 	free(this->tmpptr[3]);
 	free(this->libpath);
 	free(this->rompath);
-	this->lib->free(this->lib);
+	delete this->lib;
+	delete this->v3d;
 	free(this);
 }
 
@@ -552,7 +565,14 @@ static bool environment(unsigned cmd, void* data)
 	//11 SET_INPUT_DESCRIPTORS, seemingly deprecated by 35 SET_CONTROLLER_INFO.
 	//12 SET_KEYBOARD_CALLBACK, no supported core uses keyboards but it may be desirable.
 	//13 SET_DISK_CONTROL_INTERFACE, ignored because no supported core uses disks. Maybe Famicom Disk System, but low priority.
-	//14 SET_HW_RENDER, unimplemented because it's a huge thing. I'll consider it later.
+	if (cmd==RETRO_ENVIRONMENT_SET_HW_RENDER) //14
+	{
+		delete this->v3d;
+		this->v3d=this->create3d((struct retro_hw_render_callback*)data);
+		if (!this->v3d) return false;
+		this->v=this->v3d;
+		return true;
+	}
 	if (cmd==RETRO_ENVIRONMENT_GET_VARIABLE) //15
 	{
 		struct retro_variable * variable=(struct retro_variable*)data;
@@ -791,7 +811,7 @@ static int16_t input_state(unsigned port, unsigned device, unsigned index, unsig
 struct libretro libretro_iface = {
 	name, supported_extensions, supports_extension,
 	void_false,//supports_no_game
-	attach_interfaces,
+	attach_interfaces, enable_3d,
 	load_rom, load_rom_mem_supported,
 	get_video_settings, get_sample_rate,
 	get_core_options_changed, get_core_options, set_core_option, get_core_option,
@@ -813,7 +833,7 @@ struct libretro * libretro_create(const char * corepath, void (*message_cb)(int 
 	if (!this->lib) goto cancel;
 	if (!load_raw_iface(this->lib, &this->raw)) goto cancel;
 	if (this->raw.api_version()!=RETRO_API_VERSION) goto cancel;
-	if (!this->lib->owned(this->lib))
+	if (!this->lib->owned())
 	{
 		if (existed) *existed=true;
 		goto cancel;
@@ -841,6 +861,9 @@ struct libretro * libretro_create(const char * corepath, void (*message_cb)(int 
 	this->memdesc=NULL;
 	this->nummemdesc=0;
 	
+	this->create3d=NULL;
+	this->v3d=NULL;
+	
 	this->raw.set_environment(environment);
 	this->raw.set_video_refresh(video_refresh);
 	this->raw.set_audio_sample(audio_sample);
@@ -853,7 +876,7 @@ struct libretro * libretro_create(const char * corepath, void (*message_cb)(int 
 	return (struct libretro*)this;
 	
 cancel:
-	if (this->lib) this->lib->free(this->lib);
+	delete this->lib;
 	free(this);
 	return NULL;
 }
