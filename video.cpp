@@ -102,6 +102,7 @@ extern const driver_video video_opengl_desc;
 extern const driver_video video_gdi_desc;
 extern const driver_video video_xshm_desc;
 extern const driver_video video_none_desc;
+extern const driver_video video_opengl_old_desc;
 
 const driver_video list_video[]={
 #ifdef VIDEO_D3D9
@@ -112,6 +113,9 @@ const driver_video list_video[]={
 #endif
 #ifdef VIDEO_OPENGL
 	video_opengl_desc,
+#endif
+#ifdef VIDEO_OPENGL
+	video_opengl_old_desc,
 #endif
 #ifdef VIDEO_GDI
 	video_gdi_desc,
