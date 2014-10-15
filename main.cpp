@@ -1233,6 +1233,9 @@ wndw->statusbar_set(wndw, 1, gg);
 i=0;
 }
 
+static int gg=0;gg++;
+if(gg==60000)exit_called=1;config.defocus_pause=0;printf("%i/60000\r",gg);fflush(stdout);
+
 		
 		if (statusbar_expiry && now>statusbar_expiry)
 		{

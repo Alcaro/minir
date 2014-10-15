@@ -72,9 +72,9 @@ public:
 		this->child->reinit(this->child, width, height, this->depth, 60);
 	}
 	
-	void set_vsync(bool sync)
+	void set_vsync(double fps)
 	{
-		this->child->set_sync(this->child, sync);
+		this->child->set_sync(this->child, fps!=0);
 	}
 	
 	~video_compat() { child->free(child); }

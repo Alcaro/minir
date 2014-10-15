@@ -33,7 +33,8 @@ struct minirconfig_impl {
 	//char padding[7];
 };
 
-static void initialize_to_defaults(struct configdata * this)
+//nonstatic so I can tell Valgrind to suppress _Z22initialize_to_defaultsP10configdata
+void initialize_to_defaults(struct configdata * this)
 {
 	memset(this, 0, sizeof(struct configdata));
 	for (unsigned int i=0;i<count(this->_scopes);i++) this->_scopes[i]=cfgsc_default;

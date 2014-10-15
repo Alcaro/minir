@@ -8,7 +8,7 @@ static void debug(void* ptr)
 {
 //static unsigned int g=0;
 //printf("%i: %p\n",g++,ptr);
-//if(g==200)abort();
+//if(g==1000)abort();
 }
 
 anyptr malloc_check(size_t size)

@@ -171,7 +171,7 @@ public://since this entire file is private, making it public inside here does no
 		this->vsync=this->new_vsync;
 		this->lock->unlock();
 		this->wake_child->signal();
-		if (this->vsync)
+		if (this->vsync!=0)
 		{
 			while (true)
 			{
