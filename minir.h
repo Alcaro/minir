@@ -1095,28 +1095,5 @@ const char * const * cvideo_supported_backends();
 struct cvideo * cvideo_create(const char * backend, uintptr_t windowhandle, unsigned int screen_width, unsigned int screen_height,
                             unsigned int depth, double fps);
 
-//TODO: D3D11?
-//TODO: D2D? Probably not.
-#ifdef VIDEO_D3D9
-struct cvideo * cvideo_create_d3d9(uintptr_t windowhandle, unsigned int screen_width, unsigned int screen_height,
-                                   unsigned int depth, double fps);
-#endif
-#ifdef VIDEO_DDRAW
-struct cvideo * cvideo_create_ddraw(uintptr_t windowhandle, unsigned int screen_width, unsigned int screen_height,
-                                  unsigned int depth, double fps);
-#endif
-#ifdef VIDEO_OPENGL
-struct cvideo * cvideo_create_opengl(uintptr_t windowhandle, unsigned int screen_width, unsigned int screen_height,
-                                   unsigned int depth, double fps);
-#endif
-#ifdef VIDEO_GDI
-struct cvideo * cvideo_create_gdi(uintptr_t windowhandle, unsigned int screen_width, unsigned int screen_height,
-                                unsigned int depth, double fps);
-#endif
-#ifdef VIDEO_XSHM
-struct cvideo * cvideo_create_xshm(uintptr_t windowhandle, unsigned int screen_width, unsigned int screen_height,
-                                 unsigned int depth, double fps);
-#endif
-
 video* video_create_compat(function<cvideo*(uintptr_t windowhandle, unsigned int screen_width, unsigned int screen_height,
                    unsigned int depth, double fps)> create, uintptr_t windowhandle, unsigned int depth);

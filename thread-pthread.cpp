@@ -65,6 +65,49 @@ mutex::mutex()
 }
 
 
+event::event()
+{
+	this->data=malloc(sizeof(sem_t));
+	sem_init((sem_t*)this->data, 0, 0);
+}
+
+event::~event()
+{
+	sem_destroy((sem_t*)this->data);
+	free(this->data);
+}
+
+void event::signal()
+{
+	if (!this->signalled()) sem_post((sem_t*)this->data);
+}
+
+void event::wait()
+{
+	while (sem_wait((sem_t*)this->data)==EINTR) {} //the more plentiful one of user and implementation shall be
+	                                               // simpler (minimizes the bug risk), so why does EINTR exist
+}
+
+bool event::signalled()
+{
+	int active;
+	sem_getvalue((sem_t*)this->data, &active);
+	return (active>0);
+}
+
+
+multievent::multievent()
+{
+	this->data=malloc(sizeof(sem_t));
+	sem_init((sem_t*)this->data, 0, 0);
+}
+
+multievent::~multievent()
+{
+	sem_destroy((sem_t*)this->data);
+	free(this->data);
+}
+
 void multievent::signal(unsigned int count)
 {
 	while (count--) sem_post((sem_t*)this->data);
@@ -84,18 +127,6 @@ signed int multievent::count()
 	int active;
 	sem_getvalue((sem_t*)this->data, &active);
 	return active;
-}
-
-multievent::~multievent()
-{
-	sem_destroy((sem_t*)this->data);
-	free(this->data);
-}
-
-multievent::multievent()
-{
-	this->data=malloc(sizeof(sem_t));
-	sem_init((sem_t*)this->data, 0, 0);
 }
 
 //this is gcc, not pthread, but it works.
