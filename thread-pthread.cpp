@@ -84,8 +84,7 @@ void event::signal()
 
 void event::wait()
 {
-	while (sem_wait((sem_t*)this->data)==EINTR) {} //the more plentiful one of user and implementation shall be
-	                                               // simpler (minimizes the bug risk), so why does EINTR exist
+	sem_wait((sem_t*)this->data);
 }
 
 bool event::signalled()
@@ -115,11 +114,7 @@ void multievent::signal(unsigned int count)
 
 void multievent::wait(unsigned int count)
 {
-	while (count--)
-	{
-		while (sem_wait((sem_t*)this->data)==EINTR) {} //the more plentiful one of user and implementation shall be
-		                                               // simpler (minimizes the bug risk), so why does EINTR exist
-	}
+	while (count--) sem_wait((sem_t*)this->data);
 }
 
 signed int multievent::count()
