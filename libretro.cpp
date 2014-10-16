@@ -361,6 +361,7 @@ static void get_video_settings(struct libretro * this_, unsigned int * width, un
 		else abort();
 	}
 	struct retro_system_av_info info;
+	memset(&info, 0, sizeof(info));
 	this->raw.get_system_av_info(&info);
 	*width=info.geometry.base_width;
 	*height=info.geometry.base_height;
