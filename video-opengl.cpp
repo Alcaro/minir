@@ -1,10 +1,10 @@
 #include "minir.h"
 #ifdef VIDEO_OPENGL
 #undef bind
-#include <gl/gl.h>
-#include <gl/glext.h>
+#include <GL/gl.h>
+#include <GL/glext.h>
 #ifdef _WIN32
-#include <gl/wglext.h>
+#include <GL/wglext.h>
 #endif
 #define bind BIND_CB
 #include "libretro.h"
