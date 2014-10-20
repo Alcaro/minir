@@ -3,14 +3,18 @@
 #undef bind
 #include <GL/gl.h>
 #include <GL/glext.h>
-#ifdef _WIN32
+#ifdef WNDPROT_WINDOWS
 #include <GL/wglext.h>
+#endif
+#ifdef WNDPROT_X11
+#include <dlfcn.h>
+#include <GL/glx.h>
 #endif
 #define bind BIND_CB
 #include "libretro.h"
 
 namespace {
-#ifdef _WIN32
+#ifdef WNDPROT_WINDOWS
 struct {
 	HMODULE lib;
   //WINGDIAPI WINBOOL WINAPI wglCopyContext(HGLRC,HGLRC,UINT);
@@ -29,40 +33,89 @@ struct {
 	WINBOOL (WINAPI * MakeCurrent)(HDC hdc, HGLRC hglrc);
 	WINBOOL (WINAPI * DeleteContext)(HGLRC hglrc);
 	PROC (WINAPI * GetProcAddress)(LPCSTR lpszProc);
-  WINBOOL (WINAPI * SwapBuffers)(HDC);
+	WINBOOL (WINAPI * SwapBuffers)(HDC hdc);
 } static wgl;
-#define pgl wgl // platform-specific gl; only GetProcAddress and SwapBuffers allowed from this object, as the others only exist in this form on Windows.
+#endif
+
+#if defined(WNDPROT_X11)
+struct {
+	void* lib;
+	funcptr (*GetProcAddress)(const GLubyte * procName);
+	void (*SwapBuffers)(Display* dpy, GLXDrawable drawable);
+	Bool (*MakeCurrent)(Display* dpy, GLXDrawable drawable, GLXContext ctx);
+	Bool (*QueryVersion)(Display* dpy, int* major, int* minor);
+	XVisualInfo* (*ChooseVisual)(Display* dpy, int screen, int * attribList);
+	GLXContext (*CreateContext)(Display* dpy, XVisualInfo* vis, GLXContext shareList, Bool direct);
+	
+	//glXSwapBuffers(this->display, this->xwindow);
+	//if (this->glSwapInterval) this->glSwapInterval(sync?1:0);
+	//this->glSwapInterval=NULL;
+	//if(!this->glSwapInterval) this->glSwapInterval = (int (*)(int))glGetProcAddress("glXSwapIntervalMESA");
+	//if(!this->glSwapInterval) this->glSwapInterval = (int (*)(int))glGetProcAddress("glXSwapIntervalSGI");
+	//if( this->glSwapInterval) this->glSwapInterval(1);
+  //WINBOOL (WINAPI * SwapBuffers)(HDC);
+} static glx;
 #endif
 
 bool InitGlobalGLFunctions()
 {
-	//this can yield multiple unsynchronized writers to global variables - however, this is safe, because they all write the same values in the same order.
-#ifdef _WIN32
+	//this can yield multiple unsynchronized writers to global variables
+	//however, this is safe, because they all write the same values in the same order.
+#ifdef DYLIB_WIN32
 	wgl.lib=LoadLibrary("opengl32.dll");
 	if (!wgl.lib) return false;
-#define sym_r(name, str) *(funcptr*)&wgl.name = (funcptr)GetProcAddress(wgl.lib, "wgl"#name); if (!wgl.name) return false;
-#define sym(name) sym_r(name, "wgl"#name)
-#define sym_n(name) sym_r(name, #name)
-	sym(CreateContext);
-	sym(MakeCurrent);
-	sym(DeleteContext);
-	sym(GetProcAddress);
-	sym_n(SwapBuffers);
-#undef sym
-#undef sym_r
-#undef sym_n
-#define WIN32_SYM_FALLBACK(name) if (!gl.name) *(funcptr*)&gl.name = (funcptr)GetProcAddress(wgl.lib, "gl"#name);
+#define symn_r(name, str) *(funcptr*)&wgl.name = (funcptr)GetProcAddress(wgl.lib, str); if (!wgl.name) return false;
+#define sym_r(name, str) \
+	*(funcptr*)&gl.name = (funcptr)wgl.GetProcAddress(str); \
+	if (!gl.name) *(funcptr*)&gl.name = (funcptr)GetProcAddress(wgl.lib, "gl"#name); \
+	if (!gl.name) return false;
+#define glsym(loc, name) 
+#endif
+#ifdef WNDPROT_WIN32
+#define symn(name) sym_r(name, "wgl"#name)
+#define symn_n(name) sym_r(name, #name)
+	symn(CreateContext);
+	symn(DeleteContext);
+	symn(GetProcAddress);
+	symn(MakeCurrent);
+	symn_n(SwapBuffers);
+#undef symn
+#undef symn_r
+#undef symn_n
 #else
 #define WIN32_SYM_FALLBACK(name) ;
-#define APIENTRY /* */
 #endif
+
+#ifdef DYLIB_POSIX
+	glx.lib=dlopen("libGL.so", RTLD_LAZY);
+	if (!glx.lib) return false;
+#define symn_r(name, str) *(void**)&glx.name = dlsym(glx.lib, str); if (!glx.name) return false;
+#define sym_r(name, str) *(funcptr*)&gl.name = (funcptr)glx.GetProcAddress((const GLubyte*)str); if (!gl.name) return false;
+#endif
+#ifdef WNDPROT_X11
+#define symn(name) symn_r(name, "glX"#name)
+#define symn_n(name) symn_r(name, #name)
+	symn(GetProcAddress);
+	symn(SwapBuffers);
+	symn(MakeCurrent);
+	symn(QueryVersion);
+	symn(ChooseVisual);
+	symn(CreateContext);
+#undef symn
+#undef symn_r
+#undef symn_n
+#endif
+
 	return true;
 }
 
 void DeinitGlobalGLFunctions()
 {
-#ifdef _WIN32
+#ifdef WNDPROT_WINDOWS
 	FreeLibrary(wgl.lib);
+#endif
+#ifdef WNDPROT_WINDOWS
+	dlclose(wgl.lib);
 #endif
 }
 
@@ -108,15 +161,25 @@ public:
 #ifndef _WIN32
 		//we could poke DwmIsCompositionEnabled (http://msdn.microsoft.com/en-us/library/windows/desktop/aa969518%28v=vs.85%29.aspx),
 		//but it can be assumed always on in Windows 7 and I don't care about the others.
-		features|=v_vsync;
+		features|=f_vsync;
 #endif
 		return features;
 	}
 	
-#ifdef _WIN32
+#ifdef WNDPROT_WINDOWS
 	HWND hwnd;
 	HDC hdc;
 	HGLRC hglrc;
+#endif
+	
+#ifdef WNDPROT_X11
+	Display* display;
+	int screen;
+	
+	Window window;
+	
+	Colormap colormap;
+	GLXContext context;
 #endif
 	
 	struct {
@@ -132,6 +195,7 @@ GLenum (APIENTRY * GetError)();
 		void (APIENTRY * TexSubImage2D)(GLenum target,GLint level,GLint xoffset,GLint yoffset,GLsizei width,GLsizei height,
 		                                GLenum format,GLenum type,const GLvoid *pixels);
 		void (APIENTRY * PixelStorei)(GLenum pname,GLint param);
+int (APIENTRY * SwapInterval)(int interval);//it's BOOL on windows, but that one is WINBOOL which is int, windef.h said so.
 	} gl;
 	
 	bool is3d;
@@ -144,15 +208,15 @@ GLenum (APIENTRY * GetError)();
 	unsigned int in2_height;
 	GLuint in2_texture;
 	
-	GLuint* sh_tex;
-	GLuint* sh_fbo;
+	//GLuint* sh_tex;
+	//GLuint* sh_fbo;
 	
 	video* out_chain;
 	
 	/*private*/ bool load_gl_functions(unsigned int version)
 	{
-#define sym(name) *(funcptr*)&gl.name = (funcptr)pgl.GetProcAddress("gl"#name); WIN32_SYM_FALLBACK(name); if (!gl.name) return false;
-#define symARB(name) *(funcptr*)&gl.name = (funcptr)pgl.GetProcAddress("gl"#name"ARB"); if (!gl.name) return false;
+#define sym(name) sym_r(name, "gl"#name)
+#define symARB(name) sym_r(name, "gl"#name"ARB")
 #define symver(name, minver) if (version >= minver) { symver(name); } else gl.name=NULL;
 #define symverARB(name, minver) if (version >= minver) { symverARB(name); } else gl.name=NULL;
 sym(Clear);
@@ -171,16 +235,34 @@ sym(GetError);
 	
 	/*private*/ void begin()
 	{
+#ifdef WNDPROT_WINDOWS
 		wgl.MakeCurrent(this->hdc, this->hglrc);
+#endif
+#ifdef WNDPROT_X11
+		glx.MakeCurrent(this->display, this->window, this->context);
+#endif
 	}
 	
 	/*private*/ void end()
 	{
+#ifdef WNDPROT_WINDOWS
 		wgl.MakeCurrent(this->hdc, NULL);
+#endif
+#ifdef WNDPROT_X11
+		glx.MakeCurrent(this->display, 0, NULL);
+#endif
 	}
+	
+#ifdef WNDPROT_X11
+	/*private*/ static Bool XWaitForCreate(Display* d, XEvent* e, char* arg)
+	{
+		return (e->type == MapNotify) && (e->xmap.window == (Window)arg);
+	}
+#endif
 	
 	/*private*/ bool construct(uintptr_t windowhandle, bool gles, unsigned int major, unsigned int minor)
 	{
+#ifdef WNDPROT_WINDOWS
 		if (!InitGlobalGLFunctions()) return false;
 		if (gles) return false;//rejected for now
 		if (major<2) return false;//reject these (cannot hoist to construct3d because InitGlobalGLFunctions must be called)
@@ -228,6 +310,85 @@ sym(GetError);
 		this->out_chain=NULL;
 		
 		return true;
+#endif
+		
+#ifdef WNDPROT_X11
+		if (!InitGlobalGLFunctions()) return false;
+		if (gles) return false;//rejected for now
+		if (major<2) return false;//reject these (cannot hoist to construct3d because InitGlobalGLFunctions must be called)
+		//TODO: clone the hwnd, so I won't set pixel format twice
+		//TODO: study if the above is necessary - it returns success twice
+		//TODO: also study creating an OpenGL driver then Direct3D on the same window (restore pixel format on destruct?)
+		//TODO: we need to handle multiple drivers on the same window - in case of chaining, maybe create a window and never show it?
+		
+		this->display = window_x11_get_display()->display;
+		int screen = window_x11_get_display()->screen;
+		
+		int glxmajor=0;
+		int glxminor=0;
+		glx.QueryVersion(this->display, &glxmajor, &glxminor);
+		if (glxmajor*10+glxminor < 11) return false;
+		if (glxmajor*10+glxminor >= 1300)
+		{
+			//easy path
+			
+		}
+		else
+		{
+			//this one works too, but it's a bit messier
+			static const int attributes[] = { GLX_DOUBLEBUFFER, GLX_RGBA, None };
+			bool swap=true;
+			
+			XVisualInfo* vis=glx.ChooseVisual(this->display, screen, (int*)attributes);
+			if (!vis)
+			{
+				vis=glx.ChooseVisual(this->display, screen, (int*)attributes+1);
+				swap=false;
+			}
+			if (!vis) return false;
+			
+			this->context=glx.CreateContext(this->display, vis, NULL, True);
+			if (!this->context) return false;
+			
+			XSetWindowAttributes attr;
+			memset(&attr, 0, sizeof(attr));
+			attr.colormap=XCreateColormap(this->display, (Window)windowhandle, vis->visual, AllocNone);
+			attr.event_mask=StructureNotifyMask;//for MapNotify
+			//TODO: remove above and see what happens
+			this->window=XCreateWindow(this->display, (Window)windowhandle, 0, 0, 100, 100, 0,
+			                           vis->depth, InputOutput, vis->visual, CWColormap|CWEventMask, &attr);
+			XMapWindow(this->display, this->window);
+			
+			XEvent ignore;
+			XPeekIfEvent(this->display, &ignore, this->XWaitForCreate, (char*)this->window);
+		}
+		
+glx.MakeCurrent(this->display, this->window, this->context);
+		
+#if 0
+		if (major*10+minor >= 31)
+		{
+			HGLRC hglrc_v2=this->hglrc;
+			PFNWGLCREATECONTEXTATTRIBSARBPROC CreateContextAttribs=(PFNWGLCREATECONTEXTATTRIBSARBPROC)wgl.GetProcAddress("wglCreateContextAttribsARB");
+			const int attribs[] = {
+				WGL_CONTEXT_MAJOR_VERSION_ARB, (int)major,
+				WGL_CONTEXT_MINOR_VERSION_ARB, (int)minor,
+				//WGL_CONTEXT_FLAGS_ARB, WGL_CONTEXT_FORWARD_COMPATIBLE_BIT_ARB,//https://www.opengl.org/wiki/Core_And_Compatibility_in_Contexts says do not use
+			0 };
+			this->hglrc=CreateContextAttribs(this->hdc, NULL/*share*/, attribs);
+			
+			wgl.MakeCurrent(this->hdc, this->hglrc);
+			wgl.DeleteContext(hglrc_v2);
+		}
+#endif
+		
+		if (!load_gl_functions(major*10+minor)) return false;
+		end();
+		
+		this->out_chain=NULL;
+		
+		return true;
+#endif
 	}
 	
 	/*private*/ bool construct2d(uintptr_t windowhandle)
@@ -349,7 +510,12 @@ gl.Clear(GL_COLOR_BUFFER_BIT);
 	
 	funcptr input_3d_get_proc_address(const char * sym)
 	{
-		return (funcptr)pgl.GetProcAddress(sym);
+#ifdef WNDPROT_WINDOWS
+		return (funcptr)wgl.GetProcAddress(sym);
+#endif
+#ifdef WNDPROT_X11
+		return (funcptr)glx.GetProcAddress((GLubyte*)sym);
+#endif
 	}
 	
 	void draw_3d(unsigned int width, unsigned int height)
@@ -361,7 +527,12 @@ gl.Clear(GL_COLOR_BUFFER_BIT);
 	{
 		if (!this->out_chain)
 		{
-			pgl.SwapBuffers(this->hdc);
+#ifdef WNDPROT_WINDOWS
+			wgl.SwapBuffers(this->hdc);
+#endif
+#ifdef WNDPROT_X11
+			glx.SwapBuffers(this->display, this->window);
+#endif
 		}
 		else
 		{
@@ -411,10 +582,12 @@ gl.Clear(GL_COLOR_BUFFER_BIT);
 	
 	~video_opengl()
 	{
+#ifdef WNDPROT_WINDOWS
 		//TODO: destroy various resources
 		wgl.MakeCurrent(this->hdc, NULL);
 		if (this->hglrc) wgl.DeleteContext(this->hglrc);
 		if (this->hdc) ReleaseDC(this->hwnd, this->hdc);
+#endif
 		DeinitGlobalGLFunctions();
 	}
 };
