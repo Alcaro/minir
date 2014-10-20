@@ -46,6 +46,8 @@ struct {
 	Bool (*QueryVersion)(Display* dpy, int* major, int* minor);
 	XVisualInfo* (*ChooseVisual)(Display* dpy, int screen, int * attribList);
 	GLXContext (*CreateContext)(Display* dpy, XVisualInfo* vis, GLXContext shareList, Bool direct);
+	PFNGLXCREATECONTEXTATTRIBSARBPROC CreateContextAttribs;
+	//GLXWindow (*CreateWindow)(Display* dpy, GLXFBConfig config, Window win, const int * attrib_list);
 	
 	//glXSwapBuffers(this->display, this->xwindow);
 	//if (this->glSwapInterval) this->glSwapInterval(sync?1:0);
@@ -59,21 +61,22 @@ struct {
 
 bool InitGlobalGLFunctions()
 {
+#define symn_n(name) symn_r(name, #name)
+#define symn_o(name) symn_r_o(name, #name)
 	//this can yield multiple unsynchronized writers to global variables
 	//however, this is safe, because they all write the same values in the same order.
 #ifdef DYLIB_WIN32
 	wgl.lib=LoadLibrary("opengl32.dll");
 	if (!wgl.lib) return false;
-#define symn_r(name, str) *(funcptr*)&wgl.name = (funcptr)GetProcAddress(wgl.lib, str); if (!wgl.name) return false;
-#define sym_r(name, str) \
+#define symn_r_o(name, str) *(funcptr*)&wgl.name = (funcptr)GetProcAddress(wgl.lib, str)
+#define symn_r(name, str) symn_r_o(name, str); if (!wgl.name) return false
+#define sym_r_o(name, str) \
 	*(funcptr*)&gl.name = (funcptr)wgl.GetProcAddress(str); \
-	if (!gl.name) *(funcptr*)&gl.name = (funcptr)GetProcAddress(wgl.lib, "gl"#name); \
-	if (!gl.name) return false;
+	if (!gl.name) *(funcptr*)&gl.name = (funcptr)GetProcAddress(wgl.lib, "gl"#name)
 #define glsym(loc, name) 
 #endif
 #ifdef WNDPROT_WIN32
 #define symn(name) sym_r(name, "wgl"#name)
-#define symn_n(name) sym_r(name, #name)
 	symn(CreateContext);
 	symn(DeleteContext);
 	symn(GetProcAddress);
@@ -89,18 +92,20 @@ bool InitGlobalGLFunctions()
 #ifdef DYLIB_POSIX
 	glx.lib=dlopen("libGL.so", RTLD_LAZY);
 	if (!glx.lib) return false;
-#define symn_r(name, str) *(void**)&glx.name = dlsym(glx.lib, str); if (!glx.name) return false;
-#define sym_r(name, str) *(funcptr*)&gl.name = (funcptr)glx.GetProcAddress((const GLubyte*)str); if (!gl.name) return false;
+#define symn_r_o(name, str) *(void**)&glx.name = dlsym(glx.lib, str)
+#define symn_r(name, str) symn_r_o(name, str); if (!glx.name) return false
+#define sym_r_o(name, str) *(funcptr*)&gl.name = (funcptr)glx.GetProcAddress((const GLubyte*)str)
 #endif
 #ifdef WNDPROT_X11
 #define symn(name) symn_r(name, "glX"#name)
-#define symn_n(name) symn_r(name, #name)
 	symn(GetProcAddress);
 	symn(SwapBuffers);
 	symn(MakeCurrent);
 	symn(QueryVersion);
 	symn(ChooseVisual);
 	symn(CreateContext);
+	symn(SwapBuffers);
+	//symn_o(CreateWindow);
 #undef symn
 #undef symn_r
 #undef symn_n
@@ -215,10 +220,11 @@ int (APIENTRY * SwapInterval)(int interval);//it's BOOL on windows, but that one
 	
 	/*private*/ bool load_gl_functions(unsigned int version)
 	{
+#define sym_r(name, str) sym_r_o(name, str); if (!gl.name) return false
 #define sym(name) sym_r(name, "gl"#name)
 #define symARB(name) sym_r(name, "gl"#name"ARB")
-#define symver(name, minver) if (version >= minver) { symver(name); } else gl.name=NULL;
-#define symverARB(name, minver) if (version >= minver) { symverARB(name); } else gl.name=NULL;
+#define symver(name, minver) if (version >= minver) { symver(name); } else gl.name=NULL
+#define symverARB(name, minver) if (version >= minver) { symverARB(name); } else gl.name=NULL
 sym(Clear);
 sym(ClearColor);
 sym(GetError);
@@ -228,8 +234,12 @@ sym(GetError);
 		sym(TexImage2D);
 		sym(TexSubImage2D);
 		sym(PixelStorei);
+#undef sym_r_o
+#undef sym_r
 #undef sym
 #undef symARB
+#undef symver
+#undef symverARB
 		return true;
 	}
 	
@@ -292,13 +302,15 @@ sym(GetError);
 		if (major*10+minor >= 31)
 		{
 			HGLRC hglrc_v2=this->hglrc;
-			PFNWGLCREATECONTEXTATTRIBSARBPROC CreateContextAttribs=(PFNWGLCREATECONTEXTATTRIBSARBPROC)wgl.GetProcAddress("wglCreateContextAttribsARB");
+			PFNWGLCREATECONTEXTATTRIBSARBPROC wglCreateContextAttribs=
+				(PFNWGLCREATECONTEXTATTRIBSARBPROC)wgl.GetProcAddress("wglCreateContextAttribsARB");
 			const int attribs[] = {
 				WGL_CONTEXT_MAJOR_VERSION_ARB, (int)major,
 				WGL_CONTEXT_MINOR_VERSION_ARB, (int)minor,
-				//WGL_CONTEXT_FLAGS_ARB, WGL_CONTEXT_FORWARD_COMPATIBLE_BIT_ARB,//https://www.opengl.org/wiki/Core_And_Compatibility_in_Contexts says do not use
+				//WGL_CONTEXT_FLAGS_ARB, WGL_CONTEXT_FORWARD_COMPATIBLE_BIT_ARB,
+				//https://www.opengl.org/wiki/Core_And_Compatibility_in_Contexts says do not use
 			0 };
-			this->hglrc=CreateContextAttribs(this->hdc, NULL/*share*/, attribs);
+			this->hglrc=wglCreateContextAttribs(this->hdc, NULL/*share*/, attribs);
 			
 			wgl.MakeCurrent(this->hdc, this->hglrc);
 			wgl.DeleteContext(hglrc_v2);
@@ -328,23 +340,35 @@ sym(GetError);
 		int glxminor=0;
 		glx.QueryVersion(this->display, &glxmajor, &glxminor);
 		if (glxmajor*10+glxminor < 11) return false;
-		if (glxmajor*10+glxminor >= 1300)
+		
+		if (major*10+minor >= 32)
 		{
-			//easy path
+			if (!glx.ChooseFBConfig || !glx.GetVisualFromFBConfig) return false;//these exist in 1.3 and higher
+			//TODO: glXCreateWindow, https://www.opengl.org/discussion_boards/showthread.php/165856-Minimal-GLX-OpenGL3-0-example
 			
+			/*
+			GLXContext oldcontext=this->context;
+			PFNGLXCREATECONTEXTATTRIBSARBPROC glxCreateContextAttribs=
+				(PFNGLXCREATECONTEXTATTRIBSARBPROC)glx.GetProcAddress((const GLubyte*)"glXCreateContextAttribsARB");
+			const int attribs[] = {
+				GLX_CONTEXT_MAJOR_VERSION_ARB, (int)major,
+				GLX_CONTEXT_MINOR_VERSION_ARB, (int)minor,
+				//GLX_CONTEXT_FLAGS_ARB, GLX_CONTEXT_DEBUG_BIT_ARB|GLX_CONTEXT_FORWARD_COMPATIBLE_BIT_ARB
+				//https://www.opengl.org/wiki/Core_And_Compatibility_in_Contexts says do not use
+				None };
+			this->context=glxCreateContextAttribs(this->display, fbc[0], NULL, True, context_attribs);
+			
+			glx.MakeCurrent(this->display, this->window, this->context);
+			glx.DeleteContext(oldcontext);
+			*/
 		}
 		else
 		{
-			//this one works too, but it's a bit messier
 			static const int attributes[] = { GLX_DOUBLEBUFFER, GLX_RGBA, None };
-			bool swap=true;
 			
 			XVisualInfo* vis=glx.ChooseVisual(this->display, screen, (int*)attributes);
-			if (!vis)
-			{
-				vis=glx.ChooseVisual(this->display, screen, (int*)attributes+1);
-				swap=false;
-			}
+			bool doublebuffer=(vis);//TODO: use
+			if (!vis) vis=glx.ChooseVisual(this->display, screen, (int*)attributes+1);
 			if (!vis) return false;
 			
 			this->context=glx.CreateContext(this->display, vis, NULL, True);
@@ -363,24 +387,7 @@ sym(GetError);
 			XPeekIfEvent(this->display, &ignore, this->XWaitForCreate, (char*)this->window);
 		}
 		
-glx.MakeCurrent(this->display, this->window, this->context);
-		
-#if 0
-		if (major*10+minor >= 31)
-		{
-			HGLRC hglrc_v2=this->hglrc;
-			PFNWGLCREATECONTEXTATTRIBSARBPROC CreateContextAttribs=(PFNWGLCREATECONTEXTATTRIBSARBPROC)wgl.GetProcAddress("wglCreateContextAttribsARB");
-			const int attribs[] = {
-				WGL_CONTEXT_MAJOR_VERSION_ARB, (int)major,
-				WGL_CONTEXT_MINOR_VERSION_ARB, (int)minor,
-				//WGL_CONTEXT_FLAGS_ARB, WGL_CONTEXT_FORWARD_COMPATIBLE_BIT_ARB,//https://www.opengl.org/wiki/Core_And_Compatibility_in_Contexts says do not use
-			0 };
-			this->hglrc=CreateContextAttribs(this->hdc, NULL/*share*/, attribs);
-			
-			wgl.MakeCurrent(this->hdc, this->hglrc);
-			wgl.DeleteContext(hglrc_v2);
-		}
-#endif
+		glx.MakeCurrent(this->display, this->window, this->context);
 		
 		if (!load_gl_functions(major*10+minor)) return false;
 		end();
