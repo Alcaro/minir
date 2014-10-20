@@ -77,7 +77,7 @@ public://since this entire file is private, making it public inside here does no
 	
 	/*private*/ void threadproc()
 	{
-		this->next->finalize_2d(this->base_width, this->base_height);
+		this->next->finalize_2d(this->base_width, this->base_height, this->depth);
 		this->wake_parent->signal();
 		double vsync=0;
 		while (true)
@@ -138,8 +138,10 @@ public://since this entire file is private, making it public inside here does no
 		return 0;
 	}
 	
-	void finalize_2d(unsigned int base_width, unsigned int base_height)
+	void finalize_2d(unsigned int base_width, unsigned int base_height, unsigned int depth)
 	{
+		this->depth=depth;
+		this->bpp=depthtobpp(depth);
 		this->base_width=base_width;
 		this->base_height=base_height;
 		this->width=base_width;
@@ -277,7 +279,8 @@ public://since this entire file is private, making it public inside here does no
 		if (!ret) return;
 		this->lock->unlock();
 	}
-	video_thread(unsigned int depth)
+	
+	video_thread()
 	{
 		this->lock=NULL;
 		this->buf_next.data=NULL;
@@ -288,8 +291,6 @@ public://since this entire file is private, making it public inside here does no
 		this->buf_temp.bufsize=0;
 		this->buf_last.data=NULL;
 		this->buf_last.bufsize=0;
-		this->depth=depth;
-		this->bpp=depthtobpp(depth);
 	}
 	
 	~video_thread()
@@ -318,7 +319,7 @@ public://since this entire file is private, making it public inside here does no
 
 }
 
-video* video_create_thread(unsigned int depth)
+video* video_create_thread()
 {
-	return new video_thread(depth);
+	return new video_thread();
 }

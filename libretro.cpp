@@ -541,7 +541,7 @@ static bool environment(unsigned cmd, void* data)
 	//7 SHUTDOWN, ignored because no supported core has any reason to have Off buttons.
 	//8 SET_PERFORMANCE_LEVEL, ignored because I don't support a wide range of powers.
 	if (cmd==RETRO_ENVIRONMENT_GET_SYSTEM_DIRECTORY || //9
-	    cmd==RETRO_ENVIRONMENT_GET_LIBRETRO_PATH || //19
+	    cmd==RETRO_ENVIRONMENT_GET_LIBRETRO_PATH || //19 [TODO: this should return the path with filename. And they should all be permanent.]
 	    cmd==RETRO_ENVIRONMENT_GET_CONTENT_DIRECTORY) //30
 	{
 		char * ret=strdup(this->libpath);

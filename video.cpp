@@ -5,14 +5,14 @@ namespace {
 class video_none : public video {
 	uint32_t features() { return 0; }
 	
-	void finalize_2d(unsigned int base_width, unsigned int base_height) {}
+	void finalize_2d(unsigned int base_width, unsigned int base_height, unsigned int depth) {}
 	void draw_2d(unsigned int width, unsigned int height, const void * data, unsigned int pitch) {}
 	void draw_repeat() {}
 	void get_base_size(unsigned int * width, unsigned int * height) { *width=1; *height=1; }
 	void set_size(unsigned int width, unsigned int height) {}
 	~video_none() {}
 };
-video* video_create_none(uintptr_t windowhandle, unsigned int depth) { return new video_none(); }
+video* video_create_none(uintptr_t windowhandle) { return new video_none(); }
 };
 
 const driver_video video_none_desc={ "None", video_create_none, NULL, 0 };
@@ -25,8 +25,8 @@ class video_compat : public video {
 	cvideo* child;
 	
 	uintptr_t windowhandle;
-	unsigned int depth;
 	
+	unsigned int depth;
 	unsigned int base_width;
 	unsigned int base_height;
 	
@@ -42,11 +42,13 @@ public:
 		return ret;
 	}
 	
-	void finalize_2d(unsigned int base_width, unsigned int base_height)
+	void finalize_2d(unsigned int base_width, unsigned int base_height, unsigned int depth)
 	{
 		this->base_width=base_width;
 		this->base_height=base_height;
-		this->child=this->create(this->windowhandle, base_width, base_height, this->depth, 60);
+		this->child=this->create(this->windowhandle, base_width, base_height, depth, 60);
+		this->depth=depth;
+		//failure cannot be handled at this point
 	}
 	
 	void draw_2d(unsigned int width, unsigned int height, const void * data, unsigned int pitch)
@@ -80,20 +82,19 @@ public:
 	~video_compat() { child->free(child); }
 	
 	video_compat(function<cvideo*(uintptr_t windowhandle, unsigned int screen_width, unsigned int screen_height,
-                   unsigned int depth, double fps)> create, uintptr_t windowhandle, unsigned int depth)
+                   unsigned int depth, double fps)> create, uintptr_t windowhandle)
 	{
 		this->create=create;
 		this->windowhandle=windowhandle;
-		this->depth=depth;
 	}
 };
 
 }
 
 video* video_create_compat(function<cvideo*(uintptr_t windowhandle, unsigned int screen_width, unsigned int screen_height,
-                   unsigned int depth, double fps)> create, uintptr_t windowhandle, unsigned int depth)
+                   unsigned int depth, double fps)> create, uintptr_t windowhandle)
 {
-	return new video_compat(create, windowhandle, depth);
+	return new video_compat(create, windowhandle);
 }
 
 extern const driver_video video_d3d9_desc;

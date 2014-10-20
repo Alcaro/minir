@@ -154,9 +154,9 @@ cancel:
 }
 
 #undef video
-static video* video_create_xshm(uintptr_t windowhandle, unsigned int depth)
+static video* video_create_xshm(uintptr_t windowhandle)
 {
-	return video_create_compat(bind(cvideo_create_xshm), windowhandle, depth);
+	return video_create_compat(bind(cvideo_create_xshm), windowhandle);
 }
 extern const driver_video video_xshm_desc = {"XShm", video_create_xshm, NULL, 0};
 #endif

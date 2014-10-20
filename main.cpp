@@ -146,7 +146,7 @@ struct configdata config;
 bool try_set_interface_video(unsigned int id, uintptr_t windowhandle,
                              unsigned int videowidth, unsigned int videoheight, unsigned int videodepth, double videofps)
 {
-	video* device=list_video[id].create2d(windowhandle, videodepth);
+	video* device=list_video[id].create2d(windowhandle);
 	if (!device) return false;
 	if (!config.driver_video || strcasecmp(config.driver_video, list_video[id].name))
 	{
@@ -157,11 +157,11 @@ bool try_set_interface_video(unsigned int id, uintptr_t windowhandle,
 	
 	if (config.video_thread)
 	{
-		video* outer=video_create_thread(videodepth);
+		video* outer=video_create_thread();
 		outer->set_chain(vid);
 		vid=outer;
 	}
-	vid->finalize_2d(videowidth, videoheight);
+	vid->finalize_2d(videowidth, videoheight, videodepth);
 	vid->set_size(videowidth*config.video_scale, videoheight*config.video_scale);
 	
 	return true;
@@ -1233,8 +1233,7 @@ wndw->statusbar_set(wndw, 1, gg);
 i=0;
 }
 
-static int gg=0;gg++;
-if(gg==60000)exit_called=1;config.defocus_pause=0;printf("%i/60000\r",gg);fflush(stdout);
+//static int gg=0;gg++;if(gg==60000)exit_called=1;config.defocus_pause=0;printf("%i/60000\r",gg);fflush(stdout);
 
 		
 		if (statusbar_expiry && now>statusbar_expiry)

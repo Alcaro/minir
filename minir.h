@@ -162,9 +162,9 @@ struct driver_video {
 	const char * name;
 	
 	//The returned objects can only use their corresponding 2d or 3d functions; calling the other is undefined behaviour.
-	//depth can be either 15, 16 or 32. This one can not fail.
-	video* (*create2d)(uintptr_t windowhandle, unsigned int depth);
-	//The caller will fill in get_current_framebuffer and get_proc_address with something that calls get_current_framebuffer and get_proc_address.
+	//depth can be either 15, 16 or 32. Failure shall be treated as fatal.
+	video* (*create2d)(uintptr_t windowhandle);
+	//The caller will fill in get_current_framebuffer and get_proc_address. The created object cannot set it up, as a function pointer cannot point to a C++ member.
 	//On failure, the descriptor is guaranteed to remain untouched.
 	video* (*create3d)(uintptr_t windowhandle, struct retro_hw_render_callback * desc);
 	
@@ -191,7 +191,7 @@ public:
 	
 	//The video chain must be fully constructed (set_chain()) before this is called.
 	//finalize() must be called only on the first one in the chain; it will call the others.
-	virtual void finalize_2d(unsigned int base_width, unsigned int base_height) = 0;
+	virtual void finalize_2d(unsigned int base_width, unsigned int base_height, unsigned int depth) = 0;
 	//Asks where to put the video data for best performance. Returning data=NULL means 'I have no opinion, give me whatever'.
 	//If called, the next call to this object must be draw_2d, with the same arguments as draw_2d_where.
 	//However, it is allowed to call draw_2d without draw_2d_where.
@@ -233,6 +233,7 @@ public:
 	//Returns the last input to this object. If the input is 3d, it's flattened to 2d before being returned.
 	//The returned integer can only be used as boolean, or sent to release_screenshot(). It can vary depending on whether the object allocated a new buffer.
 	//It is safe to release with ret=0; this will do nothing.
+	//release_screenshot() must be the next called function. It is not allowed to ask for both screenshots then release both.
 	virtual int get_screenshot(unsigned int * width, unsigned int * height, unsigned int * pitch, unsigned int * depth,
 	                           void* * data, size_t datasize) { *data=NULL; return 0; }
 	//Returns the last output of this object. This is different from input if shaders are present.
@@ -266,7 +267,7 @@ static inline void video_copy_2d(void* dst, size_t dstpitch, const void* src, si
 //This means that the chain creator will not own the subsequent items in the chain, and can therefore not ask for either vsync,
 // shaders, nor screenshots. Instead, they must be called on this object; the calls will be passed on to the real driver.
 //Due to its special properties, it is not included in the list of drivers.
-video* video_create_thread(unsigned int depth);
+video* video_create_thread();
 
 
 
@@ -1096,4 +1097,4 @@ struct cvideo * cvideo_create(const char * backend, uintptr_t windowhandle, unsi
                             unsigned int depth, double fps);
 
 video* video_create_compat(function<cvideo*(uintptr_t windowhandle, unsigned int screen_width, unsigned int screen_height,
-                   unsigned int depth, double fps)> create, uintptr_t windowhandle, unsigned int depth);
+                   unsigned int depth, double fps)> create, uintptr_t windowhandle);

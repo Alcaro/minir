@@ -383,9 +383,9 @@ cancel:
 }
 
 #undef video
-static video* video_create_d3d9(uintptr_t windowhandle, unsigned int depth)
+static video* video_create_d3d9(uintptr_t windowhandle)
 {
-	return video_create_compat(bind(cvideo_create_d3d9), windowhandle, depth);
+	return video_create_compat(bind(cvideo_create_d3d9), windowhandle);
 }
 extern const driver_video video_d3d9_desc = {"Direct3D", video_create_d3d9, NULL, video::f_vsync};
 #endif
