@@ -89,6 +89,7 @@ bool InitGlobalGLFunctions()
 	GLX_SYM_OPT(XVisualInfo*, GetVisualFromFBConfig, (Display* dpy, GLXFBConfig config)) \
 	GLX_SYM_OPT(GLXWindow, CreateWindow, (Display* dpy, GLXFBConfig config, Window win, const int * attrib_list)) \
 	GLX_SYM_OPT(GLXContext, CreateNewContext, (Display* dpy, GLXFBConfig config, int render_type, GLXContext share_list, Bool direct)) \
+	GLX_SYM_OPT(void, DestroyWindow, (Display* dpy, GLXWindow win)) \
 
 #define GLX_SYM_N_OPT GLX_SYM_N
 #define GLX_SYM_N(str, ret, name, args) ret (*name) args;
@@ -221,6 +222,7 @@ public:
 	Display* display;
 	
 	Window window;
+	bool glxwindow;
 	Colormap colormap;
 	
 	GLXContext context;
@@ -376,6 +378,9 @@ sym(GetError);
 #endif
 		
 #ifdef WNDPROT_X11
+		this->window=None;
+		this->colormap=None;
+		
 		if (!InitGlobalGLFunctions()) return false;
 		if (gles) return false;//rejected for now
 		if (major<2) return false;//reject these (cannot hoist to construct3d because InitGlobalGLFunctions must be called)
@@ -397,7 +402,11 @@ sym(GetError);
 		if (glxmajor*10+glxminor >= 13)
 		{
 			//these exist in 1.3 and higher - if the server claims 1.3, it should damn well be that
-			if (!glx.ChooseFBConfig || !glx.GetVisualFromFBConfig || !glx.CreateNewContext || !glx.CreateWindow) return false;
+			if (!glx.ChooseFBConfig) return false;
+			if (!glx.GetVisualFromFBConfig) return false;
+			if (!glx.CreateNewContext) return false;
+			if (!glx.CreateWindow) return false;
+			if (!glx.DestroyWindow) return false;
 			
 			static const int attributes[]={ GLX_DOUBLEBUFFER, True, None };
 			
@@ -418,6 +427,7 @@ sym(GetError);
 			
 			this->context=glx.CreateNewContext(this->display, configs[0], GLX_RGBA_TYPE, NULL, True);
 			this->window=glx.CreateWindow(this->display, configs[0], (Window)windowhandle, NULL);
+			this->glxwindow=true;
 			
 			//XMapWindow(this->display, this->window);
 			//XEvent ignore;
@@ -462,6 +472,7 @@ sym(GetError);
 			
 			this->window=XCreateWindow(this->display, (Window)windowhandle, 0, 0, 100, 100, 0,
 			                           vis->depth, InputOutput, vis->visual, CWColormap|CWEventMask, &attr);
+			this->glxwindow=false;
 			
 			XMapWindow(this->display, this->window);
 			XEvent ignore;
@@ -702,6 +713,9 @@ gl.Clear(GL_COLOR_BUFFER_BIT);
 	{
 #ifdef WNDPROT_X11
 		if (glx.MakeCurrent) glx.MakeCurrent(this->display, 0, NULL);
+		if (this->window && !this->glxwindow) XDestroyWindow(this->display, this->window);
+		if (this->window && this->glxwindow) glx.DestroyWindow(this->display, this->window);
+		if (this->colormap) XFreeColormap(this->display, this->colormap);
 #endif
 #ifdef WNDPROT_WINDOWS
 		//TODO: destroy various resources
