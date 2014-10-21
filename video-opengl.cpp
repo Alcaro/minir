@@ -13,9 +13,21 @@
 #define bind BIND_CB
 #include "libretro.h"
 
+#define ONLY_WINDOWS(x)
+#define ONLY_X11(x)
+
+#ifdef WNDPROT_WINDOWS
+#undef ONLY_WINDOWS
+#define ONLY_WINDOWS(x) x
+#endif
+#ifdef WNDPROT_X11
+#undef ONLY_X11
+#define ONLY_X11(x) x
+#endif
+
 namespace {
 #ifdef WNDPROT_WINDOWS
-#define WGL_SYM(ret, name, args) WGL_SYM_N(#name, ret, name, args)
+#define WGL_SYM(ret, name, args) WGL_SYM_N("wgl"#name, ret, name, args)
 #define WGL_SYMS() \
 	WGL_SYM(HGLRC, CreateContext, (HDC hdc)) \
 	WGL_SYM(WINBOOL, DeleteContext, (HGLRC hglrc)) \
@@ -36,88 +48,77 @@ namespace {
   //WINGDIAPI WINBOOL WINAPI wglUseFontBitmapsW(HDC,DWORD,DWORD,DWORD);
   //WINGDIAPI WINBOOL WINAPI SwapBuffers(HDC);
 
-struct {
 #define WGL_SYM_N(str, ret, name, args) ret (WINAPI * name) args;
-WGL_SYMS()
+struct { WGL_SYMS() HMODULE lib; } static wgl;
 #undef WGL_SYM_N
-	HMODULE lib;
-} static wgl;
-const char * const wgl_names[]={
-#define WGL_SYM_N(str, ret, name, args) "wgl"str,
-WGL_SYMS()
+#define WGL_SYM_N(str, ret, name, args) str,
+const char * const wgl_names[]={ WGL_SYMS() };
 #undef WGL_SYM_N
-};
-#endif
-
-#if defined(WNDPROT_X11)
-struct {
-	void* lib;
-	funcptr (*GetProcAddress)(const GLubyte * procName);
-	void (*SwapBuffers)(Display* dpy, GLXDrawable drawable);
-	Bool (*MakeCurrent)(Display* dpy, GLXDrawable drawable, GLXContext ctx);
-	Bool (*QueryVersion)(Display* dpy, int* major, int* minor);
-	XVisualInfo* (*ChooseVisual)(Display* dpy, int screen, int * attribList);
-	GLXContext (*CreateContext)(Display* dpy, XVisualInfo* vis, GLXContext shareList, Bool direct);
-	PFNGLXCREATECONTEXTATTRIBSARBPROC CreateContextAttribs;
-	//GLXWindow (*CreateWindow)(Display* dpy, GLXFBConfig config, Window win, const int * attrib_list);
-	
-	//glXSwapBuffers(this->display, this->xwindow);
-	//if (this->glSwapInterval) this->glSwapInterval(sync?1:0);
-	//this->glSwapInterval=NULL;
-	//if(!this->glSwapInterval) this->glSwapInterval = (int (*)(int))glGetProcAddress("glXSwapIntervalMESA");
-	//if(!this->glSwapInterval) this->glSwapInterval = (int (*)(int))glGetProcAddress("glXSwapIntervalSGI");
-	//if( this->glSwapInterval) this->glSwapInterval(1);
-  //WINBOOL (WINAPI * SwapBuffers)(HDC);
-} static glx;
-#endif
 
 bool InitGlobalGLFunctions()
 {
-#define symn_n(name) symn_r(name, #name)
-#define symn_o(name) symn_r_o(name, #name)
 	//this can yield multiple unsynchronized writers to global variables
 	//however, this is safe, because they all write the same values in the same order.
-#ifdef DYLIB_WIN32
 	wgl.lib=LoadLibrary("opengl32.dll");
 	if (!wgl.lib) return false;
-#define sym_r_o(name, str) \
-	*(funcptr*)&gl.name = (funcptr)wgl.GetProcAddress(str); \
-	if (!gl.name) *(funcptr*)&gl.name = (funcptr)GetProcAddress(wgl.lib, "gl"#name)
-#define glsym(loc, name) 
-#endif
-#ifdef WNDPROT_WINDOWS
+	
 	funcptr* functions=(funcptr*)&wgl;
 	for (unsigned int i=0;i<sizeof(wgl_names)/sizeof(*wgl_names);i++)
 	{
 		functions[i]=(funcptr)GetProcAddress(wgl.lib, wgl_names[i]);
 		if (!functions[i]) return false;
 	}
-#endif
-
-#ifdef DYLIB_POSIX
-	glx.lib=dlopen("libGL.so", RTLD_LAZY);
-	if (!glx.lib) return false;
-#define symn_r_o(name, str) *(void**)&glx.name = dlsym(glx.lib, str)
-#define symn_r(name, str) symn_r_o(name, str); if (!glx.name) return false
-#define sym_r_o(name, str) *(funcptr*)&gl.name = (funcptr)glx.GetProcAddress((const GLubyte*)str)
-#endif
-#ifdef WNDPROT_X11
-#define symn(name) symn_r(name, "glX"#name)
-	symn(GetProcAddress);
-	symn(SwapBuffers);
-	symn(MakeCurrent);
-	symn(QueryVersion);
-	symn(ChooseVisual);
-	symn(CreateContext);
-	symn(SwapBuffers);
-	//symn_o(CreateWindow);
-#undef symn
-#undef symn_r
-#undef symn_n
-#endif
-
 	return true;
 }
+#endif
+
+
+#ifdef WNDPROT_X11
+#define GLX_SYM(ret, name, args) GLX_SYM_N("glX"#name, ret, name, args)
+#define GLX_SYM_OPT(ret, name, args) GLX_SYM_N_OPT("glX"#name, ret, name, args)
+//#define GLX_SYM_ARB(ret, name, args) GLX_SYM_N("glX"#name"ARB", ret, name, args)
+//#define GLX_SYM_ARB_OPT(ret, name, args) GLX_SYM_N_OPT("glX"#name"ARB", ret, name, args)
+#define GLX_SYMS() \
+	GLX_SYM(funcptr, GetProcAddress, (const GLubyte * procName)) \
+	GLX_SYM(void, SwapBuffers, (Display* dpy, GLXDrawable drawable)) \
+	GLX_SYM(Bool, MakeCurrent, (Display* dpy, GLXDrawable drawable, GLXContext ctx)) \
+	GLX_SYM(Bool, QueryVersion, (Display* dpy, int* major, int* minor)) \
+	GLX_SYM(XVisualInfo*, ChooseVisual, (Display* dpy, int screen, int * attribList)) \
+	GLX_SYM(GLXContext, CreateContext, (Display* dpy, XVisualInfo* vis, GLXContext shareList, Bool direct)) \
+	GLX_SYM_OPT(GLXFBConfig*, ChooseFBConfig, (Display* dpy, int screen, const int * attrib_list, int * nelements)) \
+	GLX_SYM_OPT(XVisualInfo*, GetVisualFromFBConfig, (Display* dpy, GLXFBConfig config)) \
+	GLX_SYM_OPT(GLXWindow, CreateWindow, (Display* dpy, GLXFBConfig config, Window win, const int * attrib_list)) \
+	GLX_SYM_OPT(GLXContext, CreateNewContext, (Display* dpy, GLXFBConfig config, int render_type, GLXContext share_list, Bool direct)) \
+
+#define GLX_SYM_N_OPT GLX_SYM_N
+#define GLX_SYM_N(str, ret, name, args) ret (*name) args;
+struct { GLX_SYMS() void* lib; } static glx;
+#undef GLX_SYM_N
+#define GLX_SYM_N(str, ret, name, args) str,
+const char * const glx_names[]={ GLX_SYMS() };
+#undef GLX_SYM_N
+#undef GLX_SYM_N_OPT
+
+#define GLX_SYM_N(str, ret, name, args) 0,
+#define GLX_SYM_N_OPT(str, ret, name, args) 1,
+const uint8_t glx_opts[]={ GLX_SYMS() };
+#undef GLX_SYM_N
+#undef GLX_SYM_N_OPT
+
+bool InitGlobalGLFunctions()
+{
+	glx.lib=dlopen("libGL.so", RTLD_LAZY);
+	if (!glx.lib) return false;
+	
+	funcptr* functions=(funcptr*)&glx;
+	for (unsigned int i=0;i<sizeof(glx_names)/sizeof(*glx_names);i++)
+	{
+		functions[i]=(funcptr)dlsym(glx.lib, glx_names[i]);
+		if (!glx_opts[i] && !functions[i]) return false;
+	}
+	return true;
+}
+#endif
 
 void DeinitGlobalGLFunctions()
 {
@@ -150,7 +151,6 @@ const char * defaultShader =
 "#endif\n";
 */
 
-struct glsyms {
 #define GL_SYM(ret, name, args) GL_SYM_N("gl"#name, ret, name, args)
 #define GL_SYM_OPT(ret, name, args) GL_SYM_N_OPT("gl"#name, ret, name, args)
 #define GL_SYMS() \
@@ -166,17 +166,24 @@ struct glsyms {
 	GL_SYM(void, TexSubImage2D, (GLenum target, GLint level, GLint xoffset, GLint yoffset, GLsizei width, GLsizei height, \
 	                             GLenum format, GLenum type, const GLvoid* pixels)) \
 	GL_SYM(void, ReadPixels, (GLint x, GLint y, GLsizei width, GLsizei height, GLenum format, GLenum type, GLvoid* pixels)) \
+	ONLY_WINDOWS(GL_SYM_OPT(BOOL, SwapInterval, (int interval))) \
+	ONLY_X11(GL_SYM_OPT(void, SwapIntervalEXT, (Display* dpy, GLXDrawable drawable, int interval))) \
+	ONLY_X11(GL_SYM_OPT(int, SwapIntervalMESA, (unsigned int interval))) \
+	ONLY_X11(GL_SYM_OPT(int, SwapIntervalSGI, (int interval))) \
 
+#define GL_SYM_N_OPT GL_SYM_N
 #define GL_SYM_N(str, ret, name, args) ret (APIENTRY * name) args;
-GL_SYMS()
+struct glsyms { GL_SYMS() };
 #undef GL_SYM_N
-	int (APIENTRY * SwapInterval)(int interval); // it's BOOL on windows, but that one is WINBOOL which is int, windef.h said so.
-};
-static const char * const gl_names[] = {
 #define GL_SYM_N(str, ret, name, args) str,
-GL_SYMS()
+static const char * const gl_names[] = { GL_SYMS() };
 #undef GL_SYM_N
-};
+#undef GL_SYM_N_OPT
+#define GL_SYM_N(str, ret, name, args) 0,
+#define GL_SYM_N_OPT(str, ret, name, args) 1,
+static uint8_t gl_opts[] = { GL_SYMS() };
+#undef GL_SYM_N
+#undef GL_SYM_N_OPT
 
 class video_opengl : public video {
 public:
@@ -212,11 +219,10 @@ public:
 	
 #ifdef WNDPROT_X11
 	Display* display;
-	int screen;
 	
 	Window window;
-	
 	Colormap colormap;
+	
 	GLXContext context;
 #endif
 	
@@ -253,9 +259,11 @@ public:
 			functions[i]=(funcptr)wgl.GetProcAddress(gl_names[i]);
 			if (!functions[i]) functions[i]=(funcptr)GetProcAddress(wgl.lib, gl_names[i]);
 #endif
-			if (!functions[i]) return false;
+#ifdef WNDPROT_X11
+			functions[i]=(funcptr)glx.GetProcAddress((const GLubyte*)gl_names[i]);
+#endif
+			if (!gl_opts[i] && !functions[i]) return false;
 		}
-		*(funcptr*)&gl.SwapInterval = (funcptr)wgl.GetProcAddress("wglSwapIntervalEXT");
 /*
 #define sym_r(name, str) sym_r_o(name, str); if (!gl.name) return false
 #define sym(name) sym_r(name, "gl"#name)
@@ -285,26 +293,26 @@ sym(GetError);
 		return true;
 	}
 	
-	/*private*/ void begin()
-	{
-#ifdef WNDPROT_WINDOWS
-		if (wgl.GetCurrentContext()) abort();//cannot use two of these from the same thread
-		wgl.MakeCurrent(this->hdc, this->hglrc);
-#endif
-#ifdef WNDPROT_X11
-		glx.MakeCurrent(this->display, this->window, this->context);
-#endif
-	}
-	
-	/*private*/ void end()
-	{
-#ifdef WNDPROT_WINDOWS
-		wgl.MakeCurrent(this->hdc, NULL);
-#endif
-#ifdef WNDPROT_X11
-		glx.MakeCurrent(this->display, 0, NULL);
-#endif
-	}
+//	/*private*/ void begin()
+//	{
+//#ifdef WNDPROT_WINDOWS
+//		if (wgl.GetCurrentContext()) abort();//cannot use two of these from the same thread
+//		wgl.MakeCurrent(this->hdc, this->hglrc);
+//#endif
+//#ifdef WNDPROT_X11
+//		glx.MakeCurrent(this->display, this->window, this->context);
+//#endif
+//	}
+//	
+//	/*private*/ void end()
+//	{
+//#ifdef WNDPROT_WINDOWS
+//		wgl.MakeCurrent(this->hdc, NULL);
+//#endif
+//#ifdef WNDPROT_X11
+//		glx.MakeCurrent(this->display, 0, NULL);
+//#endif
+//	}
 	
 #ifdef WNDPROT_X11
 	/*private*/ static Bool XWaitForCreate(Display* d, XEvent* e, char* arg)
@@ -360,7 +368,7 @@ sym(GetError);
 		}
 		
 		if (!load_gl_functions(major*10+minor)) return false;
-		end();
+		wgl.MakeCurrent(this->hdc, NULL);
 		
 		this->out_chain=NULL;
 		
@@ -384,10 +392,36 @@ sym(GetError);
 		glx.QueryVersion(this->display, &glxmajor, &glxminor);
 		if (glxmajor*10+glxminor < 11) return false;
 		
-		if (major*10+minor >= 32)
+		bool doublebuffer;//TODO: use
+		
+		if (glxmajor*10+glxminor >= 13)
 		{
-			if (!glx.ChooseFBConfig || !glx.GetVisualFromFBConfig) return false;//these exist in 1.3 and higher
-			//TODO: glXCreateWindow, https://www.opengl.org/discussion_boards/showthread.php/165856-Minimal-GLX-OpenGL3-0-example
+			//these exist in 1.3 and higher - if the server claims 1.3, it should damn well be that
+			if (!glx.ChooseFBConfig || !glx.GetVisualFromFBConfig || !glx.CreateNewContext || !glx.CreateWindow) return false;
+			
+			static const int attributes[]={ GLX_DOUBLEBUFFER, True, None };
+			
+			int numconfig;
+			GLXFBConfig* configs=glx.ChooseFBConfig(this->display, screen, attributes, &numconfig);
+			doublebuffer=(configs);
+			if (!configs) configs=glx.ChooseFBConfig(this->display, screen, NULL, &numconfig);
+			if (!configs) return false;
+			
+			XVisualInfo* vis=glx.GetVisualFromFBConfig(this->display, configs[0]);
+			
+			XSetWindowAttributes attr;
+			memset(&attr, 0, sizeof(attr));
+			attr.colormap=XCreateColormap(this->display, (Window)windowhandle, vis->visual, AllocNone);
+			//TODO: free colormap
+			attr.event_mask=StructureNotifyMask;//for MapNotify
+			//TODO: remove above and see what happens
+			
+			this->context=glx.CreateNewContext(this->display, configs[0], GLX_RGBA_TYPE, NULL, True);
+			this->window=glx.CreateWindow(this->display, configs[0], (Window)windowhandle, NULL);
+			
+			//XMapWindow(this->display, this->window);
+			//XEvent ignore;
+			//XPeekIfEvent(this->display, &ignore, this->XWaitForCreate, (char*)this->window);
 			
 			/*
 			GLXContext oldcontext=this->context;
@@ -407,10 +441,12 @@ sym(GetError);
 		}
 		else
 		{
+			if (major*10+minor >= 30) return false;
+			
 			static const int attributes[] = { GLX_DOUBLEBUFFER, GLX_RGBA, None };
 			
 			XVisualInfo* vis=glx.ChooseVisual(this->display, screen, (int*)attributes);
-			bool doublebuffer=(vis);//TODO: use
+			doublebuffer=(vis);//TODO: use
 			if (!vis) vis=glx.ChooseVisual(this->display, screen, (int*)attributes+1);
 			if (!vis) return false;
 			
@@ -420,12 +456,14 @@ sym(GetError);
 			XSetWindowAttributes attr;
 			memset(&attr, 0, sizeof(attr));
 			attr.colormap=XCreateColormap(this->display, (Window)windowhandle, vis->visual, AllocNone);
+			//TODO: free colormap
 			attr.event_mask=StructureNotifyMask;//for MapNotify
 			//TODO: remove above and see what happens
+			
 			this->window=XCreateWindow(this->display, (Window)windowhandle, 0, 0, 100, 100, 0,
 			                           vis->depth, InputOutput, vis->visual, CWColormap|CWEventMask, &attr);
-			XMapWindow(this->display, this->window);
 			
+			XMapWindow(this->display, this->window);
 			XEvent ignore;
 			XPeekIfEvent(this->display, &ignore, this->XWaitForCreate, (char*)this->window);
 		}
@@ -433,7 +471,7 @@ sym(GetError);
 		glx.MakeCurrent(this->display, this->window, this->context);
 		
 		if (!load_gl_functions(major*10+minor)) return false;
-		end();
+		glx.MakeCurrent(this->display, 0, NULL);
 		
 		this->out_chain=NULL;
 		
@@ -469,7 +507,13 @@ sym(GetError);
 	
 	void finalize_2d(unsigned int base_width, unsigned int base_height, unsigned int depth)
 	{
-		begin();
+#ifdef WNDPROT_WINDOWS
+		if (wgl.GetCurrentContext()) abort();//cannot use two of these from the same thread
+		wgl.MakeCurrent(this->hdc, this->hglrc);
+#endif
+#ifdef WNDPROT_X11
+		glx.MakeCurrent(this->display, this->window, this->context);
+#endif
 		
 		this->in2_width=base_width;
 		this->in2_height=base_height;
@@ -552,7 +596,12 @@ gl.Clear(GL_COLOR_BUFFER_BIT);
 	
 	void finalize_3d()
 	{
-		begin();
+#ifdef WNDPROT_WINDOWS
+		wgl.MakeCurrent(this->hdc, this->hglrc);
+#endif
+#ifdef WNDPROT_X11
+		glx.MakeCurrent(this->display, this->window, this->context);
+#endif
 		this->in3.context_reset();
 		//end();
 	}
@@ -609,10 +658,14 @@ gl.Clear(GL_COLOR_BUFFER_BIT);
 	
 	void set_vsync(double fps)
 	{
-		if (gl.SwapInterval)
-		{
-			gl.SwapInterval(fps ? 1 : 0);
-		}
+#ifdef WNDPROT_WINDOWS
+		if (gl.SwapInterval) gl.SwapInterval(fps ? 1 : 0);
+#endif
+#ifdef WNDPROT_X11
+		if (gl.SwapIntervalEXT) gl.SwapIntervalEXT(this->display, this->window, fps ? 1 : 0);
+		if (gl.SwapIntervalMESA) gl.SwapIntervalMESA(fps ? 1 : 0);
+		if (gl.SwapIntervalSGI) gl.SwapIntervalSGI(fps ? 1 : 0);
+#endif
 	}
 	
 	
@@ -647,10 +700,12 @@ gl.Clear(GL_COLOR_BUFFER_BIT);
 	
 	~video_opengl()
 	{
-		end();
+#ifdef WNDPROT_X11
+		if (glx.MakeCurrent) glx.MakeCurrent(this->display, 0, NULL);
+#endif
 #ifdef WNDPROT_WINDOWS
 		//TODO: destroy various resources
-		wgl.MakeCurrent(this->hdc, NULL);
+		if (wgl.MakeCurrent) wgl.MakeCurrent(this->hdc, NULL);
 		if (this->hglrc) wgl.DeleteContext(this->hglrc);
 		if (this->hdc) ReleaseDC(this->hwnd, this->hdc);
 #endif
