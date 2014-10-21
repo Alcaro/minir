@@ -78,12 +78,11 @@ struct libretro_impl {
 	
 	video* v2d;
 	video* v3d;
+	function<video*(struct retro_hw_render_callback * desc)> create3d;
 	
 	video* v;
 	struct audio * a;
 	struct libretroinput * in;
-	
-	function<video*(struct retro_hw_render_callback * desc)> create3d;
 	
 	void (*message_cb)(int severity, const char * message);
 	
@@ -249,6 +248,16 @@ static void enable_3d(struct libretro * this_, function<video*(struct retro_hw_r
 	this->create3d=creator;
 }
 
+static uintptr_t v3d_get_current_framebuffer()
+{
+	return g_this->v3d->input_3d_get_current_framebuffer();
+}
+
+static retro_proc_address_t v3d_get_proc_address(const char * sym)
+{
+	return g_this->v3d->input_3d_get_proc_address(sym);
+}
+
 //TODO: remove this once rarch megapack updates and its s9x exports the mmaps, alternatively once I get unlazy enough to compile s9x myself
 static void add_snes_mmap(struct libretro_impl * this)
 {
@@ -291,7 +300,6 @@ static bool load_rom(struct libretro * this_, const char * data, size_t datalen,
 	
 	bool gameless=this->i.supports_no_game((struct libretro*)this);
 	
-	delete this->v3d;
 	this->v3d=NULL;
 	this->v=this->v2d;
 	
@@ -479,7 +487,6 @@ static void free_(struct libretro * this_)
 	free(this->libpath);
 	free(this->rompath);
 	delete this->lib;
-	delete this->v3d;
 	free(this);
 }
 
@@ -520,8 +527,8 @@ static void log_callback(enum retro_log_level level, const char * fmt, ...)
 //Brief status on support of each environ command:
 //              1         2         3
 //     123456789012345678901234567890123456789
-//Done   x     xx    xxxxx    x  x  x     x     = 12
-//Todo           xxxx                xx xx xx   = 10
+//Done   x     xx   xxxxxx    x  x  x     x     = 13
+//Todo           xxx                 xx xx xx   = 9
 //Nope xx   xxx            xxx xx xx   x     x  = 14
 //Gone    xx              x                     = 3
 //Detailed information on why the unsupported ones don't exist can be found in this function.
@@ -568,10 +575,13 @@ static bool environment(unsigned cmd, void* data)
 	//13 SET_DISK_CONTROL_INTERFACE, ignored because no supported core uses disks. Maybe Famicom Disk System, but low priority.
 	if (cmd==RETRO_ENVIRONMENT_SET_HW_RENDER) //14
 	{
-		delete this->v3d;
-		this->v3d=this->create3d((struct retro_hw_render_callback*)data);
+		if (!this->create3d) return false;
+		struct retro_hw_render_callback * render=(struct retro_hw_render_callback*)data;
+		this->v3d=this->create3d(render);
 		if (!this->v3d) return false;
 		this->v=this->v3d;
+		render->get_current_framebuffer=v3d_get_current_framebuffer;
+		render->get_proc_address=v3d_get_proc_address;
 		return true;
 	}
 	if (cmd==RETRO_ENVIRONMENT_GET_VARIABLE) //15

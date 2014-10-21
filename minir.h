@@ -707,7 +707,7 @@ struct libretro {
 	//It is safe to attach new interfaces if the previous ones are destroyed.
 	void (*attach_interfaces)(struct libretro * This, video* v, struct audio * a, struct libretroinput * i);
 	
-	//This object will own the returned item and delete it when it's no longer used.
+	//The callee will own the returned object and shall treat it as if it is the attached video driver.
 	void (*enable_3d)(struct libretro * This, function<video*(struct retro_hw_render_callback * desc)> creator);
 	
 	//data/datalen or filename can be NULL, but not both unless supports_no_game is true. It is allowed for both to be non-NULL.

@@ -71,6 +71,7 @@ static inline void shutupgcc(int x){}
 #endif
 
 video* vid;
+video* vid3d;
 struct audio * aud;
 struct inputmapper * inp;
 struct libretroinput * retroinp;
@@ -181,10 +182,36 @@ void create_interface_video(uintptr_t windowhandle, unsigned int videowidth, uns
 			}
 		}
 	}
-	for (unsigned int id=0;true;id++)
+	for (unsigned int i=0;true;i++)
 	{
-		if (try_set_interface_video(id, windowhandle, videowidth, videoheight, videodepth, videofps)) return;
+		if (try_set_interface_video(i, windowhandle, videowidth, videoheight, videodepth, videofps)) return;
 	}
+}
+
+video* create3d(struct retro_hw_render_callback * desc)
+{
+	uintptr_t window=draw->get_window_handle();
+	if (config.driver_video)
+	{
+		for (unsigned int i=0;list_video[i].name;i++)
+		{
+			if (list_video[i].create3d && !strcasecmp(config.driver_video, list_video[i].name))
+			{
+				vid3d=list_video[i].create3d(window, desc);
+				if (vid3d) return vid3d;
+				break;
+			}
+		}
+	}
+	for (unsigned int i=0;list_video[i].name;i++)
+	{
+		if (list_video[i].create3d)
+		{
+			vid3d=list_video[i].create3d(window, desc);
+			if (vid3d) return vid3d;
+		}
+	}
+	return NULL;
 }
 
 bool try_create_interface_audio(const char * interface)
@@ -240,7 +267,15 @@ void create_interfaces(unsigned int videowidth, unsigned int videoheight, unsign
 	if (vid) delete vid; vid=NULL;
 	if (aud) aud->free(aud); aud=NULL;
 	
-	create_interface_video(draw->get_window_handle(), videowidth, videoheight, videodepth, videofps);
+	if (vid3d)
+	{
+		vid3d->set_size(videowidth, videoheight);
+		vid=vid3d;
+	}
+	else
+	{
+		create_interface_video(draw->get_window_handle(), videowidth, videoheight, videodepth, videofps);
+	}
 	
 	if (!config.driver_audio || !try_create_interface_audio(config.driver_audio))
 	{
@@ -262,7 +297,7 @@ void reset_config()
 	
 	if (romloaded==coreloaded) configmgr->data_load(configmgr, &config, true, NULL, romloaded);
 	else configmgr->data_load(configmgr, &config, true, coreloaded, romloaded);
-	if (!wndw) return;
+	if (!inp) return;
 	
 	unsigned int videowidth=320;
 	unsigned int videoheight=240;
@@ -271,6 +306,7 @@ void reset_config()
 	
 	if (core) core->get_video_settings(core, &videowidth, &videoheight, &videodepth, &videofps);
 	
+printf("Chosen zoom: %i\n",config.video_scale);
 	draw->resize(videowidth*config.video_scale, videoheight*config.video_scale);
 	draw->set_hide_cursor(config.cursor_hide);
 	
@@ -408,6 +444,9 @@ bool study_core(const char * path, struct libretro * core)
 //fflush(stdout);
 	free(coreconfig.support);
 	coreconfig.support=(char**)thiscore->supported_extensions(thiscore, NULL);
+//printf("ext=%s\n",coreconfig.support[0]);
+//printf("ext=%s\n",coreconfig.support[1]);
+//printf("ext=%s\n",coreconfig.support[2]);
 	
 	free(coreconfig.corename); coreconfig.corename=(char*)thiscore->name(thiscore);
 	
@@ -541,6 +580,9 @@ bool load_rom(const char * rom)
 		free(newcores);
 	}
 	unload_rom();
+	delete vid; vid=NULL;
+	vid3d=NULL;
+	core->enable_3d(core, bind(create3d));
 	if (!core->load_rom(core, NULL, 0, rom))
 	{
 		if (wndw) wndw->set_title(wndw, "minir");
@@ -610,6 +652,7 @@ void load_rom_finish()
 	else set_status_bar("Loaded %s with %s", config.gamename, config.corename);
 printf("Chosen core: %s\n", coreloaded);
 printf("Chosen ROM: %s\n", romloaded);
+	if (vid3d) vid3d->finalize_3d();
 }
 
 void select_rom()
@@ -773,6 +816,13 @@ void initialize(int argc, char * argv[])
 	configmgr=config_create(selfpath);
 	configmgr->data_load(configmgr, &config, false, NULL, NULL);
 	
+	draw=widget_create_viewport(640, 480);
+	wndw=window_create(draw);
+	
+	const int align[]={0,2};
+	const int divider=180;
+	wndw->statusbar_create(wndw, 2, align, &divider);
+	
 	if (argc==1)
 	{
 		const char * defautoload=configmgr->get_autoload(configmgr);
@@ -780,7 +830,7 @@ void initialize(int argc, char * argv[])
 	}
 	else handle_cli_args((const char * const *)argv+1, false);
 	
-	reset_config();
+	//reset_config();
 	
 	unsigned int videowidth=320;
 	unsigned int videoheight=240;
@@ -789,17 +839,12 @@ void initialize(int argc, char * argv[])
 	
 	if (core) core->get_video_settings(core, &videowidth, &videoheight, &videodepth, &videofps);
 	
-	draw=widget_create_viewport(videowidth*config.video_scale, videoheight*config.video_scale);
-	wndw=window_create(draw);
-	wndw->set_title(wndw, "minir");//in case the previous one didn't work
+	draw->resize(videowidth*config.video_scale, videoheight*config.video_scale);
 	wndw->set_onclose(wndw, closethis, NULL);
+	wndw->set_title(wndw, "minir");
 	set_window_title();
 	
 	draw->set_support_drop(bind(drop_handler));
-	
-	const int align[]={0,2};
-	const int divider=180;
-	wndw->statusbar_create(wndw, 2, align, &divider);
 	
 	if (statusbar_to_load)
 	{

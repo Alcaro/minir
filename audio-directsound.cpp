@@ -47,6 +47,7 @@ wait:
 	freestart/=4; freeend/=4;
 	if (thispos<freestart) thispos+=this->bufsize;
 	if (freeend<thispos) freeend+=this->bufsize;
+	if (freeend<thispos) freeend+=this->bufsize;
 	
 	if (thispos+numframes>freeend)
 	{

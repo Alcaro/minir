@@ -15,8 +15,14 @@
 
 namespace {
 #ifdef WNDPROT_WINDOWS
-struct {
-	HMODULE lib;
+#define WGL_SYM(ret, name, args) WGL_SYM_N(#name, ret, name, args)
+#define WGL_SYMS() \
+	WGL_SYM(HGLRC, CreateContext, (HDC hdc)) \
+	WGL_SYM(WINBOOL, DeleteContext, (HGLRC hglrc)) \
+	WGL_SYM(HGLRC, GetCurrentContext, ()) \
+	WGL_SYM(PROC, GetProcAddress, (LPCSTR lpszProc)) \
+	WGL_SYM(WINBOOL, MakeCurrent, (HDC hdc, HGLRC hglrc)) \
+	WGL_SYM(WINBOOL, SwapBuffers, (HDC hdc)) \
   //WINGDIAPI WINBOOL WINAPI wglCopyContext(HGLRC,HGLRC,UINT);
   //WINGDIAPI HGLRC WINAPI wglCreateContext(HDC);
   //WINGDIAPI HGLRC WINAPI wglCreateLayerContext(HDC,int);
@@ -29,12 +35,18 @@ struct {
   //WINGDIAPI WINBOOL WINAPI wglUseFontBitmapsA(HDC,DWORD,DWORD,DWORD);
   //WINGDIAPI WINBOOL WINAPI wglUseFontBitmapsW(HDC,DWORD,DWORD,DWORD);
   //WINGDIAPI WINBOOL WINAPI SwapBuffers(HDC);
-	HGLRC (WINAPI * CreateContext)(HDC hdc);
-	WINBOOL (WINAPI * MakeCurrent)(HDC hdc, HGLRC hglrc);
-	WINBOOL (WINAPI * DeleteContext)(HGLRC hglrc);
-	PROC (WINAPI * GetProcAddress)(LPCSTR lpszProc);
-	WINBOOL (WINAPI * SwapBuffers)(HDC hdc);
+
+struct {
+#define WGL_SYM_N(str, ret, name, args) ret (WINAPI * name) args;
+WGL_SYMS()
+#undef WGL_SYM_N
+	HMODULE lib;
 } static wgl;
+const char * const wgl_names[]={
+#define WGL_SYM_N(str, ret, name, args) "wgl"str,
+WGL_SYMS()
+#undef WGL_SYM_N
+};
 #endif
 
 #if defined(WNDPROT_X11)
@@ -68,25 +80,18 @@ bool InitGlobalGLFunctions()
 #ifdef DYLIB_WIN32
 	wgl.lib=LoadLibrary("opengl32.dll");
 	if (!wgl.lib) return false;
-#define symn_r_o(name, str) *(funcptr*)&wgl.name = (funcptr)GetProcAddress(wgl.lib, str)
-#define symn_r(name, str) symn_r_o(name, str); if (!wgl.name) return false
 #define sym_r_o(name, str) \
 	*(funcptr*)&gl.name = (funcptr)wgl.GetProcAddress(str); \
 	if (!gl.name) *(funcptr*)&gl.name = (funcptr)GetProcAddress(wgl.lib, "gl"#name)
 #define glsym(loc, name) 
 #endif
-#ifdef WNDPROT_WIN32
-#define symn(name) sym_r(name, "wgl"#name)
-	symn(CreateContext);
-	symn(DeleteContext);
-	symn(GetProcAddress);
-	symn(MakeCurrent);
-	symn_n(SwapBuffers);
-#undef symn
-#undef symn_r
-#undef symn_n
-#else
-#define WIN32_SYM_FALLBACK(name) ;
+#ifdef WNDPROT_WINDOWS
+	funcptr* functions=(funcptr*)&wgl;
+	for (unsigned int i=0;i<sizeof(wgl_names)/sizeof(*wgl_names);i++)
+	{
+		functions[i]=(funcptr)GetProcAddress(wgl.lib, wgl_names[i]);
+		if (!functions[i]) return false;
+	}
 #endif
 
 #ifdef DYLIB_POSIX
@@ -116,11 +121,11 @@ bool InitGlobalGLFunctions()
 
 void DeinitGlobalGLFunctions()
 {
-#ifdef WNDPROT_WINDOWS
+#ifdef DYLIB_WINDOWS
 	FreeLibrary(wgl.lib);
 #endif
-#ifdef WNDPROT_WINDOWS
-	dlclose(wgl.lib);
+#ifdef DYLIB_POSIX
+	dlclose(glx.lib);
 #endif
 }
 
@@ -144,6 +149,34 @@ const char * defaultShader =
     "}\n"
 "#endif\n";
 */
+
+struct glsyms {
+#define GL_SYM(ret, name, args) GL_SYM_N("gl"#name, ret, name, args)
+#define GL_SYM_OPT(ret, name, args) GL_SYM_N_OPT("gl"#name, ret, name, args)
+#define GL_SYMS() \
+	GL_SYM(void, BindTexture, (GLenum target, GLuint texture)) \
+	GL_SYM(void, Clear, (GLbitfield mask)) \
+	GL_SYM(void, ClearColor, (GLclampf red, GLclampf green, GLclampf blue, GLclampf alpha)) \
+	GL_SYM(void, GenTextures, (GLsizei n, GLuint* textures)) \
+	GL_SYM(GLenum, GetError, ()) \
+	GL_SYM(void, Finish, ()) \
+	GL_SYM(void, PixelStorei, (GLenum pname, GLint param)) \
+	GL_SYM(void, TexImage2D, (GLenum target, GLint level, GLint internalformat, GLsizei width, GLsizei height, \
+	                          GLint border, GLenum format, GLenum type, const GLvoid* pixels)) \
+	GL_SYM(void, TexSubImage2D, (GLenum target, GLint level, GLint xoffset, GLint yoffset, GLsizei width, GLsizei height, \
+	                             GLenum format, GLenum type, const GLvoid* pixels)) \
+	GL_SYM(void, ReadPixels, (GLint x, GLint y, GLsizei width, GLsizei height, GLenum format, GLenum type, GLvoid* pixels)) \
+
+#define GL_SYM_N(str, ret, name, args) ret (APIENTRY * name) args;
+GL_SYMS()
+#undef GL_SYM_N
+	int (APIENTRY * SwapInterval)(int interval); // it's BOOL on windows, but that one is WINBOOL which is int, windef.h said so.
+};
+static const char * const gl_names[] = {
+#define GL_SYM_N(str, ret, name, args) str,
+GL_SYMS()
+#undef GL_SYM_N
+};
 
 class video_opengl : public video {
 public:
@@ -187,31 +220,24 @@ public:
 	GLXContext context;
 #endif
 	
-	struct {
-void (APIENTRY * Clear)(GLbitfield mask);
-void (APIENTRY * ClearColor)(GLclampf red, GLclampf green, GLclampf blue, GLclampf alpha);
-GLenum (APIENTRY * GetError)();
-		void (APIENTRY * ReadPixels)(GLint x,GLint y,GLsizei width,GLsizei height,GLenum format,GLenum type,GLvoid *pixels);
-		
-		void (APIENTRY * GenTextures)(GLsizei n,GLuint *textures);
-		void (APIENTRY * BindTexture)(GLenum target,GLuint texture);
-		void (APIENTRY * TexImage2D)(GLenum target,GLint level,GLint internalformat,GLsizei width,GLsizei height,
-		                             GLint border,GLenum format,GLenum type,const GLvoid *pixels);
-		void (APIENTRY * TexSubImage2D)(GLenum target,GLint level,GLint xoffset,GLint yoffset,GLsizei width,GLsizei height,
-		                                GLenum format,GLenum type,const GLvoid *pixels);
-		void (APIENTRY * PixelStorei)(GLenum pname,GLint param);
-int (APIENTRY * SwapInterval)(int interval);//it's BOOL on windows, but that one is WINBOOL which is int, windef.h said so.
-	} gl;
+	glsyms gl;
 	
 	bool is3d;
 	
-	//2D input
-	//uint8_t in2_bpp;
-	uint8_t in2_bytepp;
-	GLenum in2_fmt;
-	unsigned int in2_width;
-	unsigned int in2_height;
-	GLuint in2_texture;
+	union {
+		struct {
+			//2D input
+			//uint8_t in2_bpp;
+			uint8_t in2_bytepp;
+			GLenum in2_fmt;
+			unsigned int in2_width;
+			unsigned int in2_height;
+			GLuint in2_texture;
+		};
+		struct {
+			retro_hw_render_callback in3;
+		};
+	};
 	
 	//GLuint* sh_tex;
 	//GLuint* sh_fbo;
@@ -220,32 +246,49 @@ int (APIENTRY * SwapInterval)(int interval);//it's BOOL on windows, but that one
 	
 	/*private*/ bool load_gl_functions(unsigned int version)
 	{
+		funcptr* functions=(funcptr*)&gl;
+		for (unsigned int i=0;i<sizeof(gl_names)/sizeof(*gl_names);i++)
+		{
+#ifdef WNDPROT_WINDOWS
+			functions[i]=(funcptr)wgl.GetProcAddress(gl_names[i]);
+			if (!functions[i]) functions[i]=(funcptr)GetProcAddress(wgl.lib, gl_names[i]);
+#endif
+			if (!functions[i]) return false;
+		}
+		*(funcptr*)&gl.SwapInterval = (funcptr)wgl.GetProcAddress("wglSwapIntervalEXT");
+/*
 #define sym_r(name, str) sym_r_o(name, str); if (!gl.name) return false
 #define sym(name) sym_r(name, "gl"#name)
+#define sym_o(name) sym_r_o(name, "gl"#name)
 #define symARB(name) sym_r(name, "gl"#name"ARB")
 #define symver(name, minver) if (version >= minver) { symver(name); } else gl.name=NULL
 #define symverARB(name, minver) if (version >= minver) { symverARB(name); } else gl.name=NULL
 sym(Clear);
 sym(ClearColor);
 sym(GetError);
+		sym(Finish);
 		sym(ReadPixels);
 		sym(GenTextures);
 		sym(BindTexture);
 		sym(TexImage2D);
 		sym(TexSubImage2D);
 		sym(PixelStorei);
+		sym_r(SwapInterval, "wglSwapIntervalEXT");
 #undef sym_r_o
 #undef sym_r
+#undef sym_o
 #undef sym
 #undef symARB
 #undef symver
 #undef symverARB
+*/
 		return true;
 	}
 	
 	/*private*/ void begin()
 	{
 #ifdef WNDPROT_WINDOWS
+		if (wgl.GetCurrentContext()) abort();//cannot use two of these from the same thread
 		wgl.MakeCurrent(this->hdc, this->hglrc);
 #endif
 #ifdef WNDPROT_X11
@@ -291,8 +334,8 @@ sym(GetError);
 		pfd.cColorBits=24;
 		pfd.cAlphaBits=0;
 		pfd.cAccumBits=0;
-		pfd.cDepthBits=0;
-		pfd.cStencilBits=0;
+		pfd.cDepthBits=24;
+		pfd.cStencilBits=8;
 		pfd.cAuxBuffers=0;
 		pfd.iLayerType=PFD_MAIN_PLANE;
 		SetPixelFormat(this->hdc, ChoosePixelFormat(this->hdc, &pfd), &pfd);
@@ -452,14 +495,14 @@ sym(GetError);
 		gl.TexImage2D(GL_TEXTURE_2D, 0, GL_RGB, base_width, base_height, 0, GL_RGB, this->in2_fmt, NULL);
 		gl.BindTexture(GL_TEXTURE_2D, 0);
 		
-		end();
+		//end();
 	}
 	
 	//void draw_2d_where(unsigned int width, unsigned int height, void * * data, unsigned int * pitch);
 	
 	void draw_2d(unsigned int width, unsigned int height, const void * data, unsigned int pitch)
 	{
-		begin();
+		//begin();
 		
 		gl.BindTexture(GL_TEXTURE_2D, this->in2_texture);
 		gl.PixelStorei(GL_UNPACK_ROW_LENGTH, pitch/this->in2_bytepp);
@@ -470,7 +513,7 @@ gl.ClearColor(0.5f,0.6f,0.7f,0.5f);
 gl.Clear(GL_COLOR_BUFFER_BIT);
 		
 		draw_shared();
-		end();
+		//end();
 	}
 	
 	/*private*/ bool construct3d(uintptr_t windowhandle, struct retro_hw_render_callback * desc)
@@ -502,16 +545,21 @@ gl.Clear(GL_COLOR_BUFFER_BIT);
 			default: gles=false; major=0; minor=0;
 		}
 		if (!construct(windowhandle, gles, major, minor)) return false;
+		this->in3=*desc;
 		
-		return false;
+		return true;
 	}
 	
 	void finalize_3d()
 	{
+		begin();
+		this->in3.context_reset();
+		//end();
 	}
 	
 	uintptr_t input_3d_get_current_framebuffer()
 	{
+		//begin();
 		return 0;
 	}
 	
@@ -528,12 +576,16 @@ gl.Clear(GL_COLOR_BUFFER_BIT);
 	void draw_3d(unsigned int width, unsigned int height)
 	{
 		draw_shared();
+		//end();
 	}
 	
 	/*private*/ void draw_shared()
 	{
 		if (!this->out_chain)
 		{
+			//gl.Finish();
+			//TODO: check if this one improves anything
+			//use the flicker test core
 #ifdef WNDPROT_WINDOWS
 			wgl.SwapBuffers(this->hdc);
 #endif
@@ -549,13 +601,19 @@ gl.Clear(GL_COLOR_BUFFER_BIT);
 	
 	void draw_repeat()
 	{
-		begin();
+		//begin();
 		draw_shared();
-		end();
+		//end();
 	}
 	
 	
-	//void set_vsync(double fps);
+	void set_vsync(double fps)
+	{
+		if (gl.SwapInterval)
+		{
+			gl.SwapInterval(fps ? 1 : 0);
+		}
+	}
 	
 	
 	//bool set_shader(shadertype type, const char * filename);
@@ -589,6 +647,7 @@ gl.Clear(GL_COLOR_BUFFER_BIT);
 	
 	~video_opengl()
 	{
+		end();
 #ifdef WNDPROT_WINDOWS
 		//TODO: destroy various resources
 		wgl.MakeCurrent(this->hdc, NULL);
