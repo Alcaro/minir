@@ -54,7 +54,7 @@ typedef void* anyptr;
 #endif
 
 
-#include <stdlib.h> // needed because otherwise I get errors from malloc being redeclared.
+#include <stdlib.h> // needed because otherwise I get errors from malloc_check being redeclared.
 anyptr malloc_check(size_t size);
 anyptr try_malloc(size_t size);
 #define malloc malloc_check
@@ -162,17 +162,19 @@ struct driver_video {
 	const char * name;
 	
 	//The returned objects can only use their corresponding 2d or 3d functions; calling the other is undefined behaviour.
-	//depth can be either 15, 16 or 32. Failure shall be treated as fatal.
+	//If this object shall chain, the window handle is 0.
 	video* (*create2d)(uintptr_t windowhandle);
-	//The caller will fill in get_current_framebuffer and get_proc_address. The created object cannot set it up, as a function pointer cannot point to a C++ member.
-	//On failure, the descriptor is guaranteed to remain untouched.
+	//The caller will fill in get_current_framebuffer and get_proc_address. The created object cannot
+	//set it up, as a function pointer cannot point to a C++ member.
+	//On failure, the descriptor is guaranteed to remain sufficiently untouched that creation can be retried
+	//with another driver, and the results will be the same as if this other driver was the first tried.
 	video* (*create3d)(uintptr_t windowhandle, struct retro_hw_render_callback * desc);
 	
 	uint32_t features;
 };
 
-//The owner thread of this one is the one calling finalize_*, which may be another than the creator.
-//Additionally, set_chain may be called by any thread, but only before the finalize_*. set_chain must return before entry to finalize.
+//The owner thread of this one is the one calling initialize(), which may be another than the creator.
+//Additionally, set_chain() may be called by any thread, but only before initialize().
 struct video_shader_param;
 class video : nocopy {
 public:
@@ -183,22 +185,22 @@ public:
 		f_chain = 0x00004000,//set_output can be called with a video*. Some of them can't do any filtering, so they refuse to be chained.
 		f_v_vsync=0x00002000,//Can vsync with a framerate different from 60.
 		f_vsync = 0x00001000,//Can vsync.
+		//f_a_vsync=0x000000,//[Windows] Can almost vsync - framerate is 60, but it stutters due to DWM being trash.
 		f_shaders=0x00000F00,//Each of these bits correspond to 256<<shadertype.
 		f_3d    = 0x000000FF,//Each of these bits correspond to 1<<retro_hw_context_type.
 	};
 	//Some features may claim to be implemented in the specification array, but depend on better runtime libraries than what's actually present.
 	virtual uint32_t features() = 0;
 	
-	//The video chain must be fully constructed (set_chain()) before this is called.
-	//finalize() must be called only on the first one in the chain; it will call the others.
-	virtual void finalize_2d(unsigned int base_width, unsigned int base_height, unsigned int depth) = 0;
+	//Finishes initialization. Used to move the object to another thread.
+	virtual void initialize() {}
+	
 	//Asks where to put the video data for best performance. Returning data=NULL means 'I have no opinion, give me whatever'.
 	//If called, the next call to this object must be draw_2d, with the same arguments as draw_2d_where.
 	//However, it is allowed to call draw_2d without draw_2d_where.
 	virtual void draw_2d_where(unsigned int width, unsigned int height, void * * data, unsigned int * pitch) { *data=NULL; *pitch=0; }
 	virtual void draw_2d(unsigned int width, unsigned int height, const void * data, unsigned int pitch) = 0;
 	
-	virtual void finalize_3d() {}
 	virtual uintptr_t input_3d_get_current_framebuffer() { return 0; }
 	virtual funcptr input_3d_get_proc_address(const char * sym) { return NULL; }
 	virtual void draw_3d(unsigned int width, unsigned int height) {}
@@ -221,14 +223,14 @@ public:
 	virtual video_shader_param* get_shader_params() { return NULL; }
 	virtual void set_shader_param(unsigned int index, double value) {}
 	
-	//The base size is the input size multiplied by whatever the shaders do (same as input if there are no shaders).
+	//The base size is the input size multiplied by whatever the shaders do. Same as input if there are no shaders. Can change by calling set_shader.
 	//Without shaders, integer multiples of the base size (except 0) are guaranteed to work.
 	//With shaders, everything works, but sticking to the same aspect ratio is recommended.
 	virtual void get_base_size(unsigned int * width, unsigned int * height) = 0;
 	virtual void set_size(unsigned int width, unsigned int height) = 0;
 	
-	//Declares that this video driver should instead send a bitmap to the next driver.
-	virtual void set_chain(video* backend) {}
+	//Sets the device to render to. Only allowed if no window ID was given at creation time.
+	virtual void set_chain(video* next);
 	
 	//Returns the last input to this object. If the input is 3d, it's flattened to 2d before being returned.
 	//The returned integer can only be used as boolean, or sent to release_screenshot(). It can vary depending on whether the object allocated a new buffer.
@@ -236,7 +238,7 @@ public:
 	//release_screenshot() must be the next called function. It is not allowed to ask for both screenshots then release both.
 	virtual int get_screenshot(unsigned int * width, unsigned int * height, unsigned int * pitch, unsigned int * depth,
 	                           void* * data, size_t datasize) { *data=NULL; return 0; }
-	//Returns the last output of this object. This is different from input if shaders are present.
+	//Returns the last output of this object. This is different from the input if shaders are present.
 	virtual int get_screenshot_out(unsigned int * width, unsigned int * height, unsigned int * pitch, unsigned int * depth,
 	                               void* * data, size_t datasize) { return get_screenshot(width, height, pitch, depth, data, datasize); }
 	//Frees the data returned from the above.
@@ -264,8 +266,9 @@ static inline void video_copy_2d(void* dst, size_t dstpitch, const void* src, si
 
 //This driver cannot draw anything; instead, it copies the input data and calls the next driver on
 // another thread, while allowing the caller to do something else in the meanwhile (assuming vsync is off).
-//This means that the chain creator will not own the subsequent items in the chain, and can therefore not ask for either vsync,
-// shaders, nor screenshots. Instead, they must be called on this object; the calls will be passed on to the real driver.
+//This means that the chain creator will not own the subsequent items in the chain, and can therefore not
+// ask for either initialization, vsync, shaders, nor screenshots.
+// Instead, they must be called on this object; the calls will be passed on to the real driver.
 //Due to its special properties, it is not included in the list of drivers.
 video* video_create_thread();
 

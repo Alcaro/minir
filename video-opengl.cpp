@@ -76,20 +76,25 @@ bool InitGlobalGLFunctions()
 #ifdef WNDPROT_X11
 #define GLX_SYM(ret, name, args) GLX_SYM_N("glX"#name, ret, name, args)
 #define GLX_SYM_OPT(ret, name, args) GLX_SYM_N_OPT("glX"#name, ret, name, args)
-//#define GLX_SYM_ARB(ret, name, args) GLX_SYM_N("glX"#name"ARB", ret, name, args)
-//#define GLX_SYM_ARB_OPT(ret, name, args) GLX_SYM_N_OPT("glX"#name"ARB", ret, name, args)
+#define GLX_SYM_ARB(ret, name, args) GLX_SYM_N("glX"#name"ARB", ret, name, args)
+#define GLX_SYM_ARB_OPT(ret, name, args) GLX_SYM_N_OPT("glX"#name"ARB", ret, name, args)
 #define GLX_SYMS() \
+	/* GLX 1.0 */ \
 	GLX_SYM(funcptr, GetProcAddress, (const GLubyte * procName)) \
 	GLX_SYM(void, SwapBuffers, (Display* dpy, GLXDrawable drawable)) \
 	GLX_SYM(Bool, MakeCurrent, (Display* dpy, GLXDrawable drawable, GLXContext ctx)) \
 	GLX_SYM(Bool, QueryVersion, (Display* dpy, int* major, int* minor)) \
 	GLX_SYM(XVisualInfo*, ChooseVisual, (Display* dpy, int screen, int * attribList)) \
 	GLX_SYM(GLXContext, CreateContext, (Display* dpy, XVisualInfo* vis, GLXContext shareList, Bool direct)) \
+	/* GLX 1.3 */ \
 	GLX_SYM_OPT(GLXFBConfig*, ChooseFBConfig, (Display* dpy, int screen, const int * attrib_list, int * nelements)) \
 	GLX_SYM_OPT(XVisualInfo*, GetVisualFromFBConfig, (Display* dpy, GLXFBConfig config)) \
 	GLX_SYM_OPT(GLXWindow, CreateWindow, (Display* dpy, GLXFBConfig config, Window win, const int * attrib_list)) \
 	GLX_SYM_OPT(GLXContext, CreateNewContext, (Display* dpy, GLXFBConfig config, int render_type, GLXContext share_list, Bool direct)) \
 	GLX_SYM_OPT(void, DestroyWindow, (Display* dpy, GLXWindow win)) \
+	/* GLX 1.4 */ \
+	GLX_SYM_ARB_OPT(GLXContext, CreateContextAttribs, \
+	                (Display* dpy, GLXFBConfig config, GLXContext share_context, Bool direct, const int * attrib_list)) \
 
 #define GLX_SYM_N_OPT GLX_SYM_N
 #define GLX_SYM_N(str, ret, name, args) ret (*name) args;
@@ -151,6 +156,32 @@ const char * defaultShader =
     "}\n"
 "#endif\n";
 */
+
+//valid transistions:
+//2d -> memory
+//memory -> texture
+//3d -> fbo
+//fbo -> texture
+//texture -> fbo [takes shader]
+//texture -> memory
+//fbo -> out
+//memory -> chain
+
+//2d -> out ::
+//2d -> memory -> texture -> [default shader] -> fbo -> out
+//3d -> shaders -> chain ::
+//3d -> fbo -> texture -> [shaders] -> fbo -> texture -> memory
+//2d -> chain ::
+//2d -> memory -> texture -> [default shader] -> fbo -> texture -> memory
+
+//shader variables, mandatory:
+//vertex vec2 TexCoord
+//vertex vec2 VertexCoord
+//global mat4 MVPMatrix
+//global sampler2D Texture
+
+//shader variables in action:
+//https://github.com/libretro/RetroArch/blob/master/gfx/shader/shader_glsl.c
 
 #define GL_SYM(ret, name, args) GL_SYM_N("gl"#name, ret, name, args)
 #define GL_SYM_OPT(ret, name, args) GL_SYM_N_OPT("gl"#name, ret, name, args)
@@ -247,10 +278,14 @@ public:
 		};
 	};
 	
-	//GLuint* sh_tex;
-	//GLuint* sh_fbo;
+	unsigned int sh_passes;
+	GLuint* sh_programs;
+	GLuint* sh_tex;
+	GLuint* sh_fbo;
 	
 	video* out_chain;
+	void* out_buffer;
+	size_t out_bufsize;
 	
 	/*private*/ bool load_gl_functions(unsigned int version)
 	{
@@ -325,6 +360,9 @@ sym(GetError);
 	
 	/*private*/ bool construct(uintptr_t windowhandle, bool gles, unsigned int major, unsigned int minor)
 	{
+		this->out_buffer=NULL;
+		this->out_bufsize=0;
+		
 #ifdef WNDPROT_WINDOWS
 		if (!InitGlobalGLFunctions()) return false;
 		if (gles) return false;//rejected for now
@@ -344,8 +382,8 @@ sym(GetError);
 		pfd.cColorBits=24;
 		pfd.cAlphaBits=0;
 		pfd.cAccumBits=0;
-		pfd.cDepthBits=24;
-		pfd.cStencilBits=8;
+		pfd.cDepthBits=0;
+		pfd.cStencilBits=0;
 		pfd.cAuxBuffers=0;
 		pfd.iLayerType=PFD_MAIN_PLANE;
 		SetPixelFormat(this->hdc, ChoosePixelFormat(this->hdc, &pfd), &pfd);
@@ -551,6 +589,7 @@ sym(GetError);
 		gl.BindTexture(GL_TEXTURE_2D, 0);
 		
 		//end();
+		if (this->out_chain) this->out_chain->finalize2d(0, 0, 0);
 	}
 	
 	//void draw_2d_where(unsigned int width, unsigned int height, void * * data, unsigned int * pitch);
@@ -615,6 +654,7 @@ gl.Clear(GL_COLOR_BUFFER_BIT);
 #endif
 		this->in3.context_reset();
 		//end();
+		if (this->out_chain) this->out_chain->finalize2d(0, 0, 0);
 	}
 	
 	uintptr_t input_3d_get_current_framebuffer()
@@ -655,7 +695,10 @@ gl.Clear(GL_COLOR_BUFFER_BIT);
 		}
 		else
 		{
+			//out_chain->draw_2d_where
+			//if (null) this->out_buffer
 			//gl.ReadPixels
+			//out_chain->draw_2d
 		}
 	}
 	
@@ -711,6 +754,7 @@ gl.Clear(GL_COLOR_BUFFER_BIT);
 	
 	~video_opengl()
 	{
+		free(this->out_buffer);
 #ifdef WNDPROT_X11
 		if (glx.MakeCurrent) glx.MakeCurrent(this->display, 0, NULL);
 		if (this->window && !this->glxwindow) XDestroyWindow(this->display, this->window);

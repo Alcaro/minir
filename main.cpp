@@ -130,7 +130,7 @@ bool new_second;
 
 //=0: normal
 //>0: enable vsync only every (N+1)th frame, multiply audio rate by (N+1)
-//<0: draw NULL N times per frame, divide audio rate by (N+1)
+//<0: draw blank N times per frame, divide audio rate by (N+1)
 int speed_change;
 int speed_change_num_blanks;
 
@@ -155,14 +155,14 @@ bool try_set_interface_video(unsigned int id, uintptr_t windowhandle,
 		config.driver_video=strdup(list_video[id].name);
 	}
 	vid=device;
-	
+	videowidth, videoheight, videodepth
 	if (config.video_thread)
 	{
 		video* outer=video_create_thread();
 		outer->set_chain(vid);
 		vid=outer;
 	}
-	vid->finalize_2d(videowidth, videoheight, videodepth);
+	vid->initialize();
 	vid->set_size(videowidth*config.video_scale, videoheight*config.video_scale);
 	
 	return true;
