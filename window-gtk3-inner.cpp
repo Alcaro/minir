@@ -486,9 +486,9 @@ widget_viewport* widget_viewport::resize(unsigned int width, unsigned int height
 
 uintptr_t widget_viewport::get_window_handle()
 {
+	gtk_widget_realize(GTK_WIDGET(widget));
 	//this won't work on anything except X11, but should be trivial to create an equivalent for.
-	uintptr_t tmp=gdk_x11_window_get_xid(gtk_widget_get_window(GTK_WIDGET(widget)));
-	return tmp;
+	return gdk_x11_window_get_xid(gtk_widget_get_window(GTK_WIDGET(widget)));
 }
 
 static void viewport_set_hide_cursor_now(widget_viewport* obj, bool hide)
