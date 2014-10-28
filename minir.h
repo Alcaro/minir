@@ -95,11 +95,9 @@ public:
 #include "window.h"
 #include "image.h"
 
-//If an interface specifies cases where only a subset of the functions may be called, free() is
-// always allowed, unless it specifically mentions free().
-//However, if any interface defines a callback, free() is banned while inside this callback, while
-// other functions are allowed. Other instances of the same interface may be used and freed, and
-// other interfaces may be called.
+//If any interface defines a callback, free() is banned while inside this callback; other functions
+// are allowed, unless otherwise specified. Other instances of the same interface may be used and
+// freed, and other interfaces may be called.
 //If an interface defines a function to set some state, and a callback for when this state changes,
 // calling that function will not trigger the state callback.
 //Unless otherwise specified, an interface may only be used from its owner thread (the creator).
@@ -156,13 +154,25 @@ typedef void(*funcptr)();
 //separate backend
 //thread moves are optional
 
+enum videoformat {
+	//these three are same as in libretro
+	fmt_0rgb1555,
+	fmt_xrgb8888,
+	fmt_rgb565,
+	
+	//these are used only in minir
+	fmt_rgb888,
+	fmt_argb1555,
+	fmt_argb8888,
+};
+
 class video;
 struct retro_hw_render_callback;
 struct driver_video {
 	const char * name;
 	
 	//The returned objects can only use their corresponding 2d or 3d functions; calling the other is undefined behaviour.
-	//If this object shall chain, the window handle is 0.
+	//If an object shall chain, the window handle is 0.
 	video* (*create2d)(uintptr_t windowhandle);
 	//The caller will fill in get_current_framebuffer and get_proc_address. The created object cannot
 	//set it up, as a function pointer cannot point to a C++ member.
@@ -173,27 +183,44 @@ struct driver_video {
 	uint32_t features;
 };
 
-//The owner thread of this one is the one calling initialize(), which may be another than the creator.
-//Additionally, set_chain() may be called by any thread, but only before initialize().
-struct video_shader_param;
+struct video_shader_param {
+	const char * name;
+	double min;
+	double max;
+};
+
+//The first function called on this object must be initialize(), except if it should chain, in which case set_chain() must come before that.
+//Any thread is allowed to call the above two. The owner thread becomes the one calling initialize(). They may not be called multiple times.
 class video : nocopy {
 public:
-	//Returns the features this driver supports. Since video drivers can be chained, no combination is superior, and the flags are in no particular order.
 	enum {
-		f_sshot_f=0x00010000,//get_screenshot will return a pointer, and not copy stuff. This is faster.
+		f_sshot_f=0x00010000,//get_screenshot will return a pointer, and not allocate or copy stuff. This is faster.
 		f_sshot = 0x00008000,//get_screenshot is implemented. If f_shaders is set, get_screenshot_after is also implemented.
 		f_chain = 0x00004000,//set_output can be called with a video*. Some of them can't do any filtering, so they refuse to be chained.
 		f_v_vsync=0x00002000,//Can vsync with a framerate different from 60.
-		f_vsync = 0x00001000,//Can vsync.
+		f_vsync = 0x00001000,//Can vsync. The given framerate cares only about whether it's different from zero; it's locked to 60.
 		//f_a_vsync=0x000000,//[Windows] Can almost vsync - framerate is 60, but it stutters due to DWM being trash.
 		f_shaders=0x00000F00,//Each of these bits correspond to 256<<shadertype.
 		f_3d    = 0x000000FF,//Each of these bits correspond to 1<<retro_hw_context_type.
 	};
+	//Returns the features this driver supports. Can be called on any thread, both before and after initialize().
+	//Since video drivers can be chained, you can combine them however you want and effectively get everything; therefore, the flags are in no particular order.
 	//Some features may claim to be implemented in the specification array, but depend on better runtime libraries than what's actually present.
+	//If the driver is chained, truthfully reporting vsync capabilities is still recommended. If not detectable, report the theoretical maximum.
 	virtual uint32_t features() = 0;
+	
+	//Sets the device to render to. Use if and only if no window ID was given at creation time.
+	virtual void set_chain(video* next) {}
 	
 	//Finishes initialization. Used to move the object to another thread.
 	virtual void initialize() {}
+	
+	//Sets the maximum input size of the object, as well as depth. Can be called multiple times, and all values can vary.
+	//Must be called at least once before the first draw_*.
+	//For 2D drivers, the format has only one correct value, and the rest will give garbage.
+	//For 3D drivers, the format can be chosen arbitrarily.
+	//Only the libretro-compatible values are allowed.
+	virtual void set_source(unsigned int max_width, unsigned int max_height, videoformat depth) = 0;
 	
 	//Asks where to put the video data for best performance. Returning data=NULL means 'I have no opinion, give me whatever'.
 	//If called, the next call to this object must be draw_2d, with the same arguments as draw_2d_where.
@@ -201,12 +228,14 @@ public:
 	virtual void draw_2d_where(unsigned int width, unsigned int height, void * * data, unsigned int * pitch) { *data=NULL; *pitch=0; }
 	virtual void draw_2d(unsigned int width, unsigned int height, const void * data, unsigned int pitch) = 0;
 	
-	virtual uintptr_t input_3d_get_current_framebuffer() { return 0; }
-	virtual funcptr input_3d_get_proc_address(const char * sym) { return NULL; }
+	virtual uintptr_t draw_3d_get_current_framebuffer() { return 0; }
+	virtual funcptr draw_3d_get_proc_address(const char * sym) { return NULL; }
 	virtual void draw_3d(unsigned int width, unsigned int height) {}
 	
 	//This repeats the last drawn frame until the next vblank. If the device does not vsync, it does nothing.
 	//It can be called whether this one is configured as 2d or 3d.
+	//If there is no last frame (that is, set_source_size was called after the last draw_* cycle), it is undefined what will be shown
+	// and whether vsync will apply, but any resulting anomalies are guaranteed to go away once the next draw_* cycle is finished.
 	virtual void draw_repeat() {}
 	
 	//This only has effect on the last device. 0 means off, and is the default.
@@ -220,21 +249,15 @@ public:
 	};
 	//TODO: maybe set each pass separately?
 	virtual bool set_shader(shadertype type, const char * filename) { return false; }
-	virtual video_shader_param* get_shader_params() { return NULL; }
+	virtual const video_shader_param * get_shader_params() { return NULL; }
 	virtual void set_shader_param(unsigned int index, double value) {}
 	
-	//The base size is the input size multiplied by whatever the shaders do. Same as input if there are no shaders. Can change by calling set_shader.
-	//Without shaders, integer multiples of the base size (except 0) are guaranteed to work.
-	//With shaders, everything works, but sticking to the same aspect ratio is recommended.
-	virtual void get_base_size(unsigned int * width, unsigned int * height) = 0;
-	virtual void set_size(unsigned int width, unsigned int height) = 0;
-	
-	//Sets the device to render to. Only allowed if no window ID was given at creation time.
-	virtual void set_chain(video* next);
+	//This decides the size of the object output.
+	virtual void set_dest_size(unsigned int width, unsigned int height) = 0;
 	
 	//Returns the last input to this object. If the input is 3d, it's flattened to 2d before being returned.
 	//The returned integer can only be used as boolean, or sent to release_screenshot(). It can vary depending on whether the object allocated a new buffer.
-	//It is safe to release with ret=0; this will do nothing.
+	//If get_screenshot can fail, release_screenshot with ret=0 will do nothing.
 	//release_screenshot() must be the next called function. It is not allowed to ask for both screenshots then release both.
 	virtual int get_screenshot(unsigned int * width, unsigned int * height, unsigned int * pitch, unsigned int * depth,
 	                           void* * data, size_t datasize) { *data=NULL; return 0; }
@@ -248,7 +271,7 @@ public:
 };
 inline video::~video(){}
 
-extern const driver_video list_video[];
+extern const driver_video * list_video[];
 
 //Used by various video drivers and other devices.
 static inline void video_copy_2d(void* dst, size_t dstpitch, const void* src, size_t srcpitch, size_t bytes_per_line, uint32_t height, bool full_write=false)
@@ -720,7 +743,7 @@ struct libretro {
 	
 	//The following are only valid after a game is loaded.
 	
-	void (*get_video_settings)(struct libretro * This, unsigned int * width, unsigned int * height, unsigned int * depth, double * fps);
+	void (*get_video_settings)(struct libretro * This, unsigned int * width, unsigned int * height, videoformat * depth, double * fps);
 	double (*get_sample_rate)(struct libretro * This);
 	
 	//The core options will be reported as having changed on a freshly created core,
@@ -1092,12 +1115,4 @@ struct cvideo {
 	void (*free)(struct cvideo * This);
 };
 
-//This returns everything that's compiled in, but some may have runtime requirements that are not
-// met. Try them in order until one works. It is guaranteed that at least one of them can
-// successfully be created, but this one may not necessarily be useful.
-const char * const * cvideo_supported_backends();
-struct cvideo * cvideo_create(const char * backend, uintptr_t windowhandle, unsigned int screen_width, unsigned int screen_height,
-                            unsigned int depth, double fps);
-
-video* video_create_compat(function<cvideo*(uintptr_t windowhandle, unsigned int screen_width, unsigned int screen_height,
-                   unsigned int depth, double fps)> create, uintptr_t windowhandle);
+video* video_create_compat(cvideo* child);

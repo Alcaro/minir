@@ -145,17 +145,16 @@ struct configdata config;
 
 
 bool try_set_interface_video(unsigned int id, uintptr_t windowhandle,
-                             unsigned int videowidth, unsigned int videoheight, unsigned int videodepth, double videofps)
+                             unsigned int videowidth, unsigned int videoheight, videoformat videodepth, double videofps)
 {
-	video* device=list_video[id].create2d(windowhandle);
+	video* device=list_video[id]->create2d(windowhandle);
 	if (!device) return false;
-	if (!config.driver_video || strcasecmp(config.driver_video, list_video[id].name))
+	if (!config.driver_video || strcasecmp(config.driver_video, list_video[id]->name))
 	{
 		free(config.driver_video);
-		config.driver_video=strdup(list_video[id].name);
+		config.driver_video=strdup(list_video[id]->name);
 	}
 	vid=device;
-	videowidth, videoheight, videodepth
 	if (config.video_thread)
 	{
 		video* outer=video_create_thread();
@@ -163,19 +162,19 @@ bool try_set_interface_video(unsigned int id, uintptr_t windowhandle,
 		vid=outer;
 	}
 	vid->initialize();
-	vid->set_size(videowidth*config.video_scale, videoheight*config.video_scale);
+	vid->set_source(videowidth*config.video_scale, videoheight*config.video_scale, videodepth);
 	
 	return true;
 }
 
 void create_interface_video(uintptr_t windowhandle, unsigned int videowidth, unsigned int videoheight,
-                                                    unsigned int videodepth, double videofps)
+                                                    videoformat videodepth, double videofps)
 {
 	if (config.driver_video)
 	{
-		for (unsigned int i=0;list_video[i].name;i++)
+		for (unsigned int i=0;list_video[i]->name;i++)
 		{
-			if (!strcasecmp(config.driver_video, list_video[i].name))
+			if (!strcasecmp(config.driver_video, list_video[i]->name))
 			{
 				if (try_set_interface_video(i, windowhandle, videowidth, videoheight, videodepth, videofps)) return;
 				break;
@@ -193,21 +192,21 @@ video* create3d(struct retro_hw_render_callback * desc)
 	uintptr_t window=draw->get_window_handle();
 	if (config.driver_video)
 	{
-		for (unsigned int i=0;list_video[i].name;i++)
+		for (unsigned int i=0;list_video[i];i++)
 		{
-			if (list_video[i].create3d && !strcasecmp(config.driver_video, list_video[i].name))
+			if (list_video[i]->create3d && !strcasecmp(config.driver_video, list_video[i]->name))
 			{
-				vid3d=list_video[i].create3d(window, desc);
+				vid3d=list_video[i]->create3d(window, desc);
 				if (vid3d) return vid3d;
 				break;
 			}
 		}
 	}
-	for (unsigned int i=0;list_video[i].name;i++)
+	for (unsigned int i=0;list_video[i]->name;i++)
 	{
-		if (list_video[i].create3d)
+		if (list_video[i]->create3d)
 		{
-			vid3d=list_video[i].create3d(window, desc);
+			vid3d=list_video[i]->create3d(window, desc);
 			if (vid3d) return vid3d;
 		}
 	}
@@ -262,14 +261,15 @@ void create_interface_input(uintptr_t windowhandle)
 	}
 }
 
-void create_interfaces(unsigned int videowidth, unsigned int videoheight, unsigned int videodepth, double videofps)
+void create_interfaces(unsigned int videowidth, unsigned int videoheight, videoformat videodepth, double videofps)
 {
 	if (vid) delete vid; vid=NULL;
 	if (aud) aud->free(aud); aud=NULL;
 	
 	if (vid3d)
 	{
-		vid3d->set_size(videowidth, videoheight);
+		vid3d->initialize();
+		vid3d->set_source(videowidth, videoheight, fmt_xrgb8888);
 		vid=vid3d;
 	}
 	else
@@ -301,19 +301,20 @@ void reset_config()
 	
 	unsigned int videowidth=320;
 	unsigned int videoheight=240;
-	unsigned int videodepth=16;
+	videoformat videodepth=fmt_rgb565;
 	double videofps=60.0;
 	
 	if (core) core->get_video_settings(core, &videowidth, &videoheight, &videodepth, &videofps);
 	
-printf("Chosen zoom: %i\n",config.video_scale);
-	draw->resize(videowidth*config.video_scale, videoheight*config.video_scale);
+printf("Chosen zoom: %ix%i * %i\n",videowidth,videoheight,config.video_scale);
 	draw->set_hide_cursor(config.cursor_hide);
+	draw->resize(videowidth*config.video_scale, videoheight*config.video_scale);
 	
 	create_interfaces(videowidth, videoheight, videodepth, videofps);
 printf("Chosen drivers: %s, %s, %s\n", config.driver_video, config.driver_audio, config.driver_inputkb);
 	
 	aud->set_sync(aud, config.audio_sync);
+	vid->set_dest_size(videowidth*config.video_scale, videoheight*config.video_scale);
 	vid->set_vsync(config.video_sync);
 	
 	if (config.savestate_disable || !config.rewind_enable)
@@ -652,7 +653,6 @@ void load_rom_finish()
 	else set_status_bar("Loaded %s with %s", config.gamename, config.corename);
 printf("Chosen core: %s\n", coreloaded);
 printf("Chosen ROM: %s\n", romloaded);
-	if (vid3d) vid3d->finalize_3d();
 }
 
 void select_rom()
@@ -834,12 +834,12 @@ void initialize(int argc, char * argv[])
 	
 	unsigned int videowidth=320;
 	unsigned int videoheight=240;
-	unsigned int videodepth=16;
+	videoformat videodepth=fmt_rgb565;
 	double videofps=60.0;
 	
 	if (core) core->get_video_settings(core, &videowidth, &videoheight, &videodepth, &videofps);
 	
-	draw->resize(videowidth*config.video_scale, videoheight*config.video_scale);
+	//draw->resize(videowidth*config.video_scale, videoheight*config.video_scale);
 	wndw->set_onclose(wndw, closethis, NULL);
 	wndw->set_title(wndw, "minir");
 	set_window_title();
@@ -860,8 +860,8 @@ void initialize(int argc, char * argv[])
 	cheats->set_parent(cheats, wndw);
 	
 	update_menu();
-	wndw->set_visible(wndw, true);
 	reset_config();
+	wndw->set_visible(wndw, true);
 }
 
 

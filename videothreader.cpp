@@ -25,25 +25,22 @@ public://since this entire file is private, making it public inside here does no
 	mutex* lock;//Thread safe.
 	event* wake_parent;//Thread safe.
 	event* wake_child;//Thread safe.
-	uint8_t depth;//Read-only.
-	uint8_t bpp;//Read-only.
 	
+	//src and dest are used instead of src/dst because they have different length and are therefore easier to identify
+	unsigned int src_width;//Shared (external).
+	unsigned int src_height;//Shared (external).
+	uint8_t src_depth;//Shared (external).
+	uint8_t src_bpp;//Shared (external).
 	//char padding[2];
 	
-	unsigned int base_width;//Read-only.
-	unsigned int base_height;//Read-only.
-	
-	unsigned int width;//Shared (external).
-	unsigned int height;//Shared (external).
-	bool update_size;//Shared (external).
+	unsigned int dest_width;//Shared (external).
+	unsigned int dest_height;//Shared (external).
 	
 	bool exit;//Shared. Setting this means the child should terminate.
 	
 	bool draw;//Shared. Setting this means the child should draw a new frame.
 	bool draw_null;//Shared. Setting this tells the child to not fetch the new frame.
 	bool draw_idle;//Shared. Setting this means the parent is allowed to proceed.
-	
-	//char padding[3];
 	
 	double vsync;//Parent-write. Setting this nonzero means the parent will wait for the child to finish drawing before itself claiming drawing is done.
 	double new_vsync;//Shared (external). Must be separate from the above, because the parent must know whether a signal will come.
@@ -77,7 +74,13 @@ public://since this entire file is private, making it public inside here does no
 	
 	/*private*/ void threadproc()
 	{
-		this->next->finalize_2d(this->base_width, this->base_height, this->depth);
+		this->next->initialize();
+		unsigned int src_width=0;
+		unsigned int src_height=0;
+		uint8_t src_depth=0;
+		unsigned int dest_width=0;
+		unsigned int dest_height=0;
+		//not calling set_source and set_dest here
 		this->wake_parent->signal();
 		double vsync=0;
 		while (true)
@@ -86,16 +89,23 @@ public://since this entire file is private, making it public inside here does no
 			this->lock->lock();
 			
 			bool exit=this->exit;
-			bool draw=this->draw;
-			bool draw_null=this->draw_null;
-			bool set_vsync=(vsync!=this->vsync);
-			bool set_size=this->update_size;
-			unsigned int width=this->width;
-			unsigned int height=this->height;
-			vsync=this->vsync;
 			this->exit=false;
+			
+			bool draw=this->draw;
 			this->draw=false;
-			this->update_size=false;
+			bool draw_null=this->draw_null;
+			
+			bool set_vsync=(vsync!=this->vsync);
+			vsync=this->vsync;
+			
+			bool set_src=(src_width!=this->src_width || src_height!=this->src_height || src_depth!=this->src_depth);
+			src_width=this->src_width;
+			src_height=this->src_height;
+			src_depth=this->src_depth;
+			
+			bool set_dest=(dest_width!=this->dest_width || dest_height!=this->dest_height);
+			dest_width=this->dest_width;
+			dest_height=this->dest_height;
 			
 			video_thread_frame buf;
 			if (draw && !draw_null)
@@ -107,12 +117,13 @@ public://since this entire file is private, making it public inside here does no
 			
 			this->lock->unlock();
 			
+			if (set_src) this->next->set_source(src_width, src_height, (videoformat)src_depth);
+			if (set_dest) this->next->set_dest_size(dest_width, dest_height);
+			
 			if (set_vsync) this->next->set_vsync(vsync);
 			
-			if (set_size) this->next->set_size(width, height);
-			
 			if (draw_null) this->next->draw_repeat();
-			else this->next->draw_2d(buf.width, buf.height, buf.data, this->bpp*buf.width);
+			else this->next->draw_2d(buf.width, buf.height, buf.data, this->src_bpp*buf.width);
 			
 			if (vsync!=0)
 			{
@@ -130,32 +141,27 @@ public://since this entire file is private, making it public inside here does no
 		}
 	}
 	
-	/*private*/ uint8_t depthtobpp(uint8_t depth)
+	/*private*/ void initialize()
 	{
-		if (depth==15) return 2;
-		if (depth==16) return 2;
-		if (depth==32) return 4;
-		return 0;
+		this->wake_parent->wait();
 	}
 	
-	void finalize_2d(unsigned int base_width, unsigned int base_height, unsigned int depth)
+	/*private*/ uint8_t depthtobpp(uint8_t depth)
 	{
-		this->depth=depth;
-		this->bpp=depthtobpp(depth);
-		this->base_width=base_width;
-		this->base_height=base_height;
-		this->width=base_width;
-		this->height=base_height;
-		this->lock=new mutex();
-		this->wake_child=new event();
-		this->wake_parent=new event();
-		thread_create(bind_this(&video_thread::threadproc));
-		this->wake_parent->wait();
-		this->exit=false;
-		this->draw=false;
-		this->draw_idle=true;
-		this->vsync=false;
-		this->new_vsync=false;
+		if (depth==fmt_xrgb8888) return 4;
+		else return 2;
+	}
+	
+	void set_chain(video* next) { this->next=next; }
+	
+	void set_source(unsigned int max_width, unsigned int max_height, videoformat depth)
+	{
+		this->lock->lock();
+		this->src_depth=depth;
+		this->src_bpp=depthtobpp(depth);
+		this->src_width=max_width;
+		this->src_height=max_height;
+		this->lock->unlock();
 	}
 	
 	/*private*/ void draw_frame(bool real_frame)
@@ -188,7 +194,7 @@ public://since this entire file is private, making it public inside here does no
 	
 	/*private*/ void assure_bufsize(unsigned int width, unsigned int height)
 	{
-		size_t bytes=this->bpp*width*height;
+		size_t bytes=this->src_bpp*width*height;
 		if (bytes > this->buf_temp.bufsize)
 		{
 			free(this->buf_temp.data);
@@ -201,7 +207,7 @@ public://since this entire file is private, making it public inside here does no
 	{
 		assure_bufsize(width, height);
 		*data=this->buf_temp.data;
-		*pitch=this->bpp*width;
+		*pitch=this->src_bpp*width;
 	}
 	
 	void draw_2d(unsigned int width, unsigned int height, const void * data, unsigned int pitch)
@@ -211,7 +217,7 @@ public://since this entire file is private, making it public inside here does no
 		this->buf_temp.height=height;
 		if (data!=this->buf_temp.data)
 		{
-			video_copy_2d(this->buf_temp.data, this->bpp*width, data, pitch, this->bpp*width, height);
+			video_copy_2d(this->buf_temp.data, this->src_bpp*width, data, pitch, this->src_bpp*width, height);
 		}
 		draw_frame(true);
 	}
@@ -239,23 +245,13 @@ public://since this entire file is private, making it public inside here does no
 	//virtual video_shader_param* get_shader_params() { return NULL; }
 	//virtual void set_shader_param(unsigned int index, double value) {}
 	
-	void get_base_size(unsigned int * width, unsigned int * height)
-	{
-		if (width) *width=this->base_width;
-		if (height) *height=this->base_height;
-	}
-	
-	void set_size(unsigned int width, unsigned int height)
+	void set_dest_size(unsigned int width, unsigned int height)
 	{
 		this->lock->lock();
-		this->width=width;
-		this->height=height;
-		this->update_size=true;
+		this->dest_width=width;
+		this->dest_height=height;
 		this->lock->unlock();
 	}
-	
-	//void set_output(unsigned int screen_width, unsigned int screen_height);
-	void set_chain(video* backend) { this->next=backend; }
 	
 	int get_screenshot(unsigned int * width, unsigned int * height, unsigned int * pitch, unsigned int * depth,
 	                   void* * data, size_t datasize)
@@ -264,8 +260,8 @@ public://since this entire file is private, making it public inside here does no
 		this->lock->lock();
 		if (width) *width=this->buf_last.width;
 		if (height) *height=this->buf_last.height;
-		if (pitch) *pitch=this->bpp*this->buf_last.width;
-		if (depth) *depth=this->depth;
+		if (pitch) *pitch=this->src_bpp*this->buf_last.width;
+		if (depth) *depth=this->src_depth;
 		if (data) *data=this->buf_last.data;
 		return 1;
 	}
@@ -282,7 +278,22 @@ public://since this entire file is private, making it public inside here does no
 	
 	video_thread()
 	{
-		this->lock=NULL;
+		this->src_depth=0;
+		this->src_bpp=0;
+		this->src_width=0;
+		this->src_height=0;
+		this->dest_width=0;
+		this->dest_height=0;
+		this->lock=new mutex();
+		this->wake_child=new event();
+		this->wake_parent=new event();
+		
+		this->exit=false;
+		this->draw=false;
+		this->draw_idle=true;
+		this->vsync=0;
+		this->new_vsync=0;
+		
 		this->buf_next.data=NULL;
 		this->buf_next.bufsize=0;
 		this->buf_this.data=NULL;
@@ -291,6 +302,8 @@ public://since this entire file is private, making it public inside here does no
 		this->buf_temp.bufsize=0;
 		this->buf_last.data=NULL;
 		this->buf_last.bufsize=0;
+		
+		thread_create(bind_this(&video_thread::threadproc));
 	}
 	
 	~video_thread()

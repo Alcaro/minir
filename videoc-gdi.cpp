@@ -185,7 +185,7 @@ cancel:
 #undef video
 static video* video_create_gdi(uintptr_t windowhandle)
 {
-	return video_create_compat(bind(cvideo_create_gdi), windowhandle);
+	return video_create_compat(cvideo_create_gdi(windowhandle, 256, 256, 16, 60));
 }
 extern const driver_video video_gdi_desc = {"GDI", video_create_gdi, NULL, 0};
 #endif

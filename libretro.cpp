@@ -86,7 +86,7 @@ struct libretro_impl {
 	
 	void (*message_cb)(int severity, const char * message);
 	
-	unsigned int videodepth;
+	videoformat videodepth;
 	
 	bool initialized;
 	
@@ -250,12 +250,12 @@ static void enable_3d(struct libretro * this_, function<video*(struct retro_hw_r
 
 static uintptr_t v3d_get_current_framebuffer()
 {
-	return g_this->v3d->input_3d_get_current_framebuffer();
+	return g_this->v3d->draw_3d_get_current_framebuffer();
 }
 
 static retro_proc_address_t v3d_get_proc_address(const char * sym)
 {
-	return g_this->v3d->input_3d_get_proc_address(sym);
+	return g_this->v3d->draw_3d_get_proc_address(sym);
 }
 
 //TODO: remove this once rarch megapack updates and its s9x exports the mmaps, alternatively once I get unlazy enough to compile s9x myself
@@ -360,7 +360,7 @@ static void reset(struct libretro * this_)
 	this->raw.reset();
 }
 
-static void get_video_settings(struct libretro * this_, unsigned int * width, unsigned int * height, unsigned int * depth, double * fps)
+static void get_video_settings(struct libretro * this_, unsigned int * width, unsigned int * height, videoformat * depth, double * fps)
 {
 	struct libretro_impl * this=(struct libretro_impl*)this_;
 	if (!this->initialized)
@@ -564,8 +564,7 @@ static bool environment(unsigned cmd, void* data)
 		if (newfmt==RETRO_PIXEL_FORMAT_0RGB1555 || newfmt==RETRO_PIXEL_FORMAT_XRGB8888 ||
 				newfmt==RETRO_PIXEL_FORMAT_RGB565)
 		{
-			int depths[3]={15, 32, 16};
-			this->videodepth=depths[newfmt];
+			this->videodepth=(videoformat)newfmt;
 			return true;
 		}
 		else return false;
@@ -856,7 +855,7 @@ struct libretro * libretro_create(const char * corepath, void (*message_cb)(int 
 	this->tmpptr[3]=NULL;
 	
 	this->audiobufpos=0;
-	this->videodepth=15;
+	this->videodepth=fmt_0rgb1555;
 	
 	this->message_cb=message_cb;
 	

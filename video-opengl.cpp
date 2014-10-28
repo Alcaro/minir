@@ -1,3 +1,5 @@
+#define e printf("%i:%i\n",__LINE__,gl.GetError());
+
 #include "minir.h"
 #ifdef VIDEO_OPENGL
 #undef bind
@@ -136,16 +138,25 @@ void DeinitGlobalGLFunctions()
 #endif
 }
 
-/*
-const char * defaultShader =
+//shader variables, mandatory:
+//vertex vec2 TexCoord [ = VertexCoord]
+//vertex vec2 VertexCoord [ = (0,0), (0,1), (1,0), (1,1) ]
+//vertex vec4 COLOR [ = (0,0.5,1,0.8) ] [to be changed to 1,1,1,1 if it works]
+//global mat4 MVPMatrix [ = ((1,0,0,0),(0,1,0,0),(0,0,1,0),(0,0,0,1)) ]
+//global sampler2D Texture
+//there are more
+
+//shader variables in action:
+//https://github.com/libretro/RetroArch/blob/master/gfx/shader/shader_glsl.c
+
+const char defaultShader[] =
 "varying vec2 tex_coord;\n"
 "#if defined(VERTEX)\n"
     "attribute vec2 TexCoord;\n"
     "attribute vec2 VertexCoord;\n"
-    "uniform mat4 MVPMatrix;\n"
     "void main()\n"
     "{\n"
-        "gl_Position = MVPMatrix * vec4(VertexCoord, 0.0, 1.0);\n"
+        "gl_Position = vec4(VertexCoord, 0.0, 1.0);\n"
         "tex_coord = TexCoord;\n"
     "}\n"
 "#elif defined(FRAGMENT)\n"
@@ -155,7 +166,6 @@ const char * defaultShader =
         "gl_FragColor = texture2D(Texture, tex_coord);\n"
     "}\n"
 "#endif\n";
-*/
 
 //valid transistions:
 //2d -> memory
@@ -167,21 +177,12 @@ const char * defaultShader =
 //fbo -> out
 //memory -> chain
 
-//2d -> out ::
-//2d -> memory -> texture -> [default shader] -> fbo -> out
-//3d -> shaders -> chain ::
-//3d -> fbo -> texture -> [shaders] -> fbo -> texture -> memory
-//2d -> chain ::
-//2d -> memory -> texture -> [default shader] -> fbo -> texture -> memory
-
-//shader variables, mandatory:
-//vertex vec2 TexCoord
-//vertex vec2 VertexCoord
-//global mat4 MVPMatrix
-//global sampler2D Texture
-
-//shader variables in action:
-//https://github.com/libretro/RetroArch/blob/master/gfx/shader/shader_glsl.c
+//2d -> out
+ //2d -> memory -> texture -> [default shader] -> fbo -> out
+//3d -> shaders -> chain
+ //3d -> fbo -> texture -> [shaders] -> fbo -> texture -> memory
+//2d -> chain
+ //2d -> memory -> texture -> [default shader] -> fbo -> texture -> memory
 
 #define GL_SYM(ret, name, args) GL_SYM_N("gl"#name, ret, name, args)
 #define GL_SYM_OPT(ret, name, args) GL_SYM_N_OPT("gl"#name, ret, name, args)
@@ -198,10 +199,44 @@ const char * defaultShader =
 	GL_SYM(void, TexSubImage2D, (GLenum target, GLint level, GLint xoffset, GLint yoffset, GLsizei width, GLsizei height, \
 	                             GLenum format, GLenum type, const GLvoid* pixels)) \
 	GL_SYM(void, ReadPixels, (GLint x, GLint y, GLsizei width, GLsizei height, GLenum format, GLenum type, GLvoid* pixels)) \
-	ONLY_WINDOWS(GL_SYM_OPT(BOOL, SwapInterval, (int interval))) \
+	ONLY_WINDOWS(GL_SYM_N_OPT("wglSwapIntervalEXT", BOOL, SwapInterval, (int interval))) \
 	ONLY_X11(GL_SYM_OPT(void, SwapIntervalEXT, (Display* dpy, GLXDrawable drawable, int interval))) \
 	ONLY_X11(GL_SYM_OPT(int, SwapIntervalMESA, (unsigned int interval))) \
 	ONLY_X11(GL_SYM_OPT(int, SwapIntervalSGI, (int interval))) \
+	\
+GL_SYM(void, BindBuffer, (GLenum target, GLuint buffer)) \
+GL_SYM(void, GenBuffers, (GLsizei n, GLuint * buffers)) \
+GL_SYM(void, BufferData, (GLenum target, GLsizeiptr size, const GLvoid * data, GLenum usage)) \
+\
+GL_SYM(void, DrawArrays, (GLenum mode, GLint first, GLsizei count)) \
+GL_SYM(void, VertexAttribPointer, (GLuint index, GLint size, GLenum type, GLboolean normalized, GLsizei stride, const GLvoid * pointer)) \
+\
+GL_SYM(void, EnableVertexAttribArray, (GLuint index)) \
+GL_SYM(void, DisableVertexAttribArray, (GLuint index)) \
+\
+GL_SYM(void, Viewport, (GLint x,GLint y,GLsizei width,GLsizei height)) \
+\
+GL_SYM(GLuint, CreateProgram, ()) \
+GL_SYM(GLuint, CreateShader, (GLenum type)) \
+GL_SYM(void, ShaderSource, (GLuint shader, GLsizei count, const GLchar * const * string, const GLint * length)) \
+GL_SYM(void, CompileShader, (GLuint shader)) \
+GL_SYM(void, AttachShader, (GLuint program, GLuint shader)) \
+GL_SYM(void, LinkProgram, (GLuint program)) \
+GL_SYM(void, GetProgramiv, (GLuint program, GLenum pname, GLint* params)) \
+GL_SYM(void, GetProgramInfoLog, (GLuint program, GLsizei bufSize, GLsizei* length, GLchar * infoLog)) \
+GL_SYM(void, GetShaderiv, (GLuint shader, GLenum pname, GLint* params)) \
+GL_SYM(void, GetShaderInfoLog, (GLuint shader, GLsizei bufSize, GLsizei* length, GLchar * infoLog)) \
+GL_SYM(void, UseProgram, (GLuint program)) \
+GL_SYM(GLint, GetAttribLocation, (GLuint program, const GLchar * name)) \
+GL_SYM(GLint, GetUniformLocation, (GLuint program, const GLchar * name)) \
+GL_SYM(void, DeleteProgram, (GLuint program)) \
+GL_SYM(void, DeleteShader, (GLuint shader)) \
+\
+GL_SYM(void, ActiveTexture, (GLenum texture)) \
+GL_SYM(void, Uniform1i, (GLint location, GLint v0)) \
+GL_SYM(void, Enable, (GLenum cap)) \
+GL_SYM(void, TexParameteri, (GLenum target,GLenum pname,GLint param)) \
+
 
 #define GL_SYM_N_OPT GL_SYM_N
 #define GL_SYM_N(str, ret, name, args) ret (APIENTRY * name) args;
@@ -269,8 +304,7 @@ public:
 			//uint8_t in2_bpp;
 			uint8_t in2_bytepp;
 			GLenum in2_fmt;
-			unsigned int in2_width;
-			unsigned int in2_height;
+			GLenum in2_type;
 			GLuint in2_texture;
 		};
 		struct {
@@ -278,6 +312,15 @@ public:
 		};
 	};
 	
+	unsigned int in_lastwidth;
+	unsigned int in_lastheight;
+	unsigned int in_texwidth;
+	unsigned int in_texheight;
+	
+	//GLuint sh_vertexarrayobj;
+	GLuint sh_vertexbuf;
+	GLuint sh_texcoordbuf;
+	//GLuint sh_vertexbuf_flip;
 	unsigned int sh_passes;
 	GLuint* sh_programs;
 	GLuint* sh_tex;
@@ -286,6 +329,8 @@ public:
 	video* out_chain;
 	void* out_buffer;
 	size_t out_bufsize;
+	unsigned int out_width;
+	unsigned int out_height;
 	
 	/*private*/ bool load_gl_functions(unsigned int version)
 	{
@@ -301,32 +346,6 @@ public:
 #endif
 			if (!gl_opts[i] && !functions[i]) return false;
 		}
-/*
-#define sym_r(name, str) sym_r_o(name, str); if (!gl.name) return false
-#define sym(name) sym_r(name, "gl"#name)
-#define sym_o(name) sym_r_o(name, "gl"#name)
-#define symARB(name) sym_r(name, "gl"#name"ARB")
-#define symver(name, minver) if (version >= minver) { symver(name); } else gl.name=NULL
-#define symverARB(name, minver) if (version >= minver) { symverARB(name); } else gl.name=NULL
-sym(Clear);
-sym(ClearColor);
-sym(GetError);
-		sym(Finish);
-		sym(ReadPixels);
-		sym(GenTextures);
-		sym(BindTexture);
-		sym(TexImage2D);
-		sym(TexSubImage2D);
-		sym(PixelStorei);
-		sym_r(SwapInterval, "wglSwapIntervalEXT");
-#undef sym_r_o
-#undef sym_r
-#undef sym_o
-#undef sym
-#undef symARB
-#undef symver
-#undef symverARB
-*/
 		return true;
 	}
 	
@@ -354,7 +373,7 @@ sym(GetError);
 #ifdef WNDPROT_X11
 	/*private*/ static Bool XWaitForCreate(Display* d, XEvent* e, char* arg)
 	{
-		return (e->type == MapNotify) && (e->xmap.window == (Window)arg);
+		return (e->type==MapNotify && e->xmap.window==(Window)arg);
 	}
 #endif
 	
@@ -408,11 +427,6 @@ sym(GetError);
 		}
 		
 		if (!load_gl_functions(major*10+minor)) return false;
-		wgl.MakeCurrent(this->hdc, NULL);
-		
-		this->out_chain=NULL;
-		
-		return true;
 #endif
 		
 #ifdef WNDPROT_X11
@@ -504,11 +518,10 @@ sym(GetError);
 			XSetWindowAttributes attr;
 			memset(&attr, 0, sizeof(attr));
 			attr.colormap=XCreateColormap(this->display, (Window)windowhandle, vis->visual, AllocNone);
-			//TODO: free colormap
 			attr.event_mask=StructureNotifyMask;//for MapNotify
 			//TODO: remove above and see what happens
 			
-			this->window=XCreateWindow(this->display, (Window)windowhandle, 0, 0, 100, 100, 0,
+			this->window=XCreateWindow(this->display, (Window)windowhandle, 0, 0, 16, 16, 0,
 			                           vis->depth, InputOutput, vis->visual, CWColormap|CWEventMask, &attr);
 			this->glxwindow=false;
 			
@@ -520,12 +533,30 @@ sym(GetError);
 		glx.MakeCurrent(this->display, this->window, this->context);
 		
 		if (!load_gl_functions(major*10+minor)) return false;
-		glx.MakeCurrent(this->display, 0, NULL);
+#endif
+		
+		gl.GenBuffers(1, &this->sh_vertexbuf);
+		static const GLfloat vertexcoord[] = {
+			-1.0f,  1.0f, 0.0f,
+			 1.0f,  1.0f, 0.0f,
+			-1.0f, -1.0f, 0.0f,
+			 1.0f, -1.0f, 0.0f,
+		};
+		gl.BindBuffer(GL_ARRAY_BUFFER, this->sh_vertexbuf);
+		gl.BufferData(GL_ARRAY_BUFFER, sizeof(vertexcoord), vertexcoord, GL_STATIC_DRAW);
+		
+		gl.GenBuffers(1, &this->sh_texcoordbuf);
 		
 		this->out_chain=NULL;
 		
-		return true;
+#ifdef WNDPROT_WINDOWS
+		wgl.MakeCurrent(this->hdc, NULL);
 #endif
+#ifdef WNDPROT_X11
+		glx.MakeCurrent(this->display, 0, NULL);
+#endif
+		
+		return true;
 	}
 	
 	/*private*/ bool construct2d(uintptr_t windowhandle)
@@ -533,28 +564,17 @@ sym(GetError);
 		this->is3d=false;
 		if (!construct(windowhandle, false, 2,0)) return false;
 		
-		/*
-		//GLuint programID = LoadShaders( "SimpleVertexShader.vertexshader", "SimpleFragmentShader.fragmentshader" );
-		
-		// Get a handle for our buffers
-		GLuint vertexPosition_modelspaceID = glGetAttribLocation(programID, "vertexPosition_modelspace");
-		
-		static const GLfloat g_vertex_buffer_data[] = { 
-			-1.0f, -1.0f, 0.0f,
-			1.0f, -1.0f, 0.0f,
-			0.0f,  1.0f, 0.0f,
-		};
-		
-		GLuint vertexbuffer;
-		gl.GenBuffers(1, &vertexbuffer);
-		gl.BindBuffer(GL_ARRAY_BUFFER, vertexbuffer);
-		gl.BufferData(GL_ARRAY_BUFFER, sizeof(g_vertex_buffer_data), g_vertex_buffer_data, GL_STATIC_DRAW);
-		*/
+		gl.GenTextures(1, &this->in2_texture);
 		
 		return true;
 	}
 	
-	void finalize_2d(unsigned int base_width, unsigned int base_height, unsigned int depth)
+	void set_chain(video* next)
+	{
+		this->out_chain=next;
+	}
+	
+	void initialize()
 	{
 #ifdef WNDPROT_WINDOWS
 		if (wgl.GetCurrentContext()) abort();//cannot use two of these from the same thread
@@ -563,51 +583,76 @@ sym(GetError);
 #ifdef WNDPROT_X11
 		glx.MakeCurrent(this->display, this->window, this->context);
 #endif
+		if (this->is3d) this->in3.context_reset();
 		
-		this->in2_width=base_width;
-		this->in2_height=base_height;
+		set_shader(sh_glsl, NULL);
+	}
+	
+	/*private*/ unsigned int bitround(unsigned int in)
+	{
+		in--;
+		in|=in>>1;
+		in|=in>>2;
+		in|=in>>4;
+		in|=in>>16;
+		in++;
+		return in;
+	}
+	
+	void set_source(unsigned int max_width, unsigned int max_height, videoformat depth)
+	{
+		GLenum glfmt[]={ GL_RGBA, GL_BGRA, GL_RGB };
+		this->in2_fmt=glfmt[depth];
+		GLenum gltype[]={ GL_UNSIGNED_SHORT_5_5_5_1, GL_UNSIGNED_INT_8_8_8_8_REV, GL_UNSIGNED_SHORT_5_6_5 };
+		this->in2_type=gltype[depth];
+		unsigned char bytepp[]={2,4,2};
+		this->in2_bytepp=bytepp[depth];
 		
-		if (depth==15)
-		{
-			this->in2_fmt=GL_UNSIGNED_SHORT_5_5_5_1;
-			this->in2_bytepp=2;
-		}
-		if (depth==16)
-		{
-			this->in2_fmt=GL_UNSIGNED_SHORT_5_6_5;
-			this->in2_bytepp=2;
-		}
-		if (depth==32)
-		{
-			this->in2_fmt=GL_UNSIGNED_INT_8_8_8_8;
-			this->in2_bytepp=4;
-		}
-		
-		gl.GenTextures(1, &this->in2_texture);
 		gl.BindTexture(GL_TEXTURE_2D, this->in2_texture);
-		gl.TexImage2D(GL_TEXTURE_2D, 0, GL_RGB, base_width, base_height, 0, GL_RGB, this->in2_fmt, NULL);
-		gl.BindTexture(GL_TEXTURE_2D, 0);
-		
-		//end();
-		if (this->out_chain) this->out_chain->finalize2d(0, 0, 0);
+		gl.TexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+		gl.TexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+		gl.TexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+		gl.TexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+		this->in_texwidth=bitround(max_width);
+		this->in_texheight=bitround(max_height);
+		//why do I need to use in2_fmt for internal format, it works fine with GL_RGB on the old opengl driver
+		gl.TexImage2D(GL_TEXTURE_2D, 0, this->in2_fmt, this->in_texwidth, this->in_texheight, 0, this->in2_fmt, this->in2_type, NULL);
 	}
 	
 	//void draw_2d_where(unsigned int width, unsigned int height, void * * data, unsigned int * pitch);
 	
 	void draw_2d(unsigned int width, unsigned int height, const void * data, unsigned int pitch)
 	{
-		//begin();
-		
 		gl.BindTexture(GL_TEXTURE_2D, this->in2_texture);
 		gl.PixelStorei(GL_UNPACK_ROW_LENGTH, pitch/this->in2_bytepp);
-		gl.TexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, width, height, GL_RGB, this->in2_fmt, data);
-		gl.BindTexture(GL_TEXTURE_2D, 0);
+		gl.TexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, width, height, this->in2_fmt, this->in2_type, data);
 		
-gl.ClearColor(0.5f,0.6f,0.7f,0.5f);
-gl.Clear(GL_COLOR_BUFFER_BIT);
+		gl.Clear(GL_COLOR_BUFFER_BIT);
+		
+		if (width!=this->in_lastwidth || height!=this->in_lastheight)
+		{
+//left  = 1/2 / out.width
+//right = width/texwidth - left
+			GLfloat left=0.5f/this->out_width;
+			GLfloat top=0.5f/this->out_height;
+			GLfloat right=(float)width / this->in_texwidth - left;
+			GLfloat bottom=(float)height / this->in_texheight - top;
+			GLfloat texcoord[] = {
+				left, top,
+				right, top,
+				left, bottom,
+				right, bottom,
+			};
+			gl.BindBuffer(GL_ARRAY_BUFFER, this->sh_texcoordbuf);
+			gl.BufferData(GL_ARRAY_BUFFER, sizeof(texcoord), texcoord, GL_STATIC_DRAW);
+			
+			this->in_lastwidth=width;
+			this->in_lastheight=height;
+		}
+		
+		gl.DrawArrays(GL_TRIANGLE_STRIP, 0, 4);
 		
 		draw_shared();
-		//end();
 	}
 	
 	/*private*/ bool construct3d(uintptr_t windowhandle, struct retro_hw_render_callback * desc)
@@ -644,26 +689,12 @@ gl.Clear(GL_COLOR_BUFFER_BIT);
 		return true;
 	}
 	
-	void finalize_3d()
+	uintptr_t draw_3d_get_current_framebuffer()
 	{
-#ifdef WNDPROT_WINDOWS
-		wgl.MakeCurrent(this->hdc, this->hglrc);
-#endif
-#ifdef WNDPROT_X11
-		glx.MakeCurrent(this->display, this->window, this->context);
-#endif
-		this->in3.context_reset();
-		//end();
-		if (this->out_chain) this->out_chain->finalize2d(0, 0, 0);
-	}
-	
-	uintptr_t input_3d_get_current_framebuffer()
-	{
-		//begin();
 		return 0;
 	}
 	
-	funcptr input_3d_get_proc_address(const char * sym)
+	funcptr draw_3d_get_proc_address(const char * sym)
 	{
 #ifdef WNDPROT_WINDOWS
 		return (funcptr)wgl.GetProcAddress(sym);
@@ -676,7 +707,6 @@ gl.Clear(GL_COLOR_BUFFER_BIT);
 	void draw_3d(unsigned int width, unsigned int height)
 	{
 		draw_shared();
-		//end();
 	}
 	
 	/*private*/ void draw_shared()
@@ -704,9 +734,7 @@ gl.Clear(GL_COLOR_BUFFER_BIT);
 	
 	void draw_repeat()
 	{
-		//begin();
 		draw_shared();
-		//end();
 	}
 	
 	
@@ -723,27 +751,108 @@ gl.Clear(GL_COLOR_BUFFER_BIT);
 	}
 	
 	
-	//bool set_shader(shadertype type, const char * filename);
-	//video_shader_param* get_shader_params();
-	//void set_shader_param(unsigned int index, double value);
-	
-	
-	//TODO: fill in those two
-	void get_base_size(unsigned int * width, unsigned int * height)
+	/*private*/ GLuint createShaderProg(unsigned int version, const char * data)
 	{
-		*width=this->in2_width;
-		*height=this->in2_height;
-	}
-	
-	void set_size(unsigned int width, unsigned int height)
-	{
+		if (version==200) version=110;
+		if (version==210) version=120;
+		if (version==300) version=130;
+		if (version==310) version=140;
+		if (version==320) version=150;
 		
+		GLuint program=gl.CreateProgram();
+		
+		for (unsigned int i=0;i<2;i++)
+		{
+			GLenum type[]={ GL_VERTEX_SHADER, GL_FRAGMENT_SHADER };
+			char version_s[strlen("#version 123\n\1")];
+			sprintf(version_s, "#version %i\n", version);
+			const char * defines[]={ "#define VERTEX\n", "#define FRAGMENT\n" };
+			const char * shaderdata[3]={ strstr(data, "#version") ? "" : version_s, defines[i], data };
+			
+			GLuint shader=gl.CreateShader(type[i]);
+			gl.ShaderSource(shader, 3, shaderdata, NULL);
+			gl.CompileShader(shader);
+			
+			//gl.GetShaderiv(shader, GL_COMPILE_STATUS, &ok);
+			GLint errlength=0;
+			gl.GetShaderiv(shader, GL_INFO_LOG_LENGTH, &errlength);
+			if (errlength>1)
+			{
+				char errstr[errlength+1];
+				gl.GetShaderInfoLog(shader, errlength, NULL, errstr);
+				errstr[errlength]='\0';
+				puts(errstr);
+			}
+			
+			gl.AttachShader(program, shader);
+			gl.DeleteShader(shader);
+		}
+		
+		gl.LinkProgram(program);
+		
+		//gl.GetProgramiv(program, GL_LINK_STATUS, &ok);
+		GLint errlength=0;
+		gl.GetProgramiv(program, GL_INFO_LOG_LENGTH, &errlength);
+		if (errlength>1)
+		{
+			char errstr[errlength+1];
+			gl.GetProgramInfoLog(program, errlength, NULL, errstr);
+			errstr[errlength]='\0';
+			puts(errstr);
+		}
+		
+		return program;
+	}
+	
+	bool set_shader(shadertype type, const char * filename)
+	{
+		GLuint prog=createShaderProg(210, defaultShader);
+		
+		gl.UseProgram(prog);
+		
+		GLint vertexloc=gl.GetAttribLocation(prog, "VertexCoord");
+		gl.EnableVertexAttribArray(vertexloc);
+		gl.BindBuffer(GL_ARRAY_BUFFER, this->sh_vertexbuf);
+		gl.VertexAttribPointer(vertexloc, 3, GL_FLOAT, GL_FALSE, 0, (void*)0);
+		
+		GLint texcoordloc=gl.GetAttribLocation(prog, "TexCoord");
+		gl.EnableVertexAttribArray(texcoordloc);
+		gl.BindBuffer(GL_ARRAY_BUFFER, this->sh_texcoordbuf);
+		gl.VertexAttribPointer(texcoordloc, 2, GL_FLOAT, GL_FALSE, 0, (void*)0);
+		
+		GLint texid=gl.GetUniformLocation(prog, "Texture");
+		gl.ActiveTexture(GL_TEXTURE0);
+//		gl.Enable(GL_TEXTURE_2D);//TODO: nuke
+		gl.BindTexture(GL_TEXTURE_2D, this->in2_texture);
+		gl.Uniform1i(texid, 0);
+		
+//vertex vec2 TexCoord [ = VertexCoord]
+//vertex vec2 VertexCoord [ = (0,0), (0,1), (1,0), (1,1) ]
+//vertex vec4 COLOR [ = (0,0.5,1,0.8) ] [to be changed to 1,1,1,1 if it works]
+//global mat4 MVPMatrix [ = ((1,0,0,0),(0,1,0,0),(0,0,1,0),(0,0,0,1)) ]
+//global sampler2D Texture
+		
+		return true;
+	}
+	
+	video_shader_param* get_shader_params()
+	{
+		return NULL;
+	}
+	
+	void set_shader_param(unsigned int index, double value)
+	{
 	}
 	
 	
-	void set_chain(video* backend)
+	//TODO: fill in this
+	void set_dest_size(unsigned int width, unsigned int height)
 	{
-		this->out_chain=backend;
+		gl.Viewport(0, 0, width, height);
+		this->in_lastwidth=0;
+		this->in_lastheight=0;
+		this->out_width=width;
+		this->out_height=height;
 	}
 	
 	
@@ -797,7 +906,7 @@ video* video_create_opengl_3d(uintptr_t windowhandle, struct retro_hw_render_cal
 }
 
 extern const driver_video video_opengl_desc = { "OpenGL", video_create_opengl_2d, video_create_opengl_3d, video_opengl::max_features };
+#else
+video* video_create_opengl(uintptr_t windowhandle) { return NULL; }
+extern const driver_video video_opengl_desc = { "OpenGL", video_create_opengl, NULL, 0 };
 #endif
-
-//video* video_create_opengl(uintptr_t windowhandle, unsigned int depth) { return NULL; }
-//extern const driver_video video_opengl_desc = { "OpenGL", video_create_opengl, NULL, 0 };
