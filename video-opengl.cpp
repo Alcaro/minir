@@ -709,11 +709,16 @@ public:
 		draw_shared();
 	}
 	
+	void draw_repeat()
+	{
+		draw_shared();
+	}
+	
 	/*private*/ void draw_shared()
 	{
 		if (!this->out_chain)
 		{
-			//gl.Finish();
+			gl.Finish();
 			//TODO: check if this one improves anything
 			//use the flicker test core
 #ifdef WNDPROT_WINDOWS
@@ -732,11 +737,6 @@ public:
 		}
 	}
 	
-	void draw_repeat()
-	{
-		draw_shared();
-	}
-	
 	
 	void set_vsync(double fps)
 	{
@@ -744,9 +744,10 @@ public:
 		if (gl.SwapInterval) gl.SwapInterval(fps ? 1 : 0);
 #endif
 #ifdef WNDPROT_X11
-		if (gl.SwapIntervalEXT) gl.SwapIntervalEXT(this->display, this->window, fps ? 1 : 0);
-		if (gl.SwapIntervalMESA) gl.SwapIntervalMESA(fps ? 1 : 0);
-		if (gl.SwapIntervalSGI) gl.SwapIntervalSGI(fps ? 1 : 0);
+		if(0);
+		else if (gl.SwapIntervalEXT) gl.SwapIntervalEXT(this->display, this->window, fps ? 1 : 0);
+		else if (gl.SwapIntervalMESA) gl.SwapIntervalMESA(fps ? 1 : 0);
+		else if (gl.SwapIntervalSGI) gl.SwapIntervalSGI(fps ? 1 : 0);
 #endif
 	}
 	
@@ -853,6 +854,10 @@ public:
 		this->in_lastheight=0;
 		this->out_width=width;
 		this->out_height=height;
+		if (this->window && !this->glxwindow)
+		{
+      XResizeWindow(this->display, this->window, width, height);
+		}
 	}
 	
 	
