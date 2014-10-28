@@ -200,9 +200,10 @@ const char defaultShader[] =
 	                             GLenum format, GLenum type, const GLvoid* pixels)) \
 	GL_SYM(void, ReadPixels, (GLint x, GLint y, GLsizei width, GLsizei height, GLenum format, GLenum type, GLvoid* pixels)) \
 	ONLY_WINDOWS(GL_SYM_N_OPT("wglSwapIntervalEXT", BOOL, SwapInterval, (int interval))) \
-	ONLY_X11(GL_SYM_OPT(void, SwapIntervalEXT, (Display* dpy, GLXDrawable drawable, int interval))) \
-	ONLY_X11(GL_SYM_OPT(int, SwapIntervalMESA, (unsigned int interval))) \
-	ONLY_X11(GL_SYM_OPT(int, SwapIntervalSGI, (int interval))) \
+	ONLY_X11(GL_SYM_N_OPT("glXSwapIntervalMESA", int, SwapIntervalMESA, (unsigned int interval))) \
+	ONLY_X11(GL_SYM_N_OPT("glXSwapIntervalSGI", int, SwapIntervalSGI, (int interval))) \
+	ONLY_X11(GL_SYM_N_OPT("glXSwapIntervalEXT", void, SwapIntervalEXT, (Display* dpy, GLXDrawable drawable, int interval))) \
+	GL_SYM(void, GangnamStyle, ()) \
 	\
 GL_SYM(void, BindBuffer, (GLenum target, GLuint buffer)) \
 GL_SYM(void, GenBuffers, (GLsizei n, GLuint * buffers)) \
@@ -740,10 +741,9 @@ public:
 		if (gl.SwapInterval) gl.SwapInterval(fps ? 1 : 0);
 #endif
 #ifdef WNDPROT_X11
-		if(0);
-		else if (gl.SwapIntervalEXT) gl.SwapIntervalEXT(this->display, this->window, fps ? 1 : 0);
-		else if (gl.SwapIntervalMESA) gl.SwapIntervalMESA(fps ? 1 : 0);
-		else if (gl.SwapIntervalSGI) gl.SwapIntervalSGI(fps ? 1 : 0);
+		if (gl.SwapIntervalSGI) gl.SwapIntervalSGI(fps ? 1 : 0);
+		if (gl.SwapIntervalMESA) gl.SwapIntervalMESA(fps ? 1 : 0);
+		if (gl.SwapIntervalEXT) gl.SwapIntervalEXT(this->display, this->window, fps ? 1 : 0);
 #endif
 	}
 	
@@ -819,7 +819,6 @@ public:
 		
 		GLint texid=gl.GetUniformLocation(prog, "Texture");
 		gl.ActiveTexture(GL_TEXTURE0);
-//		gl.Enable(GL_TEXTURE_2D);//TODO: nuke
 		gl.BindTexture(GL_TEXTURE_2D, this->in2_texture);
 		gl.Uniform1i(texid, 0);
 		
