@@ -473,9 +473,6 @@ public:
 			XSetWindowAttributes attr;
 			memset(&attr, 0, sizeof(attr));
 			attr.colormap=XCreateColormap(this->display, (Window)windowhandle, vis->visual, AllocNone);
-			//TODO: free colormap
-			attr.event_mask=StructureNotifyMask;//for MapNotify
-			//TODO: remove above and see what happens
 			
 			this->context=glx.CreateNewContext(this->display, configs[0], GLX_RGBA_TYPE, NULL, True);
 			this->window=glx.CreateWindow(this->display, configs[0], (Window)windowhandle, NULL);
@@ -519,7 +516,6 @@ public:
 			memset(&attr, 0, sizeof(attr));
 			attr.colormap=XCreateColormap(this->display, (Window)windowhandle, vis->visual, AllocNone);
 			attr.event_mask=StructureNotifyMask;//for MapNotify
-			//TODO: remove above and see what happens
 			
 			this->window=XCreateWindow(this->display, (Window)windowhandle, 0, 0, 16, 16, 0,
 			                           vis->depth, InputOutput, vis->visual, CWColormap|CWEventMask, &attr);
