@@ -487,7 +487,7 @@ widget_viewport* widget_viewport::resize(unsigned int width, unsigned int height
 uintptr_t widget_viewport::get_window_handle()
 {
 	//this won't work on anything except X11, but should be trivial to create an equivalent for.
-	uintptr_t tmp=GDK_WINDOW_XID(gtk_widget_get_window(GTK_WIDGET(widget)));
+	uintptr_t tmp=gdk_x11_window_get_xid(gtk_widget_get_window(GTK_WIDGET(widget)));
 	return tmp;
 }
 

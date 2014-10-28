@@ -371,9 +371,9 @@ public:
 //	}
 	
 #ifdef WNDPROT_X11
-	/*private*/ static Bool XWaitForCreate(Display* d, XEvent* e, char* arg)
+	/*private*/ static Bool XWaitForCreate(Display* d, XEvent* ev, char* arg)
 	{
-		return (e->type==MapNotify && e->xmap.window==(Window)arg);
+		return (ev->type==MapNotify && ev->xmap.window==(Window)arg);
 	}
 #endif
 	
