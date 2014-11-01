@@ -94,9 +94,6 @@ bool InitGlobalGLFunctions()
 	GLX_SYM_OPT(GLXWindow, CreateWindow, (Display* dpy, GLXFBConfig config, Window win, const int * attrib_list)) \
 	GLX_SYM_OPT(GLXContext, CreateNewContext, (Display* dpy, GLXFBConfig config, int render_type, GLXContext share_list, Bool direct)) \
 	GLX_SYM_OPT(void, DestroyWindow, (Display* dpy, GLXWindow win)) \
-	/* GLX 1.4 */ \
-	GLX_SYM_ARB_OPT(GLXContext, CreateContextAttribs, \
-	                (Display* dpy, GLXFBConfig config, GLXContext share_context, Bool direct, const int * attrib_list)) \
 
 #define GLX_SYM_N_OPT GLX_SYM_N
 #define GLX_SYM_N(str, ret, name, args) ret (*name) args;
@@ -474,33 +471,29 @@ public:
 			memset(&attr, 0, sizeof(attr));
 			attr.colormap=XCreateColormap(this->display, (Window)windowhandle, vis->visual, AllocNone);
 			
-			this->context=glx.CreateNewContext(this->display, configs[0], GLX_RGBA_TYPE, NULL, True);
 			this->window=glx.CreateWindow(this->display, configs[0], (Window)windowhandle, NULL);
 			this->glxwindow=true;
 			
-			//XMapWindow(this->display, this->window);
-			//XEvent ignore;
-			//XPeekIfEvent(this->display, &ignore, this->XWaitForCreate, (char*)this->window);
-			
-			/*
-			GLXContext oldcontext=this->context;
-			PFNGLXCREATECONTEXTATTRIBSARBPROC glxCreateContextAttribs=
-				(PFNGLXCREATECONTEXTATTRIBSARBPROC)glx.GetProcAddress((const GLubyte*)"glXCreateContextAttribsARB");
-			const int attribs[] = {
-				GLX_CONTEXT_MAJOR_VERSION_ARB, (int)major,
-				GLX_CONTEXT_MINOR_VERSION_ARB, (int)minor,
-				//GLX_CONTEXT_FLAGS_ARB, GLX_CONTEXT_DEBUG_BIT_ARB|GLX_CONTEXT_FORWARD_COMPATIBLE_BIT_ARB
-				//https://www.opengl.org/wiki/Core_And_Compatibility_in_Contexts says do not use
-				None };
-			this->context=glxCreateContextAttribs(this->display, fbc[0], NULL, True, context_attribs);
-			
-			glx.MakeCurrent(this->display, this->window, this->context);
-			glx.DeleteContext(oldcontext);
-			*/
+			PFNGLXCREATECONTEXTATTRIBSARBPROC glXCreateContextAttribs =
+				(PFNGLXCREATECONTEXTATTRIBSARBPROC)glx.GetProcAddress((const GLubyte *)"glXCreateContextAttribsARB");
+			if (glXCreateContextAttribs)
+			{
+				const int attribs[] = {
+					GLX_CONTEXT_MAJOR_VERSION_ARB, (int)major,
+					GLX_CONTEXT_MINOR_VERSION_ARB, (int)minor,
+					//GLX_CONTEXT_FLAGS_ARB, GLX_CONTEXT_DEBUG_BIT_ARB|GLX_CONTEXT_FORWARD_COMPATIBLE_BIT_ARB
+					//https://www.opengl.org/wiki/Core_And_Compatibility_in_Contexts says do not use
+					None };
+				this->context=glXCreateContextAttribs(this->display, configs[0], NULL, True, attribs);
+			}
+			else
+			{
+				this->context=glx.CreateNewContext(this->display, configs[0], GLX_RGBA_TYPE, NULL, True);
+			}
 		}
 		else
 		{
-			if (major*10+minor >= 30) return false;
+			//if (major*10+minor >= 30) return false;
 			
 			static const int attributes[] = { GLX_DOUBLEBUFFER, GLX_RGBA, None };
 			
