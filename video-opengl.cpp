@@ -203,7 +203,6 @@ const char defaultShader[] =
 	ONLY_X11(GL_SYM_N_OPT("glXSwapIntervalMESA", int, SwapIntervalMESA, (unsigned int interval))) \
 	ONLY_X11(GL_SYM_N_OPT("glXSwapIntervalSGI", int, SwapIntervalSGI, (int interval))) \
 	ONLY_X11(GL_SYM_N_OPT("glXSwapIntervalEXT", void, SwapIntervalEXT, (Display* dpy, GLXDrawable drawable, int interval))) \
-	GL_SYM(void, GangnamStyle, ()) \
 	\
 GL_SYM(void, BindBuffer, (GLenum target, GLuint buffer)) \
 GL_SYM(void, GenBuffers, (GLsizei n, GLuint * buffers)) \
@@ -822,12 +821,6 @@ public:
 		gl.BindTexture(GL_TEXTURE_2D, this->in2_texture);
 		gl.Uniform1i(texid, 0);
 		
-//vertex vec2 TexCoord [ = VertexCoord]
-//vertex vec2 VertexCoord [ = (0,0), (0,1), (1,0), (1,1) ]
-//vertex vec4 COLOR [ = (0,0.5,1,0.8) ] [to be changed to 1,1,1,1 if it works]
-//global mat4 MVPMatrix [ = ((1,0,0,0),(0,1,0,0),(0,0,1,0),(0,0,0,1)) ]
-//global sampler2D Texture
-		
 		return true;
 	}
 	
@@ -849,10 +842,12 @@ public:
 		this->in_lastheight=0;
 		this->out_width=width;
 		this->out_height=height;
+#ifdef WNDPROT_X11
 		if (this->window && !this->glxwindow)
 		{
-      XResizeWindow(this->display, this->window, width, height);
+			XResizeWindow(this->display, this->window, width, height);
 		}
+#endif
 	}
 	
 	
