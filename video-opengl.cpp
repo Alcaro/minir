@@ -13,6 +13,7 @@
 #include <GL/glx.h>
 #endif
 #define bind BIND_CB
+#include <stdio.h>
 #include "libretro.h"
 
 #define ONLY_WINDOWS(x)
