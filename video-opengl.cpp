@@ -606,7 +606,7 @@ public:
 		this->in_texwidth=bitround(max_width);
 		this->in_texheight=bitround(max_height);
 		//why do I need to use in2_fmt for internal format, it works fine with GL_RGB on the old opengl driver
-		gl.TexImage2D(GL_TEXTURE_2D, 0, this->in2_fmt, this->in_texwidth, this->in_texheight, 0, this->in2_fmt, this->in2_type, NULL);
+		gl.TexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, this->in_texwidth, this->in_texheight, 0, this->in2_fmt, this->in2_type, NULL);
 	}
 	
 	//void draw_2d_where(unsigned int width, unsigned int height, void * * data, unsigned int * pitch);
