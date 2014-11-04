@@ -1,3 +1,4 @@
+#include<time.h>
 #define e printf("%i:%i\n",__LINE__,gl.GetError());
 
 #include "minir.h"
@@ -591,9 +592,9 @@ public:
 	
 	void set_source(unsigned int max_width, unsigned int max_height, videoformat depth)
 	{
-		GLenum glfmt[]={ GL_RGBA, GL_BGRA, GL_RGB };
+		GLenum glfmt[]={ GL_BGRA, GL_BGRA, GL_RGB };
 		this->in2_fmt=glfmt[depth];
-		GLenum gltype[]={ GL_UNSIGNED_SHORT_5_5_5_1, GL_UNSIGNED_INT_8_8_8_8_REV, GL_UNSIGNED_SHORT_5_6_5 };
+		GLenum gltype[]={ GL_UNSIGNED_SHORT_1_5_5_5_REV, GL_UNSIGNED_INT_8_8_8_8_REV, GL_UNSIGNED_SHORT_5_6_5 };
 		this->in2_type=gltype[depth];
 		unsigned char bytepp[]={2,4,2};
 		this->in2_bytepp=bytepp[depth];
@@ -605,7 +606,7 @@ public:
 		gl.TexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
 		this->in_texwidth=bitround(max_width);
 		this->in_texheight=bitround(max_height);
-		//why do I need to use in2_fmt for internal format, it works fine with GL_RGB on the old opengl driver
+		//why do I need to use rgba for internal format, it works fine with GL_RGB on the old opengl driver
 		gl.TexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, this->in_texwidth, this->in_texheight, 0, this->in2_fmt, this->in2_type, NULL);
 	}
 	
@@ -708,7 +709,7 @@ public:
 	{
 		if (!this->out_chain)
 		{
-			gl.Finish();
+			//gl.Finish();
 			//TODO: check if this one improves anything
 			//use the flicker test core
 #ifdef WNDPROT_WINDOWS
@@ -717,6 +718,7 @@ public:
 #ifdef WNDPROT_X11
 			glx.SwapBuffers(this->display, this->window);
 #endif
+static time_t a=0;static int g=0;if(a!=time(NULL)){a=time(NULL);printf("sw=%i\n",g);g=0;}else{g++;}
 		}
 		else
 		{
@@ -814,6 +816,9 @@ public:
 		gl.ActiveTexture(GL_TEXTURE0);
 		gl.BindTexture(GL_TEXTURE_2D, this->in2_texture);
 		gl.Uniform1i(texid, 0);
+		
+//vertex vec4 COLOR [ = (0,0.5,1,0.8) ] [to be changed to 1,1,1,1 if it works]
+//global mat4 MVPMatrix [ = ((1,0,0,0),(0,1,0,0),(0,0,1,0),(0,0,0,1)) ]
 		
 		return true;
 	}

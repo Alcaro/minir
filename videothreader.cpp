@@ -88,8 +88,14 @@ public://since this entire file is private, making it public inside here does no
 			this->wake_child->wait();
 			this->lock->lock();
 			
-			bool exit=this->exit;
-			this->exit=false;
+			if (this->exit)
+			{
+				delete this->next;
+				this->exit=false;
+				this->wake_parent->signal();
+				this->lock->unlock();
+				return;
+			}
 			
 			bool draw=this->draw;
 			this->draw=false;
@@ -131,12 +137,6 @@ public://since this entire file is private, making it public inside here does no
 				this->draw_idle=true;
 				this->lock->unlock();
 				this->wake_parent->signal();
-			}
-			
-			if (exit)
-			{
-				this->wake_parent->signal();
-				return;
 			}
 		}
 	}
@@ -308,7 +308,6 @@ public://since this entire file is private, making it public inside here does no
 	
 	~video_thread()
 	{
-		if (!this->lock) return;
 		this->lock->lock();
 		this->exit=true;
 		this->lock->unlock();

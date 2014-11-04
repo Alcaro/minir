@@ -770,7 +770,6 @@ static void reflow_force(struct window_win32 * this)
 	bool badx=(this->contents->width  > (unsigned int)size.right  || (!this->resizable && this->contents->width  != (unsigned int)size.right));
 	bool bady=(this->contents->height > (unsigned int)size.bottom || (!this->resizable && this->contents->height != (unsigned int)size.bottom));
 	
-//printf("want=%u,%u have=%u,%u",this->contents->_width,this->contents->_height,size.right,size.bottom);
 	if (badx) size.right=this->contents->width;
 	if (bady) size.bottom=this->contents->height;
 	
@@ -783,12 +782,18 @@ static void reflow_force(struct window_win32 * this)
 		SetWindowPos(this->hwnd, NULL, 0, 0, size.right+outerw, size.bottom+outerh,
 		             SWP_NOACTIVATE|SWP_NOCOPYBITS|SWP_NOMOVE|SWP_NOOWNERZORDER|SWP_NOZORDER);
 		
+		unsigned int newouterh;
+		getBorderSizes(this, NULL, &newouterh);
+		if (newouterh != outerh)//changing the width may change the menu between one and two lines, so resize again
+		{
+			SetWindowPos(this->hwnd, NULL, 0, 0, size.right+outerw, size.bottom+newouterh,
+			             SWP_NOACTIVATE|SWP_NOCOPYBITS|SWP_NOMOVE|SWP_NOOWNERZORDER|SWP_NOZORDER);
+		}
+		
 		GetClientRect(this->hwnd, &size);
 		if (this->status) size.bottom-=statsize.bottom;
-//printf(" resz=%u,%u",size.right,size.bottom);
 		resize_stbar(this, size.right);
 	}
-//puts("");
 	
 	HDWP hdwp=BeginDeferWindowPos(this->numchildwin);
 	this->contents->place(&hdwp, 0,0, size.right, size.bottom);

@@ -202,7 +202,7 @@ video* create3d(struct retro_hw_render_callback * desc)
 			}
 		}
 	}
-	for (unsigned int i=0;list_video[i]->name;i++)
+	for (unsigned int i=0;list_video[i];i++)
 	{
 		if (list_video[i]->create3d)
 		{
