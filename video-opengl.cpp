@@ -234,7 +234,13 @@ GL_SYM(void, DeleteShader, (GLuint shader)) \
 GL_SYM(void, ActiveTexture, (GLenum texture)) \
 GL_SYM(void, Uniform1i, (GLint location, GLint v0)) \
 GL_SYM(void, Enable, (GLenum cap)) \
-GL_SYM(void, TexParameteri, (GLenum target,GLenum pname,GLint param)) \
+GL_SYM(void, TexParameteri, (GLenum target, GLenum pname, GLint param)) \
+\
+GL_SYM(void, GenRenderbuffers, (GLsizei n, GLuint * renderbuffers)) \
+GL_SYM(void, BindRenderbuffer, (GLenum target, GLuint renderbuffer)) \
+GL_SYM(void, RenderbufferStorage, (GLenum target, GLenum internalformat, GLsizei width, GLsizei height)) \
+GL_SYM(void, FramebufferRenderbuffer, (GLenum target, GLenum attachment, GLenum renderbuffertarget, GLuint renderbuffer)) \
+GL_SYM(void, DeleteRenderbuffers, (GLsizei n, const GLuint * renderbuffers)) \
 
 
 #define GL_SYM_N_OPT GL_SYM_N
@@ -308,6 +314,7 @@ public:
 		};
 		struct {
 			retro_hw_render_callback in3;
+			GLuint in3_renderbuffer;
 		};
 	};
 	
@@ -592,6 +599,12 @@ public:
 	
 	void set_source(unsigned int max_width, unsigned int max_height, videoformat depth)
 	{
+		if (this->is3d) this->set_source_3d(max_width, max_height, depth);
+		else this->set_source_2d(max_width, max_height, depth);
+	}
+	
+	/*private*/ void set_source_2d(unsigned int max_width, unsigned int max_height, videoformat depth)
+	{
 		GLenum glfmt[]={ GL_BGRA, GL_BGRA, GL_RGB };
 		this->in2_fmt=glfmt[depth];
 		GLenum gltype[]={ GL_UNSIGNED_SHORT_1_5_5_5_REV, GL_UNSIGNED_INT_8_8_8_8_REV, GL_UNSIGNED_SHORT_5_6_5 };
@@ -677,7 +690,30 @@ public:
 		if (!construct(windowhandle, gles, major, minor)) return false;
 		this->in3=*desc;
 		
+		this->in3_renderbuffer=0;
+		if (desc->depth)
+		{
+			gl.GenRenderbuffers(1, &this->in3_renderbuffer);
+		}
+		else if (desc->stencil) return false;
+		
 		return true;
+	}
+	
+	/*private*/ void set_source_3d(unsigned int max_width, unsigned int max_height, videoformat depth)
+	{
+		gl.BindRenderbuffer(GL_RENDERBUFFER, this->in3_renderbuffer);
+		gl.RenderbufferStorage(GL_RENDERBUFFER, this->in3.stencil ? GL_DEPTH24_STENCIL8 : GL_DEPTH_COMPONENT16, max_width, max_height);
+		
+		//TODO: figure out if I need this
+		//if (this->in3.stencil)
+		//{
+		//	gl.FramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT, GL_RENDERBUFFER, this->in3_renderbuffer);
+		//}
+		//else
+		//{
+		//	gl.FramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, this->in3_renderbuffer);
+		//}
 	}
 	
 	uintptr_t draw_3d_get_current_framebuffer()
@@ -858,6 +894,8 @@ static time_t a=0;static int g=0;if(a!=time(NULL)){a=time(NULL);printf("sw=%i\n"
 	~video_opengl()
 	{
 		free(this->out_buffer);
+		//TODO: destroy various resources
+		if (this->is3d && this->in3_renderbuffer) gl.DeleteRenderbuffers(1, &this->in3_renderbuffer);
 #ifdef WNDPROT_X11
 		if (glx.MakeCurrent) glx.MakeCurrent(this->display, 0, NULL);
 		if (this->window && !this->glxwindow) XDestroyWindow(this->display, this->window);
@@ -865,7 +903,6 @@ static time_t a=0;static int g=0;if(a!=time(NULL)){a=time(NULL);printf("sw=%i\n"
 		if (this->colormap) XFreeColormap(this->display, this->colormap);
 #endif
 #ifdef WNDPROT_WINDOWS
-		//TODO: destroy various resources
 		if (wgl.MakeCurrent) wgl.MakeCurrent(this->hdc, NULL);
 		if (this->hglrc) wgl.DeleteContext(this->hglrc);
 		if (this->hdc) ReleaseDC(this->hwnd, this->hdc);
