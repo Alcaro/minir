@@ -9,6 +9,8 @@
 #include <commctrl.h>
 #include <ctype.h>
 
+//TODO: check if DwmEnableMMCSS does anything useful
+
 #define this This
 
 //TODO:
