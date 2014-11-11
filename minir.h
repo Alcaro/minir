@@ -29,10 +29,12 @@
 //#endif
 
 #ifdef __cplusplus
- template<bool cond> class static_assertion { private: enum { val=0 }; };
- template<> class static_assertion<true> { public: enum { val=1 }; };
- #define STATIC_ASSERT(cond, name) (void)(static_assertion<(cond)>::val)
- #define STATIC_ASSERT_GSCOPE(cond, name) extern static_assertion<static_assertion<(cond)>::val> name
+ //template<bool cond> class static_assertion { private: enum { val=0 }; };
+ //template<> class static_assertion<true> { public: enum { val=1 }; };
+ //#define STATIC_ASSERT(cond, name) (void)(static_assertion<(cond)>::val)
+ //#define STATIC_ASSERT_GSCOPE(cond, name) extern static_assertion<static_assertion<(cond)>::val> name
+ #define STATIC_ASSERT(cond, name) extern char name[(cond)?1:-1]; (void)name
+ #define STATIC_ASSERT_GSCOPE(cond, name) extern char name[(cond)?1:-1]
 #else
  #define STATIC_ASSERT(cond, name) (void)(sizeof(struct { int:-!(cond); }))
  #define STATIC_ASSERT_GSCOPE(cond, name) extern char name[(cond)?1:-1]

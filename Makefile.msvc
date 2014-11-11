@@ -3,7 +3,7 @@
 all: minir_dummy
 
 CC = cl
-CFLAGS = /Oy /Oi /Os /Ox /D_CRT_SECURE_NO_WARNINGS /Dmain="__cdecl main"
+CFLAGS = /Oy /Oi /Os /Ox /D_CRT_SECURE_NO_WARNINGS /Dmain="__cdecl main" /WX /wd4700
 CXX = cl
 CXXFLAGS = $(CFLAGS)
 LD = link

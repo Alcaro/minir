@@ -1,10 +1,19 @@
-//#include<time.h>
 #define e printf("%i:%i\n",__LINE__,gl.GetError());
 
-#define GL_GLEXT_PROTOTYPES
+//#define GL_GLEXT_PROTOTYPES
 #include "minir.h"
 #ifdef VIDEO_OPENGL
 #undef bind
+#ifdef _MSC_VER
+//MSVC's gl.h doesn't seem to include the stuff it should. Copying these five lines from mingw's gl.h...
+# if !(defined(WINGDIAPI) && defined(APIENTRY))
+#  include <windows.h>
+# else
+#  include <stddef.h>
+# endif
+//Also disable a block of code that defines int32_t to something not identical to my msvc-compatible stdint.h.
+# define GLEXT_64_TYPES_DEFINED
+#endif
 #include <GL/gl.h>
 #include <GL/glext.h>
 #ifdef WNDPROT_WINDOWS
@@ -46,23 +55,29 @@ namespace {
 #define WGL_SYM(ret, name, args) WGL_SYM_N("wgl"#name, ret, name, args)
 #define WGL_SYMS() \
 	WGL_SYM(HGLRC, CreateContext, (HDC hdc)) \
-	WGL_SYM(WINBOOL, DeleteContext, (HGLRC hglrc)) \
+	WGL_SYM(BOOL, DeleteContext, (HGLRC hglrc)) \
 	WGL_SYM(HGLRC, GetCurrentContext, ()) \
 	WGL_SYM(PROC, GetProcAddress, (LPCSTR lpszProc)) \
-	WGL_SYM(WINBOOL, MakeCurrent, (HDC hdc, HGLRC hglrc)) \
-	WGL_SYM(WINBOOL, SwapBuffers, (HDC hdc)) \
-  //WINGDIAPI WINBOOL WINAPI wglCopyContext(HGLRC,HGLRC,UINT);
-  //WINGDIAPI HGLRC WINAPI wglCreateContext(HDC);
-  //WINGDIAPI HGLRC WINAPI wglCreateLayerContext(HDC,int);
-  //WINGDIAPI WINBOOL WINAPI wglDeleteContext(HGLRC);
-  //WINGDIAPI HGLRC WINAPI wglGetCurrentContext(VOID);
-  //WINGDIAPI HDC WINAPI wglGetCurrentDC(VOID);
-  //WINGDIAPI PROC WINAPI wglGetProcAddress(LPCSTR);
-  //WINGDIAPI WINBOOL WINAPI wglMakeCurrent(HDC,HGLRC);
-  //WINGDIAPI WINBOOL WINAPI wglShareLists(HGLRC,HGLRC);
-  //WINGDIAPI WINBOOL WINAPI wglUseFontBitmapsA(HDC,DWORD,DWORD,DWORD);
-  //WINGDIAPI WINBOOL WINAPI wglUseFontBitmapsW(HDC,DWORD,DWORD,DWORD);
-  //WINGDIAPI WINBOOL WINAPI SwapBuffers(HDC);
+	WGL_SYM(BOOL, MakeCurrent, (HDC hdc, HGLRC hglrc)) \
+	WGL_SYM(BOOL, SwapBuffers, (HDC hdc)) \
+
+//WINGDIAPI BOOL  WINAPI wglCopyContext(HGLRC, HGLRC, UINT);
+//WINGDIAPI HGLRC WINAPI wglCreateContext(HDC);
+//WINGDIAPI HGLRC WINAPI wglCreateLayerContext(HDC, int);
+//WINGDIAPI BOOL  WINAPI wglDeleteContext(HGLRC);
+//WINGDIAPI HGLRC WINAPI wglGetCurrentContext(VOID);
+//WINGDIAPI HDC   WINAPI wglGetCurrentDC(VOID);
+//WINGDIAPI PROC  WINAPI wglGetProcAddress(LPCSTR);
+//WINGDIAPI BOOL  WINAPI wglMakeCurrent(HDC, HGLRC);
+//WINGDIAPI BOOL  WINAPI wglShareLists(HGLRC, HGLRC);
+//WINGDIAPI BOOL  WINAPI wglUseFontBitmapsA(HDC, DWORD, DWORD, DWORD);
+//WINGDIAPI BOOL  WINAPI wglUseFontBitmapsW(HDC, DWORD, DWORD, DWORD);
+//#ifdef UNICODE
+//#define wglUseFontBitmaps  wglUseFontBitmapsW
+//#else
+//#define wglUseFontBitmaps  wglUseFontBitmapsA
+//#endif // !UNICODE
+//WINGDIAPI BOOL  WINAPI SwapBuffers(HDC);
 
 #define WGL_SYM_N(str, ret, name, args) ret (WINAPI * name) args;
 struct { WGL_SYMS() HMODULE lib; } static wgl;
@@ -141,10 +156,10 @@ bool InitGlobalGLFunctions()
 
 void DeinitGlobalGLFunctions()
 {
-#ifdef DYLIB_WINDOWS
+#ifdef WNDPROT_WINDOWS
 	FreeLibrary(wgl.lib);
 #endif
-#ifdef DYLIB_POSIX
+#ifdef WNDPROT_X11
 	dlclose(glx.lib);
 #endif
 }
@@ -199,6 +214,8 @@ const char defaultShader[] =
 
 #define GL_SYM(ret, name, args) GL_SYM_N("gl"#name, ret, name, args)
 #define GL_SYM_OPT(ret, name, args) GL_SYM_N_OPT("gl"#name, ret, name, args)
+#define GL_SYM_ARB(ret, name, args) GL_SYM_N("gl"#name"ARB", ret, name, args)
+#define GL_SYM_OPT_ARB(ret, name, args) GL_SYM_N_OPT("gl"#name"ARB", ret, name, args)
 #define GL_SYMS() \
 	GL_SYM(void, BindTexture, (GLenum target, GLuint texture)) \
 	GL_SYM(void, Clear, (GLbitfield mask)) \
@@ -260,6 +277,15 @@ GL_SYM(void, GenFramebuffers, (GLsizei n, const GLuint * framebuffers)) \
 GL_SYM(void, DeleteFramebuffers, (GLsizei n, const GLuint * framebuffers)) \
 GL_SYM(void, DeleteTextures, (GLsizei n, const GLuint * textures)) \
 GL_SYM(void, FramebufferTexture2D, (GLenum target, GLenum attachment, GLenum textarget, GLuint texture, GLint level)) \
+\
+GL_SYM_OPT_ARB(void, DebugMessageCallback, (GLDEBUGPROC callback, const void * userParam)) \
+GL_SYM_OPT_ARB(void, DebugMessageControl, (GLenum source, GLenum type, GLenum severity, GLsizei count, const GLuint * ids, GLboolean enabled)) \
+GL_SYM(void, BindFramebuffer, (GLenum target, GLuint framebuffer)) \
+\
+GL_SYM(void, Uniform4f, (GLint location, GLfloat v0, GLfloat v1, GLfloat v2, GLfloat v3)) \
+GL_SYM(void, UniformMatrix4fv, (GLint location, GLsizei count, GLboolean transpose, const GLfloat * value)) \
+
+
 
 
 #define GL_SYM_N_OPT GL_SYM_N
@@ -341,7 +367,6 @@ public:
 	unsigned int in_texwidth;
 	unsigned int in_texheight;
 	
-	//GLuint sh_vertexarrayobj;
 	GLuint sh_vertexbuf;
 	//GLuint sh_vertexbuf_flip;
 	GLuint sh_texcoordbuf;
@@ -395,41 +420,23 @@ public:
 	/*private*/ void end()
 	{
 #ifdef WNDPROT_WINDOWS
-		if (wgl.GetCurrentContext()) abort();//cannot use two of these from the same thread
-		wgl.MakeCurrent(this->hdc, this->hglrc);
+		wgl.MakeCurrent(this->hdc, NULL);
 #endif
 #ifdef WNDPROT_X11
-		glx.MakeCurrent(this->display, this->window, this->context);
+		glx.MakeCurrent(this->display, this->window, NULL);
 #endif
 	}
 	
-#ifdef WNDPROT_X11
-	/*private*/ static Bool XWaitForCreate(Display* d, XEvent* ev, char* arg)
-	{
-		return (ev->type==MapNotify && ev->xmap.window==(Window)arg);
-	}
-#endif
-	
-	/*private*/ bool construct(uintptr_t windowhandle, bool gles, unsigned int major, unsigned int minor)
-	{
-		this->out_buffer=NULL;
-		this->out_bufsize=0;
-		
-		this->sh_passes=0;
-		this->sh_prog=NULL;
-		this->sh_tex=NULL;
-		this->sh_fbo=NULL;
-		
 #ifdef WNDPROT_WINDOWS
-		if (!InitGlobalGLFunctions()) return false;
+	/*private*/ bool create_context(uintptr_t window, bool gles, unsigned int major, unsigned int minor, bool debug)
+	{
 		if (gles) return false;//rejected for now
 		if (major<2) return false;//reject these (cannot hoist to construct3d because InitGlobalGLFunctions must be called)
 		//TODO: clone the hwnd, so I won't set pixel format twice
 		//TODO: study if the above is necessary - it returns success twice
 		//TODO: also study creating an OpenGL driver then Direct3D on the same window (restore pixel format on destruct?)
 		//TODO: we need to handle multiple drivers on the same window - in case of chaining, maybe create a window and never show it?
-		this->hwnd=(HWND)windowhandle;
-		this->hdc=GetDC(this->hwnd);
+		
 		PIXELFORMATDESCRIPTOR pfd;
 		memset(&pfd, 0, sizeof(PIXELFORMATDESCRIPTOR));
 		pfd.nSize=sizeof(PIXELFORMATDESCRIPTOR);
@@ -461,30 +468,29 @@ public:
 			const int attribs_debug[] = {
 				WGL_CONTEXT_MAJOR_VERSION_ARB, (int)major,
 				WGL_CONTEXT_MINOR_VERSION_ARB, (int)minor,
-					GLX_CONTEXT_FLAGS_ARB, GLX_CONTEXT_DEBUG_BIT_ARB,//known error - will fix later
+				WGL_CONTEXT_FLAGS_ARB, WGL_CONTEXT_DEBUG_BIT_ARB,
 			0 };
-			this->hglrc=wglCreateContextAttribs(this->hdc, NULL/*share*/, DO_DEBUG ? attribs_debug : attribs);
+			this->hglrc=wglCreateContextAttribs(this->hdc, NULL/*share*/, debug ? attribs_debug : attribs);
 			
 			wgl.MakeCurrent(this->hdc, this->hglrc);
 			wgl.DeleteContext(hglrc_v2);
 		}
 		
-		if (!load_gl_functions(major*10+minor)) return false;
+		return true;
+	}
 #endif
-		
+	
 #ifdef WNDPROT_X11
-		this->window=None;
-		this->colormap=None;
-		
-		if (!InitGlobalGLFunctions()) return false;
+	/*private*/ static Bool XWaitForCreate(Display* d, XEvent* ev, char* arg)
+	{
+		return (ev->type==MapNotify && ev->xmap.window==(Window)arg);
+	}
+	
+	/*private*/ bool create_context(uintptr_t window, bool gles, unsigned int major, unsigned int minor, bool debug)
+	{
 		if (gles) return false;//rejected for now
-		//if (major<2) return false;//reject these (cannot hoist to construct3d because InitGlobalGLFunctions must be called)
-		//TODO: clone the hwnd, so I won't set pixel format twice
-		//TODO: study if the above is necessary - it returns success twice
-		//TODO: also study creating an OpenGL driver then Direct3D on the same window (restore pixel format on destruct?)
-		//TODO: we need to handle multiple drivers on the same window - in case of chaining, maybe create a window and never show it?
 		
-		this->display = window_x11_get_display()->display;
+		//this doesn't really belong here, but I don't want to promote it to a class member and I can't add another parameter.
 		int screen = window_x11_get_display()->screen;
 		
 		int glxmajor=0;
@@ -496,13 +502,6 @@ public:
 		
 		if (glxmajor*10+glxminor >= 13)
 		{
-			//these exist in 1.3 and higher - if the server claims 1.3, it should damn well be that
-			if (!glx.ChooseFBConfig) return false;
-			if (!glx.GetVisualFromFBConfig) return false;
-			if (!glx.CreateNewContext) return false;
-			if (!glx.CreateWindow) return false;
-			if (!glx.DestroyWindow) return false;
-			
 			static const int attributes[]={ GLX_DOUBLEBUFFER, True, None };
 			
 			int numconfig;
@@ -535,7 +534,7 @@ public:
 					GLX_CONTEXT_MINOR_VERSION_ARB, (int)minor,
 					GLX_CONTEXT_FLAGS_ARB, GLX_CONTEXT_DEBUG_BIT_ARB,
 					None };
-				this->context=glXCreateContextAttribs(this->display, configs[0], NULL, True, DO_DEBUG ? attribs_debug : attribs);
+				this->context=glXCreateContextAttribs(this->display, configs[0], NULL, True, debug ? attribs_debug : attribs);
 			}
 			else
 			{
@@ -571,15 +570,40 @@ public:
 		}
 		
 		glx.MakeCurrent(this->display, this->window, this->context);
+	}
+#endif
+	
+	/*private*/ bool construct(uintptr_t windowhandle, bool gles, unsigned int major, unsigned int minor, bool debug)
+	{
+		this->out_buffer=NULL;
+		this->out_bufsize=0;
 		
-		if (!load_gl_functions(major*10+minor)) return false;
+		this->sh_passes=0;
+		this->sh_prog=NULL;
+		this->sh_tex=NULL;
+		this->sh_fbo=NULL;
+		
+#ifdef WNDPROT_X11
+		this->display = window_x11_get_display()->display;
+		
+		this->window=None;
+		this->colormap=None;
+#endif
+#ifdef WNDPROT_WINDOWS
+		this->hwnd=(HWND)windowhandle;
+		this->hdc=GetDC(this->hwnd);
+		this->hglrc=NULL;
 #endif
 		
-		if (DO_DEBUG)
+		if (!InitGlobalGLFunctions()) return false;
+		if (!create_context(windowhandle, gles, major, minor, debug)) return false;
+		if (!load_gl_functions(major*10+minor)) return false;
+		
+		if (debug && gl.DebugMessageCallback)
 		{
-			glDebugMessageCallbackARB(debug_cb_s, this);
-			glDebugMessageControlARB(GL_DONT_CARE, GL_DONT_CARE, GL_DONT_CARE, 0, NULL, GL_TRUE);
-			glEnable(GL_DEBUG_OUTPUT_SYNCHRONOUS_ARB);
+			gl.DebugMessageCallback(this->debug_cb_s, this);
+			gl.DebugMessageControl(GL_DONT_CARE, GL_DONT_CARE, GL_DONT_CARE, 0, NULL, GL_TRUE);
+			gl.Enable(GL_DEBUG_OUTPUT_SYNCHRONOUS_ARB);
 		}
 		
 		gl.GenBuffers(1, &this->sh_vertexbuf);
@@ -602,7 +626,7 @@ public:
 	/*private*/ bool construct2d(uintptr_t windowhandle)
 	{
 		this->is3d=false;
-		if (!construct(windowhandle, false, 2,0)) return false;
+		if (!construct(windowhandle, false, 2,0, (ENABLE_DEBUG==2))) return false;
 		
 		end();
 		return true;
@@ -655,6 +679,7 @@ public:
 	}
 	
 	//void draw_2d_where(unsigned int width, unsigned int height, void * * data, unsigned int * pitch);
+	//TODO: pixel buffer object
 	
 	void draw_2d(unsigned int width, unsigned int height, const void * data, unsigned int pitch)
 	{
@@ -682,7 +707,7 @@ public:
 		//version_minor - handled
 		//cache_context - ignored (treated as always true)
 		//context_destroy - TODO
-		//debug_context - TODO
+		//debug_context - handled
 		bool gles;
 		unsigned int major;
 		unsigned int minor;
@@ -695,13 +720,14 @@ public:
 			case RETRO_HW_CONTEXT_OPENGLES_VERSION: gles=true; major=this->in3.version_major; minor=this->in3.version_minor; break;
 			default: gles=false; major=0; minor=0;
 		}
-		if (!construct(windowhandle, gles, major, minor)) return false;
+		bool debug;
+		if (ENABLE_DEBUG==0) debug=false;
+		if (ENABLE_DEBUG==1) debug=(desc->debug_context);
+		if (ENABLE_DEBUG==2) debug=true;
+		if (!construct(windowhandle, gles, major, minor, debug)) return false;
 		
 		this->in3_renderbuffer=0;
-		if (this->in3.depth)
-		{
-			gl.GenRenderbuffers(1, &this->in3_renderbuffer);
-		}
+		if (this->in3.depth) gl.GenRenderbuffers(1, &this->in3_renderbuffer);
 		else if (desc->stencil) return false;
 		
 		end();
@@ -715,7 +741,7 @@ public:
 		
 		if (this->in3.depth)
 		{
-			glBindFramebuffer(GL_FRAMEBUFFER, this->sh_fbo[0]);
+			gl.BindFramebuffer(GL_FRAMEBUFFER, this->sh_fbo[0]);
 			
 			gl.BindRenderbuffer(GL_RENDERBUFFER, this->in3_renderbuffer);
 			gl.RenderbufferStorage(GL_RENDERBUFFER, this->in3.stencil ? GL_DEPTH24_STENCIL8 : GL_DEPTH_COMPONENT16, bitround(max_width), bitround(max_height));
@@ -728,8 +754,7 @@ public:
 			{
 				gl.FramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, this->in3_renderbuffer);
 			}
-			printf("a=%i b=%i\n",glCheckFramebufferStatus(GL_FRAMEBUFFER),GL_FRAMEBUFFER_COMPLETE);
-e		}
+		}
 	}
 	
 	uintptr_t draw_3d_get_current_framebuffer()
@@ -760,19 +785,15 @@ e		}
 	
 	/*private*/ void draw_shared(unsigned int width, unsigned int height)
 	{
+		gl.BindFramebuffer(GL_FRAMEBUFFER, this->sh_fbo[1]);
 		gl.UseProgram(this->sh_prog[0]);
+		//gl.Viewport(0, 0, this->out_width, this->out_height);
+		gl.Clear(GL_COLOR_BUFFER_BIT);
 		
-		glBindFramebuffer(GL_FRAMEBUFFER, this->sh_fbo[1]);
-		
-		//gl.Clear(GL_COLOR_BUFFER_BIT);
-		
-gl.EnableVertexAttribArray(this->sh_vercoordloc);
-gl.EnableVertexAttribArray(this->sh_texcoordloc);
-			gl.BindBuffer(GL_ARRAY_BUFFER, this->sh_texcoordbuf);
 		if (width!=this->in_lastwidth || height!=this->in_lastheight)
 		{
-//left  = 1/2 / out.width
-//right = width/texwidth - left
+			//left  = 1/2 / out.width
+			//right = width/texwidth - left
 			GLfloat left=0.5f/this->out_width;
 			GLfloat top=0.5f/this->out_height;
 			GLfloat right=(float)width / this->in_texwidth - left;
@@ -783,30 +804,24 @@ gl.EnableVertexAttribArray(this->sh_texcoordloc);
 				left, bottom,
 				right, bottom,
 			};
-printf("%f,%f,%f,%f\n",left,top,right,bottom);
+			
+			gl.BindBuffer(GL_ARRAY_BUFFER, this->sh_texcoordbuf);
 			gl.BufferData(GL_ARRAY_BUFFER, sizeof(texcoord), texcoord, GL_DYNAMIC_DRAW);
 			
 			this->in_lastwidth=width;
 			this->in_lastheight=height;
 		}
-			gl.BindBuffer(GL_ARRAY_BUFFER, this->sh_texcoordbuf);
-			gl.VertexAttribPointer(this->sh_texcoordloc, 2, GL_FLOAT, GL_FALSE, 0, (void*)0);
-static const GLfloat vertexcoord[] = {
-	-1.0f,  1.0f, 0.0f,
-	 1.0f,  1.0f, 0.0f,
-	-1.0f, -1.0f, 0.0f,
-	 1.0f, -1.0f, 0.0f,
-};
-gl.BindBuffer(GL_ARRAY_BUFFER, this->sh_vertexbuf);
-gl.BufferData(GL_ARRAY_BUFFER, sizeof(vertexcoord), vertexcoord, GL_STREAM_DRAW);
-			gl.BindBuffer(GL_ARRAY_BUFFER, this->sh_vertexbuf);
-			gl.VertexAttribPointer(this->sh_vercoordloc, 3, GL_FLOAT, GL_FALSE, 0, (void*)0);
-			
-gl.BindTexture(GL_TEXTURE_2D, this->sh_tex[0]);
-GLint texid=gl.GetUniformLocation(this->sh_prog[0], "Texture");
-gl.ActiveTexture(GL_TEXTURE0);
-gl.Uniform1i(texid, 0);
-			
+		gl.EnableVertexAttribArray(this->sh_texcoordloc);
+		gl.BindBuffer(GL_ARRAY_BUFFER, this->sh_texcoordbuf);
+		gl.VertexAttribPointer(this->sh_texcoordloc, 2, GL_FLOAT, GL_FALSE, 0, (void*)0);
+		
+		gl.EnableVertexAttribArray(this->sh_vercoordloc);
+		gl.BindBuffer(GL_ARRAY_BUFFER, this->sh_vertexbuf);
+		gl.VertexAttribPointer(this->sh_vercoordloc, 3, GL_FLOAT, GL_FALSE, 0, (void*)0);
+		
+		gl.BindTexture(GL_TEXTURE_2D, this->sh_tex[0]);
+		gl.ActiveTexture(GL_TEXTURE0);
+		
 		gl.DrawArrays(GL_TRIANGLE_STRIP, 0, 4);
 		
 		if (!this->out_chain)
@@ -820,7 +835,6 @@ gl.Uniform1i(texid, 0);
 #ifdef WNDPROT_X11
 			glx.SwapBuffers(this->display, this->window);
 #endif
-//static time_t a=0;static int g=0;if(a!=time(NULL)){a=time(NULL);printf("sw=%i\n",g);g=0;}else{g++;}
 		}
 		else
 		{
@@ -829,14 +843,6 @@ gl.Uniform1i(texid, 0);
 			//gl.ReadPixels
 			//out_chain->draw_2d
 		}
-
-
-//glGetTexImage(GL_TEXTURE_2D, 
-//void glGetTexImage( 	GLenum target,
-  	//GLint level,
-  	//GLenum format,
-  	//GLenum type,
-  	//GLvoid * pixels);
 	}
 	
 	
@@ -866,7 +872,7 @@ gl.Uniform1i(texid, 0);
 		for (unsigned int i=0;i<2;i++)
 		{
 			GLenum type[]={ GL_VERTEX_SHADER, GL_FRAGMENT_SHADER };
-			char version_s[strlen("#version 123\n\1")];
+			char version_s[sizeof("#version 123\n")];
 			sprintf(version_s, "#version %i\n", version);
 			const char * defines[]={ "#define VERTEX\n", "#define FRAGMENT\n" };
 			const char * shaderdata[3]={ strstr(data, "#version") ? "" : version_s, defines[i], data };
@@ -880,9 +886,9 @@ gl.Uniform1i(texid, 0);
 			gl.GetShaderiv(shader, GL_INFO_LOG_LENGTH, &errlength);
 			if (errlength>1)
 			{
-				char errstr[errlength+1];
-				gl.GetShaderInfoLog(shader, errlength, NULL, errstr);
-				errstr[errlength]='\0';
+				char errstr[1024];
+				gl.GetShaderInfoLog(shader, 1023, NULL, errstr);
+				errstr[1023]='\0';
 				puts(errstr);
 			}
 			
@@ -897,9 +903,9 @@ gl.Uniform1i(texid, 0);
 		gl.GetProgramiv(program, GL_INFO_LOG_LENGTH, &errlength);
 		if (errlength>1)
 		{
-			char errstr[errlength+1];
-			gl.GetProgramInfoLog(program, errlength, NULL, errstr);
-			errstr[errlength]='\0';
+			char errstr[1024];
+			gl.GetProgramInfoLog(program, 1023, NULL, errstr);
+			errstr[1023]='\0';
 			puts(errstr);
 		}
 		
@@ -950,6 +956,21 @@ gl.Uniform1i(texid, 0);
 			gl.BindBuffer(GL_ARRAY_BUFFER, this->sh_texcoordbuf);
 			gl.VertexAttribPointer(this->sh_texcoordloc, 2, GL_FLOAT, GL_FALSE, 0, (void*)0);
 			
+			//TODO: analyze if these two do anything
+			//gl.Uniform4f(gl.GetAttribLocation(prog, "Color"), 1,1,1,1);
+			gl.Uniform4f(gl.GetAttribLocation(prog, "Color"), 1,0,0.5,1);
+			const float identity4[16]={
+				//1,0,0,0,
+				//0,1,0,0,
+				//0,0,1,0,
+				//0,0,0,1,
+				1,0.5,0,0,
+				0.5,1,0,0,
+				0,0,1,0,
+				0,0,0,1,
+			};
+			gl.UniformMatrix4fv(gl.GetAttribLocation(prog, "MVPMatrix"), 1, GL_FALSE, identity4);
+			
 			gl.BindTexture(GL_TEXTURE_2D, this->sh_tex[pass]);
 			gl.TexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
 			gl.TexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
@@ -961,7 +982,7 @@ gl.Uniform1i(texid, 0);
 			gl.ActiveTexture(GL_TEXTURE0);
 			gl.Uniform1i(texid, 0);
 			
-			glBindFramebuffer(GL_FRAMEBUFFER, this->sh_fbo[pass]);
+			gl.BindFramebuffer(GL_FRAMEBUFFER, this->sh_fbo[pass]);
 			gl.FramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, this->sh_tex[pass], 0);
 		}
 		
@@ -983,7 +1004,6 @@ gl.Uniform1i(texid, 0);
 	
 	void set_dest_size(unsigned int width, unsigned int height)
 	{
-		gl.Viewport(0, 0, width, height);
 		this->in_lastwidth=0;
 		this->in_lastheight=0;
 		this->out_width=width;
@@ -991,8 +1011,8 @@ gl.Uniform1i(texid, 0);
 		gl.BindTexture(GL_TEXTURE_2D, this->sh_tex[0]);
 		if (this->is3d)
 		{
+			//TODO: Use proper size
 			gl.TexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, 1024, 1024, 0, GL_RGBA, GL_UNSIGNED_INT_8_8_8_8, NULL);
-e
 		}
 		else
 		{
@@ -1033,7 +1053,7 @@ e
 	
 	
 #if ENABLE_DEBUG > 0
-	/*private*/ static void APIENTRY debug_cb_s(GLenum source, GLenum type, uint id, GLenum severity,
+	/*private*/ static void APIENTRY debug_cb_s(GLenum source, GLenum type, GLuint id, GLenum severity,
 	                                GLsizei length, const char * message, const void* userParam)
 	{
 		((video_opengl*)userParam)->debug_cb(source, type, id, severity, length, message);
@@ -1078,6 +1098,7 @@ e
 			default:                       severity_s="Unknown"; break;
 		}
 		
+		//this could be sent to a better location, but the video driver isn't supposed to generate messages in the first place, so there's nothing good to do.
 		printf("[GL debug: %s from %s about %s: %s]\n", severity_s, source_s, type_s, message);
 	}
 #endif
