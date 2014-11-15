@@ -560,7 +560,7 @@ public:
 			attr.colormap=XCreateColormap(this->display, (Window)window, vis->visual, AllocNone);
 			attr.event_mask=StructureNotifyMask;//for MapNotify
 			
-			this->window=XCreateWindow(this->display, (Window)windowhandle, 0, 0, 16, 16, 0,
+			this->window=XCreateWindow(this->display, (Window)window, 0, 0, 16, 16, 0,
 			                           vis->depth, InputOutput, vis->visual, CWColormap|CWEventMask, &attr);
 			this->glxwindow=false;
 			
