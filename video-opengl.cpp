@@ -514,9 +514,9 @@ public:
 			
 			XSetWindowAttributes attr;
 			memset(&attr, 0, sizeof(attr));
-			attr.colormap=XCreateColormap(this->display, (Window)windowhandle, vis->visual, AllocNone);
+			attr.colormap=XCreateColormap(this->display, (Window)window, vis->visual, AllocNone);
 			
-			this->window=glx.CreateWindow(this->display, configs[0], (Window)windowhandle, NULL);
+			this->window=glx.CreateWindow(this->display, configs[0], (Window)window, NULL);
 			this->glxwindow=true;
 			
 			PFNGLXCREATECONTEXTATTRIBSARBPROC glXCreateContextAttribs =
@@ -557,7 +557,7 @@ public:
 			
 			XSetWindowAttributes attr;
 			memset(&attr, 0, sizeof(attr));
-			attr.colormap=XCreateColormap(this->display, (Window)windowhandle, vis->visual, AllocNone);
+			attr.colormap=XCreateColormap(this->display, (Window)window, vis->visual, AllocNone);
 			attr.event_mask=StructureNotifyMask;//for MapNotify
 			
 			this->window=XCreateWindow(this->display, (Window)windowhandle, 0, 0, 16, 16, 0,
