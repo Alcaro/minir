@@ -363,13 +363,7 @@ public:
 		funcptr* functions=(funcptr*)&gl;
 		for (unsigned int i=0;i<sizeof(gl_names)/sizeof(*gl_names);i++)
 		{
-#ifdef WNDPROT_WINDOWS
-			functions[i]=(funcptr)wgl.GetProcAddress(gl_names[i]);
-			if (!functions[i]) functions[i]=(funcptr)GetProcAddress(wgl.lib, gl_names[i]);
-#endif
-#ifdef WNDPROT_X11
-			functions[i]=(funcptr)glx.GetProcAddress((const GLubyte*)gl_names[i]);
-#endif
+			functions[i]=this->draw_3d_get_proc_address(gl_names[i]);
 			if (!gl_opts[i] && !functions[i]) return false;
 		}
 		return true;
@@ -735,7 +729,9 @@ public:
 	funcptr draw_3d_get_proc_address(const char * sym)
 	{
 #ifdef WNDPROT_WINDOWS
-		return (funcptr)wgl.GetProcAddress(sym);
+		funcptr ret=(funcptr)wgl.GetProcAddress(gl_names[i]);
+		if (!ret) ret=(funcptr)GetProcAddress(wgl.lib, gl_names[i]);
+		return ret;
 #endif
 #ifdef WNDPROT_X11
 		return (funcptr)glx.GetProcAddress((GLubyte*)sym);
