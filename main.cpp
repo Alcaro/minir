@@ -1684,6 +1684,7 @@ void update_menu()
 int main(int argc, char * argv[])
 {
 	initialize(argc, argv);
+//video::shader_parse("g.cg");exit(0);
 if
 (config.firstrun)
 window_message_box(

@@ -49,6 +49,7 @@ g_log_set_always_fatal((GLogLevelFlags)(G_LOG_LEVEL_CRITICAL|G_LOG_LEVEL_WARNING
 #endif
 	gtk_init(argc, argv);
 	_window_init_inner();
+	_window_init_misc();
 	//gdk_window_add_filter(NULL,scanfilter,NULL);
 #ifndef NO_ICON
 	struct image img;

@@ -1,4 +1,3 @@
-//#define _XOPEN_SOURCE 500 //strdup and realpath demands this
 #ifndef _GNU_SOURCE
 #define _GNU_SOURCE //strdup, realpath, asprintf
 #endif
@@ -7,6 +6,10 @@
 #include <stdint.h>
 #include <stddef.h>
 #include "host.h"
+
+//Note to anyone interested in reusing these objects:
+//Many, if not most, of them will likely change their interface, likely quite fundamentally, in the future.
+//Additionally, there are plenty of restrictions beyond private/public. Most stuff that seems public is, but not all.
 
 #include "function.h"
 
@@ -122,8 +125,9 @@ public:
 // function. ("Module" is defined as "anything whose compilation is controlled by the same #ifdef,
 // or the file implementing an interface, whichever makes sense"; for example, window-win32-* is the
 // same module.) The arguments and return values of these private functions may change meaning
-// between modules, and the functions are not guaranteed to exist at all. (For example, one of the
-// three _window_init_* is redundant.)
+// between modules, and the functions are not guaranteed to exist at all, or closely correspond to
+// their name. For example, _window_init_misc on GTK+ instead initializes a component needed by the
+// listboxes.
 
 //This file, and many other parts of minir, uses a weird mix between Windows- and Linux-style
 // filenames and paths. This is intentional; the author prefers Linux-style paths and directory
@@ -185,25 +189,22 @@ struct driver_video {
 	uint32_t features;
 };
 
-struct video_shader_param {
-	const char * name;
-	double min;
-	double max;
-};
-
 //The first function called on this object must be initialize(), except if it should chain, in which case set_chain() must come before that.
-//Any thread is allowed to call the above two. The owner thread becomes the one calling initialize(). They may not be called multiple times.
+//Any thread is allowed to call the above two (but not simultaneously).
+//The owner thread becomes the one calling initialize(). They may not be called multiple times.
 class video : nocopy {
 public:
 	enum {
-		f_sshot_f=0x00010000,//get_screenshot will return a pointer, and not allocate or copy stuff. This is faster.
-		f_sshot = 0x00008000,//get_screenshot is implemented. If f_shaders is set, get_screenshot_after is also implemented.
-		f_chain = 0x00004000,//set_output can be called with a video*. Some of them can't do any filtering, so they refuse to be chained.
-		f_v_vsync=0x00002000,//Can vsync with a framerate different from 60.
-		f_vsync = 0x00001000,//Can vsync. The given framerate cares only about whether it's different from zero; it's locked to 60.
+		f_sshot_f=0x00004000,//get_screenshot will return a pointer, and not allocate or copy stuff. This is faster.
+		f_sshot = 0x00002000,//get_screenshot is implemented. If f_shaders is set, get_screenshot_after is also implemented.
+		f_chain = 0x00001000,//set_output can be called with a video*. Some of them can't do any filtering, so they refuse to be chained.
+		f_v_vsync=0x00000800,//Can vsync with a framerate different from 60.
+		f_vsync = 0x00000400,//Can vsync. The given framerate cares only about whether it's different from zero; it's locked to 60.
 		//f_a_vsync=0x000000,//[Windows] Can almost vsync - framerate is 60, but it stutters due to DWM being trash.
-		f_shaders=0x00000F00,//Each of these bits correspond to 256<<shadertype.
-		f_3d    = 0x000000FF,//Each of these bits correspond to 1<<retro_hw_context_type.
+		f_shaders=0x00000380,//Each of these bits correspond to f_sh_base<<shader::type. Due to its special status, sh_nearest is not included.
+		f_sh_base=0x00000040,//Base value for shaders. This specific bit must not be checked.
+		f_3d    = 0x0000003F,//Each of these bits correspond to f_3d_base<<retro_hw_context_type.
+		f_3d_base=0x00000001,//Base value for 3d. This specific bit is never set, because it corresponds to RETRO_HW_CONTEXT_NONE.
 	};
 	//Returns the features this driver supports. Can be called on any thread, both before and after initialize().
 	//Since video drivers can be chained, you can combine them however you want and effectively get everything; therefore, the flags are in no particular order.
@@ -221,11 +222,11 @@ public:
 	//Must be called at least once before the first draw_*.
 	//For 2D drivers, the format has only one correct value, and the rest will give garbage.
 	//For 3D drivers, the format can be chosen arbitrarily.
-	//Only the libretro-compatible values are allowed.
+	//The libretro-compatible values are guaranteed to work; the others will probably not (in particular, the ones with alpha are unlikely to work).
 	virtual void set_source(unsigned int max_width, unsigned int max_height, videoformat depth) = 0;
 	
 	//Asks where to put the video data for best performance. Returning data=NULL means 'I have no opinion, give me whatever'.
-	//If called, the next call to this object must be draw_2d, with the same arguments as draw_2d_where.
+	//If called and it returns data!=NULL, the next call to this object must be draw_2d, with the same arguments as draw_2d_where.
 	//However, it is allowed to call draw_2d without draw_2d_where.
 	virtual void draw_2d_where(unsigned int width, unsigned int height, void * * data, unsigned int * pitch) { *data=NULL; *pitch=0; }
 	virtual void draw_2d(unsigned int width, unsigned int height, const void * data, unsigned int pitch) = 0;
@@ -243,24 +244,77 @@ public:
 	//This only has effect on the last device. 0 means off, and is the default.
 	virtual void set_vsync(double fps) {}
 	
-	//Shaders can only be set once the driver chain is created.
-	enum shadertype {
-		sh_glsl,
-		sh_cg,
-		sh_hlsl,
+	//Shaders can only be set after initialize().
+	struct shader {
+		enum type_t {
+			ty_glsl,
+			ty_cg,
+			ty_hlsl,
+		};
+		type_t type;
+		
+		enum interp_t { in_nearest, in_linear };
+		enum wrap_t { wr_border, wr_edge, wr_repeat, wr_mir_repeat };
+		enum scale_t { sc_source, sc_viewport, sc_absolute };
+		unsigned int n_pass;
+		struct pass_t {
+			const char * source;
+			interp_t interpolate;
+			wrap_t wrap;
+		};
+		const struct pass_t * pass;
+		
+		//double scale_x;
+		//double scale_y;
+		
+		//can be 0, which means "use whatever"
+		//if aspect is not 0, it should be obeyed precisely, with scale_x and scale_y as weak hints
+		//double aspect;
+		
+		struct param_t {
+			const char * name;
+			const char * pub_name;
+			double min;
+			double max;
+			double initial;
+			//shaders recommend a certain step size too, but minir doesn't do that.
+		};
+		
+		unsigned int n_param;
+		const struct param_t * param;
 	};
-	//TODO: maybe set each pass separately?
-	virtual bool set_shader(shadertype type, const char * filename) { return false; }
-	virtual const video_shader_param * get_shader_params() { return NULL; }
-	virtual void set_shader_param(unsigned int index, double value) {}
+	static shader* shader_parse(const char * filename);
+	static shader* shader_clone(const shader* other);
+	static void shader_delete(shader* obj);
 	
-	//This decides the size of the object output.
+	//The return value from this belongs in free().
+	static char * shader_translate(shader::type_t in, shader::type_t out, const char * source);
+	
+	//This one should end in shader_delete().
+	static shader* shader_translate(const shader* in, shader::type_t out);
+	
+	//The shader object is used only during this call; it can safely be deleted afterwards.
+	//NULL is valid and means nearest-neighbor. The shader can be set multiple times, both with NULL and non-NULL arguments.
+	virtual bool set_shader(const shader* sh) { return (!sh); }
+	bool set_shader_from_file(const char * path)
+	{
+		shader* sh=shader_parse(path);
+		if (!sh) return false;
+		bool ret=set_shader(sh);
+		shader_delete(sh);
+		return ret;
+	}
+	
+	virtual const struct shader::param_t * get_shader_params(unsigned int * count) { *count=0; return NULL; }
+	virtual bool set_shader_param(unsigned int index, double value) { return false; }
+	
+	//This sets the final size of the object output.
 	virtual void set_dest_size(unsigned int width, unsigned int height) = 0;
 	
 	//Returns the last input to this object. If the input is 3d, it's flattened to 2d before being returned.
-	//The returned integer can only be used as boolean, or sent to release_screenshot(). It can vary depending on whether the object allocated a new buffer.
-	//If get_screenshot can fail, release_screenshot with ret=0 will do nothing.
-	//release_screenshot() must be the next called function. It is not allowed to ask for both screenshots then release both.
+	//The returned integer can only be compared with 0, or sent to release_screenshot(). It can vary depending on anything the object wants.
+	//If get_screenshot can fail, release_screenshot with ret=0 is guaranteed to do nothing.
+	//Whether it succeeds or fails, release_screenshot() must be the next called function. It is not allowed to ask for both screenshots then release both.
 	virtual int get_screenshot(unsigned int * width, unsigned int * height, unsigned int * pitch, unsigned int * depth,
 	                           void* * data, size_t datasize) { *data=NULL; return 0; }
 	//Returns the last output of this object. This is different from the input if shaders are present.
@@ -274,6 +328,8 @@ public:
 inline video::~video(){}
 
 extern const driver_video * list_video[];
+
+video::shader* videoshader_create(const char * path);
 
 //Used by various video drivers and other devices.
 static inline void video_copy_2d(void* dst, size_t dstpitch, const void* src, size_t srcpitch, size_t bytes_per_line, uint32_t height, bool full_write=false)

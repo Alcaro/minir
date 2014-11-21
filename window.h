@@ -166,7 +166,7 @@ public:
 	//The widget should, if needed by the window manager, forward all plausible events to its parent window,
 	// unless the widget wants the events. (For example, a button will want mouse events, but not file drop events.)
 	//The window handles passed around are implementation defined.
-	//The return value from _init() is the number of windows involved, from the window manager's point of view.
+	//The return value from init() is the number of child windows involved, from the window manager's point of view.
 	virtual unsigned int init(struct window * parent, uintptr_t parenthandle) = 0;
 	virtual void measure() = 0;
 	unsigned int width;
@@ -573,11 +573,17 @@ const struct window_x11_display * window_x11_get_display();
 //Can be just fopen, but may additionally support something implementation-defined, like gvfs;
 // however, filename support is guaranteed, both relative and absolute.
 //Directory separator is '/', extension separator is '.'.
-//file_read appends a '\0' to the output; this is not reported in the length.
+//file_read appends a '\0' to the output (whether the file is text or binary); this is not reported in the length.
 //Use free() on the return value from file_read().
 bool file_read(const char * filename, void* * data, size_t * len);
 bool file_write(const char * filename, const anyptr data, size_t len);
 bool file_read_to(const char * filename, anyptr data, size_t len);//If size differs, this one fails.
+
+//These three are like the others, but if 'filename' is relative, it's taken relative to the directory in which 'basename' resides.
+//The opened file will reside in the same directory as 'basename', or a subdirectory of that directory; if filename is '../../../../../etc/passwd', it will fail.
+bool file_read_rel(const char * basename, const char * filename, void* * data, size_t * len);
+bool file_write_rel(const char * basename, const char * filename, const anyptr data, size_t len);
+bool file_read_to_rel(const char * basename, const char * filename, anyptr data, size_t len);
 
 //These will list the contents of a directory. The returned paths from window_find_next should be
 // sent to free(). The . and .. components will not be included; however, symlinks and other loops

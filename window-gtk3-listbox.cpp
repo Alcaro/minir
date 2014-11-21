@@ -219,19 +219,16 @@ static void virtual_list_tree_model_init (GtkTreeModelIface* iface)
 	iface->iter_parent=virtual_list_iter_parent;
 }
 
-static void virtual_list_register_type()
+void _window_init_misc()
 {
-	if (!M_VIRTUAL_TYPE)
-	{
-		static const GTypeInfo virtual_list_info={
-			sizeof(struct VirtualListClass),
-			NULL, NULL, NULL, NULL, NULL,
-			sizeof(struct VirtualList), 0, NULL };
-		static const GInterfaceInfo tree_model_info={ (GInterfaceInitFunc)virtual_list_tree_model_init, NULL, NULL };
-		
-		M_VIRTUAL_TYPE=g_type_register_static (G_TYPE_OBJECT, "MinirVirtualList", &virtual_list_info, (GTypeFlags)0);
-		g_type_add_interface_static(M_VIRTUAL_TYPE, GTK_TYPE_TREE_MODEL, &tree_model_info);
-	}
+	static const GTypeInfo virtual_list_info={
+		sizeof(struct VirtualListClass),
+		NULL, NULL, NULL, NULL, NULL,
+		sizeof(struct VirtualList), 0, NULL };
+	static const GInterfaceInfo tree_model_info={ (GInterfaceInitFunc)virtual_list_tree_model_init, NULL, NULL };
+	
+	M_VIRTUAL_TYPE=g_type_register_static (G_TYPE_OBJECT, "MinirVirtualList", &virtual_list_info, (GTypeFlags)0);
+	g_type_add_interface_static(M_VIRTUAL_TYPE, GTK_TYPE_TREE_MODEL, &tree_model_info);
 }
 
 
@@ -262,7 +259,6 @@ void widget_listbox::construct(unsigned int numcolumns, const char * * columns)
 	m->tree=GTK_TREE_VIEW(gtk_tree_view_new());
 	gtk_container_add(GTK_CONTAINER(widget), GTK_WIDGET(m->tree));
 	
-	virtual_list_register_type();
 	m->vlist=(VirtualList*)g_object_new(M_VIRTUAL_TYPE, NULL);
 	m->vlist->subject=this;
 	

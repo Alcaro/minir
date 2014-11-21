@@ -99,12 +99,12 @@ extern const driver_video video_none_desc;
 extern const driver_video video_opengl_old_desc;
 
 const driver_video * list_video[]={
-#ifdef VIDEO_D3D9
-	//&video_d3d9_desc,
-#endif
-#ifdef VIDEO_DDRAW
-	//&video_ddraw_desc,
-#endif
+//#ifdef VIDEO_D3D9
+//	&video_d3d9_desc,
+//#endif
+//#ifdef VIDEO_DDRAW
+//	&video_ddraw_desc,
+//#endif
 #ifdef VIDEO_OPENGL
 	&video_opengl_desc,
 #endif

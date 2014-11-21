@@ -164,37 +164,6 @@ void DeinitGlobalGLFunctions()
 #endif
 }
 
-//shader variables, mandatory:
-//vertex vec2 TexCoord [ = VertexCoord]
-//vertex vec2 VertexCoord [ = (0,0), (0,1), (1,0), (1,1) ]
-//vertex vec4 COLOR [ = (0,0.5,1,0.8) ] [to be changed to 1,1,1,1 if it works]
-//global mat4 MVPMatrix [ = ((1,0,0,0),(0,1,0,0),(0,0,1,0),(0,0,0,1)) ]
-//global sampler2D Texture
-//there are more
-
-//shader variables in action:
-//https://github.com/libretro/RetroArch/blob/master/gfx/shader/shader_glsl.c
-
-const char defaultShader[] =
-"varying vec2 tex_coord;\n"
-"#if defined(VERTEX)\n"
-    "attribute vec2 TexCoord;\n"
-    "attribute vec2 VertexCoord;\n"
-    "void main()\n"
-    "{\n"
-        "gl_Position = vec4(VertexCoord, 0.0, 1.0);\n"
-        "tex_coord = TexCoord;\n"
-    "}\n"
-"#elif defined(FRAGMENT)\n"
-    "uniform sampler2D Texture;\n"
-    "void main()\n"
-    "{\n"
-        "gl_FragColor = texture2D(Texture, tex_coord);\n"
-        //"gl_FragColor = vec4(texture2D(Texture, tex_coord).r, tex_coord.x, 1, 1);\n"
-        //"gl_FragColor = vec4(tex_coord.xy, 1, 1);\n"
-    "}\n"
-"#endif\n";
-
 //valid transistions:
 //2d -> memory
 //memory -> texture
@@ -309,12 +278,12 @@ public:
 #ifndef _WIN32
 		f_vsync|
 #endif
-		(1<<RETRO_HW_CONTEXT_OPENGL)|
-		(1<<RETRO_HW_CONTEXT_OPENGLES2)|
-		(1<<RETRO_HW_CONTEXT_OPENGL_CORE)|
-		(1<<RETRO_HW_CONTEXT_OPENGLES3)|
-		(1<<RETRO_HW_CONTEXT_OPENGLES_VERSION)|
-		(256<<sh_glsl);
+		(f_3d_base<<RETRO_HW_CONTEXT_OPENGL)|
+		(f_3d_base<<RETRO_HW_CONTEXT_OPENGLES2)|
+		(f_3d_base<<RETRO_HW_CONTEXT_OPENGL_CORE)|
+		(f_3d_base<<RETRO_HW_CONTEXT_OPENGLES3)|
+		(f_3d_base<<RETRO_HW_CONTEXT_OPENGLES_VERSION)|
+		(f_sh_base<<shader::ty_glsl);
 	uint32_t features()
 	{
 		static uint32_t features=0;
@@ -486,7 +455,7 @@ public:
 		return (ev->type==MapNotify && ev->xmap.window==(Window)arg);
 	}
 	
-	/*private*/ bool create_context(uintptr_t window, bool gles, unsigned int major, unsigned int minor, bool debug)
+	/*private*/ bool create_context(uintptr_t windowhandle, bool gles, unsigned int major, unsigned int minor, bool debug)
 	{
 		if (gles) return false;//rejected for now
 		
@@ -514,9 +483,9 @@ public:
 			
 			XSetWindowAttributes attr;
 			memset(&attr, 0, sizeof(attr));
-			attr.colormap=XCreateColormap(this->display, (Window)window, vis->visual, AllocNone);
+			attr.colormap=XCreateColormap(this->display, (Window)windowhandle, vis->visual, AllocNone);
 			
-			this->window=glx.CreateWindow(this->display, configs[0], (Window)window, NULL);
+			this->window=glx.CreateWindow(this->display, configs[0], (Window)windowhandle, NULL);
 			this->glxwindow=true;
 			
 			PFNGLXCREATECONTEXTATTRIBSARBPROC glXCreateContextAttribs =
@@ -557,10 +526,10 @@ public:
 			
 			XSetWindowAttributes attr;
 			memset(&attr, 0, sizeof(attr));
-			attr.colormap=XCreateColormap(this->display, (Window)window, vis->visual, AllocNone);
+			attr.colormap=XCreateColormap(this->display, (Window)windowhandle, vis->visual, AllocNone);
 			attr.event_mask=StructureNotifyMask;//for MapNotify
 			
-			this->window=XCreateWindow(this->display, (Window)window, 0, 0, 16, 16, 0,
+			this->window=XCreateWindow(this->display, (Window)windowhandle, 0, 0, 16, 16, 0,
 			                           vis->depth, InputOutput, vis->visual, CWColormap|CWEventMask, &attr);
 			this->glxwindow=false;
 			
@@ -642,7 +611,7 @@ public:
 		begin();
 		if (this->is3d) this->in3.context_reset();
 		
-		set_shader(sh_glsl, NULL);
+		this->set_shader(NULL);
 	}
 	
 	/*private*/ unsigned int bitround(unsigned int in)
@@ -912,8 +881,65 @@ public:
 		return program;
 	}
 	
-	bool set_shader(shadertype type, const char * filename)
+	bool set_shader(const shader* sh)
 	{
+		if (!sh)
+		{
+			//shader variables, mandatory:
+			//vertex vec2 TexCoord [ = VertexCoord]
+			//vertex vec2 VertexCoord [ = (0,0), (0,1), (1,0), (1,1) ]
+			//vertex vec4 COLOR [ = (0,0.5,1,0.8) ] [to be changed to 1,1,1,1 if it works]
+			//global mat4 MVPMatrix [ = ((1,0,0,0),(0,1,0,0),(0,0,1,0),(0,0,0,1)) ]
+			//global sampler2D Texture
+			//there are more
+			
+			//shader variables in action:
+			//https://github.com/libretro/RetroArch/blob/master/gfx/shader/shader_glsl.c
+			
+			static const char * defaultshader_text =
+			"varying vec2 tex_coord;\n"
+			"#if defined(VERTEX)\n"
+				"attribute vec2 TexCoord;\n"
+				"attribute vec2 VertexCoord;\n"
+				"void main()\n"
+				"{\n"
+					"gl_Position = vec4(VertexCoord, 0.0, 1.0);\n"
+					"tex_coord = TexCoord;\n"
+				"}\n"
+			"#elif defined(FRAGMENT)\n"
+				"uniform sampler2D Texture;\n"
+				"void main()\n"
+				"{\n"
+					"gl_FragColor = texture2D(Texture, tex_coord);\n"
+				"}\n"
+			"#endif\n";
+			static const shader::pass_t defaultshader_pass={
+				/*source*/      defaultshader_text,
+				/*interpolate*/ shader::in_nearest,
+				/*wrap*/        shader::wr_border
+			};
+			static const shader defaultshader={
+				/*type*/     shader::ty_glsl,
+				/*n_pass*/   1,
+				/*pass*/     &defaultshader_pass,
+				///*scale_x*/  1,
+				///*scale_y*/  1,
+				///*aspect*/   0,
+				/*n_params*/ 0,
+				/*params*/   NULL
+			};
+			sh=&defaultshader;
+		}
+		
+		if (sh->type != shader::ty_glsl)
+		{
+			shader* sh_new=shader_translate(sh, shader::ty_glsl);
+			if (!sh_new) return false;
+			bool ret=set_shader(sh_new);
+			shader_delete(sh_new);
+			return ret;
+		}
+		
 		if (this->sh_prog)
 		{
 			for (unsigned int i=0;i<this->sh_passes;i++) gl.DeleteProgram(this->sh_prog[i]);
@@ -930,10 +956,8 @@ public:
 			free(this->sh_fbo);
 		}
 		
-		this->sh_passes=1;//TODO: do this properly
-		//TODO: do this properly
+		this->sh_passes=sh->n_pass;
 		this->sh_prog=malloc(sizeof(GLuint)*this->sh_passes);
-		this->sh_prog[0]=createShaderProg(210, defaultShader);
 		
 		this->sh_tex=malloc(sizeof(GLuint)*this->sh_passes);
 		gl.GenTextures(this->sh_passes, this->sh_tex);
@@ -943,8 +967,8 @@ public:
 		
 		for (unsigned int pass=0;pass<this->sh_passes;pass++)
 		{
-			GLuint prog=this->sh_prog[pass];
-			gl.UseProgram(prog);
+			GLuint prog=createShaderProg(210, sh->pass[pass].source);
+			this->sh_prog[pass]=prog;
 			
 			this->sh_vercoordloc=gl.GetAttribLocation(prog, "VertexCoord");
 			gl.EnableVertexAttribArray(this->sh_vercoordloc);
@@ -976,7 +1000,7 @@ public:
 			gl.TexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
 			gl.TexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
 			gl.TexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-			gl.TexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, 1024, 1024/*TODO: Use a better size*/, 0, GL_RGBA, GL_UNSIGNED_INT_8_8_8_8, NULL);
+			gl.TexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, 256, 1024/*TODO: Use a better size*/, 0, GL_RGBA, GL_UNSIGNED_INT_8_8_8_8, NULL);
 			
 			GLint texid=gl.GetUniformLocation(prog, "Texture");
 			gl.ActiveTexture(GL_TEXTURE0);
@@ -992,13 +1016,15 @@ public:
 		return true;
 	}
 	
-	video_shader_param* get_shader_params()
+	const struct shader::param_t * get_shader_params(unsigned int * count)
 	{
+		*count=0;
 		return NULL;
 	}
 	
-	void set_shader_param(unsigned int index, double value)
+	bool set_shader_param(unsigned int index, double value)
 	{
+		return false;
 	}
 	
 	
