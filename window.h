@@ -543,8 +543,12 @@ const char * window_get_proc_path();
 //Converts a relative path (../roms/mario.smc) to an absolute path (/home/admin/roms/mario.smc).
 // Implemented by the window manager, so gvfs can be supported. If the file doesn't exist, it is
 // implementation defined whether the return value is a nonexistent path, or if it's NULL.
+//basepath is a file in the directory you want to use as base. Alternatively, if it ends with a /,
+// it will be used as that directory directly. If it's NULL, the current working directory is used.
+//If allow_up is false, NULL will be returned if 'path' attempts to go up the directory tree (for example ../../../../../etc/passwd).
+//If path is absolute already, it will be returned (possibly canonicalized) if allow_up is true, or rejected otherwise.
 //Send it to free() once it's done.
-char * window_get_absolute_path(const char * path);
+char * window_get_absolute_path(const char * basepath, const char * path, bool allow_up);
 //Converts any file path to something accessible on the local file system. The resulting path can
 // be both ugly and temporary, so only use it for file I/O, and store the absolute path instead.
 //It is not guaranteed that window_get_absolute_path can return the original path, or anything useful at all, if given the output of this.
@@ -579,11 +583,33 @@ bool file_read(const char * filename, void* * data, size_t * len);
 bool file_write(const char * filename, const anyptr data, size_t len);
 bool file_read_to(const char * filename, anyptr data, size_t len);//If size differs, this one fails.
 
-//These three are like the others, but if 'filename' is relative, it's taken relative to the directory in which 'basename' resides.
-//The opened file will reside in the same directory as 'basename', or a subdirectory of that directory; if filename is '../../../../../etc/passwd', it will fail.
-bool file_read_rel(const char * basename, const char * filename, void* * data, size_t * len);
-bool file_write_rel(const char * basename, const char * filename, const anyptr data, size_t len);
-bool file_read_to_rel(const char * basename, const char * filename, anyptr data, size_t len);
+//Some simple wrappers for the above three.
+inline bool file_read_rel(const char * basepath, bool allow_up, const char * filename, void* * data, size_t * len)
+{
+	char* path=window_get_absolute_path(basepath, filename, allow_up);
+	if (!path) return false;
+	bool ret=file_read(path, data, len);
+	free(path);
+	return ret;
+}
+
+inline bool file_write_rel(const char * basepath, bool allow_up, const char * filename, const anyptr data, size_t len)
+{
+	char* path=window_get_absolute_path(basepath, filename, allow_up);
+	if (!path) return false;
+	bool ret=file_write(path, data, len);
+	free(path);
+	return ret;
+}
+
+inline bool file_read_to_rel(const char * basepath, bool allow_up, const char * filename, anyptr data, size_t len)
+{
+	char* path=window_get_absolute_path(basepath, filename, allow_up);
+	if (!path) return false;
+	bool ret=file_read_to(path, data, len);
+	free(path);
+	return ret;
+}
 
 //These will list the contents of a directory. The returned paths from window_find_next should be
 // sent to free(). The . and .. components will not be included; however, symlinks and other loops
@@ -612,3 +638,6 @@ char * _window_native_get_absolute_path(const char * path);
 //This one can be used if the one calling widget_listbox->set_contents doesn't provide a search function.
 size_t _widget_listbox_search(function<const char *(int column, size_t row)> get_cell, size_t rows,
                               const char * prefix, size_t start, bool up);
+
+//This one demands the path to be relative, and does not check.
+char * _window_merge_path(const char * basepath, const char * path);

@@ -161,7 +161,7 @@ const char * const * window_file_picker(struct window * parent,
 	GSList * listcopy=list;
 	while (listcopy)
 	{
-		*retcopy=window_get_absolute_path((char*)listcopy->data);
+		*retcopy=window_get_absolute_path(NULL, (char*)listcopy->data, true);
 		g_free(listcopy->data);
 		retcopy++;
 		listcopy=listcopy->next;
@@ -199,10 +199,30 @@ const struct window_x11_display * window_x11_get_display()
 }
 #endif
 
-char * window_get_absolute_path(const char * path)
+
+
+static bool path_is_absolute(const char * path)
+{
+	const char * colon=strchr(path, ':');
+	const char * slash=strchr(path, '/');
+	if (colon && slash && colon < slash) return true;//is URI - those are relative
+	if (slash==path) return true;//unix native
+	return false;
+}
+
+char * window_get_absolute_path(const char * basepath, const char * path, bool allow_up)
 {
 	if (!path) return NULL;
-	GFile* file=g_file_new_for_commandline_arg(path);
+	if (!allow_up)
+	{
+		if (path_is_absolute(path)) return NULL;
+		if (path[0]=='.' && path[1]=='.' && (path[2]=='/' || path[2]=='\0')) return NULL;
+		if (strstr(path, "/../")) return NULL;
+		if (strstr(path, "/..") && strstr(path, "/..")[3]=='\0') return NULL;
+	}
+	GFile* file;
+	if (basepath) file=g_file_new_for_commandline_arg_and_cwd(path, basepath);
+	else file=g_file_new_for_commandline_arg(path);
 	gchar * ret;
 	if (g_file_is_native(file)) ret=g_file_get_path(file);
 	else ret=g_file_get_uri(file);

@@ -238,33 +238,6 @@ void widget_layout::place(void* resizeinf, unsigned int x, unsigned int y, unsig
 
 
 
-size_t _widget_listbox_search(function<const char *(int column, size_t row)> get_cell, size_t rows,
-                              const char * prefix, size_t start, bool up)
-{
-	size_t len=strlen(prefix);
-	
-	size_t pos=start;
-	for (size_t i=0;i<rows;i++)
-	{
-		const char * thisstr=get_cell(0, pos);
-		if (!strncasecmp(thisstr, prefix, len)) return pos;
-		if (!up)
-		{
-			pos++;
-			if (pos==rows) pos=0;
-		}
-		else
-		{
-			if (pos==0) pos=rows;
-			pos--;
-		}
-	}
-	return (size_t)-1;
-}
-
-
-
-
 //varargs are irritating; no point reimplementing them for all platforms.
 struct windowmenu * windowmenu_create_radio(void (*onactivate)(struct windowmenu * subject, unsigned int state, void* userdata),
                                             void* userdata, const char * firsttext, ...)
@@ -492,4 +465,37 @@ widget_layout* widget_create_layout_grid(unsigned int width, unsigned int height
 	va_end(args);
 	
 	return widget_create_layout(width*height, children,  width, NULL, uniformsizes,  height, NULL, uniformsizes);
+}
+
+
+
+
+size_t _widget_listbox_search(function<const char *(int column, size_t row)> get_cell, size_t rows,
+                              const char * prefix, size_t start, bool up)
+{
+	size_t len=strlen(prefix);
+	
+	size_t pos=start;
+	for (size_t i=0;i<rows;i++)
+	{
+		const char * thisstr=get_cell(0, pos);
+		if (!strncasecmp(thisstr, prefix, len)) return pos;
+		if (!up)
+		{
+			pos++;
+			if (pos==rows) pos=0;
+		}
+		else
+		{
+			if (pos==0) pos=rows;
+			pos--;
+		}
+	}
+	return (size_t)-1;
+}
+
+
+char * _window_merge_path(const char * basepath, const char * path)
+{
+	
 }

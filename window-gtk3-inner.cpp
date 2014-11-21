@@ -603,7 +603,7 @@ static void viewport_drop_handler(GtkWidget* widget, GdkDragContext* drag_contex
 		if (datacopy[i]=='\n')
 		{
 			datacopy[i]='\0';
-			strings[strnum]=window_get_absolute_path(last);
+			strings[strnum]=window_get_absolute_path(NULL, last, true);
 			last=datacopy+i+1;
 			strnum++;
 		}

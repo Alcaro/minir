@@ -105,7 +105,7 @@ video::shader* video::shader_parse(const char * filename)
 			else if (!strcmp(name, "shader"))
 			{
 				if (pass[pass_id].source) goto error;
-				if (!file_read_rel(filename, val, (void**)&pass[pass_id].source, NULL)) goto error;
+				if (!file_read_rel(filename, false, val, (void**)&pass[pass_id].source, NULL)) goto error;
 			}
 			else if (!strcmp(name, "filter_linear"))
 			{
