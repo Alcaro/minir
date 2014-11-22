@@ -547,8 +547,7 @@ public:
 		this->sh_fbo=NULL;
 		
 #ifdef WNDPROT_X11
-		this->display = window_x11_get_display()->display;
-		
+		this->display=window_x11_get_display()->display;
 		this->window=None;
 		this->colormap=None;
 #endif
@@ -753,6 +752,7 @@ public:
 		gl.BindFramebuffer(GL_FRAMEBUFFER, this->sh_fbo[1]);
 		gl.UseProgram(this->sh_prog[0]);
 		//gl.Viewport(0, 0, this->out_width, this->out_height);
+glClearColor(0.5,0.5,0.5,0.5);
 		gl.Clear(GL_COLOR_BUFFER_BIT);
 		
 		if (width!=this->in_lastwidth || height!=this->in_lastheight)
@@ -769,6 +769,7 @@ public:
 				left, bottom,
 				right, bottom,
 			};
+printf("coord=%f %f %f %f\n",left,top,right,bottom);
 			
 			gl.BindBuffer(GL_ARRAY_BUFFER, this->sh_texcoordbuf);
 			gl.BufferData(GL_ARRAY_BUFFER, sizeof(texcoord), texcoord, GL_DYNAMIC_DRAW);
@@ -776,6 +777,7 @@ public:
 			this->in_lastwidth=width;
 			this->in_lastheight=height;
 		}
+		
 		gl.EnableVertexAttribArray(this->sh_texcoordloc);
 		gl.BindBuffer(GL_ARRAY_BUFFER, this->sh_texcoordbuf);
 		gl.VertexAttribPointer(this->sh_texcoordloc, 2, GL_FLOAT, GL_FALSE, 0, (void*)0);
@@ -964,17 +966,12 @@ public:
 		for (unsigned int pass=0;pass<this->sh_passes;pass++)
 		{
 			GLuint prog=createShaderProg(210, sh->pass[pass].source);
+			gl.UseProgram(prog);
 			this->sh_prog[pass]=prog;
 			
+			//TODO: this is unlikely to work with multipass, need to make those arrays
 			this->sh_vercoordloc=gl.GetAttribLocation(prog, "VertexCoord");
-			gl.EnableVertexAttribArray(this->sh_vercoordloc);
-			gl.BindBuffer(GL_ARRAY_BUFFER, this->sh_vertexbuf);
-			gl.VertexAttribPointer(this->sh_vercoordloc, 3, GL_FLOAT, GL_FALSE, 0, (void*)0);
-			
 			this->sh_texcoordloc=gl.GetAttribLocation(prog, "TexCoord");
-			gl.EnableVertexAttribArray(this->sh_texcoordloc);
-			gl.BindBuffer(GL_ARRAY_BUFFER, this->sh_texcoordbuf);
-			gl.VertexAttribPointer(this->sh_texcoordloc, 2, GL_FLOAT, GL_FALSE, 0, (void*)0);
 			
 			//TODO: analyze if these two do anything
 			//gl.Uniform4f(gl.GetAttribLocation(prog, "Color"), 1,1,1,1);
@@ -996,14 +993,17 @@ public:
 			gl.TexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
 			gl.TexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
 			gl.TexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-			gl.TexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, 256, 1024/*TODO: Use a better size*/, 0, GL_RGBA, GL_UNSIGNED_INT_8_8_8_8, NULL);
+			gl.TexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, 1024, 1024/*TODO: Use a better size*/, 0, GL_RGBA, GL_UNSIGNED_INT_8_8_8_8, NULL);
 			
 			GLint texid=gl.GetUniformLocation(prog, "Texture");
 			gl.ActiveTexture(GL_TEXTURE0);
 			gl.Uniform1i(texid, 0);
 			
-			gl.BindFramebuffer(GL_FRAMEBUFFER, this->sh_fbo[pass]);
-			gl.FramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, this->sh_tex[pass], 0);
+			if (pass!=0 || this->is3d)
+			{
+				gl.BindFramebuffer(GL_FRAMEBUFFER, this->sh_fbo[pass]);
+				gl.FramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, this->sh_tex[pass], 0);
+			}
 		}
 		
 //vertex vec4 COLOR [ = (0,0.5,1,0.8) ] [to be changed to 1,1,1,1 if it works]
@@ -1120,7 +1120,8 @@ public:
 			default:                       severity_s="Unknown"; break;
 		}
 		
-		//this could be sent to a better location, but the video driver isn't supposed to generate messages in the first place, so there's nothing good to do.
+		//this could be sent to a better location, but the video driver isn't supposed to
+		// generate messages in the first place, so there's nothing good to do.
 		printf("[GL debug: %s from %s about %s: %s]\n", severity_s, source_s, type_s, message);
 	}
 #endif
