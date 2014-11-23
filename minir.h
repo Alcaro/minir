@@ -353,6 +353,14 @@ static inline void video_copy_2d(void* dst, size_t dstpitch, const void* src, si
 //Due to its special properties, it is not included in the list of drivers.
 video* video_create_thread();
 
+extern const driver_video video_d3d9_desc;
+extern const driver_video video_ddraw_desc;
+extern const driver_video video_opengl_desc;
+extern const driver_video video_gdi_desc;
+extern const driver_video video_xshm_desc;
+extern const driver_video video_none_desc;
+extern const driver_video video_opengl_old_desc;
+
 
 
 struct audio {

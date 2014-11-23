@@ -90,14 +90,6 @@ video* video_create_compat(cvideo* child)
 	return new video_compat(child);
 }
 
-extern const driver_video video_d3d9_desc;
-extern const driver_video video_ddraw_desc;
-extern const driver_video video_opengl_desc;
-extern const driver_video video_gdi_desc;
-extern const driver_video video_xshm_desc;
-extern const driver_video video_none_desc;
-extern const driver_video video_opengl_old_desc;
-
 const driver_video * list_video[]={
 //#ifdef VIDEO_D3D9
 //	&video_d3d9_desc,
