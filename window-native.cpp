@@ -38,23 +38,6 @@ const char * window_get_proc_path()
 	}
 }
 
-//const char * window_get_cur_path()
-//{
-//	static char * path=NULL;
-//	if (path) return path;
-//	path=getcwd(NULL, 0);
-//	if (path) return path;
-//	
-//	size_t bufsize=32;
-//	while (true)
-//	{
-//		bufsize*=2;
-//		free(path);
-//		path=malloc(bufsize);
-//		if (getcwd(path, bufsize)) return path;
-//	}
-//}
-
 char * _window_native_get_absolute_path(const char * basepath, const char * path, bool allow_up)
 {
 	if (!path) return NULL;
@@ -145,38 +128,6 @@ const char * window_get_proc_path()
 	if (end) *end='\0';
 	return path;
 }
-
-//static char * get_pathname(const char * filename)
-//{
-//	char * end=strrchr(filename, '/');
-//	char * end2=strrchr(filename, '\\');
-//	if (!end) end=end2;
-//	if (end && end2 && end2>end) end=end2;
-//	if (!end) return NULL;
-//	size_t len=end-filename+1;
-//	char * ret=malloc(len);
-//	memcpy(ret, filename, len);
-//	for (unsigned int i=0;i<len;i++)
-//	{
-//		if (ret[i]=='\\') ret[i]='/';
-//	}
-//	ret[len]='\0';
-//	return ret;
-//}
-
-//static bool path_is_absolute(const char * path)
-//{
-//	//Possible cases:
-//	//C:\path\file.txt - absolute
-//	//\\share\path\file.txt - absolute
-//	//file.txt - relative
-//	//../path/file.txt - relative
-//	//\path\file.txt - relative to current drive - relative
-//	//C:file.txt - current directory on another drive - relative
-//	if (path[0]=='\\' path[1]=='\\') return true;
-//	if (isalpha(path[0]) && path[1]==':' && path[2]=='\\') return true;
-//	return false;
-//}
 
 static mutex* cwd_lock;
 static char * cwd_init;
