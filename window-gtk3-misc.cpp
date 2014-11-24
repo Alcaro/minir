@@ -222,8 +222,13 @@ char * window_get_absolute_path(const char * basepath, const char * path, bool a
 		if (strstr(path, "/..") && strstr(path, "/..")[3]=='\0') return NULL;
 	}
 	GFile* file;
-#error basepath should be a path
-	if (basepath) file=g_file_new_for_commandline_arg_and_cwd(path, basepath);
+	if (basepath)
+	{
+		const char * pathend=strrchr(basepath, '/');
+		gchar * basepath_dir=g_strndup(basepath, pathend+1-basepath);
+		file=g_file_new_for_commandline_arg_and_cwd(path, basepath_dir);
+		g_free(basepath_dir);
+	}
 	else file=g_file_new_for_commandline_arg(path);
 	gchar * ret;
 	if (g_file_is_native(file)) ret=g_file_get_path(file);

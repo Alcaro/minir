@@ -805,8 +805,6 @@ bool closethis(struct window * subject, void* userdata)
 
 void initialize(int argc, char * argv[])
 {
-	window_init(&argc, &argv);
-	
 	memset(&config, 0, sizeof(config));
 	
 	create_self_path(argv[0]);
@@ -1683,6 +1681,7 @@ void update_menu()
 
 int main(int argc, char * argv[])
 {
+	window_init(&argc, &argv);
 	initialize(argc, argv);
 //video::shader_parse("g.cg");exit(0);
 if
