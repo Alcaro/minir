@@ -25,21 +25,12 @@ include config.mk
 
 OUTNAME = minir$(EXESUFFIX)
 
-TESTSRC = memory.cpp
-TESTSEPSRC = test-*.cpp
-#window-*.cpp
-
 OBJS = $(patsubst %.cpp,obj/%$(OBJSUFFIX).o,$(wildcard *.cpp)) $(EXTRAOBJ) obj/miniz$(OBJSUFFIX).o
-TESTOBJS = $(patsubst %.cpp,obj/%.o,$(wildcard $(TESTSRC))) $(patsubst %.cpp,obj/%-test.o,$(wildcard $(TESTSEPSRC))) $(EXTRAOBJ)
 
 TRUE_CFLAGS = $(CFLAGS) $(CONF_CFLAGS) -std=c99
 TRUE_CXXFLAGS = $(CXXFLAGS) $(CONF_CXXFLAGS) -std=c++98
 TRUE_LFLAGS = $(LFLAGS) $(CONF_LFLAGS)
 
-
-#$(CC) $(TRUE_CFLAGS) -DTEST -DNO_ICON test*.c window*.c $(TRUE_LFLAGS) -otest $(RESOBJ)
-test: $(TESTOBJS)
-	$(LD) $+ $(TRUE_LFLAGS) -o $@
 
 #On Windows, cleaning up the object directory is expected to be done with 'del /q obj\*' in a batch script.
 clean:
@@ -55,9 +46,6 @@ obj/config$(OBJSUFFIX).o: config.cpp obj/generated.cpp | obj
 obj/main$(OBJSUFFIX).o: main.cpp obj/generated.cpp minir.h | obj
 obj/%$(OBJSUFFIX).o: %.cpp | obj obj/generated.cpp
 	$(CXX) $(TRUE_CXXFLAGS) -c $< -o $@
-
-obj/%-test.o: %.cpp | obj obj/generated.cpp
-	$(CXX) $(TRUE_CXXFLAGS) -c $< -o $@ -DTEST -DNO_ICON
 
 obj/generated.cpp: obj/rescompile$(EXESUFFIX) minir.cfg.tmpl
 	obj/rescompile$(EXESUFFIX)

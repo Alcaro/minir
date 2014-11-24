@@ -27,7 +27,7 @@
 //  1 after December 8, 2013
 //  2 after April 8, 2014
 //  3 after August 8, 2014
-//  4 after December 8, 2015
+//  4 after December 8, 2014
 //  5 after April 8, 2015
 //Vista SP0 and higher: 0
 //List:
@@ -46,6 +46,7 @@ void window_init(int * argc, char * * argv[])
 		if ((*argv)[0][i]=='\\') (*argv)[0][i]='/';
 	}
 	
+	_window_init_shared();
 	_window_init_shell();
 	_window_init_inner();
 	
@@ -129,7 +130,7 @@ const char * const * window_file_picker(struct window * parent,
 	if (!ismultiple)
 	{
 		ret=malloc(sizeof(char*)*2);
-		ret[0]=window_get_absolute_path(filenames);
+		ret[0]=window_get_absolute_path_cwd(filenames, true);
 		ret[1]=NULL;
 		return (const char * const *)ret;
 	}
@@ -150,7 +151,7 @@ const char * const * window_file_picker(struct window * parent,
 	{
 		unsigned int thislen=strlen(filename);
 		memcpy(filenames+ofn.nFileOffset, filename, thislen+1);
-		*retout=window_get_absolute_path(filenames);
+		*retout=window_get_absolute_path_cwd(filenames, true);
 		retout++;
 		filename+=thislen+1;
 	}
@@ -159,9 +160,9 @@ const char * const * window_file_picker(struct window * parent,
 	return (const char * const *)ret;
 }
 
-char * window_get_absolute_path(const char * path)
+char * window_get_absolute_path(const char * basepath, const char * path, bool allow_up)
 {
-	return _window_native_get_absolute_path(path);
+	return _window_native_get_absolute_path(basepath, path, allow_up);
 }
 
 uint64_t window_get_time()

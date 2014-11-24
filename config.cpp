@@ -549,7 +549,7 @@ static void data_load(struct minirconfig * this_, struct configdata * config,
 	
 	if (corepath)
 	{
-		char * truecore=window_get_absolute_path(NULL, corepath, true);
+		char * truecore=window_get_absolute_path_cwd(corepath, true);
 		unsigned int id=find_or_create_core(this, truecore);
 		free(truecore);
 		config->corename=this->bycore[id].corename;
@@ -569,7 +569,7 @@ static void data_load(struct minirconfig * this_, struct configdata * config,
 	
 	if (gamepath)
 	{
-		char * truegame=window_get_absolute_path(NULL, gamepath, true);
+		char * truegame=window_get_absolute_path_cwd(gamepath, true);
 		unsigned int id=find_or_create_game(this, truegame);
 		free(truegame);
 		join_config(config, &this->bygame[id]);
@@ -1344,12 +1344,12 @@ static void read_from_file(struct minirconfig_impl * this, char * rawconfig)
 			if (thisscope==cfgsc_core && !strcmp(thisline, "path"))
 			{
 				free(thisconf->_corepath);
-				thisconf->_corepath=window_get_absolute_path(NULL, value, true);
+				thisconf->_corepath=window_get_absolute_path_cwd(value, true);
 			}
 			if (thisscope==cfgsc_game && !strcmp(thisline, "path"))
 			{
 				free(thisconf->_gamepath);
-				thisconf->_gamepath=window_get_absolute_path(NULL, value, true);
+				thisconf->_gamepath=window_get_absolute_path_cwd(value, true);
 			}
 			
 			if (thisscope==cfgsc_core && !strcmp(thisline, "name"))

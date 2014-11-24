@@ -538,13 +538,22 @@ const char * const * window_file_picker(struct window * parent,
                                         bool dylib,
                                         bool multiple);
 
+
+//These two allow use of the current working directory in multithreaded programs.
+//If dir is NULL, uses window_cwd_get_default().
+//Between calls to these, the current directory will be set to something undefined that is extremely unlikely to contain anything useful.
+void window_cwd_enter(const char * dir);
+void window_cwd_leave();
+
+//Returns the working directory at the time of process launch.
+const char * window_cwd_get_default();
+
 //Returns the process path, without the filename. Multiple calls will return the same pointer.
 const char * window_get_proc_path();
 //Converts a relative path (../roms/mario.smc) to an absolute path (/home/admin/roms/mario.smc).
 // Implemented by the window manager, so gvfs can be supported. If the file doesn't exist, it is
 // implementation defined whether the return value is a nonexistent path, or if it's NULL.
-//basepath is a file in the directory you want to use as base. Alternatively, if it ends with a /,
-// it will be used as that directory directly. If it's NULL, the current working directory is used.
+//basepath is the directory you want to use as base, or a file in this directory.
 //If allow_up is false, NULL will be returned if 'path' attempts to go up the directory tree (for example ../../../../../etc/passwd).
 //If path is absolute already, it will be returned (possibly canonicalized) if allow_up is true, or rejected otherwise.
 //Send it to free() once it's done.
@@ -554,6 +563,23 @@ char * window_get_absolute_path(const char * basepath, const char * path, bool a
 //It is not guaranteed that window_get_absolute_path can return the original path, or anything useful at all, if given the output of this.
 //It can return NULL, even for paths which file_read understands. If it doesn't, use free() when you're done.
 char * window_get_native_path(const char * path);
+
+//These two resolve paths relative to the initial working directory. Use for command line arguments.
+inline char * window_get_absolute_path_cwd(const char * path, bool allow_up)
+{
+	window_cwd_enter(NULL);
+	char * ret=window_get_absolute_path("./", path, allow_up);
+	window_cwd_leave();
+	return ret;
+}
+
+inline char * window_get_native_path_cwd(const char * path)
+{
+	window_cwd_enter(NULL);
+	char * ret=window_get_native_path(path);
+	window_cwd_leave();
+	return ret;
+}
 
 //Returns the number of microseconds since an undefined start time.
 //The start point doesn't change while the program is running, but need not be the same across reboots, nor between two processes.
@@ -624,6 +650,7 @@ void file_find_close(void* find);
 void _window_init_inner();
 void _window_init_misc();
 void _window_init_shell();
+void _window_init_shared();
 //If the window shell is the one told about interaction with a widget, this sends it back to the inner area.
 uintptr_t _window_notify_inner(void* notification);
 //Because Windows is a douchebag.
@@ -632,12 +659,9 @@ uintptr_t _window_get_widget_color(unsigned int type, void* handle, void* draw, 
 // it's implemented by something that knows the local file system, but not the window manager.
 //There is no _window_native_get_native_path; since the local file system doesn't understand
 // anything except the local file system, it would only be able to return the input, or be
-// equivalent to _window_native_get_absolute_path. Empty and/or duplicate functions are useless.
-char * _window_native_get_absolute_path(const char * path);
+// equivalent to _window_native_get_absolute_path, making it redundant and therefore useless.
+char * _window_native_get_absolute_path(const char * basepath, const char * path, bool allow_up);
 
 //This one can be used if the one calling widget_listbox->set_contents doesn't provide a search function.
 size_t _widget_listbox_search(function<const char *(int column, size_t row)> get_cell, size_t rows,
                               const char * prefix, size_t start, bool up);
-
-//This one demands the path to be relative, and does not check.
-char * _window_merge_path(const char * basepath, const char * path);

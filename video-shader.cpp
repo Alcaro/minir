@@ -1,5 +1,6 @@
 #include "minir.h"
 #include <ctype.h>
+#include <stdio.h>
 
 //static void read_params(video::shader* sh, const char * data)
 //{

@@ -712,7 +712,7 @@ bool handle_cli_args(const char * const * filenames, bool coresonly)
 	const char * ext=dylib_ext();
 	for (int i=0;filenames[i];i++)
 	{
-		char * path=window_get_absolute_path(NULL, filenames[i], true);
+		char * path=window_get_absolute_path_cwd(filenames[i], true);
 		const char * end=strrchr(path, '.');
 		if (coresonly || (end && !strcmp(end, ext)))
 		{

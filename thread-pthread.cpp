@@ -37,6 +37,18 @@ unsigned int thread_ideal_count()
 }
 
 
+mutex::mutex()
+{
+	this->data=malloc(sizeof(pthread_mutex_t));
+	pthread_mutex_init((pthread_mutex_t*)this->data, NULL);
+}
+
+mutex::~mutex()
+{
+	pthread_mutex_destroy((pthread_mutex_t*)this->data);
+	free(this->data);
+}
+
 void mutex::lock()
 {
 	pthread_mutex_lock((pthread_mutex_t*)this->data);
@@ -50,18 +62,6 @@ bool mutex::try_lock()
 void mutex::unlock()
 {
 	pthread_mutex_unlock((pthread_mutex_t*)this->data); 
-}
-
-mutex::~mutex()
-{
-	pthread_mutex_destroy((pthread_mutex_t*)this->data);
-	free(this->data);
-}
-
-mutex::mutex()
-{
-	this->data=malloc(sizeof(pthread_mutex_t));
-	pthread_mutex_init((pthread_mutex_t*)this->data, NULL);
 }
 
 

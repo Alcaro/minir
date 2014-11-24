@@ -48,6 +48,7 @@ g_log_set_always_fatal((GLogLevelFlags)(G_LOG_LEVEL_CRITICAL|G_LOG_LEVEL_WARNING
 	XInitThreads();
 #endif
 	gtk_init(argc, argv);
+	_window_init_shared();
 	_window_init_inner();
 	_window_init_misc();
 	//gdk_window_add_filter(NULL,scanfilter,NULL);
@@ -205,7 +206,7 @@ static bool path_is_absolute(const char * path)
 {
 	const char * colon=strchr(path, ':');
 	const char * slash=strchr(path, '/');
-	if (colon && slash && colon < slash) return true;//is URI - those are relative
+	if (colon && slash && colon < slash) return true;//is URI - those are absolute
 	if (slash==path) return true;//unix native
 	return false;
 }
@@ -221,6 +222,7 @@ char * window_get_absolute_path(const char * basepath, const char * path, bool a
 		if (strstr(path, "/..") && strstr(path, "/..")[3]=='\0') return NULL;
 	}
 	GFile* file;
+#error basepath should be a path
 	if (basepath) file=g_file_new_for_commandline_arg_and_cwd(path, basepath);
 	else file=g_file_new_for_commandline_arg(path);
 	gchar * ret;

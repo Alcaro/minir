@@ -337,7 +337,7 @@ public:
 	unsigned int in_texheight;
 	
 	GLuint sh_vertexbuf;
-	//GLuint sh_vertexbuf_flip;
+	GLuint sh_vertexbuf_first;
 	GLuint sh_texcoordbuf;
 	
 	//sh_fbo[N] is attached to sh_tex[N]
@@ -569,14 +569,24 @@ public:
 		}
 		
 		gl.GenBuffers(1, &this->sh_vertexbuf);
-		static const GLfloat vertexcoord[] = {
-			-1.0f,  1.0f, 0.0f,
-			 1.0f,  1.0f, 0.0f,
-			-1.0f, -1.0f, 0.0f,
-			 1.0f, -1.0f, 0.0f,
-		};
 		gl.BindBuffer(GL_ARRAY_BUFFER, this->sh_vertexbuf);
+		static const GLfloat vertexcoord[] = {
+			-1.0f,  1.0f,
+			 1.0f,  1.0f,
+			-1.0f, -1.0f,
+			 1.0f, -1.0f,
+		};
 		gl.BufferData(GL_ARRAY_BUFFER, sizeof(vertexcoord), vertexcoord, GL_STATIC_DRAW);
+		
+		gl.GenBuffers(1, &this->sh_vertexbuf_first);
+		gl.BindBuffer(GL_ARRAY_BUFFER, this->sh_vertexbuf_first);
+		static const GLfloat vertexcoord_flip[] = {
+			-1.0f, -1.0f,
+			 1.0f, -1.0f,
+			-1.0f,  1.0f,
+			 1.0f,  1.0f,
+		};
+		gl.BufferData(GL_ARRAY_BUFFER, sizeof(vertexcoord), (this->is3d && this->in3.bottom_left_origin) ? vertexcoord_flip : vertexcoord, GL_STATIC_DRAW);
 		
 		gl.GenBuffers(1, &this->sh_texcoordbuf);
 		
@@ -701,6 +711,9 @@ public:
 		this->in_texwidth=bitround(max_width);
 		this->in_texheight=bitround(max_height);
 		
+		gl.BindTexture(GL_TEXTURE_2D, this->sh_tex[0]);
+		gl.TexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, this->in_texwidth, this->in_texheight, 0, GL_RGBA, GL_UNSIGNED_INT_8_8_8_8, NULL);
+		
 		if (this->in3.depth)
 		{
 			gl.BindFramebuffer(GL_FRAMEBUFFER, this->sh_fbo[0]);
@@ -728,8 +741,8 @@ public:
 	funcptr draw_3d_get_proc_address(const char * sym)
 	{
 #ifdef WNDPROT_WINDOWS
-		funcptr ret=(funcptr)wgl.GetProcAddress(gl_names[i]);
-		if (!ret) ret=(funcptr)GetProcAddress(wgl.lib, gl_names[i]);
+		funcptr ret=(funcptr)wgl.GetProcAddress(sym);
+		if (!ret) ret=(funcptr)GetProcAddress(wgl.lib, sym);
 		return ret;
 #endif
 #ifdef WNDPROT_X11
@@ -751,16 +764,20 @@ public:
 	{
 		gl.BindFramebuffer(GL_FRAMEBUFFER, this->sh_fbo[1]);
 		gl.UseProgram(this->sh_prog[0]);
-		//gl.Viewport(0, 0, this->out_width, this->out_height);
-glClearColor(0.5,0.5,0.5,0.5);
+		gl.Viewport(0, 0, this->out_width, this->out_height);
+//gl.ClearColor(0.5,0.5,0.5,0.5);
 		gl.Clear(GL_COLOR_BUFFER_BIT);
 		
 		if (width!=this->in_lastwidth || height!=this->in_lastheight)
 		{
 			//left  = 1/2 / out.width
 			//right = width/texwidth - left
-			GLfloat left=0.5f/this->out_width;
-			GLfloat top=0.5f/this->out_height;
+			//all the docs say I should aim for the centers of the pixels - but zeroes is what gives the right answers
+			//likely cause: coordinate 0,0 is never rendered - the corner pixel is at coordinate 0.01,0.01
+			//GLfloat left=0.5f/this->out_width;
+			//GLfloat top=0.5f/this->out_height;
+			GLfloat left=0;
+			GLfloat top=0;
 			GLfloat right=(float)width / this->in_texwidth - left;
 			GLfloat bottom=(float)height / this->in_texheight - top;
 			GLfloat texcoord[] = {
@@ -769,7 +786,7 @@ glClearColor(0.5,0.5,0.5,0.5);
 				left, bottom,
 				right, bottom,
 			};
-printf("coord=%f %f %f %f\n",left,top,right,bottom);
+//printf("coord=%f %f %f %f\n",left,top,right,bottom);
 			
 			gl.BindBuffer(GL_ARRAY_BUFFER, this->sh_texcoordbuf);
 			gl.BufferData(GL_ARRAY_BUFFER, sizeof(texcoord), texcoord, GL_DYNAMIC_DRAW);
@@ -783,11 +800,11 @@ printf("coord=%f %f %f %f\n",left,top,right,bottom);
 		gl.VertexAttribPointer(this->sh_texcoordloc, 2, GL_FLOAT, GL_FALSE, 0, (void*)0);
 		
 		gl.EnableVertexAttribArray(this->sh_vercoordloc);
-		gl.BindBuffer(GL_ARRAY_BUFFER, this->sh_vertexbuf);
-		gl.VertexAttribPointer(this->sh_vercoordloc, 3, GL_FLOAT, GL_FALSE, 0, (void*)0);
+		gl.BindBuffer(GL_ARRAY_BUFFER, this->sh_vertexbuf_first);
+		gl.VertexAttribPointer(this->sh_vercoordloc, 2, GL_FLOAT, GL_FALSE, 0, (void*)0);
 		
-		gl.BindTexture(GL_TEXTURE_2D, this->sh_tex[0]);
 		gl.ActiveTexture(GL_TEXTURE0);
+		gl.BindTexture(GL_TEXTURE_2D, this->sh_tex[0]);
 		
 		gl.DrawArrays(GL_TRIANGLE_STRIP, 0, 4);
 		
@@ -815,6 +832,7 @@ printf("coord=%f %f %f %f\n",left,top,right,bottom);
 	
 	void set_vsync(double fps)
 	{
+//fps=0;
 #ifdef WNDPROT_WINDOWS
 		if (gl.SwapInterval) gl.SwapInterval(fps ? 1 : 0);
 #endif
@@ -993,10 +1011,8 @@ printf("coord=%f %f %f %f\n",left,top,right,bottom);
 			gl.TexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
 			gl.TexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
 			gl.TexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-			gl.TexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, 1024, 1024/*TODO: Use a better size*/, 0, GL_RGBA, GL_UNSIGNED_INT_8_8_8_8, NULL);
 			
 			GLint texid=gl.GetUniformLocation(prog, "Texture");
-			gl.ActiveTexture(GL_TEXTURE0);
 			gl.Uniform1i(texid, 0);
 			
 			if (pass!=0 || this->is3d)
@@ -1030,16 +1046,16 @@ printf("coord=%f %f %f %f\n",left,top,right,bottom);
 		this->in_lastheight=0;
 		this->out_width=width;
 		this->out_height=height;
-		gl.BindTexture(GL_TEXTURE_2D, this->sh_tex[0]);
-		if (this->is3d)
-		{
-			//TODO: Use proper size
-			gl.TexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, 1024, 1024, 0, GL_RGBA, GL_UNSIGNED_INT_8_8_8_8, NULL);
-		}
-		else
-		{
-			gl.TexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, this->in_texwidth, this->in_texheight, 0, this->in2_fmt, this->in2_type, NULL);
-		}
+		//gl.BindTexture(GL_TEXTURE_2D, this->sh_tex[0]);
+		//if (this->is3d)
+		//{
+		//	//TODO: Use proper size
+		//	gl.TexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, 1024, 1024, 0, GL_RGBA, GL_UNSIGNED_INT_8_8_8_8, NULL);
+		//}
+		//else
+		//{
+		//	gl.TexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, this->in_texwidth, this->in_texheight, 0, this->in2_fmt, this->in2_type, NULL);
+		//}
 #ifdef WNDPROT_X11
 		if (this->window && !this->glxwindow)
 		{
