@@ -489,7 +489,7 @@ public:
 				const int attribs[] = {
 					GLX_CONTEXT_MAJOR_VERSION_ARB, (int)major,
 					GLX_CONTEXT_MINOR_VERSION_ARB, (int)minor,
-					//GLX_CONTEXT_FLAGS_ARB, GLX_CONTEXT_DEBUG_BIT_ARB|GLX_CONTEXT_FORWARD_COMPATIBLE_BIT_ARB
+					//GLX_CONTEXT_FLAGS_ARB, GLX_CONTEXT_FORWARD_COMPATIBLE_BIT_ARB
 					//https://www.opengl.org/wiki/Core_And_Compatibility_in_Contexts says do not use
 					None };
 				const int attribs_debug[] = {
@@ -734,6 +734,7 @@ public:
 	
 	uintptr_t draw_3d_get_current_framebuffer()
 	{
+		if (!this->sh_fbo) return 0;
 //static bool g=0;g=!g;return this->sh_fbo[g];
 		return this->sh_fbo[0];
 	}
@@ -832,7 +833,6 @@ public:
 	
 	void set_vsync(double fps)
 	{
-//fps=0;
 #ifdef WNDPROT_WINDOWS
 		if (gl.SwapInterval) gl.SwapInterval(fps ? 1 : 0);
 #endif

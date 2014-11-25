@@ -506,6 +506,10 @@ bool load_core(const char * path, bool keep_rom)
 	study_core(path, core);
 	core->attach_interfaces(core, vid, aud, retroinp);
 	
+	delete vid; vid=NULL;
+	vid3d=NULL;
+	core->enable_3d(core, bind(create3d));
+	
 	if (kept_rom)
 	{
 		load_rom(kept_rom);
@@ -581,9 +585,7 @@ bool load_rom(const char * rom)
 		free(newcores);
 	}
 	unload_rom();
-	delete vid; vid=NULL;
-	vid3d=NULL;
-	core->enable_3d(core, bind(create3d));
+	
 	if (!core->load_rom(core, NULL, 0, rom))
 	{
 		if (wndw) wndw->set_title(wndw, "minir");
