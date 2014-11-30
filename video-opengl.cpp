@@ -283,7 +283,7 @@ public:
 		(f_3d_base<<RETRO_HW_CONTEXT_OPENGL_CORE)|
 		(f_3d_base<<RETRO_HW_CONTEXT_OPENGLES3)|
 		(f_3d_base<<RETRO_HW_CONTEXT_OPENGLES_VERSION)|
-		(f_sh_base<<shader::ty_glsl);
+		(f_sh_base<<shader::la_glsl);
 	uint32_t features()
 	{
 		static uint32_t features=0;
@@ -625,6 +625,7 @@ public:
 		in|=in>>4;
 		in|=in>>16;
 		in++;
+if(in==512)in=1024;
 		return in;
 	}
 	
@@ -704,7 +705,7 @@ public:
 		
 		end();
 		return true;
-	}
+e	}
 	
 	/*private*/ void set_source_3d(unsigned int max_width, unsigned int max_height, videoformat depth)
 	{
@@ -712,23 +713,14 @@ public:
 		this->in_texheight=bitround(max_height);
 		
 		gl.BindTexture(GL_TEXTURE_2D, this->sh_tex[0]);
-		gl.TexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, this->in_texwidth, this->in_texheight, 0, GL_RGBA, GL_UNSIGNED_INT_8_8_8_8, NULL);
-		
+e		gl.TexImage2D(GL_TEXTURE_2D, 0, GL_RGB, this->in_texwidth, this->in_texheight, 0, GL_RGBA, GL_UNSIGNED_INT_8_8_8_8, NULL);
+e		
 		if (this->in3.depth)
 		{
-			gl.BindFramebuffer(GL_FRAMEBUFFER, this->sh_fbo[0]);
-			
 			gl.BindRenderbuffer(GL_RENDERBUFFER, this->in3_renderbuffer);
-			gl.RenderbufferStorage(GL_RENDERBUFFER, this->in3.stencil ? GL_DEPTH24_STENCIL8 : GL_DEPTH_COMPONENT16, bitround(max_width), bitround(max_height));
-			
-			if (this->in3.stencil)
-			{
-				gl.FramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT, GL_RENDERBUFFER, this->in3_renderbuffer);
-			}
-			else
-			{
-				gl.FramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, this->in3_renderbuffer);
-			}
+			gl.RenderbufferStorage(GL_RENDERBUFFER, this->in3.stencil ? GL_DEPTH24_STENCIL8 : GL_DEPTH_COMPONENT16, this->in_texwidth, this->in_texheight);
+			gl.BindFramebuffer(GL_FRAMEBUFFER, this->sh_fbo[0]);
+			gl.FramebufferRenderbuffer(GL_FRAMEBUFFER, this->in3.stencil ? GL_DEPTH_STENCIL_ATTACHMENT : GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, this->in3_renderbuffer);
 		}
 	}
 	
@@ -1020,23 +1012,17 @@ public:
 				gl.BindFramebuffer(GL_FRAMEBUFFER, this->sh_fbo[pass]);
 				gl.FramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, this->sh_tex[pass], 0);
 			}
+			if (this->is3d && pass==0)
+			{
+				gl.BindFramebuffer(GL_FRAMEBUFFER, this->sh_fbo[0]);
+				gl.FramebufferRenderbuffer(GL_FRAMEBUFFER, this->in3.stencil ? GL_DEPTH_STENCIL_ATTACHMENT : GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, this->in3_renderbuffer);
+			}
 		}
 		
 //vertex vec4 COLOR [ = (0,0.5,1,0.8) ] [to be changed to 1,1,1,1 if it works]
 //global mat4 MVPMatrix [ = ((1,0,0,0),(0,1,0,0),(0,0,1,0),(0,0,0,1)) ]
 		
 		return true;
-	}
-	
-	const struct shader::param_t * get_shader_params(unsigned int * count)
-	{
-		*count=0;
-		return NULL;
-	}
-	
-	bool set_shader_param(unsigned int index, double value)
-	{
-		return false;
 	}
 	
 	

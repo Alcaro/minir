@@ -97,6 +97,14 @@ public:
 };
 
 
+#ifndef HAVE_ASPRINTF
+void asprintf(char * * ptr, const char * fmt, ...);
+#else
+//if I cast it to void, that means I do not care, so shut the hell up about warn_unused_result.
+static inline void shutupgcc(int x){}
+#define asprintf(...) shutupgcc(asprintf(__VA_ARGS__))
+#endif
+
 #include "window.h"
 #include "image.h"
 
@@ -203,7 +211,7 @@ public:
 		//f_a_vsync=0x000000,//[Windows] Can almost vsync - framerate is 60, but it stutters due to DWM being trash.
 		f_shaders=0x00000380,//Each of these bits correspond to f_sh_base<<shader::type. Due to its special status, sh_nearest is not included.
 		f_sh_base=0x00000040,//Base value for shaders. This specific bit must not be checked.
-		f_3d    = 0x0000003F,//Each of these bits correspond to f_3d_base<<retro_hw_context_type.
+		f_3d    = 0x0000003E,//Each of these bits correspond to f_3d_base<<retro_hw_context_type.
 		f_3d_base=0x00000001,//Base value for 3d. This specific bit is never set, because it corresponds to RETRO_HW_CONTEXT_NONE.
 	};
 	//Returns the features this driver supports. Can be called on any thread, both before and after initialize().
@@ -245,68 +253,134 @@ public:
 	virtual void set_vsync(double fps) {}
 	
 	//Shaders can only be set after initialize().
-	struct shader {
-		enum type_t {
-			ty_glsl,
-			ty_cg,
-			ty_hlsl,
-		};
-		type_t type;
-		
+	class shader : nocopy {
+	public:
+		enum lang_t { la_glsl, la_cg };
 		enum interp_t { in_nearest, in_linear };
 		enum wrap_t { wr_border, wr_edge, wr_repeat, wr_mir_repeat };
 		enum scale_t { sc_source, sc_viewport, sc_absolute };
-		unsigned int n_pass;
+		enum fbo_t { fb_normal, fb_float, fb_srgb };
+		
 		struct pass_t {
+			lang_t lang;
 			const char * source;
 			interp_t interpolate;
 			wrap_t wrap;
+			unsigned int frame_max; // 0 for UINT_MAX.
+			fbo_t fboformat;
+			bool mipmap_input;
+			scale_t scale_type;
+			float scale_x;
+			float scale_y;
 		};
-		const struct pass_t * pass;
+		unsigned int n_pass;
+		// NULL is possible if translate() can't handle this, if the file is not found, or similar.
+		virtual const struct pass_t * pass(unsigned int n, lang_t language) = 0;
+		virtual void pass_free(const struct pass_t * pass) = 0;
 		
-		//double scale_x;
-		//double scale_y;
+		// Returns NULL if it doesn't know how to do this translation. Send it to free() once you're done with it.
+		static char * translate(lang_t from, lang_t to, const char * text);
 		
-		//can be 0, which means "use whatever"
-		//if aspect is not 0, it should be obeyed precisely, with scale_x and scale_y as weak hints
-		//double aspect;
 		
-		struct param_t {
+		struct tex_t {
 			const char * name;
-			const char * pub_name;
-			double min;
-			double max;
-			double initial;
-			//shaders recommend a certain step size too, but minir doesn't do that.
+			struct image data;
+			bool linear;
+			bool mipmap;
+			wrap_t wrap;
 		};
+		unsigned int n_tex;
+		virtual const struct tex_t * texture(unsigned int n) = 0;
+		virtual void texture_free(const struct tex_t * texture) = 0;
 		
-		unsigned int n_param;
-		const struct param_t * param;
+		
+		class var : nocopy {
+		public:
+			//These three are read-only, and they combine imports and parameters. video_* doesn't need to care which is which, they should just obey.
+			//The IDs have no relation to the IDs elsewhere.
+			const char * const * out_get_names(unsigned int * count);
+			struct change_t {
+				unsigned int index;
+				float val;
+			};
+			const change_t * out_get_changed(unsigned int * count);//This may return duplicates.
+			const change_t * out_get_all(unsigned int * count);
+			
+			//se_constant should only be used internally.
+			enum semantic_t { se_constant, se_capture, se_capture_previous, se_transition, se_transition_count, se_transition_previous, se_python };
+			enum source_t { so_wram, so_input };
+			struct auto_t {
+				const char * name;
+				
+				semantic_t sem;
+				source_t source;
+				size_t index;//for so_wram, byte offset; for so_input, 0/1 for P1/P2
+				uint8_t mask;
+				uint8_t equal;
+			};
+			struct param_t {
+				const char * name;
+				const char * pub_name;
+				double min;
+				double max;
+				double initial;
+				//shaders recommend a certain step size too, but minir prefers doing that on its own.
+			};
+			//Only video::shader_* should call this.
+			/*protected*/ void setup(const struct auto_t * auto_items, unsigned int auto_count, const struct param_t * params, unsigned int param_count);
+			
+			//Must be called exactly once, before the first auto_frame.
+			void auto_set_wram(uint8_t* data, size_t size) { this->au_wram=data; this->au_wramsize=size; }
+			//Call this every frame, or whenever it changes.
+			void auto_set_input(uint16_t player1, uint16_t player2) { this->au_input[0]=player1; this->au_input[1]=player2; }
+			//Resets the state of all autos.
+			void auto_reset();
+			//This reads WRAM and input and updates all relevant parameters.
+			void auto_frame();
+			
+			struct param_t param_get(unsigned int * count);
+			void param_set(unsigned int id, double val);
+			
+			~var();
+			
+		private:
+			uint16_t au_input[2];
+			
+			uint8_t* au_wram;
+			size_t au_wramsize;
+			
+			uint32_t au_framecount;
+			
+			struct au_item {
+				semantic_t sem;
+				source_t src;//can't optimize into uint16* because that would violate alignment
+				size_t index;
+				uint16_t mask;
+				uint16_t equal;
+				//parent->values[i] is conceptually part of this too
+				
+				uint32_t last;
+				uint32_t prev;
+				uint32_t transition;
+			};
+			struct au_item * au_items;
+		} variable;
+		
+		static shader* create_from_file(const char * filename);
+		virtual ~shader() = 0;
 	};
-	static shader* shader_parse(const char * filename);
-	static shader* shader_clone(const shader* other);
-	static void shader_delete(shader* obj);
-	
-	//The return value from this belongs in free().
-	static char * shader_translate(shader::type_t in, shader::type_t out, const char * source);
-	
-	//This one should end in shader_delete().
-	static shader* shader_translate(const shader* in, shader::type_t out);
 	
 	//The shader object is used only during this call; it can safely be deleted afterwards.
 	//NULL is valid and means nearest-neighbor. The shader can be set multiple times, both with NULL and non-NULL arguments.
 	virtual bool set_shader(const shader* sh) { return (!sh); }
-	bool set_shader_from_file(const char * path)
+	bool set_shader_from_file(const char * filename)
 	{
-		shader* sh=shader_parse(path);
+		shader* sh=shader::create_from_file(filename);
 		if (!sh) return false;
 		bool ret=set_shader(sh);
-		shader_delete(sh);
+		delete sh;
 		return ret;
 	}
-	
-	virtual const struct shader::param_t * get_shader_params(unsigned int * count) { *count=0; return NULL; }
-	virtual bool set_shader_param(unsigned int index, double value) { return false; }
 	
 	//This sets the final size of the object output.
 	virtual void set_dest_size(unsigned int width, unsigned int height) = 0;

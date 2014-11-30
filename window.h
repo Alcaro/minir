@@ -541,7 +541,8 @@ const char * const * window_file_picker(struct window * parent,
 
 //These two allow use of the current working directory in multithreaded programs.
 //If dir is NULL, uses window_cwd_get_default().
-//Between calls to these, the current directory will be set to something undefined that is extremely unlikely to contain anything useful.
+//Outside calls to these, the current directory will be set to something unspecified that is extremely
+// unlikely to contain anything useful. The program will preferably not have write access to it.
 void window_cwd_enter(const char * dir);
 void window_cwd_leave();
 

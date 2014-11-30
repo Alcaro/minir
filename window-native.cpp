@@ -129,32 +129,6 @@ const char * window_get_proc_path()
 	return path;
 }
 
-static mutex* cwd_lock;
-static char * cwd_init;
-static char * cwd_bogus;
-static char * cwd_bogus_check;
-static size_t cwd_bogus_check_len;
-
-void window_cwd_enter(const char * dir)
-{
-	cwd_lock->lock();
-	GetCurrentDirectory(cwd_bogus_check_len, cwd_bogus_check);
-	if (strcmp(cwd_bogus, cwd_bogus_check)!=0) abort();//if this fires, someone changed the directory without us knowing - not allowed. cwd belongs to the frontend.
-	if (dir) SetCurrentDirectory(dir);
-	else SetCurrentDirectory(cwd_init);
-}
-
-void window_cwd_leave()
-{
-	SetCurrentDirectory(cwd_bogus);
-	cwd_lock->unlock();
-}
-
-const char * window_cwd_get_default()
-{
-	return cwd_init;
-}
-
 char * _window_native_get_absolute_path(const char * basepath, const char * path, bool allow_up)
 {
 	if (!path) return NULL;

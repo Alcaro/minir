@@ -2,11 +2,85 @@
 #include <ctype.h>
 #include <stdio.h>
 
-//static void read_params(video::shader* sh, const char * data)
-//{
-	
-//}
+void video::shader::var::auto_frame()
+{
+	for (unsigned int i=0;i<this->count;i++)
+	{
+		//the compiler will flatten all these references
+		float& out=this->values[i];
+		
+		au_item* item=&this->items[i];
+		uint16_t val;
+		if (items[i].src==so_input) val=input[item->index];
+		else val=wram[item->index];
+		
+		val&=item->mask;
+		if (item->equal && val!=item->equal) val=0;
+		
+		uint32_t& last=item->last;
+		uint32_t& prev=item->prev;
+		uint32_t& transition=item->transition;
+		
+		switch (item->sem)
+		{
+		case se_constant:
+			{
+				//used if it refers to out-of-bounds WRAM, and other invalid cases
+				break;
+			}
+		case se_capture:
+			{
+				out=val;
+				break;
+			}
+		case se_capture_previous:
+			{
+				if (val!=last)
+				{
+					prev=last;
+					last=val;
+				}
+				out=prev;
+				break;
+			}
+		case se_transition:
+			{
+				if (val!=last)
+				{
+					last=val;
+					transition=this->framecount;
+				}
+				out=transition;
+				break;
+			}
+		case se_transition_count:
+			{
+				if (val!=last)
+				{
+					last=val;
+					transition++;
+				}
+				out=transition;
+				break;
+			}
+		case se_transition_previous:
+			{
+				if (val!=last)
+				{
+					last=val;
+					prev=transition;
+					transition=this->framecount;
+				}
+				out=prev;
+				break;
+			}
+		case se_python: break;//TODO
+		}
+	}
+	this->framecount++;
+}
 
+#if 0
 video::shader* video::shader_parse(const char * filename)
 {
 	const char * ext=strrchr(filename, '.');
@@ -167,6 +241,15 @@ video::shader* video::shader_parse(const char * filename)
 		}
 		//for each import:
 		//%_semantic - {capture, transition, transition_count, capture_previous, transition_previous, python}
+		//%_input_slot - {1, 2}
+		//%_wram - hex
+		//%_mask - hex
+		//%_equal - hex
+		//additionally:
+		//import_script - string
+		//import_script_class - string
+		//likely used only for semantic=python
+		//
 		// def fetch:
 		//  u16 ret;
 		//  if exist %_input_slot: ret=game::input[slot] as uint16;
@@ -183,8 +266,9 @@ video::shader* video::shader_parse(const char * filename)
 		//   val=new;
 		//  return prev;
 		//
+		//if semantic is:
 		// capture:
-		//  fetch()
+		//  return fetch()
 		// transition:
 		//  static u16 prev;
 		//  static u32 prev_framecount;
@@ -203,17 +287,7 @@ video::shader* video::shader_parse(const char * filename)
 		//  return delay(capture());
 		// transition_previous:
 		//  return delay(transition());
-		//  
-		// python: ignore
-		//
-		//%_input_slot - {1, 2}
-		//%_wram - hex
-		//%_mask - hex
-		//%_equal - hex
-		//additionally:
-		//import_script - string
-		//import_script_class - string
-		//likely used only for semantic=python
+		// python: ???
 		
 		else goto error;
 	}
@@ -281,3 +355,4 @@ video::shader* video::shader_translate(const shader* in, shader::type_t out)
 	}
 	return ret;
 }
+#endif

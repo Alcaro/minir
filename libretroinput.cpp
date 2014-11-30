@@ -42,12 +42,13 @@ static int16_t query(struct libretroinput * this_, unsigned port, unsigned devic
 		}
 case RETRO_DEVICE_ANALOG:
 {
+//TODO: Do this properly.
 if (port!=0) return 0;
 if (index!=RETRO_DEVICE_INDEX_ANALOG_LEFT) return 0;
 unsigned int base_id=(id==RETRO_DEVICE_ID_ANALOG_X ? 6 : 4);
 int16_t ret=0;
-if (this->in->button(this->in, this->joypad_index_start[port]+base_id, false)) ret-=0x4000;
-if (this->in->button(this->in, this->joypad_index_start[port]+base_id+1, false)) ret+=0x4000;
+if (this->in->button(this->in, this->joypad_index_start[port]+base_id, false)) ret-=0x7FFF;
+if (this->in->button(this->in, this->joypad_index_start[port]+base_id+1, false)) ret+=0x7FFF;
 return ret;
 }
 	}

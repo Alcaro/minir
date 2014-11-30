@@ -62,14 +62,6 @@ void unalign_unlock() {}
 
 #define rewind rewind_//go away, stdio
 
-#ifndef HAVE_ASPRINTF
-void asprintf(char * * ptr, const char * fmt, ...);
-#else
-//if I cast it to void, that means I do not care, so shut the hell up about warn_unused_result.
-static inline void shutupgcc(int x){}
-#define asprintf(...) shutupgcc(asprintf(__VA_ARGS__))
-#endif
-
 video* vid;
 video* vid3d;
 struct audio * aud;
@@ -263,6 +255,7 @@ void create_interface_input(uintptr_t windowhandle)
 
 void create_interfaces(unsigned int videowidth, unsigned int videoheight, videoformat videodepth, double videofps)
 {
+	if (vid==vid3d) return;
 	if (vid) delete vid; vid=NULL;
 	if (aud) aud->free(aud); aud=NULL;
 	
@@ -297,7 +290,8 @@ void reset_config()
 	
 	if (romloaded==coreloaded) configmgr->data_load(configmgr, &config, true, NULL, romloaded);
 	else configmgr->data_load(configmgr, &config, true, coreloaded, romloaded);
-	if (!inp) return;
+printf("RESET CONFIG - INPUT = %p\n",inp);
+	//if (!inp) return;
 	
 	unsigned int videowidth=320;
 	unsigned int videoheight=240;
@@ -823,6 +817,13 @@ void initialize(int argc, char * argv[])
 	const int divider=180;
 	wndw->statusbar_create(wndw, 2, align, &divider);
 	
+	retroinp=libretroinput_create(NULL);
+	inp=inputmapper_create();
+	rewind=rewindstack_create(0, 0);
+	
+	cheats=minircheats_create();
+	cheats->set_parent(cheats, wndw);
+	
 	if (argc==1)
 	{
 		const char * defautoload=configmgr->get_autoload(configmgr);
@@ -851,13 +852,6 @@ void initialize(int argc, char * argv[])
 		wndw->statusbar_set(wndw, 0, statusbar_to_load);
 		free(statusbar_to_load);
 	}
-	
-	retroinp=libretroinput_create(NULL);
-	inp=inputmapper_create();
-	rewind=rewindstack_create(0, 0);
-	
-	cheats=minircheats_create();
-	cheats->set_parent(cheats, wndw);
 	
 	update_menu();
 	reset_config();
