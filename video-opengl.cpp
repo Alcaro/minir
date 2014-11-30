@@ -465,7 +465,10 @@ public:
 		
 		if (glxmajor*10+glxminor >= 13 && false)
 		{
-			static const int attributes[]={ GLX_DOUBLEBUFFER, True, None };
+			static const int attributes[]={
+				GLX_DOUBLEBUFFER, True,
+				GLX_DRAWABLE_TYPE, GLX_WINDOW_BIT,
+				None };
 			
 			int numconfig;
 			GLXFBConfig* configs=glx.ChooseFBConfig(this->display, screen, attributes, &numconfig);
