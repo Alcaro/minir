@@ -104,9 +104,11 @@ void _window_init_shared()
 	
 	cwd_init=getcwd(NULL, 0);
 	//try a couple of useless directories and hope one of them works
+	chdir("/");
 	chdir("/tmp");
 	chdir("/home");
 	chdir("/dev");
+	chdir("/dev/cpu");
 	cwd_bogus=getcwd(NULL, 0);
 }
 
