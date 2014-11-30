@@ -164,7 +164,7 @@ void create_interface_video(uintptr_t windowhandle, unsigned int videowidth, uns
 {
 	if (config.driver_video)
 	{
-		for (unsigned int i=0;list_video[i]->name;i++)
+		for (unsigned int i=0;list_video[i];i++)
 		{
 			if (!strcasecmp(config.driver_video, list_video[i]->name))
 			{
