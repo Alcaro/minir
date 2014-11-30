@@ -5,6 +5,7 @@
 #define __STDC_LIMIT_MACROS
 #include <stdint.h>
 #include <stddef.h>
+#include <stdio.h>
 #include "host.h"
 
 //Note to anyone interested in reusing these objects:
@@ -12,11 +13,6 @@
 //Additionally, there are plenty of restrictions beyond private/public. Most stuff that seems public is, but not all.
 
 #include "function.h"
-
-#ifdef DEBUG
-//Having to include this one all the time annoys me.
-#include <stdio.h>
-#endif
 
 //#ifndef NO_ANON_UNION_STRUCT//For crappy compilers.
 //Mandatory because there's a pile of unions in struct config.
