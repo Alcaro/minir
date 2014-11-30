@@ -303,11 +303,32 @@ public:
 				unsigned int index;
 				float val;
 			};
-			const change_t * out_get_changed(unsigned int * count);//This may return duplicates.
+			const change_t * out_get_changed(unsigned int * count);//The return value may contain duplicates.
 			const change_t * out_get_all(unsigned int * count);
 			
-			//se_constant should only be used internally.
-			enum semantic_t { se_constant, se_capture, se_capture_previous, se_transition, se_transition_count, se_transition_previous, se_python };
+			//Must be called exactly once, before the first auto_frame.
+			void auto_set_wram(uint8_t* data, size_t size);
+			//Call this every frame, or whenever it changes.
+			void auto_set_input(uint16_t player1, uint16_t player2) { this->au_input[0]=player1; this->au_input[1]=player2; }
+			//Resets the state of all autos.
+			void auto_reset();
+			//This reads WRAM and input and updates all relevant parameters.
+			void auto_frame();
+			
+			struct param_t * param_get(unsigned int * count);
+			void param_set(unsigned int id, double val);
+			
+			//Only video::shader_* should use these.
+		/*protected:*/
+			enum semantic_t {
+				se_constant, // For internal use only.
+				se_capture,
+				se_capture_previous,
+				se_transition,
+				se_transition_previous,
+				se_transition_count,
+				se_python
+			};
 			enum source_t { so_wram, so_input };
 			struct auto_t {
 				const char * name;
@@ -327,23 +348,16 @@ public:
 				//shaders recommend a certain step size too, but minir prefers doing that on its own.
 			};
 			//Only video::shader_* should call this.
-			/*protected*/ void setup(const struct auto_t * auto_items, unsigned int auto_count, const struct param_t * params, unsigned int param_count);
-			
-			//Must be called exactly once, before the first auto_frame.
-			void auto_set_wram(uint8_t* data, size_t size) { this->au_wram=data; this->au_wramsize=size; }
-			//Call this every frame, or whenever it changes.
-			void auto_set_input(uint16_t player1, uint16_t player2) { this->au_input[0]=player1; this->au_input[1]=player2; }
-			//Resets the state of all autos.
-			void auto_reset();
-			//This reads WRAM and input and updates all relevant parameters.
-			void auto_frame();
-			
-			struct param_t param_get(unsigned int * count);
-			void param_set(unsigned int id, double val);
+			void setup(const struct auto_t * auto_items, unsigned int auto_count, const struct param_t * params, unsigned int param_count);
 			
 			~var();
 			
 		private:
+			struct change_t * out_changes;
+			unsigned int out_numchanges;
+			unsigned int out_changes_buflen;
+			void out_append(unsigned int index, float value);
+			
 			uint16_t au_input[2];
 			
 			uint8_t* au_wram;

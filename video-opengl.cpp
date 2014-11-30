@@ -463,7 +463,7 @@ public:
 		
 		bool doublebuffer;//TODO: use
 		
-		if (glxmajor*10+glxminor >= 13)
+		if (glxmajor*10+glxminor >= 13 && false)
 		{
 			static const int attributes[]={ GLX_DOUBLEBUFFER, True, None };
 			
@@ -474,10 +474,6 @@ public:
 			if (!configs) return false;
 			
 			XVisualInfo* vis=glx.GetVisualFromFBConfig(this->display, configs[0]);
-			
-			XSetWindowAttributes attr;
-			memset(&attr, 0, sizeof(attr));
-			attr.colormap=XCreateColormap(this->display, (Window)windowhandle, vis->visual, AllocNone);
 			
 			this->window=glx.CreateWindow(this->display, configs[0], (Window)windowhandle, NULL);
 			this->glxwindow=true;
@@ -521,6 +517,7 @@ public:
 			XSetWindowAttributes attr;
 			memset(&attr, 0, sizeof(attr));
 			attr.colormap=XCreateColormap(this->display, (Window)windowhandle, vis->visual, AllocNone);
+			this->colormap=attr.colormap;
 			attr.event_mask=StructureNotifyMask;//for MapNotify
 			
 			this->window=XCreateWindow(this->display, (Window)windowhandle, 0, 0, 16, 16, 0,
@@ -625,7 +622,6 @@ public:
 		in|=in>>4;
 		in|=in>>16;
 		in++;
-if(in==512)in=1024;
 		return in;
 	}
 	
@@ -925,7 +921,7 @@ e
 			free(this->sh_fbo);
 		}
 		
-		this->sh_passes=sh->n_pass;
+		this->sh_passes=1;//TODO
 		this->sh_prog=malloc(sizeof(GLuint)*this->sh_passes);
 		
 		this->sh_tex=malloc(sizeof(GLuint)*this->sh_passes);

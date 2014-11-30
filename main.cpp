@@ -255,8 +255,11 @@ void create_interface_input(uintptr_t windowhandle)
 
 void create_interfaces(unsigned int videowidth, unsigned int videoheight, videoformat videodepth, double videofps)
 {
-	if (vid==vid3d) return;
-	if (vid) delete vid; vid=NULL;
+	if (vid && vid!=vid3d)
+	{
+		delete vid;
+		vid=NULL;
+	}
 	if (aud) aud->free(aud); aud=NULL;
 	
 	if (vid3d)
@@ -290,7 +293,6 @@ void reset_config()
 	
 	if (romloaded==coreloaded) configmgr->data_load(configmgr, &config, true, NULL, romloaded);
 	else configmgr->data_load(configmgr, &config, true, coreloaded, romloaded);
-printf("RESET CONFIG - INPUT = %p\n",inp);
 	//if (!inp) return;
 	
 	unsigned int videowidth=320;

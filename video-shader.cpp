@@ -2,6 +2,13 @@
 #include <ctype.h>
 #include <stdio.h>
 
+#if 0
+const char * const * video::shader::var::out_get_names(unsigned int * count);
+const change_t * video::shader::var::out_get_changed(unsigned int * count);
+const change_t * video::shader::var::out_get_all(unsigned int * count);
+void video::shader::var::auto_set_wram(uint8_t* data, size_t size);
+void video::shader::var::auto_reset();
+
 void video::shader::var::auto_frame()
 {
 	for (unsigned int i=0;i<this->count;i++)
@@ -9,9 +16,9 @@ void video::shader::var::auto_frame()
 		//the compiler will flatten all these references
 		float& out=this->values[i];
 		
-		au_item* item=&this->items[i];
+		au_item* item=&this->au_items[i];
 		uint16_t val;
-		if (items[i].src==so_input) val=input[item->index];
+		if (item->src==so_input) val=input[item->index];
 		else val=wram[item->index];
 		
 		val&=item->mask;
@@ -48,7 +55,7 @@ void video::shader::var::auto_frame()
 				if (val!=last)
 				{
 					last=val;
-					transition=this->framecount;
+					transition=this->au_framecount;
 				}
 				out=transition;
 				break;
@@ -69,7 +76,7 @@ void video::shader::var::auto_frame()
 				{
 					last=val;
 					prev=transition;
-					transition=this->framecount;
+					transition=this->au_framecount;
 				}
 				out=prev;
 				break;
@@ -79,6 +86,9 @@ void video::shader::var::auto_frame()
 	}
 	this->framecount++;
 }
+
+struct param_t video::shader::var::param_get(unsigned int * count);
+void video::shader::var::param_set(unsigned int id, double val);
 
 #if 0
 video::shader* video::shader_parse(const char * filename)
@@ -355,4 +365,5 @@ video::shader* video::shader_translate(const shader* in, shader::type_t out)
 	}
 	return ret;
 }
+#endif
 #endif
