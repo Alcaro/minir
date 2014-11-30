@@ -572,7 +572,7 @@ public:
 		
 		if (debug && gl.DebugMessageCallback)
 		{
-			gl.DebugMessageCallback(this->debug_cb_s, this);
+			gl.DebugMessageCallback((GLDEBUGPROC)this->debug_cb_s, this);//some headers lack 'const' on the userdata, which throws errors
 			gl.DebugMessageControl(GL_DONT_CARE, GL_DONT_CARE, GL_DONT_CARE, 0, NULL, GL_TRUE);
 			gl.Enable(GL_DEBUG_OUTPUT_SYNCHRONOUS_ARB);
 		}
