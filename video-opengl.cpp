@@ -463,7 +463,7 @@ public:
 		
 		bool doublebuffer;//TODO: use
 		
-		if (glxmajor*10+glxminor >= 13 && false)
+		if (glxmajor*10+glxminor >= 13)
 		{
 			static const int attributes[]={
 				GLX_DOUBLEBUFFER, True,
@@ -473,10 +473,8 @@ public:
 			int numconfig;
 			GLXFBConfig* configs=glx.ChooseFBConfig(this->display, screen, attributes, &numconfig);
 			doublebuffer=(configs);
-			if (!configs) configs=glx.ChooseFBConfig(this->display, screen, NULL, &numconfig);
+			if (!configs) configs=glx.ChooseFBConfig(this->display, screen, attributes+2, &numconfig);
 			if (!configs) return false;
-			
-			XVisualInfo* vis=glx.GetVisualFromFBConfig(this->display, configs[0]);
 			
 			this->window=glx.CreateWindow(this->display, configs[0], (Window)windowhandle, NULL);
 			this->glxwindow=true;
