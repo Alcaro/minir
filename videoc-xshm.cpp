@@ -66,6 +66,7 @@ static void reinit(struct video * this_, unsigned int screen_width, unsigned int
 	this->shmInfo.shmaddr=(char*)shmat(this->shmInfo.shmid, 0, 0);
 	this->shmInfo.readOnly=False;
 	XShmAttach(this->display, &this->shmInfo);
+	XSync(this->display,False);//no idea why this is required, but I get weird errors without it
 	this->image=XShmCreateImage(this->display, NULL, 24, ZPixmap,
 	                            this->shmInfo.shmaddr, &this->shmInfo, screen_width, screen_height);
 	
