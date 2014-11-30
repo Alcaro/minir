@@ -889,22 +889,9 @@ e
 		return program;
 	}
 	
-	bool set_shader(const shader* sh)
+	bool set_shader(const shader * sh)
 	{
-		if (!sh)
-		{
-			//shader variables, mandatory:
-			//vertex vec2 TexCoord [ = VertexCoord]
-			//vertex vec2 VertexCoord [ = (0,0), (0,1), (1,0), (1,1) ]
-			//vertex vec4 COLOR [ = (0,0.5,1,0.8) ] [to be changed to 1,1,1,1 if it works]
-			//global mat4 MVPMatrix [ = ((1,0,0,0),(0,1,0,0),(0,0,1,0),(0,0,0,1)) ]
-			//global sampler2D Texture
-			//there are more
-			
-			//shader variables in action:
-			//https://github.com/libretro/RetroArch/blob/master/gfx/shader/shader_glsl.c
-			
-			static const char * defaultshader_text =
+		static const char * defaultshader =
 			"varying vec2 tex_coord;\n"
 			"#if defined(VERTEX)\n"
 				"attribute vec2 TexCoord;\n"
@@ -921,32 +908,6 @@ e
 					"gl_FragColor = texture2D(Texture, tex_coord);\n"
 				"}\n"
 			"#endif\n";
-			static const shader::pass_t defaultshader_pass={
-				/*source*/      defaultshader_text,
-				/*interpolate*/ shader::in_nearest,
-				/*wrap*/        shader::wr_border
-			};
-			static const shader defaultshader={
-				/*type*/     shader::ty_glsl,
-				/*n_pass*/   1,
-				/*pass*/     &defaultshader_pass,
-				///*scale_x*/  1,
-				///*scale_y*/  1,
-				///*aspect*/   0,
-				/*n_params*/ 0,
-				/*params*/   NULL
-			};
-			sh=&defaultshader;
-		}
-		
-		if (sh->type != shader::ty_glsl)
-		{
-			shader* sh_new=shader_translate(sh, shader::ty_glsl);
-			if (!sh_new) return false;
-			bool ret=set_shader(sh_new);
-			shader_delete(sh_new);
-			return ret;
-		}
 		
 		if (this->sh_prog)
 		{
@@ -975,7 +936,7 @@ e
 		
 		for (unsigned int pass=0;pass<this->sh_passes;pass++)
 		{
-			GLuint prog=createShaderProg(210, sh->pass[pass].source);
+			GLuint prog=createShaderProg(210, defaultshader);
 			gl.UseProgram(prog);
 			this->sh_prog[pass]=prog;
 			
@@ -1015,7 +976,8 @@ e
 			if (this->is3d && pass==0)
 			{
 				gl.BindFramebuffer(GL_FRAMEBUFFER, this->sh_fbo[0]);
-				gl.FramebufferRenderbuffer(GL_FRAMEBUFFER, this->in3.stencil ? GL_DEPTH_STENCIL_ATTACHMENT : GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, this->in3_renderbuffer);
+				GLenum attachment = (this->in3.stencil ? GL_DEPTH_STENCIL_ATTACHMENT : GL_DEPTH_ATTACHMENT);
+				gl.FramebufferRenderbuffer(GL_FRAMEBUFFER, attachment, GL_RENDERBUFFER, this->in3_renderbuffer);
 			}
 		}
 		
