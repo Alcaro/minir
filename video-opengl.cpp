@@ -306,8 +306,9 @@ public:
 #ifdef WNDPROT_X11
 	Display* display;
 	
-	Window window;
-	bool glxwindow;
+	Window xwindow;
+	GLXWindow glxwindow;
+	GLXDrawable glxsurface;
 	Colormap colormap;
 	
 	GLXContext context;
@@ -376,7 +377,7 @@ public:
 		wgl.MakeCurrent(this->hdc, this->hglrc);
 #endif
 #ifdef WNDPROT_X11
-		glx.MakeCurrent(this->display, this->window, this->context);
+		glx.MakeCurrent(this->display, this->glxsurface, this->context);
 #endif
 	}
 	
@@ -386,7 +387,7 @@ public:
 		wgl.MakeCurrent(this->hdc, NULL);
 #endif
 #ifdef WNDPROT_X11
-		glx.MakeCurrent(this->display, this->window, NULL);
+		glx.MakeCurrent(this->display, this->glxsurface, NULL);
 #endif
 	}
 	
@@ -449,6 +450,23 @@ public:
 		return (ev->type==MapNotify && ev->xmap.window==(Window)arg);
 	}
 	
+	/*private*/ Window create_x11_window(Display* display, int screen, Window parent, XVisualInfo* vis, Colormap* colormap)
+	{
+		XSetWindowAttributes attr;
+		memset(&attr, 0, sizeof(attr));
+		attr.colormap=XCreateColormap(display, (Window)parent/*why is this not a screen*/, vis->visual, AllocNone);
+		*colormap=attr.colormap;
+		attr.event_mask=StructureNotifyMask;//for MapNotify
+		
+		Window window=XCreateWindow(display, (Window)parent, 0, 0, 16, 16, 0,
+		                            vis->depth, InputOutput, vis->visual, CWColormap|CWEventMask, &attr);
+		
+		XMapWindow(this->display, window);
+		XEvent ignore;
+		XPeekIfEvent(this->display, &ignore, this->XWaitForCreate, (char*)window);
+		return window;
+	}
+	
 	/*private*/ bool create_context(uintptr_t windowhandle, bool gles, unsigned int major, unsigned int minor, bool debug)
 	{
 		if (gles) return false;//rejected for now
@@ -476,8 +494,9 @@ public:
 			if (!configs) configs=glx.ChooseFBConfig(this->display, screen, attributes+2, &numconfig);
 			if (!configs) return false;
 			
-			this->window=glx.CreateWindow(this->display, configs[0], (Window)windowhandle, NULL);
-			this->glxwindow=true;
+			this->xwindow=None;
+			this->glxwindow=glx.CreateWindow(this->display, configs[0], (Window)windowhandle, NULL);
+			this->glxsurface=this->glxwindow;
 			
 			PFNGLXCREATECONTEXTATTRIBSARBPROC glXCreateContextAttribs =
 				(PFNGLXCREATECONTEXTATTRIBSARBPROC)glx.GetProcAddress((const GLubyte *)"glXCreateContextAttribsARB");
@@ -515,22 +534,12 @@ public:
 			this->context=glx.CreateContext(this->display, vis, NULL, True);
 			if (!this->context) return false;
 			
-			XSetWindowAttributes attr;
-			memset(&attr, 0, sizeof(attr));
-			attr.colormap=XCreateColormap(this->display, (Window)windowhandle, vis->visual, AllocNone);
-			this->colormap=attr.colormap;
-			attr.event_mask=StructureNotifyMask;//for MapNotify
-			
-			this->window=XCreateWindow(this->display, (Window)windowhandle, 0, 0, 16, 16, 0,
-			                           vis->depth, InputOutput, vis->visual, CWColormap|CWEventMask, &attr);
-			this->glxwindow=false;
-			
-			XMapWindow(this->display, this->window);
-			XEvent ignore;
-			XPeekIfEvent(this->display, &ignore, this->XWaitForCreate, (char*)this->window);
+			this->xwindow = this->create_x11_window(this->display, screen, (Window)windowhandle, vis, &this->colormap);
+			this->glxwindow = None;
+			this->glxsurface = this->xwindow;
 		}
 		
-		glx.MakeCurrent(this->display, this->window, this->context);
+		this->begin();
 	}
 #endif
 	
@@ -546,7 +555,9 @@ public:
 		
 #ifdef WNDPROT_X11
 		this->display=window_x11_get_display()->display;
-		this->window=None;
+		this->xwindow=None;
+		this->glxwindow=None;
+		this->glxsurface=None;
 		this->colormap=None;
 #endif
 #ifdef WNDPROT_WINDOWS
@@ -807,7 +818,7 @@ e
 			wgl.SwapBuffers(this->hdc);
 #endif
 #ifdef WNDPROT_X11
-			glx.SwapBuffers(this->display, this->window);
+			glx.SwapBuffers(this->display, this->glxsurface);
 #endif
 		}
 		else
@@ -828,7 +839,7 @@ e
 #ifdef WNDPROT_X11
 		if (gl.SwapIntervalSGI) gl.SwapIntervalSGI(fps ? 1 : 0);
 		if (gl.SwapIntervalMESA) gl.SwapIntervalMESA(fps ? 1 : 0);
-		if (gl.SwapIntervalEXT) gl.SwapIntervalEXT(this->display, this->window, fps ? 1 : 0);
+		if (gl.SwapIntervalEXT) gl.SwapIntervalEXT(this->display, this->glxsurface, fps ? 1 : 0);
 #endif
 	}
 	
@@ -1002,10 +1013,7 @@ e
 		//	gl.TexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, this->in_texwidth, this->in_texheight, 0, this->in2_fmt, this->in2_type, NULL);
 		//}
 #ifdef WNDPROT_X11
-		if (this->window && !this->glxwindow)
-		{
-			XResizeWindow(this->display, this->window, width, height);
-		}
+		if (this->xwindow) XResizeWindow(this->display, this->xwindow, width, height);
 #endif
 	}
 	
@@ -1022,8 +1030,8 @@ e
 		if (this->is3d && this->in3_renderbuffer) gl.DeleteRenderbuffers(1, &this->in3_renderbuffer);
 #ifdef WNDPROT_X11
 		if (glx.MakeCurrent) glx.MakeCurrent(this->display, 0, NULL);
-		if (this->window && !this->glxwindow) XDestroyWindow(this->display, this->window);
-		if (this->window && this->glxwindow) glx.DestroyWindow(this->display, this->window);
+		if (this->xwindow) XDestroyWindow(this->display, this->xwindow);
+		if (this->glxwindow) glx.DestroyWindow(this->display, this->glxwindow);
 		if (this->colormap) XFreeColormap(this->display, this->colormap);
 #endif
 #ifdef WNDPROT_WINDOWS
