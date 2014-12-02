@@ -6,6 +6,8 @@
 #include <ctype.h>
 #include "libretro.h"
 
+//TODO: Save SRAM only if it's changed.
+
 #define this This
 
 struct libretro_raw {

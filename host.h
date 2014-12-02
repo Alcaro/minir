@@ -95,6 +95,10 @@
 //#define NO_UNALIGNED_MEM
 #endif
 
+#ifdef __linux__
+#define HAVE_ASPRINTF
+#endif
+
 #ifdef WINDOW_GTK3
 #define NEED_ICON_PNG
 #endif

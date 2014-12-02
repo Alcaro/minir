@@ -539,7 +539,7 @@ public:
 			this->glxsurface = this->xwindow;
 		}
 		
-		this->begin();
+		glx.MakeCurrent(this->display, this->glxsurface, this->context);
 	}
 #endif
 	
@@ -712,12 +712,12 @@ public:
 		else if (desc->stencil) return false;
 		
 		end();
-		return true;
-e	}
+e		return true;
+	}
 	
 	/*private*/ void set_source_3d(unsigned int max_width, unsigned int max_height, videoformat depth)
 	{
-		this->in_texwidth=bitround(max_width);
+e		this->in_texwidth=bitround(max_width);
 		this->in_texheight=bitround(max_height);
 		
 		gl.BindTexture(GL_TEXTURE_2D, this->sh_tex[0]);
@@ -811,7 +811,7 @@ e
 		
 		if (!this->out_chain)
 		{
-			//gl.Finish();
+			gl.Finish();
 			//TODO: check if this one improves anything
 			//use the flicker test core
 #ifdef WNDPROT_WINDOWS
@@ -936,7 +936,7 @@ e
 		this->sh_passes=1;//TODO
 		this->sh_prog=malloc(sizeof(GLuint)*this->sh_passes);
 		
-		this->sh_tex=malloc(sizeof(GLuint)*this->sh_passes);
+e		this->sh_tex=malloc(sizeof(GLuint)*this->sh_passes);
 		gl.GenTextures(this->sh_passes, this->sh_tex);
 		this->sh_fbo=malloc(sizeof(GLuint)*(this->sh_passes+1));
 		gl.GenFramebuffers(this->sh_passes, this->sh_fbo);
@@ -954,7 +954,7 @@ e
 			
 			//TODO: analyze if these two do anything
 			//gl.Uniform4f(gl.GetAttribLocation(prog, "Color"), 1,1,1,1);
-			gl.Uniform4f(gl.GetAttribLocation(prog, "Color"), 1,0,0.5,1);
+e			gl.Uniform4f(gl.GetAttribLocation(prog, "Color"), 1,0,0.5,1);
 			const float identity4[16]={
 				//1,0,0,0,
 				//0,1,0,0,
@@ -986,6 +986,7 @@ e
 				gl.BindFramebuffer(GL_FRAMEBUFFER, this->sh_fbo[0]);
 				GLenum attachment = (this->in3.stencil ? GL_DEPTH_STENCIL_ATTACHMENT : GL_DEPTH_ATTACHMENT);
 				gl.FramebufferRenderbuffer(GL_FRAMEBUFFER, attachment, GL_RENDERBUFFER, this->in3_renderbuffer);
+				gl.GetError();//ignore this; if it fails, it's because set_source_3d hasn't been called, and we'll get a proper call to that later.
 			}
 		}
 		

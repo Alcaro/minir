@@ -264,7 +264,7 @@ void create_interfaces(unsigned int videowidth, unsigned int videoheight, videof
 	
 	if (vid3d)
 	{
-		vid3d->initialize();
+		if (!vid) vid3d->initialize();
 		vid3d->set_source(videowidth, videoheight, fmt_xrgb8888);
 		vid=vid3d;
 	}

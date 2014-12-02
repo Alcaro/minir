@@ -17,7 +17,7 @@ struct video_thread_frame {
 //Parent-write | Lock       | No          | Yes         | Lock         |
 //Parent-only  | No         | No          | Yes         | Yes          |
 //Read-only    | Yes        | No          | Yes         | No           |
-//Yes means the action allowed in all cases; No means not allowed; Wakelock means allowed only if holding the mutex.
+//Yes means the action allowed in all cases; No means not allowed; Lock means allowed only if holding the mutex.
 //Child-write and child-only is also possible, with the obvious meanings.
 class video_thread : public video {
 public://since this entire file is private, making it public inside here does no harm
