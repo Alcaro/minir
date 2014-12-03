@@ -105,8 +105,8 @@ void _window_init_shared()
 	cwd_init=getcwd(NULL, 0);
 	//try a couple of useless directories and hope one of them works
 	//this seems to be the best one:
-	//- even root can't write to this one
-	//- it contains no files with a plausible name on a standard Ubuntu box (I have an ath9k-phy0, nothing will ever want)
+	//- even root can't write to here
+	//- it contains no files with a plausible name on a standard Ubuntu box (I have an ath9k-phy0, nothing will ever want that filename)
 	//- a wild write will not do anything dangerous except turn on some lamps
 	!chdir("/sys/class/leds/") ||
 		//the rest are in case it's not accessible (weird chroot? not linux?), so try some random things

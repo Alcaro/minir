@@ -18,8 +18,6 @@ const driver_video video_none_desc={ "None", video_create_none, NULL, 0 };
 
 namespace {
 class video_compat : public video {
-	function<cvideo*(uintptr_t windowhandle, unsigned int screen_width, unsigned int screen_height,
-	                 unsigned int depth, double fps)> create;
 	cvideo* child;
 	
 	uintptr_t windowhandle;

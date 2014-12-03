@@ -23,25 +23,25 @@ extern const driver_inputkb inputkb_directinput_desc;
 extern const driver_inputkb inputkb_x11_desc;
 extern const driver_inputkb inputkb_none_desc;
 
-const driver_inputkb list_inputkb[]={
+const driver_inputkb * list_inputkb[]={
 #ifdef INPUT_RAWINPUT
-	inputkb_rawinput_desc,
+	&inputkb_rawinput_desc,
 #endif
 #ifdef INPUT_UDEV
-	inputkb_udev_desc,
+	&inputkb_udev_desc,
 #endif
 #ifdef INPUT_GDK
-	inputkb_gdk_desc,
+	&inputkb_gdk_desc,
 #endif
 #ifdef INPUT_XINPUT2
-	inputkb_xinput2_desc,
+	&inputkb_xinput2_desc,
 #endif
 #ifdef INPUT_DIRECTINPUT
-	inputkb_directinput_desc,
+	&inputkb_directinput_desc,
 #endif
 #ifdef INPUT_X11
-	inputkb_x11_desc,
+	&inputkb_x11_desc,
 #endif
-	inputkb_none_desc,
-	{}
+	&inputkb_none_desc,
+	NULL
 };

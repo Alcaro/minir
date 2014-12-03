@@ -782,7 +782,10 @@ widget_viewport* widget_viewport::resize(unsigned int width, unsigned int height
 {
 	this->width=width;
 	this->height=height;
-	m->parent->_reflow(m->parent);
+	if (!m->parent->_reflow(m->parent))
+	{
+		SetWindowPos(m->hwnd, NULL, 0, 0, width, height, SWP_NOACTIVATE|SWP_NOCOPYBITS|SWP_NOMOVE|SWP_NOOWNERZORDER|SWP_NOZORDER);
+	}
 	return this;
 }
 

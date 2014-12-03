@@ -533,7 +533,7 @@ cancel:
 #undef video
 static video* video_create_opengl_old(uintptr_t windowhandle)
 {
-	return video_create_compat(cvideo_create_opengl_old(windowhandle, 256, 256, 16, 60));
+	return video_create_compat(cvideo_create_opengl_old(windowhandle, 32, 32, 16, 60));
 }
 extern const driver_video video_opengl_old_desc = {"OpenGL-1.x", video_create_opengl_old, NULL, 0};
 #else

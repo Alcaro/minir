@@ -54,7 +54,7 @@ public://since this entire file is private, making it public inside here does no
 	
 	video_thread_frame buf_last;//Shared (external). Used for screenshot taking.
 	
-	uint32_t features() { return f_sshot_f|f_sshot|f_chain; }
+	uint32_t features() { return f_sshot_ptr|f_sshot|f_chain; }
 	
 	//When the child thread is done drawing:
 	//- lock->lock_wait()

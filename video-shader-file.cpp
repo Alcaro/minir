@@ -2,96 +2,79 @@
 #include <ctype.h>
 #include <stdio.h>
 
-#if 0
-const char * const * video::shader::var::out_get_names(unsigned int * count);
-const change_t * video::shader::var::out_get_changed(unsigned int * count);
-const change_t * video::shader::var::out_get_all(unsigned int * count);
-void video::shader::var::auto_set_wram(uint8_t* data, size_t size);
-void video::shader::var::auto_reset();
+namespace {
+class video_shader_file : public video::shader {
+public:
+struct pass_t * passes;
+struct pass_t pass_clone;
 
-void video::shader::var::auto_frame()
+const struct pass_t * pass(unsigned int n, lang_t language)
 {
-	for (unsigned int i=0;i<this->count;i++)
+	if (language==this->passes[n].lang) return &this->passes[n];
+	else
 	{
-		//the compiler will flatten all these references
-		float& out=this->values[i];
-		
-		au_item* item=&this->au_items[i];
-		uint16_t val;
-		if (item->src==so_input) val=input[item->index];
-		else val=wram[item->index];
-		
-		val&=item->mask;
-		if (item->equal && val!=item->equal) val=0;
-		
-		uint32_t& last=item->last;
-		uint32_t& prev=item->prev;
-		uint32_t& transition=item->transition;
-		
-		switch (item->sem)
-		{
-		case se_constant:
-			{
-				//used if it refers to out-of-bounds WRAM, and other invalid cases
-				break;
-			}
-		case se_capture:
-			{
-				out=val;
-				break;
-			}
-		case se_capture_previous:
-			{
-				if (val!=last)
-				{
-					prev=last;
-					last=val;
-				}
-				out=prev;
-				break;
-			}
-		case se_transition:
-			{
-				if (val!=last)
-				{
-					last=val;
-					transition=this->au_framecount;
-				}
-				out=transition;
-				break;
-			}
-		case se_transition_count:
-			{
-				if (val!=last)
-				{
-					last=val;
-					transition++;
-				}
-				out=transition;
-				break;
-			}
-		case se_transition_previous:
-			{
-				if (val!=last)
-				{
-					last=val;
-					prev=transition;
-					transition=this->au_framecount;
-				}
-				out=prev;
-				break;
-			}
-		case se_python: break;//TODO
-		}
+		this->pass_clone=this->passes[n];
+		this->pass_clone.lang=language;
+		this->pass_clone.source=translate(this->passes[n].lang, language, this->passes[n].source);
+		return &this->pass_clone;
 	}
-	this->framecount++;
 }
 
-struct param_t video::shader::var::param_get(unsigned int * count);
-void video::shader::var::param_set(unsigned int id, double val);
+void pass_free(const struct pass_t * pass)
+{
+	if (pass==&this->pass_clone) free((char*)this->pass_clone.source);
+}
+
+
+
+struct tex_t * textures;
+char* * texpaths;
+
+const struct tex_t * texture(unsigned int n)
+{
+	//TODO: load data
+	return &textures[n];
+}
+
+void texture_free(const struct tex_t * texture)
+{
+	
+}
+
+~video_shader_file()
+{
+	free(this->passes);
+	for (unsigned int i=0;i<this->n_tex;i++)
+	{
+		free((char*)this->textures[i].name);
+		free(this->texpaths[i]);
+	}
+	free(this->textures);
+	free(this->texpaths);
+}
+
+/*private*/ bool construct(const char * filename)
+{
+	return false;
+}
+
+};
+
+}
+
+video::shader* video::shader::create_from_file(const char * filename)
+{
+	video_shader_file* ret=new video_shader_file();
+	if (!ret->construct(filename))
+	{
+		delete ret;
+		return NULL;
+	}
+	return ret;
+}
 
 #if 0
-video::shader* video::shader_parse(const char * filename)
+video::shader* video::shader::create_from_file(const char * filename)
 {
 	const char * ext=strrchr(filename, '.');
 	if (!ext || strchr(ext, '/')) return NULL;
@@ -314,56 +297,8 @@ error:
 	return NULL;
 }
 
-video::shader* video::shader_clone(const shader* other)
+video::shader::~shader()
 {
-	shader* ret=malloc(sizeof(struct shader));
-	*ret=*other;
-	ret->pass=malloc(sizeof(shader::pass_t)*other->n_pass);
-	for (unsigned int i=0;i<other->n_pass;i++)
-	{
-		((shader::pass_t*)ret->pass)[i]=other->pass[i];
-		((shader::pass_t*)ret->pass)[i].source=strdup(other->pass[i].source);
-	}
-	ret->param=malloc(sizeof(shader::param_t)*other->n_param);
-	for (unsigned int i=0;i<other->n_param;i++)
-	{
-		((shader::param_t*)ret->param)[i]=other->param[i];
-		((shader::param_t*)ret->param)[i].name=strdup(other->param[i].name);
-		((shader::param_t*)ret->param)[i].pub_name=strdup(other->param[i].pub_name);
-	}
-	return ret;
+	
 }
-
-void video::shader_delete(shader* obj)
-{
-	for (unsigned int i=0;i<obj->n_pass;i++)
-	{
-		free((char*)obj->pass[i].source);
-	}
-	for (unsigned int i=0;i<obj->n_param;i++)
-	{
-		free((char*)obj->param[i].name);
-		free((char*)obj->param[i].pub_name);
-	}
-	free((void*)obj->pass);
-	free((void*)obj->param);
-	free(obj);
-}
-
-char * video::shader_translate(shader::type_t in, shader::type_t out, const char * source)
-{
-	return NULL;
-}
-
-video::shader* video::shader_translate(const shader* in, shader::type_t out)
-{
-	shader* ret=shader_clone(in);
-	for (unsigned int i=0;i<in->n_pass;i++)
-	{
-		free((char*)ret->pass[i].source);
-		((shader::pass_t*)&ret->pass[i])->source=shader_translate(in->type, out, in->pass[i].source);
-	}
-	return ret;
-}
-#endif
 #endif

@@ -99,7 +99,8 @@ struct window {
 	//Returns a native handle to the window. It is implementation defined what this native handle is, or if it's implemented at all.
 	uintptr_t (*_get_handle)(struct window * This);
 	//Repositions the window contents. May not necessarily be implemented, if reflow requests are detected in other ways.
-	void (*_reflow)(struct window * This);
+	//If false, the reflow will be done later and the old sizes are still present.
+	bool (*_reflow)(struct window * This);
 };
 struct window * window_create(void * contents);
 

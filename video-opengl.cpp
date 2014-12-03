@@ -3,6 +3,7 @@
 //#define GL_GLEXT_PROTOTYPES
 #include "minir.h"
 #ifdef VIDEO_OPENGL
+
 #undef bind
 #ifdef _MSC_VER
 //MSVC's gl.h doesn't seem to include the stuff it should. Copying these five lines from mingw's gl.h...
@@ -14,16 +15,18 @@
 //Also disable a block of code that defines int32_t to something not identical to my msvc-compatible stdint.h.
 # define GLEXT_64_TYPES_DEFINED
 #endif
+
 #include <GL/gl.h>
 #include <GL/glext.h>
 #ifdef WNDPROT_WINDOWS
-#include <GL/wglext.h>
+# include <GL/wglext.h>
 #endif
 #ifdef WNDPROT_X11
-#include <dlfcn.h>
-#include <GL/glx.h>
+# include <dlfcn.h>
+# include <GL/glx.h>
 #endif
 #define bind BIND_CB
+
 #include <stdio.h>
 #include "libretro.h"
 
@@ -39,7 +42,7 @@
 #define ONLY_X11(x) x
 #endif
 
-//TODO: pixel buffer object
+//TODO: pixel buffer objects seem fun
 
 #define ENABLE_DEBUG 2//0 = no, 2 = yes, 1 = if the core asks for it
 #if ENABLE_DEBUG==0
@@ -53,14 +56,15 @@
 namespace {
 #ifdef WNDPROT_WINDOWS
 #define WGL_SYM(ret, name, args) WGL_SYM_N("wgl"#name, ret, name, args)
+#define WGL_SYM_ANON(ret, name, args) WGL_SYM_N(#name, ret, name, args)
 #define WGL_SYMS() \
 	WGL_SYM(HGLRC, CreateContext, (HDC hdc)) \
 	WGL_SYM(BOOL, DeleteContext, (HGLRC hglrc)) \
 	WGL_SYM(HGLRC, GetCurrentContext, ()) \
 	WGL_SYM(PROC, GetProcAddress, (LPCSTR lpszProc)) \
 	WGL_SYM(BOOL, MakeCurrent, (HDC hdc, HGLRC hglrc)) \
-	WGL_SYM(BOOL, SwapBuffers, (HDC hdc)) \
-
+	/*WGL_SYM(BOOL, SwapBuffers, (HDC hdc))*/ \
+	
 //WINGDIAPI BOOL  WINAPI wglCopyContext(HGLRC, HGLRC, UINT);
 //WINGDIAPI HGLRC WINAPI wglCreateContext(HDC);
 //WINGDIAPI HGLRC WINAPI wglCreateLayerContext(HDC, int);
@@ -93,10 +97,13 @@ bool InitGlobalGLFunctions()
 	wgl.lib=LoadLibrary("opengl32.dll");
 	if (!wgl.lib) return false;
 	
+	//HMODULE gdilib=GetModuleHandle("gdi32.dll");
+	
 	funcptr* functions=(funcptr*)&wgl;
 	for (unsigned int i=0;i<sizeof(wgl_names)/sizeof(*wgl_names);i++)
 	{
 		functions[i]=(funcptr)GetProcAddress(wgl.lib, wgl_names[i]);
+		//if (!functions[i]) functions[i]=(funcptr)GetProcAddress(gdilib, wgl_names[i]);
 		if (!functions[i]) return false;
 	}
 	return true;
@@ -434,7 +441,7 @@ public:
 				WGL_CONTEXT_MINOR_VERSION_ARB, (int)minor,
 				WGL_CONTEXT_FLAGS_ARB, WGL_CONTEXT_DEBUG_BIT_ARB,
 			0 };
-			this->hglrc=wglCreateContextAttribs(this->hdc, NULL/*share*/, debug ? attribs_debug : attribs);
+			this->hglrc=wglCreateContextAttribs(this->hdc, /*share*/NULL, debug ? attribs_debug : attribs);
 			
 			wgl.MakeCurrent(this->hdc, this->hglrc);
 			wgl.DeleteContext(hglrc_v2);
@@ -712,17 +719,17 @@ public:
 		else if (desc->stencil) return false;
 		
 		end();
-e		return true;
+		return true;
 	}
 	
 	/*private*/ void set_source_3d(unsigned int max_width, unsigned int max_height, videoformat depth)
 	{
-e		this->in_texwidth=bitround(max_width);
+		this->in_texwidth=bitround(max_width);
 		this->in_texheight=bitround(max_height);
 		
 		gl.BindTexture(GL_TEXTURE_2D, this->sh_tex[0]);
-e		gl.TexImage2D(GL_TEXTURE_2D, 0, GL_RGB, this->in_texwidth, this->in_texheight, 0, GL_RGBA, GL_UNSIGNED_INT_8_8_8_8, NULL);
-e		
+		gl.TexImage2D(GL_TEXTURE_2D, 0, GL_RGB, this->in_texwidth, this->in_texheight, 0, GL_RGBA, GL_UNSIGNED_INT_8_8_8_8, NULL);
+		
 		if (this->in3.depth)
 		{
 			gl.BindRenderbuffer(GL_RENDERBUFFER, this->in3_renderbuffer);
@@ -815,7 +822,7 @@ e
 			//TODO: check if this one improves anything
 			//use the flicker test core
 #ifdef WNDPROT_WINDOWS
-			wgl.SwapBuffers(this->hdc);
+			SwapBuffers(this->hdc);
 #endif
 #ifdef WNDPROT_X11
 			glx.SwapBuffers(this->display, this->glxsurface);
@@ -936,7 +943,7 @@ e
 		this->sh_passes=1;//TODO
 		this->sh_prog=malloc(sizeof(GLuint)*this->sh_passes);
 		
-e		this->sh_tex=malloc(sizeof(GLuint)*this->sh_passes);
+		this->sh_tex=malloc(sizeof(GLuint)*this->sh_passes);
 		gl.GenTextures(this->sh_passes, this->sh_tex);
 		this->sh_fbo=malloc(sizeof(GLuint)*(this->sh_passes+1));
 		gl.GenFramebuffers(this->sh_passes, this->sh_fbo);
@@ -954,7 +961,7 @@ e		this->sh_tex=malloc(sizeof(GLuint)*this->sh_passes);
 			
 			//TODO: analyze if these two do anything
 			//gl.Uniform4f(gl.GetAttribLocation(prog, "Color"), 1,1,1,1);
-e			gl.Uniform4f(gl.GetAttribLocation(prog, "Color"), 1,0,0.5,1);
+			gl.Uniform4f(gl.GetAttribLocation(prog, "Color"), 1,0,0.5,1);
 			const float identity4[16]={
 				//1,0,0,0,
 				//0,1,0,0,

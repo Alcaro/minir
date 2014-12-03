@@ -23,7 +23,7 @@
 struct window_win32;
 struct windowmenu_win32;
 static LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam);
-static void _reflow(struct window * this_);
+static bool _reflow(struct window * this_);
 static void reflow_force(struct window_win32 * this);
 
 //static bool isxp;
@@ -742,12 +742,13 @@ static uintptr_t _get_handle(struct window * this_)
 	return (uintptr_t)this->hwnd;
 }
 
-static void _reflow(struct window * this_)
+static bool _reflow(struct window * this_)
 {
 	struct window_win32 * this=(struct window_win32*)this_;
 	
-	if (!IsWindowVisible(this->hwnd)) return;
+	if (!IsWindowVisible(this->hwnd)) return false;
 	reflow_force(this);
+	return true;
 }
 
 static void reflow_force(struct window_win32 * this)

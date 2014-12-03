@@ -6,13 +6,11 @@
 #include <X11/Xlib.h>
 
 namespace {
-
 class inputkb_x11 : public inputkb {
 public:
 	static const uint32_t features = f_public|f_pollable|f_remote;
 	
 	void refresh() { poll(); }
-	
 	void poll()
 	{
 		uint8_t state[32];
