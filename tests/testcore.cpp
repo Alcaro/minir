@@ -1,11 +1,11 @@
 #if 0
-rm ../roms/testcore_libretro.so
-g++ -I.. testcore.cpp -g -shared -fPIC -fvisibility=hidden -lm -o ../roms/testcore_libretro.so
+rm ../roms/minir_testcore_libretro.so
+g++ -I.. testcore.cpp -g -shared -fPIC -fvisibility=hidden -lm -o ../roms/minir_testcore_libretro.so
 exit
 
 windows:
-del ..\roms\testcore_libretro.dll
-g++ -I.. testcore.cpp -Os -s -shared -lm -o ../roms/testcore_libretro.dll
+del ..\roms\minir_testcore_libretro.dll
+g++ -I.. testcore.cpp -Os -s -shared -lm -o ../roms/minir_testcore_libretro.dll
 #endif
 
 // 1. Video output
@@ -323,7 +323,7 @@ EXPORT unsigned retro_api_version(void) { return RETRO_API_VERSION; }
 
 EXPORT void retro_get_system_info(struct retro_system_info *info)
 {
-	const struct retro_system_info myinfo={ "Test core", "v0.01", "c|h", false, false };
+	const struct retro_system_info myinfo={ "minir test core", "v1.00", "c|h", false, false };
 	memcpy(info, &myinfo, sizeof(myinfo));
 }
 
