@@ -1,3 +1,5 @@
+#pragma once
+
 struct image {
 	unsigned int width;
 	unsigned int height;

@@ -1,4 +1,4 @@
-#include "minir.h"
+#include "window.h"
 #ifdef WINDOW_MINIMAL
 #include <stdio.h>
 #include <stdlib.h>

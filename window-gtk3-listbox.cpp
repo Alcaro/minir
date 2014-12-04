@@ -4,7 +4,7 @@
 //struct timespec tv;
 //clock_gettime(CLOCK_MONOTONIC, &tv);
 //return tv.tv_sec*(uint64_t)1000000000 + tv.tv_nsec;}
-#include "minir.h"
+#include "window.h"
 #ifdef WINDOW_GTK3
 #include <gtk/gtk.h>
 #include <stdlib.h>

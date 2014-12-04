@@ -1,4 +1,4 @@
-#include "minir.h"
+#include "io.h"
 //This one uses GDK for listing the devices, as well as notifications on devices being attached and
 // detached; since we don't have access to the X event loop, we need to ask the one that does.
 //It uses XInput directly for the actual device access. Due to the lack of event loop, it also polls

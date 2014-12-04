@@ -1,4 +1,4 @@
-#include "minir.h"
+#include "os.h"
 #include <stdlib.h>
 
 #ifdef DYLIB_POSIX

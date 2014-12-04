@@ -1,4 +1,4 @@
-#include "minir.h"
+#include "io.h"
 #ifdef VIDEO_GDI
 #define video cvideo
 #undef bind

@@ -1,7 +1,6 @@
-#include "minir.h"
+#include "io.h"
 #include <string.h>
 #include <stdlib.h>
-#include "libretro.h"
 
 #undef this
 

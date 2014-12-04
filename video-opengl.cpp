@@ -1,7 +1,7 @@
 #define e printf("%i:%i\n",__LINE__,gl.GetError());
 
 //#define GL_GLEXT_PROTOTYPES
-#include "minir.h"
+#include "io.h"
 #ifdef VIDEO_OPENGL
 
 #undef bind

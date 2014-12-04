@@ -1,5 +1,5 @@
 //TODO: use inputkb::refresh()
-#include "minir.h"
+#include "io.h"
 #include <stdlib.h>
 #include <string.h>
 #include <ctype.h>

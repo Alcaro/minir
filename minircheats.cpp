@@ -1,4 +1,6 @@
 #include "minir.h"
+#include "os.h"
+#include "window.h"
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>

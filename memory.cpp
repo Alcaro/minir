@@ -1,4 +1,4 @@
-#include "minir.h"
+#include "global.h"
 #undef malloc
 #undef realloc
 #undef calloc

@@ -1,4 +1,4 @@
-#include "minir.h"
+#include "io.h"
 #ifdef INPUT_X11
 #ifndef WNDPROT_X11
 #error Cannot use this driver with this window protocol

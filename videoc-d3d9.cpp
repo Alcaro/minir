@@ -1,4 +1,4 @@
-#include "minir.h"
+#include "io.h"
 #ifdef VIDEO_D3D9
 #define video cvideo
 #define CINTERFACE

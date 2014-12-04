@@ -1,4 +1,5 @@
-#include "minir.h"
+#include "window.h"
+#include "os.h"
 
 //Not in the other window-* because GTK does not demand Linux, and vice versa.
 #if 0

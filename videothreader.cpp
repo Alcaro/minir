@@ -1,4 +1,5 @@
-#include "minir.h"
+#include "io.h"
+#include "os.h"
 #include <stdlib.h>
 #include <string.h>
 

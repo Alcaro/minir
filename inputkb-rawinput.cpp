@@ -1,4 +1,4 @@
-#include "minir.h"
+#include "io.h"
 //Known bugs:
 //RawInput cannot query device state; if anything is pressed on app boot, it will not be recorded.
 // However, Windows tends to repeat a key when it is held down; these repeats will be recorded.

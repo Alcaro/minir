@@ -1,4 +1,4 @@
-#include "minir.h"
+#include "io.h"
 #ifdef VIDEO_XSHM
 #define video cvideo
 #include <stdlib.h>

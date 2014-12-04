@@ -1,4 +1,4 @@
-#include "minir.h"
+#include "io.h"
 #ifdef INPUT_GDK
 #include <gtk/gtk.h>
 #include <gdk/gdk.h>
@@ -7,7 +7,6 @@
 #endif
 #include <stdlib.h>
 #include <string.h>
-#include "libretro.h"
 
 namespace {
 

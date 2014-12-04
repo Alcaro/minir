@@ -1,4 +1,4 @@
-#include "minir.h"
+#include "os.h"
 #ifdef THREAD_WIN32
 #undef bind
 #include <windows.h>

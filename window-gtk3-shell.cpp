@@ -1,4 +1,4 @@
-#include "minir.h"
+#include "window.h"
 #ifdef WINDOW_GTK3
 #include <stdlib.h>
 #include <string.h>

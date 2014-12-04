@@ -1,4 +1,4 @@
-#include "minir.h"
+#include "io.h"
 #ifdef INPUT_UDEV
 #include <sys/inotify.h>
 #include <linux/input.h>

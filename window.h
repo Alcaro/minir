@@ -1,3 +1,6 @@
+#pragma once
+#include "global.h"
+
 struct window;
 struct windowmenu;
 class widget_base;
@@ -587,19 +590,6 @@ inline char * window_get_native_path_cwd(const char * path)
 //The start point doesn't change while the program is running, but need not be the same across reboots, nor between two processes.
 //It can be program launch, system boot, the Unix epoch, or whatever.
 uint64_t window_get_time();
-
-#ifdef WNDPROT_X11
-//Returns the display and screen we should use.
-//The concept of screens only exists on X11, so this should not be used elsewhere.
-//Only I/O drivers should have any reason to use this.
-struct _XDisplay;
-typedef struct _XDisplay Display;
-struct window_x11_display {
-	Display* display; //The real type is Display*.
-	unsigned long screen; //The real type is Window aka XID.
-};
-const struct window_x11_display * window_x11_get_display();
-#endif
 
 //These are implemented by the window manager, despite looking somewhat unrelated.
 //Can be just fopen, but may additionally support something implementation-defined, like gvfs;

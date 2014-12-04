@@ -1,4 +1,4 @@
-#include "minir.h"
+#include "os.h"
 #ifdef THREAD_PTHREAD
 #include <pthread.h>
 #include <semaphore.h>

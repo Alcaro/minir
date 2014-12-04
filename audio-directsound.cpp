@@ -1,4 +1,4 @@
-#include "minir.h"
+#include "io.h"
 #ifdef AUDIO_DIRECTSOUND
 #define CINTERFACE
 #undef bind

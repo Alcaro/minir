@@ -1,4 +1,4 @@
-#include "minir.h"
+#include "io.h"
 #ifdef AUDIO_PULSEAUDIO
 #include <pulse/pulseaudio.h>
 #include <stdlib.h>

@@ -1,4 +1,4 @@
-#include "minir.h"
+#include "io.h"
 #ifdef WNDPROT_X11
 #include <stdlib.h>
 #include <string.h>
@@ -8,6 +8,7 @@
 #include <X11/Xutil.h>
 #include <X11/Xatom.h>
 #include <X11/keysym.h>
+#include "window.h"
 #include "libretro.h"
 
 //paragraph, the one left of 1, doesn't map to libretro

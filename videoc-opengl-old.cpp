@@ -1,4 +1,4 @@
-#include "minir.h"
+#include "io.h"
 #if defined(VIDEO_OPENGL) && !defined(_WIN32)
 #define video cvideo
 #include <stdlib.h>

@@ -1,4 +1,6 @@
-#include "minir.h"
+#include "io.h"
+#include "containers.h"
+#include "window.h"
 #include <ctype.h>
 #include <stdio.h>
 
@@ -55,11 +57,11 @@ void texture_free(const struct tex_t * texture)
 
 /*private*/ bool construct(const char * filename)
 {
-	char * data;
-	if (!file_read(filename, &data, NULL)) return false;
-	config cfg(data);
-	free(data);
-	if (!cfg) return false;
+	//char * data;
+	//if (!file_read(filename, (void**)&data, NULL)) return false;
+	//config cfg(data);
+	//free(data);
+	//if (!cfg) return false;
 	
 	//TODO
 	

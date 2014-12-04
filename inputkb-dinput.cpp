@@ -1,4 +1,4 @@
-#include "minir.h"
+#include "io.h"
 #ifdef INPUT_DIRECTINPUT
 #define DIRECTINPUT_VERSION 0x0800
 #undef bind

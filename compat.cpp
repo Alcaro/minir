@@ -1,4 +1,4 @@
-#include "minir.h"
+#include "global.h"
 
 #ifndef HAVE_ASPRINTF
 #include <stdarg.h>
