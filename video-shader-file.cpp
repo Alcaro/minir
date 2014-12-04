@@ -55,6 +55,14 @@ void texture_free(const struct tex_t * texture)
 
 /*private*/ bool construct(const char * filename)
 {
+	char * data;
+	if (!file_read(filename, &data, NULL)) return false;
+	config cfg(data);
+	free(data);
+	if (!cfg) return false;
+	
+	//TODO
+	
 	return false;
 }
 
