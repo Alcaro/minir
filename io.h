@@ -109,7 +109,7 @@ public:
 		enum interp_t { in_nearest, in_linear };
 		enum wrap_t { wr_border, wr_edge, wr_repeat, wr_mir_repeat };
 		enum scale_t { sc_source, sc_viewport, sc_absolute };
-		enum fbo_t { fb_normal, fb_float, fb_srgb };
+		enum fbo_t { fb_int, fb_float, fb_srgb };
 		
 		struct pass_t {
 			lang_t lang;
@@ -119,7 +119,8 @@ public:
 			unsigned int frame_max; // 0 for UINT_MAX.
 			fbo_t fboformat;
 			bool mipmap_input;
-			scale_t scale_type;
+			scale_t scale_type_x;
+			scale_t scale_type_y;
 			float scale_x;
 			float scale_y;
 		};
@@ -205,16 +206,20 @@ public:
 				uint16_t equal;
 			};
 			void setup(const struct auto_t * auto_items, unsigned int auto_count, const struct param_t * params, unsigned int param_count);
-			void setup_again(const struct auto_t * auto_items, unsigned int auto_count, const struct param_t * params, unsigned int param_count)
-			{
-				reset();
-				setup(auto_items, auto_count, params, param_count);
-			}
 			
-			//No constructor - setup() does that.
+			var() { initialize(); }
 			~var() { reset(); }
 			
 		private:
+			void initialize()
+			{
+				this->au_count=0;
+				this->out_names=NULL;
+				this->out_all=NULL;
+				this->out_changes=NULL;
+				this->pa_count=0;
+				this->pa_items=NULL;
+			}
 			void reset();
 			
 			//This is first the autos, then the params.

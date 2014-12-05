@@ -103,6 +103,8 @@ void video::shader::var::auto_frame()
 
 void video::shader::var::setup(const struct auto_t * auto_items, unsigned int auto_count, const struct param_t * params, unsigned int param_count)
 {
+	reset();
+	
 	this->out_names=malloc(sizeof(char*)*(auto_count+param_count));
 	this->out_all=malloc(sizeof(struct change_t)*(auto_count+param_count));
 	this->out_changes=malloc(sizeof(struct change_t)*1);
@@ -150,7 +152,7 @@ void video::shader::var::reset()
 		free((char*)this->pa_items[i].int_name);
 		free((char*)this->pa_items[i].pub_name);
 	}
-	free(pa_items);
+	free(this->pa_items);
 }
 
 void video::shader::var::out_append(unsigned int index, float value)

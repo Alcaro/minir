@@ -1,5 +1,5 @@
 #include "minir.h"
-#include "window.h"
+#include "file.h"
 #include "io.h"
 #include <string.h>
 //#include <strings.h> //strcasecmp

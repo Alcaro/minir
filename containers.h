@@ -1,7 +1,7 @@
 #pragma once
 #include "global.h"
-#include <string.h> // strdup
 
+#include <string.h> // strdup
 class string {
 private:
 	char * ptr;
@@ -17,12 +17,13 @@ public:
 };
 
 
+
 #include <new>
 template<typename T> class assocarr : nocopy {
 private:
 	typedef uint16_t keyhash_t;
 	
-	keyhash_t hash(const char * str)
+	static keyhash_t hash(const char * str)
 	{
 		keyhash_t ret=0;
 		while (*str)
@@ -34,29 +35,32 @@ private:
 		return ret;
 	}
 	
-	struct node {
-		struct node * next;
+	struct node_t {
+		struct node_t * next;
 		char * key;
 		keyhash_t hash;
+		bool used;
 		T value;
 	};
-	struct node * * nodes;
+	struct node_t * * nodes;
 	unsigned int buckets;
 	unsigned int entries;
+	unsigned int used_entries;
 	
 	void resize(unsigned int newbuckets)
 	{
-		struct node * * newnodes=malloc(sizeof(node*)*newbuckets);
+		struct node_t * * newnodes=malloc(sizeof(struct node_t*)*newbuckets);
+		memset(newnodes, 0, sizeof(struct node_t*)*newbuckets);
 		for (unsigned int i=0;i<this->buckets;i++)
 		{
-			struct node * item=this->nodes[i];
-			while (item->key)
+			struct node_t * node=this->nodes[i];
+			while (node)
 			{
-				struct node * next=item->next;
-				keyhash_t newpos=item->hash % newbuckets;
-				item->next=newnodes[newpos];
-				newnodes[newpos]=item;
-				item=next;
+				struct node_t * next=node->next;
+				keyhash_t newpos=node->hash % newbuckets;
+				node->next=newnodes[newpos];
+				newnodes[newpos]=node;
+				node=next;
 			}
 		}
 		free(this->nodes);
@@ -64,82 +68,164 @@ private:
 		this->buckets=newbuckets;
 	}
 	
-	template<bool create, void(*construct_ptr)(void* loc, T* obj)>
-	struct node * find(const char * key, T* initial)
+	struct node_t * * find_ref(const char * key)
 	{
 		keyhash_t thehash=hash(key);
-		struct node * ret=this->nodes[thehash%this->buckets];
+		struct node_t * * node=&this->nodes[thehash%this->buckets];
 		while (true)
 		{
-			if (!ret->key)
+			if (!node[0]) return NULL;
+			if (node[0]->hash==thehash && !strcmp(key, node[0]->key))
 			{
-				if (!create) return NULL;
-				ret->next=malloc(sizeof(struct node));
-				this->entries++;
-				ret->next->key=NULL;
-				ret->key=strdup(key);
-				ret->hash=thehash;
-				construct_ptr(&ret->value, initial);
-				if (this->entries > this->buckets) resize(this->buckets*2);
-				return ret;
+				if (!node[0]->used) this->used_entries++;
+				node[0]->used=true;
+				return node;
 			}
-			if (ret->hash==thehash && !strcmp(key, ret->key)) return ret;
-			ret=ret->next;
+			node=&(node[0]->next);
 		}
 	}
 	
-	static void construct_none(void* loc, T* obj) {}
-	struct node * find_if_exists(const char * key) { return find<false, assocarr<T>::construct_none>(key, NULL); }
-	
-	static void construct(void* loc, T* obj) { new(loc) T(); }
-	struct node * find_or_create(const char * key) { return find<true, assocarr<T>::construct>(key, NULL); }
-	
-	static void construct_copy(void* loc, T* obj) { if (obj) new(loc) T(*obj); else new(loc) T(); }
-	struct node * find_or_copy(const char * key, T* item) { return find<true, assocarr<T>::construct_copy>(key, item); }
-	
-public:
-	unsigned int count() { return this->entries; }
-	
-	bool has(const char * key) { return find_if_exists(key); }
-	T& get(const char * key) { return find_or_create(key)->value; }
-	
-	T* get_ptr(const char * key)
+	struct node_t * find(const char * key)
 	{
-		struct node * ret=find_if_exists(key);
-		if (ret) return &ret->value;
+		struct node_t * * node=find_ref(key);
+		if (node) return *node;
 		else return NULL;
 	}
 	
-	void set(const char * key, T& value) { find_or_create(key, &value); }
+	//use only after checking that there is no item with this name already
+	struct node_t * create(const char * key)
+	{
+		struct node_t * node=malloc(sizeof(struct node_t));
+		keyhash_t thehash=hash(key);
+		node->key=strdup(key);
+		node->hash=thehash;
+		node->used=false;
+		node->next=this->nodes[thehash%this->buckets];
+		this->nodes[thehash%this->buckets]=node;
+		this->entries++;
+		if (this->entries > this->buckets) resize(this->buckets*2);
+		return node;
+	}
+	
+public:
+	unsigned int size() { return this->entries; }
+	unsigned int size(unsigned int * used) { *used=this->used_entries; return this->entries; }
+	
+	bool has(const char * key) { return find(key); }
+	
+	T& get(const char * key)
+	{
+		struct node_t * node=find(key);
+		if (!node)
+		{
+			node=create(key);
+			new(&node->value) T();
+		}
+		return node->value;
+	}
+	
+	T* get_ptr(const char * key)
+	{
+		struct node_t * node=find(key);
+		if (node) return &node->value;
+		else return NULL;
+	}
+	
+	void set(const char * key, const T& value)
+	{
+		struct node_t * node=find(key);
+		if (node)
+		{
+			node->value=value;
+		}
+		else
+		{
+			node=create(key);
+			new(&node->value) T(value);
+		}
+	}
 	
 	void remove(const char * key)
 	{
-		struct node * removal=find<false, assocarr<T>::construct_none>(key, NULL);
-		if (!removal) return;
-		struct node * next=removal->next;
-		free(removal->key);
-		removal->value->~T();
-		free(removal->value);
-		*removal=*next;
-		free(next);
+		struct node_t * * noderef=find_ref(key);
+		if (!noderef) return;
+		
+		struct node_t * node=*noderef;
+		*noderef=node->next;
+		if (node->used) this->used_entries--;
+		free(node->key);
+		node->value.~T();
+		free(node);
+		
 		this->entries--;
 		if (this->buckets>4 && this->entries < this->buckets/2) resize(this->buckets/2);
+	}
+	
+	void reset()
+	{
+		for (unsigned int i=0;i<this->buckets;i++)
+		{
+			struct node_t * node=this->nodes[i];
+			while (node)
+			{
+				struct node_t * next=node->next;
+				node->value.~T();
+				free(node->key);
+				free(node);
+				node=next;
+			}
+		}
+		free(this->nodes);
+		this->nodes=NULL;
+		this->buckets=0;
+		this->entries=0;
+		this->used_entries=0;
+		resize(4);
+	}
+	
+	void each(function<void(const char * key, T& value)> iter)
+	{
+		for (unsigned int i=0;i<this->buckets;i++)
+		{
+			struct node_t * node=this->nodes[i];
+			while (node)
+			{
+				struct node_t * next=node->next;
+				iter(node->key, node->value);
+				node=next;
+			}
+		}
+	}
+	
+	void each(function<void(const char * key, T& value, bool& used)> iter)
+	{
+		for (unsigned int i=0;i<this->buckets;i++)
+		{
+			struct node_t * node=this->nodes[i];
+			while (node)
+			{
+				struct node_t * next=node->next;
+				iter(node->key, node->value, node->used);
+				node=next;
+			}
+		}
 	}
 	
 	assocarr()
 	{
 		this->buckets=0;
-		resize(4);
+		this->nodes=NULL;
+		reset();
 	}
 	
 	~assocarr()
 	{
 		for (unsigned int i=0;i<this->buckets;i++)
 		{
-			struct node * item=this->nodes[i];
-			while (item->key)
+			struct node_t * item=this->nodes[i];
+			while (item)
 			{
-				struct node * next=item->next;
+				struct node_t * next=item->next;
 				free(item->key);
 				item->value.~T();
 				free(item);
@@ -152,68 +238,98 @@ public:
 
 
 class config : private nocopy {
-private:
+protected:
 	assocarr<assocarr<string> > items;
 	assocarr<string>* group;
-public:
-	bool set_group(const char * group)
-	{
-		this->group=this->items.get_ptr(group ? group : "");
-		return group;
-	}
 	
-	bool read(const char * item, const char * & value)
+	void parse(char * data);
+	
+	
+	bool parse(const char * str, const char * * out)
 	{
-		if (!this->group) return false;
-		string* ret=this->group->get_ptr(item);
-		if (!ret) return false;
-		value=*ret;
+		*out=str;
 		return true;
 	}
 	
-	bool read(const char * item, unsigned int& value)
+	bool parse(const char * str, unsigned int* value)
 	{
-		if (!this->group) return false;
-		string* str=this->group->get_ptr(item);
-		if (!str) return false;
 		char* end;
-		unsigned int ret=strtoul(*str, &end, 10);
-		if (end) return false;
-		value=ret;
+		unsigned int ret=strtoul(str, &end, 10);
+		if (*end) return false;
+		*value=ret;
 		return true;
 	}
 	
-	bool read(const char * item, float& value)
+	bool parse(const char * str, signed int* value)
 	{
-		if (!this->group) return false;
-		string* str=this->group->get_ptr(item);
-		if (!str) return false;
 		char* end;
-		float ret=strtod(*str, &end);
-		if (end) return false;
-		value=ret;
+		signed int ret=strtol(str, &end, 10);
+		if (*end) return false;
+		*value=ret;
 		return true;
 	}
 	
-	bool read(const char * item, bool& value)
+	bool parse(const char * str, float* value)
 	{
-		if (!this->group) return false;
-		string* str=this->group->get_ptr(item);
-		if (!str) return false;
+		char* end;
+		float ret=strtod(str, &end);
+		if (*end) return false;
+		*value=ret;
+		return true;
+	}
+	
+	bool parse(const char * str, bool* value)
+	{
 		if(0);
-		else if (!strcmp(*str, "1") || !strcasecmp(*str, "true")) value=true;
-		else if (!strcmp(*str, "0") || !strcasecmp(*str, "false")) value=false;
+		else if (!strcmp(str, "1") || !strcasecmp(str, "true"))  *value=true;
+		else if (!strcmp(str, "0") || !strcasecmp(str, "false")) *value=false;
 		else return false;
 		return true;
 	}
 	
-	operator bool()
+public:
+	bool set_group(const char * group)
 	{
-		//if the object is valid, there is a global namespace (though it may be empty)
-		return (this->items.count()!=0);
+		this->group=this->items.get_ptr(group ? group : "");
+		return (this->group);
 	}
 	
-protected:
-	config(const char * data);
+	//If the requested item doesn't exist, this returns false and leaves 'error' unchanged.
+	//If the requested item does exist but is not valid for that type, 'error' is set to true if non-NULL.
+	//In all failure cases, 'value' remains unchanged.
+	template<typename T> bool read(const char * item, T* value, bool * error=NULL)
+	{
+		if (!this->group) return false;
+		string* ret=this->group->get_ptr(item);
+		if (!ret) return false;
+		if (!parse(*ret, value))
+		{
+			if (error) *error=true;
+			return false;
+		}
+		return true;
+	}
+	
+public://because the function class is stupid
+	static void all_used_sub(void* ptr, const char * key, assocarr<string>& value, bool& used)
+	{
+		unsigned int child_used;
+		unsigned int child_tot=value.size(&child_used);
+		if (!used || child_used!=child_tot) *(bool*)ptr = false;
+	}
+public:
+	bool all_used()
+	{
+		bool ret=true;
+		this->items.each(bind_ptr(all_used_sub, &ret));
+		return ret;
+	}
+	
+	//This function will modify the given string.
+	config(char * data) { parse(data); }
 	//ignore destructor - we need the automatic one, but nothing explicit.
+	
+static void ggg(const char*a,string&b,bool&c){printf("  %s=%s (%i)\n",a,(const char*)b,c);}
+static void gg(const char*a,assocarr<string>&b){unsigned int c;unsigned int d;c=b.size(&d);printf("%s (%i/%i):\n",a,d,c);b.each(bind(ggg));}
+void g(){items.each(bind(gg));}
 };

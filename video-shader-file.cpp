@@ -1,6 +1,6 @@
 #include "io.h"
 #include "containers.h"
-#include "window.h"
+#include "file.h"
 #include <ctype.h>
 #include <stdio.h>
 
@@ -43,6 +43,135 @@ void texture_free(const struct tex_t * texture)
 	
 }
 
+/*private*/ wrap_t parse_wrap(const char * name, bool* error=NULL)
+{
+	if (!strcmp(name, "clamp_to_border")) return wr_border;
+	if (!strcmp(name, "clamp_to_edge")) return wr_edge;
+	if (!strcmp(name, "repeat")) return wr_repeat;
+	if (!strcmp(name, "mirrored_repeat")) return wr_mir_repeat;
+	
+	if (error) *error=true;
+	return wr_border;
+}
+
+/*private*/ scale_t parse_scale(const char * name, bool* error=NULL)
+{
+	if (!strcmp(name, "source")) return sc_source;
+	if (!strcmp(name, "viewport")) return sc_viewport;
+	if (!strcmp(name, "absolute")) return sc_absolute;
+	
+	if (error) *error=true;
+	return sc_source;
+}
+
+/*private*/ bool construct(const char * filename)
+{
+	const char * ext=strrchr(filename, '.');
+	if (!ext || strchr(ext, '/')) return NULL;
+	ext++;
+	
+	this->n_pass=0;
+	this->passes=NULL;
+	
+	this->n_tex=0;
+	this->textures=NULL;
+	this->texpaths=NULL;
+	
+	unsigned int extlen=strlen(ext);
+	bool has_preset=(tolower(ext[extlen-1])=='p');
+	if (has_preset) extlen--;
+	
+	lang_t lang;
+	if(0);
+	else if (extlen==4 && !strncasecmp(ext, "glsl", extlen)) lang=la_glsl;
+	else if (extlen==2 && !strncasecmp(ext, "cg", extlen))   lang=la_cg;
+	//else if (extlen==4 && !strncasecmp(ext, "hlsl", extlen)) lang=la_hlsl;
+	else return false;
+	
+	char * passdata;
+	if (has_preset)
+	{
+		if (!file_read(filename, (void**)&passdata, NULL)) return false;
+	}
+	else
+	{
+		//this could be handled without going through the config parser at all, but synthesizing one
+		// gives less duplicate code and therefore less potential errors
+		asprintf(&passdata, "shaders=1\nshader0=%s", filename);
+		filename=NULL;
+	}
+	
+	config cfg(passdata);
+	free(passdata);
+	
+	bool error=false;
+	
+cfg.g();
+	if (!cfg.read("shaders", &this->n_pass) || !this->n_pass) return false;
+	this->passes=malloc(sizeof(pass_t)*this->n_pass);
+	memset(this->passes, 0, sizeof(pass_t)*this->n_pass);
+	
+	for (unsigned int i=0;i<this->n_pass;i++)
+	{
+		char tmp[32];
+#define read_pass(prefix, loc) (sprintf(tmp, prefix"%i", i) && cfg.read(tmp, loc, &error))
+		const char * subname;
+		if (!read_pass("shader", &subname)) return false;
+		if (!file_read_rel(filename, !has_preset, subname, (void**)&this->passes[i].source, NULL)) return false;
+		this->passes[i].lang=lang;
+		
+		bool linear=false;
+		read_pass("filter_linear", &linear);
+		this->passes[i].interpolate=(linear ? in_linear : in_nearest);
+		
+		const char * wrap="clamp_to_border";
+		read_pass("wrap_mode", &wrap);
+		this->passes[i].wrap=parse_wrap(wrap, &error);
+		
+		this->passes[i].frame_max=0;
+		read_pass("frame_count_mod", &this->passes[i].frame_max);
+		this->passes[i].mipmap_input=false;
+		read_pass("mipmap_input", &this->passes[i].mipmap_input);
+		
+		bool fbo_srgb=false;
+		read_pass("srgb_framebuffer", &fbo_srgb);
+		bool fbo_float=false;
+		read_pass("float_framebuffer", &fbo_float);
+		if (fbo_srgb && fbo_float) return false;
+		this->passes[i].fboformat=(fbo_srgb ? fb_srgb : fbo_float ? fb_float : fb_int);
+		
+		//there's a mysterious entry known as 'alias', of which type and use is unknown (likely string and affecting shader parsing somehow)
+		
+		this->passes[i].scale_x=1.0;
+		bool has_scale_both=read_pass("scale", &this->passes[i].scale_x);
+		bool has_scale_x=read_pass("scale_x", &this->passes[i].scale_x);
+		bool has_scale_y=read_pass("scale_y", &this->passes[i].scale_y);
+		if ((has_scale_both && has_scale_x) || has_scale_x != has_scale_y) return false;
+		if (!has_scale_x) this->passes[i].scale_y=this->passes[i].scale_x;
+		
+		const char * scale_type_x="source";
+		const char * scale_type_y;
+		has_scale_both=read_pass("scale_type", &scale_type_x);
+		has_scale_x=read_pass("scale_type_x", &scale_type_x);
+		has_scale_y=read_pass("scale_type_y", &scale_type_y);
+		if ((has_scale_both && has_scale_x) || has_scale_x != has_scale_y) return false;
+		if (!has_scale_x) scale_type_y=scale_type_x;
+		this->passes[i].scale_type_x=parse_scale(scale_type_x, &error);
+		this->passes[i].scale_type_y=parse_scale(scale_type_y, &error);
+#undef read_pass
+		
+		if (error) return false;
+	}
+	
+	//TODO: textures
+	//TODO: imports
+	//TODO: parameters (scan the shader sources)
+	
+	if (!cfg.all_used()) return false;
+	
+	return true;
+}
+
 ~video_shader_file()
 {
 	free(this->passes);
@@ -53,19 +182,6 @@ void texture_free(const struct tex_t * texture)
 	}
 	free(this->textures);
 	free(this->texpaths);
-}
-
-/*private*/ bool construct(const char * filename)
-{
-	//char * data;
-	//if (!file_read(filename, (void**)&data, NULL)) return false;
-	//config cfg(data);
-	//free(data);
-	//if (!cfg) return false;
-	
-	//TODO
-	
-	return false;
 }
 
 };

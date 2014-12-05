@@ -1,7 +1,7 @@
 #include "minir.h"
 #include "os.h"
 #include "io.h"
-#include "window.h"
+#include "file.h"
 #include <stdlib.h>
 #include <stdarg.h>
 #include <stdio.h>

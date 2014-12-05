@@ -542,101 +542,10 @@ const char * const * window_file_picker(struct window * parent,
                                         bool dylib,
                                         bool multiple);
 
-
-//These two allow use of the current working directory in multithreaded programs.
-//If dir is NULL, uses window_cwd_get_default().
-//Outside calls to these, the current directory will be set to something unspecified that is extremely
-// unlikely to contain anything useful. The program will preferably not have write access to it.
-void window_cwd_enter(const char * dir);
-void window_cwd_leave();
-
-//Returns the working directory at the time of process launch.
-const char * window_cwd_get_default();
-
-//Returns the process path, without the filename. Multiple calls will return the same pointer.
-const char * window_get_proc_path();
-//Converts a relative path (../roms/mario.smc) to an absolute path (/home/admin/roms/mario.smc).
-// Implemented by the window manager, so gvfs can be supported. If the file doesn't exist, it is
-// implementation defined whether the return value is a nonexistent path, or if it's NULL.
-//basepath is the directory you want to use as base, or a file in this directory.
-//If allow_up is false, NULL will be returned if 'path' attempts to go up the directory tree (for example ../../../../../etc/passwd).
-//If path is absolute already, it will be returned (possibly canonicalized) if allow_up is true, or rejected otherwise.
-//Send it to free() once it's done.
-char * window_get_absolute_path(const char * basepath, const char * path, bool allow_up);
-//Converts any file path to something accessible on the local file system. The resulting path can
-// be both ugly and temporary, so only use it for file I/O, and store the absolute path instead.
-//It is not guaranteed that window_get_absolute_path can return the original path, or anything useful at all, if given the output of this.
-//It can return NULL, even for paths which file_read understands. If it doesn't, use free() when you're done.
-char * window_get_native_path(const char * path);
-
-//These two resolve paths relative to the initial working directory. Use for command line arguments.
-inline char * window_get_absolute_path_cwd(const char * path, bool allow_up)
-{
-	window_cwd_enter(NULL);
-	char * ret=window_get_absolute_path("./", path, allow_up);
-	window_cwd_leave();
-	return ret;
-}
-
-inline char * window_get_native_path_cwd(const char * path)
-{
-	window_cwd_enter(NULL);
-	char * ret=window_get_native_path(path);
-	window_cwd_leave();
-	return ret;
-}
-
 //Returns the number of microseconds since an undefined start time.
 //The start point doesn't change while the program is running, but need not be the same across reboots, nor between two processes.
 //It can be program launch, system boot, the Unix epoch, or whatever.
 uint64_t window_get_time();
-
-//These are implemented by the window manager, despite looking somewhat unrelated.
-//Can be just fopen, but may additionally support something implementation-defined, like gvfs;
-// however, filename support is guaranteed, both relative and absolute.
-//Directory separator is '/', extension separator is '.'.
-//file_read appends a '\0' to the output (whether the file is text or binary); this is not reported in the length.
-//Use free() on the return value from file_read().
-bool file_read(const char * filename, void* * data, size_t * len);
-bool file_write(const char * filename, const anyptr data, size_t len);
-bool file_read_to(const char * filename, anyptr data, size_t len);//If size differs, this one fails.
-
-//Some simple wrappers for the above three.
-inline bool file_read_rel(const char * basepath, bool allow_up, const char * filename, void* * data, size_t * len)
-{
-	char* path=window_get_absolute_path(basepath, filename, allow_up);
-	if (!path) return false;
-	bool ret=file_read(path, data, len);
-	free(path);
-	return ret;
-}
-
-inline bool file_write_rel(const char * basepath, bool allow_up, const char * filename, const anyptr data, size_t len)
-{
-	char* path=window_get_absolute_path(basepath, filename, allow_up);
-	if (!path) return false;
-	bool ret=file_write(path, data, len);
-	free(path);
-	return ret;
-}
-
-inline bool file_read_to_rel(const char * basepath, bool allow_up, const char * filename, anyptr data, size_t len)
-{
-	char* path=window_get_absolute_path(basepath, filename, allow_up);
-	if (!path) return false;
-	bool ret=file_read_to(path, data, len);
-	free(path);
-	return ret;
-}
-
-//These will list the contents of a directory. The returned paths from window_find_next should be
-// sent to free(). The . and .. components will not be included; however, symlinks and other loops
-// are not guarded against. It is implementation defined whether hidden files are included. The
-// returned filenames are relative to the original path and contain no path information nor leading
-// or trailing slashes.
-void* file_find_create(const char * path);
-bool file_find_next(void* find, char* * path, bool * isdir);
-void file_find_close(void* find);
 
 //The different components may want to initialize various parts each. It's very unlikely for all three to exist.
 void _window_init_inner();
@@ -647,12 +556,6 @@ void _window_init_shared();
 uintptr_t _window_notify_inner(void* notification);
 //Because Windows is a douchebag.
 uintptr_t _window_get_widget_color(unsigned int type, void* handle, void* draw, void* parent);
-//If the window manager does not implement any non-native paths (like gvfs), it can use this one;
-// it's implemented by something that knows the local file system, but not the window manager.
-//There is no _window_native_get_native_path; since the local file system doesn't understand
-// anything except the local file system, it would only be able to return the input, or be
-// equivalent to _window_native_get_absolute_path, making it redundant and therefore useless.
-char * _window_native_get_absolute_path(const char * basepath, const char * path, bool allow_up);
 
 //This one can be used if the one calling widget_listbox->set_contents doesn't provide a search function.
 size_t _widget_listbox_search(function<const char *(int column, size_t row)> get_cell, size_t rows,

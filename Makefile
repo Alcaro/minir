@@ -43,7 +43,7 @@ obj/miniz$(OBJSUFFIX).o: miniz.c | obj
 	$(CC) $(TRUE_CFLAGS) -c $< -o $@
 
 obj/config$(OBJSUFFIX).o: config.cpp obj/generated.cpp | obj
-obj/main$(OBJSUFFIX).o: main.cpp obj/generated.cpp minir.h | obj
+obj/main$(OBJSUFFIX).o: main.cpp obj/generated.cpp *.h | obj
 obj/%$(OBJSUFFIX).o: %.cpp | obj obj/generated.cpp
 	$(CXX) $(TRUE_CXXFLAGS) -c $< -o $@
 

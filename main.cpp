@@ -1,5 +1,6 @@
 #include "minir.h"
 #include "window.h"
+#include "file.h"
 #include "io.h"
 #include "os.h"
 #include <stddef.h>
@@ -1683,8 +1684,8 @@ void update_menu()
 int main(int argc, char * argv[])
 {
 	window_init(&argc, &argv);
+//video::shader::create_from_file("tests/shade/mcgreen.glsl");return 7;
 	initialize(argc, argv);
-//video::shader_parse("g.cg");exit(0);
 if
 (config.firstrun)
 window_message_box(
