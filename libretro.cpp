@@ -376,10 +376,10 @@ static void get_video_settings(struct libretro * this_, unsigned int * width, un
 	struct retro_system_av_info info;
 	memset(&info, 0, sizeof(info));
 	this->raw.get_system_av_info(&info);
-	*width=info.geometry.base_width;
-	*height=info.geometry.base_height;
-	*depth=this->videodepth;
-	*fps=info.timing.fps;
+	if (width) *width=info.geometry.base_width;
+	if (height) *height=info.geometry.base_height;
+	if (depth) *depth=this->videodepth;
+	if (fps) *fps=info.timing.fps;
 }
 
 static double get_sample_rate(struct libretro * this_)
