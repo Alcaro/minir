@@ -1,4 +1,5 @@
 #include "window.h"
+#include "file.h"
 #ifdef WINDOW_GTK3
 #include <gtk/gtk.h>
 #include <stdlib.h>

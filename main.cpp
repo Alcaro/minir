@@ -1684,7 +1684,6 @@ void update_menu()
 int main(int argc, char * argv[])
 {
 	window_init(&argc, &argv);
-//video::shader::create_from_file("tests/shade/mcgreen.glsl");return 7;
 	initialize(argc, argv);
 if
 (config.firstrun)

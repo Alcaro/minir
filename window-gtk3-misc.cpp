@@ -1,6 +1,7 @@
 #include "window.h"
 #include "image.h"
 #include "minir.h"
+#include "file.h"
 #include "io.h"
 #ifdef WINDOW_GTK3
 #include <stdlib.h>
