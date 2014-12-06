@@ -108,7 +108,7 @@ public:
 		enum lang_t { la_glsl, la_cg };
 		enum interp_t { in_nearest, in_linear };
 		enum wrap_t { wr_border, wr_edge, wr_repeat, wr_mir_repeat };
-		enum scale_t { sc_source, sc_viewport, sc_absolute };
+		enum scale_t { sc_source, sc_absolute, sc_viewport };
 		enum fbo_t { fb_int, fb_float, fb_srgb };
 		
 		struct pass_t {
@@ -179,7 +179,7 @@ public:
 				unsigned int index;
 				float value;
 			};
-			//The return value may contain duplicates. count must be non-NULL.
+			//The return value may contain duplicates; however, they will be very rare. count must be non-NULL.
 			const change_t * out_get_changed(unsigned int * count) { *count=this->out_numchanges; this->out_numchanges=0; return this->out_changes; }
 			//The return value here won't contain duplicates.
 			const change_t * out_get_all(unsigned int * count) { if (count) *count=this->au_count+this->pa_count; return this->out_all; }
@@ -195,7 +195,7 @@ public:
 				se_transition_count,
 				se_python, // Not implemented.
 			};
-			enum source_t { so_wram, so_input };
+			enum source_t { so_wram, so_input, so_python };
 			struct auto_t {
 				const char * name;
 				
@@ -260,21 +260,23 @@ public:
 			struct param_t * pa_items;
 		} variable;
 		
+		//The callback return values should be sent to free().
+		//If lazy is true (recommended), read() may be called after create_from_data returns, until the shader object is removed.
+		//path_translate() will be called on each path before being sent to read(), whether lazy is true or false.
+		static shader* create_from_data(const char * data,
+		                                function<char*(const char * path)> path_translate,
+		                                function<void*(const char * path, size_t * len)> read,
+		                                bool lazy=true);
 		static shader* create_from_file(const char * filename);
+		
 		virtual ~shader() = 0;
 	};
 	
-	//The shader object is used only during this call; it can safely be deleted afterwards.
-	//NULL is valid and means nearest-neighbor. The shader can be set multiple times, both with NULL and non-NULL arguments.
+	//NULL is valid and means nearest neighbor.
+	//The shader object remains owned by the caller. Each shader object can only be used by one video driver simultaneously (except NULL).
+	//If the given shader object is incompatible, a NULL will be assigned.
+	//The shader can be changed multiple times, both with NULL and non-NULL arguments.
 	virtual bool set_shader(const shader* sh) { return (!sh); }
-	bool set_shader_from_file(const char * filename)
-	{
-		shader* sh=shader::create_from_file(filename);
-		if (!sh) return false;
-		bool ret=set_shader(sh);
-		delete sh;
-		return ret;
-	}
 	
 	//This sets the final size of the object output.
 	virtual void set_dest_size(unsigned int width, unsigned int height) = 0;

@@ -5,7 +5,7 @@
 #include <stdio.h>
 
 namespace {
-class video_shader_file : public video::shader {
+class video_shader_data : public video::shader {
 public:
 struct pass_t * passes;
 struct pass_t pass_clone;
@@ -29,19 +29,24 @@ void pass_free(const struct pass_t * pass)
 
 
 
+bool tex_eager;
 struct tex_t * textures;
 char* * texpaths;
 
 const struct tex_t * texture(unsigned int n)
 {
+	if (this->tex_eager) return &this->textures[n];
 	//TODO: load data
-	return &textures[n];
+	return &this->textures[n];
 }
 
 void texture_free(const struct tex_t * texture)
 {
-	
+	if (this->tex_eager) return;
+	//TODO: unload data
 }
+
+
 
 /*private*/ wrap_t parse_wrap(const char * name, bool* error=NULL)
 {
@@ -64,12 +69,11 @@ void texture_free(const struct tex_t * texture)
 	return sc_source;
 }
 
-/*private*/ bool construct(const char * filename)
+/*private*/ bool construct(char * data,
+                           function<char*(const char * path)> path_translate,
+                           function<void*(const char * path, size_t * len)> read,
+                           bool lazy)
 {
-	const char * ext=strrchr(filename, '.');
-	if (!ext || strchr(ext, '/')) return NULL;
-	ext++;
-	
 	this->n_pass=0;
 	this->passes=NULL;
 	
@@ -77,32 +81,7 @@ void texture_free(const struct tex_t * texture)
 	this->textures=NULL;
 	this->texpaths=NULL;
 	
-	unsigned int extlen=strlen(ext);
-	bool has_preset=(tolower(ext[extlen-1])=='p');
-	if (has_preset) extlen--;
-	
-	lang_t lang;
-	if(0);
-	else if (extlen==4 && !strncasecmp(ext, "glsl", extlen)) lang=la_glsl;
-	else if (extlen==2 && !strncasecmp(ext, "cg", extlen))   lang=la_cg;
-	//else if (extlen==4 && !strncasecmp(ext, "hlsl", extlen)) lang=la_hlsl;
-	else return false;
-	
-	char * passdata;
-	if (has_preset)
-	{
-		if (!file_read(filename, (void**)&passdata, NULL)) return false;
-	}
-	else
-	{
-		//this could be handled without going through the config parser at all, but synthesizing one
-		// gives less duplicate code and therefore less potential errors
-		asprintf(&passdata, "shaders=1\nshader0=%s", filename);
-		filename=NULL;
-	}
-	
-	config cfg(passdata);
-	free(passdata);
+	config cfg(data);
 	
 	bool error=false;
 	
@@ -117,8 +96,18 @@ cfg.g();
 #define read_pass(prefix, loc) (sprintf(tmp, prefix"%i", i) && cfg.read(tmp, loc, &error))
 		const char * subname;
 		if (!read_pass("shader", &subname)) return false;
-		if (!file_read_rel(filename, !has_preset, subname, (void**)&this->passes[i].source, NULL)) return false;
-		this->passes[i].lang=lang;
+		char * subname_abs=path_translate(subname);
+		size_t ignore;
+		this->passes[i].source=(char*)read(subname_abs, &ignore);
+		free(subname_abs);
+		if (!this->passes[i].source) return false;
+		
+		const char * ext=strrchr(subname, '.');
+		if (!ext) return false;
+		else if (!strcasecmp(ext, ".glsl")) this->passes[i].lang=la_glsl;
+		else if (!strcasecmp(ext, ".cg"))   this->passes[i].lang=la_cg;
+		//else if (!strcasecmp(ext, ".hlsl")) this->passes[i].lang=la_hlsl;
+		else return false;
 		
 		bool linear=false;
 		read_pass("filter_linear", &linear);
@@ -163,7 +152,7 @@ cfg.g();
 		if (error) return false;
 	}
 	
-	//TODO: textures
+	//TODO: textures (all three arguments must be used)
 	//TODO: imports
 	//TODO: parameters (scan the shader sources)
 	
@@ -172,7 +161,7 @@ cfg.g();
 	return true;
 }
 
-~video_shader_file()
+~video_shader_data()
 {
 	free(this->passes);
 	for (unsigned int i=0;i<this->n_tex;i++)
@@ -188,14 +177,54 @@ cfg.g();
 
 }
 
-video::shader* video::shader::create_from_file(const char * filename)
+video::shader* video::shader::create_from_data(const char * data,
+                                               function<char*(const char * path)> path_translate,
+                                               function<void*(const char * path, size_t * len)> read,
+                                               bool lazy)
 {
-	video_shader_file* ret=new video_shader_file();
-	if (!ret->construct(filename))
+	video_shader_data* ret=new video_shader_data();
+	char * datacopy=strdup(data);
+	if (!ret->construct(datacopy, path_translate, read, lazy))
 	{
 		delete ret;
-		return NULL;
+		ret=NULL;
 	}
+	free(datacopy);
+	return ret;
+}
+
+namespace {
+void* shader_read_file(const char * path, size_t * len)
+{
+	void* ret;
+	if (!file_read(path, &ret, len)) return NULL;
+	return ret;
+}
+}
+
+video::shader* video::shader::create_from_file(const char * filename)
+{
+	const char * p=strrchr(filename, 'p');
+	bool has_preset=(p && p[1]=='\0');
+	
+	char * data;
+	if (has_preset)
+	{
+		if (!file_read(filename, (void**)&data, NULL)) return NULL;
+	}
+	else
+	{
+		//synthesizing a preset gives less duplicate code and therefore less potential errors
+		asprintf(&data, "shaders=1\nshader0=%s", filename);
+	}
+	
+	video_shader_data* ret=new video_shader_data();
+	if (!ret->construct(data, bind(strdup), bind(shader_read_file), false))
+	{
+		delete ret;
+		ret=NULL;
+	}
+	free(data);
 	return ret;
 }
 

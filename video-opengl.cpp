@@ -327,8 +327,6 @@ public:
 	
 	union {
 		struct {
-			//2D input
-			//uint8_t in2_bpp;
 			uint8_t in2_bytepp;
 			GLenum in2_fmt;
 			GLenum in2_type;
@@ -359,6 +357,8 @@ public:
 	GLuint * sh_fbo;
 	GLint sh_vercoordloc;
 	GLint sh_texcoordloc;
+	
+	shader* sh_shader;
 	
 	video* out_chain;
 	void* out_buffer;
