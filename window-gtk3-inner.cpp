@@ -8,6 +8,8 @@
 #include <gdk/gdkx.h>
 #endif
 
+//BUG - The viewport widget does not resize the parent's status bar if resize()d.
+
 static bool in_callback=false;
 static GtkCssProvider* cssprovider;
 
@@ -482,6 +484,9 @@ widget_viewport::~widget_viewport()
 widget_viewport* widget_viewport::resize(unsigned int width, unsigned int height)
 {
 	gtk_widget_set_size_request(GTK_WIDGET(widget), width, height);
+	//GtkWindow* window=GTK_WINDOW(gtk_widget_get_toplevel(GTK_WIDGET(widget)));
+	//gtk_window_resize(window, 1, 1);
+printf("S=%i,%i\n",width,height);
 	return this;
 }
 

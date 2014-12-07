@@ -494,21 +494,34 @@ static void statusbar_set(struct window * this_, int slot, const char * text)
 static void statusbar_resize(struct window_gtk3 * this)
 {
 	//if (width<0) gtk_widget_get_size_request(GTK_WIDGET(this->contents), &width, NULL);
-	GtkAllocation size;
-	gtk_widget_get_allocation(GTK_WIDGET(this->contents->widget), &size);
-	if (size.width<=1) return;
+	unsigned int width;
+	if (gtk_window_get_resizable(this->wndw))
+	{
+		//TODO - this probably bans shrinking. And doesn't resize on window resize, either.
+		GtkAllocation size;
+		gtk_widget_get_allocation(GTK_WIDGET(this->contents->widget), &size);
+		width=size.width;
+	}
+	else
+	{
+		GtkRequisition size;
+		gtk_widget_get_preferred_size(GTK_WIDGET(this->contents->widget), &size, NULL);
+		width=size.width;
+	}
+	if (width<=1) return;
 	
-	size.width-=(this->status_count*2*2);
+	
+	width-=(this->status_count*2*2);
 	if (gtk_window_get_resizable(this->wndw))
 	{
 		gint gripwidth;
 		gtk_widget_style_get(GTK_WIDGET(this->wndw), "resize-grip-width", &gripwidth, NULL);
-		size.width-=gripwidth;
+		width-=gripwidth;
 	}
 	int lastpos=0;
 	for (int i=0;i<this->status_count;i++)
 	{
-		int nextpos=(size.width*this->status_pos[i] + 120)/240;
+		int nextpos=(width*this->status_pos[i] + 120)/240;
 		GtkWidget* label=gtk_grid_get_child_at(this->status, i, 0);
 		gtk_widget_set_size_request(label, nextpos-lastpos, -1);
 		lastpos=nextpos;
