@@ -323,7 +323,7 @@ static inline void video_copy_2d(void* dst, size_t dstpitch, const void* src, si
 // ask for either initialization, vsync, shaders, nor screenshots.
 // Instead, they must be called on this object; the calls will be passed on to the real driver.
 //Due to its special properties, it is not included in the list of drivers.
-video* video_create_thread();
+video* video_create_thread(video* chain);
 
 extern const driver_video video_d3d9_desc;
 extern const driver_video video_ddraw_desc;

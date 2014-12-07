@@ -277,7 +277,7 @@ public://since this entire file is private, making it public inside here does no
 		this->lock->unlock();
 	}
 	
-	video_thread()
+	video_thread(video* chain)
 	{
 		this->src_depth=0;
 		this->src_bpp=0;
@@ -303,6 +303,8 @@ public://since this entire file is private, making it public inside here does no
 		this->buf_temp.bufsize=0;
 		this->buf_last.data=NULL;
 		this->buf_last.bufsize=0;
+
+		this->next = chain;
 		
 		thread_create(bind_this(&video_thread::threadproc));
 	}
@@ -332,7 +334,7 @@ public://since this entire file is private, making it public inside here does no
 
 }
 
-video* video_create_thread()
+video* video_create_thread(video* chain)
 {
-	return new video_thread();
+	return new video_thread(chain);
 }
