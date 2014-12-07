@@ -873,16 +873,25 @@ public:
 			gl.ShaderSource(shader, 3, shaderdata, NULL);
 			gl.CompileShader(shader);
 			
-			//gl.GetShaderiv(shader, GL_COMPILE_STATUS, &ok);
-			GLint errlength=0;
-			gl.GetShaderiv(shader, GL_INFO_LOG_LENGTH, &errlength);
-			if (errlength>1)
+			//errors show up in ARB_debug_output anyways, no point showing them twice
+			GLint ok;
+			gl.GetShaderiv(shader, GL_COMPILE_STATUS, &ok);
+			if (!ok)
 			{
-				char errstr[1024];
-				gl.GetShaderInfoLog(shader, 1023, NULL, errstr);
-				errstr[1023]='\0';
-				puts(errstr);
+				gl.DeleteShader(shader);
+				return 0;
 			}
+			//GLint errlength=0;
+			//gl.GetShaderiv(shader, GL_INFO_LOG_LENGTH, &errlength);
+			//if (errlength>1)
+			//{
+			//	char errstr[1024];
+			//	gl.GetShaderInfoLog(shader, 1023, NULL, errstr);
+			//	errstr[1023]='\0';
+			//	puts(errstr);
+			//	gl.DeleteShader(shader);
+			//	return 0;
+			//}
 			
 			gl.AttachShader(program, shader);
 			gl.DeleteShader(shader);
@@ -890,23 +899,31 @@ public:
 		
 		gl.LinkProgram(program);
 		
-		//gl.GetProgramiv(program, GL_LINK_STATUS, &ok);
-		GLint errlength=0;
-		gl.GetProgramiv(program, GL_INFO_LOG_LENGTH, &errlength);
-		if (errlength>1)
+		GLint ok;
+		gl.GetProgramiv(program, GL_LINK_STATUS, &ok);
+		if (!ok)
 		{
-			char errstr[1024];
-			gl.GetProgramInfoLog(program, 1023, NULL, errstr);
-			errstr[1023]='\0';
-			puts(errstr);
+			gl.DeleteProgram(program);
+			return 0;
 		}
+		//GLint errlength=0;
+		//gl.GetProgramiv(program, GL_INFO_LOG_LENGTH, &errlength);
+		//if (errlength>1)
+		//{
+		//	char errstr[1024];
+		//	gl.GetProgramInfoLog(program, 1023, NULL, errstr);
+		//	errstr[1023]='\0';
+		//	puts(errstr);
+		//	gl.DeleteProgram(program);
+		//	return 0;
+		//}
 		
 		return program;
 	}
 	
-	bool set_shader(const shader * sh)
+	bool set_shader(shader * sh)
 	{
-		static const char * defaultshader =
+		static const char * defaultshader_text =
 			"varying vec2 tex_coord;\n"
 			"#if defined(VERTEX)\n"
 				"attribute vec2 TexCoord;\n"
@@ -923,6 +940,19 @@ public:
 					"gl_FragColor = texture2D(Texture, tex_coord);\n"
 				"}\n"
 			"#endif\n";
+		static const struct shader::pass_t defaultshader = {
+			/* lang         */ shader::la_glsl,
+			/* source       */ defaultshader_text,
+			/* interpolate  */ shader::in_nearest,
+			/* wrap         */ shader::wr_edge,
+			/* frame_max    */ 0,
+			/* fboformat    */ shader::fb_int,
+			/* mipmap_input */ false,
+			/* scale_type_x */ shader::sc_source,
+			/* scale_type_y */ shader::sc_source,
+			/* scale_x      */ 1,
+			/* scale_y      */ 1,
+		};
 		
 		if (this->sh_prog)
 		{
@@ -940,8 +970,9 @@ public:
 			free(this->sh_fbo);
 		}
 		
-		this->sh_passes=1;//TODO
+		this->sh_passes=(sh ? sh->n_pass : 1);//TODO
 		this->sh_prog=malloc(sizeof(GLuint)*this->sh_passes);
+		memset(this->sh_prog, 0, sizeof(GLuint)*this->sh_passes);//zero this in case we fail, so we don't delete unrelated stuff
 		
 		this->sh_tex=malloc(sizeof(GLuint)*this->sh_passes);
 		gl.GenTextures(this->sh_passes, this->sh_tex);
@@ -951,7 +982,11 @@ public:
 		
 		for (unsigned int pass=0;pass<this->sh_passes;pass++)
 		{
-			GLuint prog=createShaderProg(210, defaultshader);
+			const struct shader::pass_t * passdata=(sh ? sh->pass(pass, shader::la_glsl) : &defaultshader);
+			if (!passdata) goto error;
+			
+			GLuint prog=createShaderProg(210, passdata->source);
+			if (!prog) goto error;
 			gl.UseProgram(prog);
 			this->sh_prog[pass]=prog;
 			
@@ -967,14 +1002,22 @@ public:
 				//0,1,0,0,
 				//0,0,1,0,
 				//0,0,0,1,
-				1,0.5,0,0,
-				0.5,1,0,0,
+				1,0,0,0,
+				0,1,0,0,
 				0,0,1,0,
 				0,0,0,1,
 			};
 			gl.UniformMatrix4fv(gl.GetAttribLocation(prog, "MVPMatrix"), 1, GL_FALSE, identity4);
 			
 			gl.BindTexture(GL_TEXTURE_2D, this->sh_tex[pass]);
+			if (this->is3d)
+			{
+				gl.TexImage2D(GL_TEXTURE_2D, 0, GL_RGB, this->in_texwidth, this->in_texheight, 0, GL_RGBA, GL_UNSIGNED_INT_8_8_8_8, NULL);
+			}
+			else
+			{
+				gl.TexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, this->in_texwidth, this->in_texheight, 0, this->in2_fmt, this->in2_type, NULL);
+			}
 			gl.TexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
 			gl.TexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
 			gl.TexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
@@ -995,12 +1038,18 @@ public:
 				gl.FramebufferRenderbuffer(GL_FRAMEBUFFER, attachment, GL_RENDERBUFFER, this->in3_renderbuffer);
 				gl.GetError();//ignore this; if it fails, it's because set_source_3d hasn't been called, and we'll get a proper call to that later.
 			}
+			
+			if (sh) sh->pass_free(passdata);
 		}
 		
 //vertex vec4 COLOR [ = (0,0.5,1,0.8) ] [to be changed to 1,1,1,1 if it works]
 //global mat4 MVPMatrix [ = ((1,0,0,0),(0,1,0,0),(0,0,1,0),(0,0,0,1)) ]
 		
 		return true;
+		
+	error:
+		set_shader(NULL);
+		return false;
 	}
 	
 	

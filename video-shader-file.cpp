@@ -85,7 +85,7 @@ void texture_free(const struct tex_t * texture)
 	
 	bool error=false;
 	
-cfg.g();
+//cfg.g();
 	if (!cfg.read("shaders", &this->n_pass) || !this->n_pass) return false;
 	this->passes=malloc(sizeof(pass_t)*this->n_pass);
 	memset(this->passes, 0, sizeof(pass_t)*this->n_pass);
@@ -130,6 +130,7 @@ cfg.g();
 		this->passes[i].fboformat=(fbo_srgb ? fb_srgb : fbo_float ? fb_float : fb_int);
 		
 		//there's a mysterious entry known as 'alias', of which type and use is unknown (likely string and affecting shader parsing somehow)
+		//I will add it once I find an example of what it does
 		
 		this->passes[i].scale_x=1.0;
 		bool has_scale_both=read_pass("scale", &this->passes[i].scale_x);
@@ -152,7 +153,7 @@ cfg.g();
 		if (error) return false;
 	}
 	
-	//TODO: textures (all three arguments must be used)
+	//TODO: textures (all three arguments must be used for the file paths)
 	//TODO: imports
 	//TODO: parameters (scan the shader sources)
 	

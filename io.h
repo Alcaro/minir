@@ -267,6 +267,7 @@ public:
 		                                function<char*(const char * path)> path_translate,
 		                                function<void*(const char * path, size_t * len)> read,
 		                                bool lazy=true);
+		//Shortcut to create_from_data.
 		static shader* create_from_file(const char * filename);
 		
 		virtual ~shader() = 0;
@@ -276,7 +277,7 @@ public:
 	//The shader object remains owned by the caller. Each shader object can only be used by one video driver simultaneously (except NULL).
 	//If the given shader object is incompatible, a NULL will be assigned.
 	//The shader can be changed multiple times, both with NULL and non-NULL arguments.
-	virtual bool set_shader(const shader* sh) { return (!sh); }
+	virtual bool set_shader(shader * sh) { return (!sh); }
 	
 	//This sets the final size of the object output.
 	virtual void set_dest_size(unsigned int width, unsigned int height) = 0;
