@@ -260,6 +260,7 @@ GL_SYM(void, BindFramebuffer, (GLenum target, GLuint framebuffer)) \
 \
 GL_SYM(void, Uniform4f, (GLint location, GLfloat v0, GLfloat v1, GLfloat v2, GLfloat v3)) \
 GL_SYM(void, UniformMatrix4fv, (GLint location, GLsizei count, GLboolean transpose, const GLfloat * value)) \
+GL_SYM(void, BindFragDataLocation, (GLuint program, GLuint color, const GLchar * name)) \
 
 
 
@@ -873,25 +874,25 @@ public:
 			gl.ShaderSource(shader, 3, shaderdata, NULL);
 			gl.CompileShader(shader);
 			
-			//errors show up in ARB_debug_output anyways, no point showing them twice
-			GLint ok;
-			gl.GetShaderiv(shader, GL_COMPILE_STATUS, &ok);
-			if (!ok)
-			{
-				gl.DeleteShader(shader);
-				return 0;
-			}
-			//GLint errlength=0;
-			//gl.GetShaderiv(shader, GL_INFO_LOG_LENGTH, &errlength);
-			//if (errlength>1)
+			//GLint ok;
+			//gl.GetShaderiv(shader, GL_COMPILE_STATUS, &ok);
+			//if (!ok)
 			//{
-			//	char errstr[1024];
-			//	gl.GetShaderInfoLog(shader, 1023, NULL, errstr);
-			//	errstr[1023]='\0';
-			//	puts(errstr);
 			//	gl.DeleteShader(shader);
 			//	return 0;
 			//}
+			//some errors show up in ARB_debug_output, but for some reason, not all of them
+			GLint errlength=0;
+			gl.GetShaderiv(shader, GL_INFO_LOG_LENGTH, &errlength);
+			if (errlength>1)
+			{
+				char errstr[1024];
+				gl.GetShaderInfoLog(shader, 1023, NULL, errstr);
+				errstr[1023]='\0';
+				puts(errstr);
+				gl.DeleteShader(shader);
+				return 0;
+			}
 			
 			gl.AttachShader(program, shader);
 			gl.DeleteShader(shader);
@@ -899,24 +900,24 @@ public:
 		
 		gl.LinkProgram(program);
 		
-		GLint ok;
-		gl.GetProgramiv(program, GL_LINK_STATUS, &ok);
-		if (!ok)
-		{
-			gl.DeleteProgram(program);
-			return 0;
-		}
-		//GLint errlength=0;
-		//gl.GetProgramiv(program, GL_INFO_LOG_LENGTH, &errlength);
-		//if (errlength>1)
+		//GLint ok;
+		//gl.GetProgramiv(program, GL_LINK_STATUS, &ok);
+		//if (!ok)
 		//{
-		//	char errstr[1024];
-		//	gl.GetProgramInfoLog(program, 1023, NULL, errstr);
-		//	errstr[1023]='\0';
-		//	puts(errstr);
 		//	gl.DeleteProgram(program);
 		//	return 0;
 		//}
+		GLint errlength=0;
+		gl.GetProgramiv(program, GL_INFO_LOG_LENGTH, &errlength);
+		if (errlength>1)
+		{
+			char errstr[1024];
+			gl.GetProgramInfoLog(program, 1023, NULL, errstr);
+			errstr[1023]='\0';
+			puts(errstr);
+			gl.DeleteProgram(program);
+			return 0;
+		}
 		
 		return program;
 	}
@@ -935,6 +936,10 @@ public:
 				"}\n"
 			"#elif defined(FRAGMENT)\n"
 				"uniform sampler2D Texture;\n"
+				"#if __VERSION__ >= 130\n"
+				"out vec4 FragColor;\n"
+				"#define gl_FragColor FragColor\n"
+				"#endif\n"
 				"void main()\n"
 				"{\n"
 					"gl_FragColor = texture2D(Texture, tex_coord);\n"
@@ -1008,6 +1013,7 @@ public:
 				0,0,0,1,
 			};
 			gl.UniformMatrix4fv(gl.GetAttribLocation(prog, "MVPMatrix"), 1, GL_FALSE, identity4);
+			gl.BindFragDataLocation(prog, 0, "FragColor");
 			
 			gl.BindTexture(GL_TEXTURE_2D, this->sh_tex[pass]);
 			if (this->is3d)
