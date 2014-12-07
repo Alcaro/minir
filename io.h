@@ -49,6 +49,7 @@ public:
 		uint32_t features;
 	};
 	
+private:
 	static const driver create_d3d9;
 	static const driver create_ddraw;
 	static const driver create_opengl;
@@ -57,6 +58,7 @@ public:
 	static const driver create_none;
 	static const driver create_opengl_old;
 	
+public:
 	static const driver* const drivers[];
 	
 	//This driver cannot draw anything; instead, it copies the input data and calls the next driver on
@@ -148,17 +150,13 @@ public:
 		virtual const struct pass_t * pass(unsigned int n, lang_t language) = 0;
 		virtual void pass_free(const struct pass_t * pass) = 0;
 		
-		struct translator {
-			const lang_t * source;
-			const lang_t * dest;
-			char * (*translate)(lang_t from, lang_t to, const char * text);
-		};
-		static const translator trans_cgc;
-		
 		//Returns NULL if it doesn't know how to do this translation, or if the syntax is invalid. Send it to free() once you're done with it.
 		//Translating from a language to itself will work. It is implementation defined whether it rejects invalid code.
 		static char * translate(lang_t from, lang_t to, const char * text);
 		
+	private:
+		static char * translate_cgc(lang_t from, lang_t to, const char * text);
+	public:
 		
 		struct tex_t {
 			const char * name;
