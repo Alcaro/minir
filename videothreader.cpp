@@ -144,6 +144,7 @@ public://since this entire file is private, making it public inside here does no
 	
 	/*private*/ void initialize()
 	{
+		thread_create(bind_this(&video_thread::threadproc));
 		this->wake_parent->wait();
 	}
 	
@@ -303,8 +304,6 @@ public://since this entire file is private, making it public inside here does no
 		this->buf_temp.bufsize=0;
 		this->buf_last.data=NULL;
 		this->buf_last.bufsize=0;
-		
-		thread_create(bind_this(&video_thread::threadproc));
 	}
 	
 	~video_thread()
