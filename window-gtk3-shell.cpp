@@ -78,7 +78,7 @@ static void resize(struct window * this_, unsigned int width, unsigned int heigh
 {
 	struct window_gtk3 * this=(struct window_gtk3*)this_;
 	gtk_window_resize(this->wndw, width,
-	                  get_widget_height(GTK_WIDGET(this->menu))+
+	                  get_widget_height(GTK_WIDGET(this->menu->submenu))+
 	                  height+
 	                  get_widget_height(GTK_WIDGET(this->status)));
 	if (this->status) statusbar_resize(this);
