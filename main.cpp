@@ -153,9 +153,7 @@ bool try_set_interface_video(unsigned int id, uintptr_t windowhandle,
 	vid=device;
 	if (config.video_thread)
 	{
-		video* outer=video_create_thread();
-		outer->set_chain(vid);
-		vid=outer;
+		vid = video_create_thread(vid);
 	}
 	vid->initialize();
 	vid->set_source(videowidth*config.video_scale, videoheight*config.video_scale, videodepth);
