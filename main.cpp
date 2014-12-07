@@ -143,17 +143,17 @@ struct configdata config;
 bool try_set_interface_video(unsigned int id, uintptr_t windowhandle,
                              unsigned int videowidth, unsigned int videoheight, videoformat videodepth, double videofps)
 {
-	video* device=list_video[id]->create2d(windowhandle);
+	video* device=video::drivers[id]->create2d(windowhandle);
 	if (!device) return false;
-	if (!config.driver_video || strcasecmp(config.driver_video, list_video[id]->name))
+	if (!config.driver_video || strcasecmp(config.driver_video, video::drivers[id]->name))
 	{
 		free(config.driver_video);
-		config.driver_video=strdup(list_video[id]->name);
+		config.driver_video=strdup(video::drivers[id]->name);
 	}
 	vid=device;
 	if (config.video_thread)
 	{
-		video* outer=video_create_thread();
+		video* outer=video::create_thread();
 		outer->set_chain(vid);
 		vid=outer;
 	}
@@ -168,9 +168,9 @@ void create_interface_video(uintptr_t windowhandle, unsigned int videowidth, uns
 {
 	if (config.driver_video)
 	{
-		for (unsigned int i=0;list_video[i];i++)
+		for (unsigned int i=0;video::drivers[i];i++)
 		{
-			if (!strcasecmp(config.driver_video, list_video[i]->name))
+			if (!strcasecmp(config.driver_video, video::drivers[i]->name))
 			{
 				if (try_set_interface_video(i, windowhandle, videowidth, videoheight, videodepth, videofps)) return;
 				break;
@@ -188,21 +188,21 @@ video* create3d(struct retro_hw_render_callback * desc)
 	uintptr_t window=draw->get_window_handle();
 	if (config.driver_video)
 	{
-		for (unsigned int i=0;list_video[i];i++)
+		for (unsigned int i=0;video::drivers[i];i++)
 		{
-			if (list_video[i]->create3d && !strcasecmp(config.driver_video, list_video[i]->name))
+			if (video::drivers[i]->create3d && !strcasecmp(config.driver_video, video::drivers[i]->name))
 			{
-				vid3d=list_video[i]->create3d(window, desc);
+				vid3d=video::drivers[i]->create3d(window, desc);
 				if (vid3d) return vid3d;
 				break;
 			}
 		}
 	}
-	for (unsigned int i=0;list_video[i];i++)
+	for (unsigned int i=0;video::drivers[i];i++)
 	{
-		if (list_video[i]->create3d)
+		if (video::drivers[i]->create3d)
 		{
-			vid3d=list_video[i]->create3d(window, desc);
+			vid3d=video::drivers[i]->create3d(window, desc);
 			if (vid3d) return vid3d;
 		}
 	}

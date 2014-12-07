@@ -87,5 +87,5 @@ static video* video_create_ddraw(uintptr_t windowhandle)
 {
 	return video_create_compat(cvideo_create_ddraw(windowhandle, 256, 256, 16, 60));
 }
-extern const driver_video video_ddraw_desc = {"DirectDraw (unimplemented)", video_create_ddraw, NULL, video::f_vsync};
+const video::driver video::create_ddraw = {"DirectDraw (unimplemented)", video_create_ddraw, NULL, video::f_vsync};
 #endif

@@ -219,7 +219,7 @@ public://since this entire file is private, making it public inside here does no
 		this->buf_temp.height=height;
 		if (data!=this->buf_temp.data)
 		{
-			video_copy_2d(this->buf_temp.data, this->src_bpp*width, data, pitch, this->src_bpp*width, height);
+			video::copy_2d(this->buf_temp.data, this->src_bpp*width, data, pitch, this->src_bpp*width, height);
 		}
 		draw_frame(true);
 	}
@@ -331,7 +331,7 @@ public://since this entire file is private, making it public inside here does no
 
 }
 
-video* video_create_thread()
+video* video::create_thread()
 {
 	return new video_thread();
 }

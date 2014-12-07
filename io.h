@@ -25,23 +25,7 @@ const struct window_x11_display * window_x11_get_display();
 //separate backend
 //thread moves are optional
 
-class video;
 struct retro_hw_render_callback;
-struct driver_video {
-	const char * name;
-	
-	//The returned objects can only use their corresponding 2d or 3d functions; calling the other is undefined behaviour.
-	//If an object shall chain, the window handle is 0.
-	video* (*create2d)(uintptr_t windowhandle);
-	//The caller will fill in get_current_framebuffer and get_proc_address. The created object cannot
-	// set it up, as a function pointer cannot point to a C++ member.
-	//On failure, the descriptor is guaranteed to remain sufficiently untouched that creation can be retried
-	// with another driver, and the results will be the same as if this other driver was the first tried.
-	//If ::features & f_3d is 0, this can be NULL.
-	video* (*create3d)(uintptr_t windowhandle, struct retro_hw_render_callback * desc);
-	
-	uint32_t features;
-};
 
 //The first function called on this object must be initialize(), except if it should chain, in which case set_chain() must come before that.
 //Any thread is allowed to call the above two (but not simultaneously).
@@ -49,6 +33,40 @@ struct driver_video {
 //set_chain may be called multiple times. However, the target must be initialize()d first.
 class video : nocopy {
 public:
+	struct driver {
+		const char * name;
+		
+		//The returned objects can only use their corresponding 2d or 3d functions; calling the other is undefined behaviour.
+		//If an object shall chain, the window handle is 0.
+		video* (*create2d)(uintptr_t windowhandle);
+		//The caller will fill in get_current_framebuffer and get_proc_address. The created object cannot
+		// set it up, as a function pointer cannot point to a C++ member.
+		//On failure, the descriptor is guaranteed to remain sufficiently untouched that creation can be retried
+		// with another driver, and the results will be the same as if this other driver was the first tried.
+		//If ::features & f_3d is 0, this can be NULL.
+		video* (*create3d)(uintptr_t windowhandle, struct retro_hw_render_callback * desc);
+		
+		uint32_t features;
+	};
+	
+	static const driver create_d3d9;
+	static const driver create_ddraw;
+	static const driver create_opengl;
+	static const driver create_gdi;
+	static const driver create_xshm;
+	static const driver create_none;
+	static const driver create_opengl_old;
+	
+	static const driver* const drivers[];
+	
+	//This driver cannot draw anything; instead, it copies the input data and calls the next driver on
+	// another thread, while allowing the caller to do something else in the meanwhile (assuming vsync is off).
+	//This means that the chain creator will not own the subsequent items in the chain, and can therefore not
+	// ask for either initialization, vsync, shaders, nor screenshots.
+	// Instead, they must be called on this object; the calls will be passed on to the real driver.
+	//Due to its special properties, it is not included in the list of drivers.
+	static video* create_thread();
+	
 	enum {
 		//TODO: Reassign those bits once the feature set quits changing.
 		f_sshot_ptr=0x00200000,//get_screenshot will return a pointer, and not allocate or copy stuff. This is faster.
@@ -129,6 +147,13 @@ public:
 		//Each pass must be freed before asking for another one.
 		virtual const struct pass_t * pass(unsigned int n, lang_t language) = 0;
 		virtual void pass_free(const struct pass_t * pass) = 0;
+		
+		struct translator {
+			const lang_t * source;
+			const lang_t * dest;
+			char * (*translate)(lang_t from, lang_t to, const char * text);
+		};
+		static const translator trans_cgc;
 		
 		//Returns NULL if it doesn't know how to do this translation, or if the syntax is invalid. Send it to free() once you're done with it.
 		//Translating from a language to itself will work. It is implementation defined whether it rejects invalid code.
@@ -295,43 +320,23 @@ public:
 	virtual void release_screenshot(int ret, void* data) {}
 	
 	virtual ~video() = 0;
+	
+	//Used by various video drivers and other devices.
+	static inline void copy_2d(void* dst, size_t dstpitch, const void* src, size_t srcpitch, size_t bytes_per_line, uint32_t height, bool full_write=false)
+	{
+		if (srcpitch==dstpitch) memcpy(dst, src, srcpitch*(height-1)+bytes_per_line);
+		else
+		{
+			for (unsigned int i=0;i<height;i++)
+			{
+				memcpy((uint8_t*)dst + dstpitch*i, (uint8_t*)src + srcpitch*i, bytes_per_line);
+				if (full_write && dstpitch>bytes_per_line) memset((uint8_t*)dst + dstpitch*i + bytes_per_line, 0, dstpitch-bytes_per_line);
+			}
+		}
+	}
 };
 inline video::~video(){}
 inline video::shader::~shader(){}
-
-extern const driver_video * list_video[];
-
-video::shader* videoshader_create(const char * path);
-
-//Used by various video drivers and other devices.
-static inline void video_copy_2d(void* dst, size_t dstpitch, const void* src, size_t srcpitch, size_t bytes_per_line, uint32_t height, bool full_write=false)
-{
-	if (srcpitch==dstpitch) memcpy(dst, src, srcpitch*(height-1)+bytes_per_line);
-	else
-	{
-		for (unsigned int i=0;i<height;i++)
-		{
-			memcpy((uint8_t*)dst + dstpitch*i, (uint8_t*)src + srcpitch*i, bytes_per_line);
-			if (full_write && dstpitch>bytes_per_line) memset((uint8_t*)dst + dstpitch*i + bytes_per_line, 0, dstpitch-bytes_per_line);
-		}
-	}
-}
-
-//This driver cannot draw anything; instead, it copies the input data and calls the next driver on
-// another thread, while allowing the caller to do something else in the meanwhile (assuming vsync is off).
-//This means that the chain creator will not own the subsequent items in the chain, and can therefore not
-// ask for either initialization, vsync, shaders, nor screenshots.
-// Instead, they must be called on this object; the calls will be passed on to the real driver.
-//Due to its special properties, it is not included in the list of drivers.
-video* video_create_thread();
-
-extern const driver_video video_d3d9_desc;
-extern const driver_video video_ddraw_desc;
-extern const driver_video video_opengl_desc;
-extern const driver_video video_gdi_desc;
-extern const driver_video video_xshm_desc;
-extern const driver_video video_none_desc;
-extern const driver_video video_opengl_old_desc;
 
 
 

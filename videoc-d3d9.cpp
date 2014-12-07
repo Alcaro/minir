@@ -387,5 +387,5 @@ static video* video_create_d3d9(uintptr_t windowhandle)
 {
 	return video_create_compat(cvideo_create_d3d9(windowhandle, 32, 32, 16, 60));
 }
-extern const driver_video video_d3d9_desc = {"Direct3D", video_create_d3d9, NULL, video::f_vsync};
+const video::driver video::create_d3d9 = {"Direct3D", video_create_d3d9, NULL, video::f_vsync};
 #endif
