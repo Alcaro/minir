@@ -210,8 +210,8 @@ static bool path_is_absolute(const char * path)
 {
 	const char * colon=strchr(path, ':');
 	const char * slash=strchr(path, '/');
-	if (colon && slash && colon < slash) return true;//is URI - those are absolute
 	if (slash==path) return true;//unix native
+	if (colon && (!slash || colon < slash)) return true;//URI - those are absolute
 	return false;
 }
 

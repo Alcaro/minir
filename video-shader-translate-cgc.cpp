@@ -16,8 +16,26 @@ char * video::shader::translate_cgc(lang_t from, lang_t to, const char * text)
 	if (from!=la_cg) return NULL;
 	if (to!=la_glsl) return NULL;
 	
-#define e printf("e=%s\n",cgGetLastListing(context));
+	//"-DPARAMETER_UNIFORM",
+	
 	CGcontext context = cgCreateContext();
+#define e printf("e=%s\n",cgGetLastListing(context));
+	//TODO: process with random profile with flags "-D", "PARAMETER_UNIFORM", "-E", "-I", (dir), NULL to get #includes out of the way
+	
+	
+//def preprocess_vertex(source_data):
+//   input_data = source_data.split('\n')
+//   ret = []
+//   for line in input_data:
+//      if ('uniform' in line) and (('float4x4' in line) or ('half4x4' in line)):
+//         ret.append('#pragma pack_matrix(column_major)\n')
+//         ret.append(line)
+//         ret.append('#pragma pack_matrix(row_major)\n')
+//      else:
+//         ret.append(line)
+//   return '\n'.join(ret)
+	
+	const char * args[]={ "-D", "PARAMETER_UNIFORM", NULL };
 	CGprogram vertex = cgCreateProgram(context, CG_SOURCE, text, CG_PROFILE_GLSLV, "main_vertex", NULL);
 	CGprogram fragment = cgCreateProgram(context, CG_SOURCE, text, CG_PROFILE_GLSLF, "main_fragment", NULL);
 	cgCompileProgram(vertex);
@@ -30,7 +48,8 @@ char * video::shader::translate_cgc(lang_t from, lang_t to, const char * text)
 	printf("%s\n", cgGetProgramString(fragment, CG_COMPILED_PROGRAM));
 	goto error;
 	
-	return NULL;
+	cgDestroyContext(context);
+return NULL;
 error:
 	cgDestroyContext(context);
 	return NULL;

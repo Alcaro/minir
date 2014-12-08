@@ -629,6 +629,10 @@ public:
 		this->is3d=false;
 		if (!construct(windowhandle, false, 2,0, (ENABLE_DEBUG==2))) return false;
 		
+		//just pick one at random to shut up the warnings
+		this->in2_fmt=GL_RGB;
+		this->in2_type=GL_UNSIGNED_SHORT_5_6_5;
+		
 		end();
 		return true;
 	}
@@ -726,7 +730,6 @@ public:
 		if (ENABLE_DEBUG==2) debug=true;
 		if (!construct(windowhandle, gles, major, minor, debug)) return false;
 		
-		this->in3_renderbuffer=0;
 		if (this->in3.depth) gl.GenRenderbuffers(1, &this->in3_renderbuffer);
 		else if (desc->stencil) return false;
 		
@@ -745,9 +748,11 @@ public:
 		if (this->in3.depth)
 		{
 			gl.BindRenderbuffer(GL_RENDERBUFFER, this->in3_renderbuffer);
-			gl.RenderbufferStorage(GL_RENDERBUFFER, this->in3.stencil ? GL_DEPTH24_STENCIL8 : GL_DEPTH_COMPONENT16, this->in_texwidth, this->in_texheight);
+			gl.RenderbufferStorage(GL_RENDERBUFFER, this->in3.stencil ? GL_DEPTH24_STENCIL8 : GL_DEPTH_COMPONENT16,
+			                       this->in_texwidth, this->in_texheight);
 			gl.BindFramebuffer(GL_FRAMEBUFFER, this->sh_fbo[0]);
-			gl.FramebufferRenderbuffer(GL_FRAMEBUFFER, this->in3.stencil ? GL_DEPTH_STENCIL_ATTACHMENT : GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, this->in3_renderbuffer);
+			gl.FramebufferRenderbuffer(GL_FRAMEBUFFER, this->in3.stencil ? GL_DEPTH_STENCIL_ATTACHMENT : GL_DEPTH_ATTACHMENT,
+			                           GL_RENDERBUFFER, this->in3_renderbuffer);
 		}
 	}
 	
@@ -1063,7 +1068,8 @@ public:
 				gl.BindFramebuffer(GL_FRAMEBUFFER, this->sh_fbo[0]);
 				GLenum attachment = (this->in3.stencil ? GL_DEPTH_STENCIL_ATTACHMENT : GL_DEPTH_ATTACHMENT);
 				gl.FramebufferRenderbuffer(GL_FRAMEBUFFER, attachment, GL_RENDERBUFFER, this->in3_renderbuffer);
-				gl.GetError();//ignore this; if it fails, it's because set_source_3d hasn't been called, and we'll get a proper call to that later.
+				//ignore this; if it fails, it's because set_source_3d hasn't been called, and we'll get a proper call to that later.
+				gl.GetError();
 			}
 			//gl.BindFragDataLocation(prog, 0, "FragColor");
 			

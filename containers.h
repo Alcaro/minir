@@ -2,21 +2,6 @@
 #include "global.h"
 
 #include <string.h> // strdup
-class string {
-private:
-	char * ptr;
-	void set(const char * newstr) { if (newstr) ptr=strdup(newstr); else ptr=NULL; }
-public:
-	string() : ptr(NULL) {}
-	string(const char * newstr) { set(newstr); }
-	string(const string& newstr) { set(newstr.ptr); }
-	~string() { free(ptr); }
-	string& operator=(const char * newstr) { char* prev=ptr; set(newstr); free(prev); return *this; }
-	string& operator=(string newstr) { char* tmp=newstr.ptr; newstr.ptr=ptr; ptr=tmp; return *this; } // my sources tell me this can sometimes avoid copying entirely
-	operator const char * () { return ptr; }
-};
-
-
 
 #include <new>
 template<typename T> class assocarr : nocopy {
@@ -237,6 +222,9 @@ public:
 
 
 
+#include "string.h"
+//this one has too many dependencies to really fit here, but there's no better place for it
+//it's used all over, but isn't big enough to be its own header
 class config : private nocopy {
 protected:
 	assocarr<assocarr<string> > items;
