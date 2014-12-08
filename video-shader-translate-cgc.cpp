@@ -1,5 +1,6 @@
 #include "io.h"
 
+#ifdef HAVE_CG_SHADERS
 #include <Cg/cg.h>
 
 namespace {
@@ -34,3 +35,4 @@ error:
 	cgDestroyContext(context);
 	return NULL;
 }
+#endif

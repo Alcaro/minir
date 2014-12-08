@@ -124,6 +124,7 @@ bool InitGlobalGLFunctions()
 	GLX_SYM(Bool, QueryVersion, (Display* dpy, int* major, int* minor)) \
 	GLX_SYM(XVisualInfo*, ChooseVisual, (Display* dpy, int screen, int * attribList)) \
 	GLX_SYM(GLXContext, CreateContext, (Display* dpy, XVisualInfo* vis, GLXContext shareList, Bool direct)) \
+	GLX_SYM(GLXContext, GetCurrentContext, ()) \
 	/* GLX 1.3 */ \
 	GLX_SYM_OPT(GLXFBConfig*, ChooseFBConfig, (Display* dpy, int screen, const int * attrib_list, int * nelements)) \
 	GLX_SYM_OPT(XVisualInfo*, GetVisualFromFBConfig, (Display* dpy, GLXFBConfig config)) \
@@ -188,96 +189,101 @@ void DeinitGlobalGLFunctions()
 //2d -> chain
  //2d -> memory -> texture -> [default shader] -> fbo -> texture -> memory
 
-#define GL_SYM(ret, name, args) GL_SYM_N("gl"#name, ret, name, args)
-#define GL_SYM_OPT(ret, name, args) GL_SYM_N_OPT("gl"#name, ret, name, args)
-#define GL_SYM_ARB(ret, name, args) GL_SYM_N("gl"#name"ARB", ret, name, args)
-#define GL_SYM_OPT_ARB(ret, name, args) GL_SYM_N_OPT("gl"#name"ARB", ret, name, args)
+#define SYM_OPT 1
+#define GL_SYM_FLAGS(type, name, flags) GL_SYM_N("gl"#name, type, name, flags)
+#define GL_SYM(type, name) GL_SYM_FLAGS(type, name, 0)
+#define GL_SYM_OPT(type, name) GL_SYM_FLAGS(type, name, SYM_OPT)
+#define GL_SYM_ARB_FLAGS(type, name, flags) GL_SYM_N("gl"#name"ARB", type, name, flags)
+#define GL_SYM_ARB(type, name) GL_SYM_ARB_FLAGS(type, name, 0)
+#define GL_SYM_ARB_OPT(type, name) GL_SYM_ARB_FLAGS(type, name, SYM_OPT)
+
+#define GL_SYM_T(ret, name, args) GL_SYM_T_N("gl"#name, ret, name, args, 0)
+
+//the T syms are the ones that were present in GL 1.1 and do not have typedefs in the header
 #define GL_SYMS() \
-	GL_SYM(void, BindTexture, (GLenum target, GLuint texture)) \
-	GL_SYM(void, Clear, (GLbitfield mask)) \
-	GL_SYM(void, ClearColor, (GLclampf red, GLclampf green, GLclampf blue, GLclampf alpha)) \
-	GL_SYM(void, GenTextures, (GLsizei n, GLuint* textures)) \
-	GL_SYM(GLenum, GetError, ()) \
-	GL_SYM(void, Finish, ()) \
-	GL_SYM(void, PixelStorei, (GLenum pname, GLint param)) \
-	GL_SYM(void, TexImage2D, (GLenum target, GLint level, GLint internalformat, GLsizei width, GLsizei height, \
-	                          GLint border, GLenum format, GLenum type, const GLvoid* pixels)) \
-	GL_SYM(void, TexSubImage2D, (GLenum target, GLint level, GLint xoffset, GLint yoffset, GLsizei width, GLsizei height, \
-	                             GLenum format, GLenum type, const GLvoid* pixels)) \
-	GL_SYM(void, ReadPixels, (GLint x, GLint y, GLsizei width, GLsizei height, GLenum format, GLenum type, GLvoid* pixels)) \
-	ONLY_WINDOWS(GL_SYM_N_OPT("wglSwapIntervalEXT", BOOL, SwapInterval, (int interval))) \
-	ONLY_X11(GL_SYM_N_OPT("glXSwapIntervalMESA", int, SwapIntervalMESA, (unsigned int interval))) \
-	ONLY_X11(GL_SYM_N_OPT("glXSwapIntervalSGI", int, SwapIntervalSGI, (int interval))) \
-	ONLY_X11(GL_SYM_N_OPT("glXSwapIntervalEXT", void, SwapIntervalEXT, (Display* dpy, GLXDrawable drawable, int interval))) \
-	\
-GL_SYM(void, BindBuffer, (GLenum target, GLuint buffer)) \
-GL_SYM(void, GenBuffers, (GLsizei n, GLuint * buffers)) \
-GL_SYM(void, BufferData, (GLenum target, GLsizeiptr size, const GLvoid * data, GLenum usage)) \
-\
-GL_SYM(void, DrawArrays, (GLenum mode, GLint first, GLsizei count)) \
-GL_SYM(void, VertexAttribPointer, (GLuint index, GLint size, GLenum type, GLboolean normalized, GLsizei stride, const GLvoid * pointer)) \
-\
-GL_SYM(void, EnableVertexAttribArray, (GLuint index)) \
-GL_SYM(void, DisableVertexAttribArray, (GLuint index)) \
-\
-GL_SYM(void, Viewport, (GLint x,GLint y,GLsizei width,GLsizei height)) \
-\
-GL_SYM(GLuint, CreateProgram, ()) \
-GL_SYM(GLuint, CreateShader, (GLenum type)) \
-GL_SYM(void, ShaderSource, (GLuint shader, GLsizei count, const GLchar * const * string, const GLint * length)) \
-GL_SYM(void, CompileShader, (GLuint shader)) \
-GL_SYM(void, AttachShader, (GLuint program, GLuint shader)) \
-GL_SYM(void, LinkProgram, (GLuint program)) \
-GL_SYM(void, GetProgramiv, (GLuint program, GLenum pname, GLint* params)) \
-GL_SYM(void, GetProgramInfoLog, (GLuint program, GLsizei bufSize, GLsizei* length, GLchar * infoLog)) \
-GL_SYM(void, GetShaderiv, (GLuint shader, GLenum pname, GLint* params)) \
-GL_SYM(void, GetShaderInfoLog, (GLuint shader, GLsizei bufSize, GLsizei* length, GLchar * infoLog)) \
-GL_SYM(void, UseProgram, (GLuint program)) \
-GL_SYM(GLint, GetAttribLocation, (GLuint program, const GLchar * name)) \
-GL_SYM(GLint, GetUniformLocation, (GLuint program, const GLchar * name)) \
-GL_SYM(void, DeleteProgram, (GLuint program)) \
-GL_SYM(void, DeleteShader, (GLuint shader)) \
-\
-GL_SYM(void, ActiveTexture, (GLenum texture)) \
-GL_SYM(void, Uniform1i, (GLint location, GLint v0)) \
-GL_SYM(void, Enable, (GLenum cap)) \
-GL_SYM(void, TexParameteri, (GLenum target, GLenum pname, GLint param)) \
-\
-GL_SYM(void, GenRenderbuffers, (GLsizei n, GLuint * renderbuffers)) \
-GL_SYM(void, BindRenderbuffer, (GLenum target, GLuint renderbuffer)) \
-GL_SYM(void, RenderbufferStorage, (GLenum target, GLenum internalformat, GLsizei width, GLsizei height)) \
-GL_SYM(void, FramebufferRenderbuffer, (GLenum target, GLenum attachment, GLenum renderbuffertarget, GLuint renderbuffer)) \
-GL_SYM(void, DeleteRenderbuffers, (GLsizei n, const GLuint * renderbuffers)) \
-\
-GL_SYM(void, GenFramebuffers, (GLsizei n, const GLuint * framebuffers)) \
-GL_SYM(void, DeleteFramebuffers, (GLsizei n, const GLuint * framebuffers)) \
-GL_SYM(void, DeleteTextures, (GLsizei n, const GLuint * textures)) \
-GL_SYM(void, FramebufferTexture2D, (GLenum target, GLenum attachment, GLenum textarget, GLuint texture, GLint level)) \
-\
-GL_SYM_OPT_ARB(void, DebugMessageCallback, (GLDEBUGPROC callback, const void * userParam)) \
-GL_SYM_OPT_ARB(void, DebugMessageControl, (GLenum source, GLenum type, GLenum severity, GLsizei count, const GLuint * ids, GLboolean enabled)) \
-GL_SYM(void, BindFramebuffer, (GLenum target, GLuint framebuffer)) \
-\
-GL_SYM(void, Uniform4f, (GLint location, GLfloat v0, GLfloat v1, GLfloat v2, GLfloat v3)) \
-GL_SYM(void, UniformMatrix4fv, (GLint location, GLsizei count, GLboolean transpose, const GLfloat * value)) \
-GL_SYM(void, BindFragDataLocation, (GLuint program, GLuint color, const GLchar * name)) \
+/* misc */ \
+GL_SYM_T(void, Clear, (GLbitfield mask)) \
+GL_SYM_T(void, Viewport, (GLint x,GLint y,GLsizei width,GLsizei height)) \
+GL_SYM_T(void, DrawArrays, (GLenum mode, GLint first, GLsizei count)) \
+GL_SYM_T(void, Finish, ()) \
+/* textures */ \
+GL_SYM_T(void, GenTextures, (GLsizei n, GLuint* textures)) \
+GL_SYM_T(void, BindTexture, (GLenum target, GLuint texture)) \
+GL_SYM_T(void, PixelStorei, (GLenum pname, GLint param)) \
+GL_SYM_T(void, TexImage2D, (GLenum target, GLint level, GLint internalformat, GLsizei width, GLsizei height, \
+                            GLint border, GLenum format, GLenum type, const GLvoid* pixels)) \
+GL_SYM_T(void, TexSubImage2D, (GLenum target, GLint level, GLint xoffset, GLint yoffset, GLsizei width, GLsizei height, \
+                               GLenum format, GLenum type, const GLvoid* pixels)) \
+GL_SYM_T(void, TexParameteri, (GLenum target, GLenum pname, GLint param)) \
+GL_SYM_T(void, DeleteTextures, (GLsizei n, const GLuint * textures)) \
+/* shaders */ \
+GL_SYM(PFNGLCREATESHADERPROC, CreateShader) \
+GL_SYM(PFNGLSHADERSOURCEPROC, ShaderSource) \
+GL_SYM(PFNGLCOMPILESHADERPROC, CompileShader) \
+GL_SYM(PFNGLATTACHSHADERPROC, AttachShader) \
+GL_SYM(PFNGLGETSHADERIVPROC, GetShaderiv) \
+GL_SYM(PFNGLGETSHADERINFOLOGPROC, GetShaderInfoLog) \
+GL_SYM(PFNGLDELETESHADERPROC, DeleteShader) \
+GL_SYM(PFNGLCREATEPROGRAMPROC, CreateProgram) \
+GL_SYM(PFNGLLINKPROGRAMPROC, LinkProgram) \
+GL_SYM(PFNGLGETPROGRAMIVPROC, GetProgramiv) \
+GL_SYM(PFNGLGETPROGRAMINFOLOGPROC, GetProgramInfoLog) \
+GL_SYM(PFNGLGETATTRIBLOCATIONPROC, GetAttribLocation) \
+GL_SYM(PFNGLGETUNIFORMLOCATIONPROC, GetUniformLocation) \
+GL_SYM(PFNGLDELETEPROGRAMPROC, DeleteProgram) \
+GL_SYM(PFNGLUSEPROGRAMPROC, UseProgram) \
+GL_SYM(PFNGLUNIFORM1IPROC, Uniform1i) \
+GL_SYM(PFNGLUNIFORM4FPROC, Uniform4f) \
+GL_SYM(PFNGLUNIFORMMATRIX4FVPROC, UniformMatrix4fv) \
+/* render-to-texture*/ \
+GL_SYM(PFNGLGENRENDERBUFFERSPROC, GenRenderbuffers) \
+GL_SYM(PFNGLBINDRENDERBUFFERPROC, BindRenderbuffer) \
+GL_SYM(PFNGLRENDERBUFFERSTORAGEPROC, RenderbufferStorage) \
+GL_SYM(PFNGLFRAMEBUFFERRENDERBUFFERPROC, FramebufferRenderbuffer) \
+GL_SYM(PFNGLDELETERENDERBUFFERSPROC, DeleteRenderbuffers) \
+GL_SYM(PFNGLGENFRAMEBUFFERSPROC, GenFramebuffers) \
+GL_SYM(PFNGLDELETEFRAMEBUFFERSPROC, DeleteFramebuffers) \
+GL_SYM(PFNGLFRAMEBUFFERTEXTURE2DPROC, FramebufferTexture2D) \
+GL_SYM(PFNGLBINDFRAMEBUFFERPROC, BindFramebuffer) \
+GL_SYM(PFNGLBINDFRAGDATALOCATIONPROC, BindFragDataLocation) \
+GL_SYM(PFNGLDRAWBUFFERSPROC, DrawBuffers) \
+GL_SYM(PFNGLACTIVETEXTUREPROC, ActiveTexture) \
+/* vertex buffers */ \
+GL_SYM_T(void, GenBuffers, (GLsizei n, GLuint * buffers)) \
+GL_SYM_T(void, BindBuffer, (GLenum target, GLuint buffer)) \
+GL_SYM_T(void, BufferData, (GLenum target, GLsizeiptr size, const GLvoid * data, GLenum usage)) \
+GL_SYM(PFNGLVERTEXATTRIBPOINTERPROC, VertexAttribPointer) \
+GL_SYM(PFNGLENABLEVERTEXATTRIBARRAYPROC, EnableVertexAttribArray) \
+GL_SYM(PFNGLDISABLEVERTEXATTRIBARRAYPROC, DisableVertexAttribArray) \
+/* debug */ \
+GL_SYM_T(void, ClearColor, (GLclampf red, GLclampf green, GLclampf blue, GLclampf alpha)) \
+GL_SYM_T(GLenum, GetError, ()) \
+GL_SYM_T(void, Enable, (GLenum cap)) /* this one is actually only used for GL_DEBUG_OUTPUT_SYNCHRONOUS_ARB */ \
+GL_SYM_ARB_OPT(PFNGLDEBUGMESSAGECALLBACKPROC, DebugMessageCallback) \
+GL_SYM_ARB_OPT(PFNGLDEBUGMESSAGECONTROLPROC, DebugMessageControl) \
+/* platform specific */ \
+ONLY_WINDOWS(GL_SYM_N("wglSwapIntervalEXT", PFNWGLSWAPINTERVALEXTPROC, SwapInterval, 0)) \
+ONLY_X11(GL_SYM_T_N("glXSwapIntervalMESA", int, SwapIntervalMESA, (unsigned int interval), SYM_OPT)) \
+ONLY_X11(GL_SYM_N("glXSwapIntervalSGI", PFNGLXSWAPINTERVALSGIPROC, SwapIntervalSGI, SYM_OPT)) \
+ONLY_X11(GL_SYM_N("glXSwapIntervalEXT", PFNGLXSWAPINTERVALEXTPROC, SwapIntervalEXT, SYM_OPT)) \
 
 
 
 
-#define GL_SYM_N_OPT GL_SYM_N
-#define GL_SYM_N(str, ret, name, args) ret (APIENTRY * name) args;
+
+#define GL_SYM_N(str, type, name, flags) type name;
+#define GL_SYM_T_N(str, ret, name, args, flags) ret (APIENTRY * name) args;
 struct glsyms { GL_SYMS() };
 #undef GL_SYM_N
-#define GL_SYM_N(str, ret, name, args) str,
+#undef GL_SYM_T_N
+#define GL_SYM_T_N(str, ret, name, args, flags) GL_SYM_N(str, $ERROR, name, flags)
+#define GL_SYM_N(str, type, name, flags) str,
 static const char * const gl_names[] = { GL_SYMS() };
 #undef GL_SYM_N
-#undef GL_SYM_N_OPT
-#define GL_SYM_N(str, ret, name, args) 0,
-#define GL_SYM_N_OPT(str, ret, name, args) 1,
+#define GL_SYM_N(str, type, name, flags) flags,
 static uint8_t gl_opts[] = { GL_SYMS() };
 #undef GL_SYM_N
-#undef GL_SYM_N_OPT
+#undef GL_SYM_T_N
 
 class video_opengl : public video {
 public:
@@ -385,6 +391,7 @@ public:
 		wgl.MakeCurrent(this->hdc, this->hglrc);
 #endif
 #ifdef WNDPROT_X11
+		if (glx.GetCurrentContext()) abort();
 		glx.MakeCurrent(this->display, this->glxsurface, this->context);
 #endif
 	}
@@ -402,6 +409,8 @@ public:
 #ifdef WNDPROT_WINDOWS
 	/*private*/ bool create_context(uintptr_t window, bool gles, unsigned int major, unsigned int minor, bool debug)
 	{
+		if (wgl.GetCurrentContext()) return false;
+		
 		if (gles) return false;//rejected for now
 		if (major<2) return false;//reject these (cannot hoist to construct3d because InitGlobalGLFunctions must be called)
 		//TODO: clone the hwnd, so I won't set pixel format twice
@@ -477,6 +486,7 @@ public:
 	
 	/*private*/ bool create_context(uintptr_t windowhandle, bool gles, unsigned int major, unsigned int minor, bool debug)
 	{
+		if (glx.GetCurrentContext()) return false;
 		if (gles) return false;//rejected for now
 		
 		//this doesn't really belong here, but I don't want to promote it to a class member and I can't add another parameter.
@@ -609,6 +619,8 @@ public:
 		
 		this->out_chain=NULL;
 		
+		gl.ClearColor(0.25, 0.875, 0.8125, 1);
+		
 		return true;
 	}
 	
@@ -663,8 +675,7 @@ public:
 		gl.BindTexture(GL_TEXTURE_2D, this->sh_tex[0]);
 		this->in_texwidth=bitround(max_width);
 		this->in_texheight=bitround(max_height);
-		//why do I need to use rgba for internal format, it works fine with GL_RGB on the old opengl driver
-		gl.TexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, this->in_texwidth, this->in_texheight, 0, this->in2_fmt, this->in2_type, NULL);
+		gl.TexImage2D(GL_TEXTURE_2D, 0, GL_RGB, this->in_texwidth, this->in_texheight, 0, this->in2_fmt, this->in2_type, NULL);
 	}
 	
 	//void draw_2d_where(unsigned int width, unsigned int height, void * * data, unsigned int * pitch);
@@ -773,8 +784,9 @@ public:
 	{
 		gl.BindFramebuffer(GL_FRAMEBUFFER, this->sh_fbo[1]);
 		gl.UseProgram(this->sh_prog[0]);
+		//GLenum colbuf0 = GL_COLOR_ATTACHMENT0;
+		//gl.DrawBuffers(1, &colbuf0);
 		gl.Viewport(0, 0, this->out_width, this->out_height);
-//gl.ClearColor(0.5,0.5,0.5,0.5);
 		gl.Clear(GL_COLOR_BUFFER_BIT);
 		
 		if (width!=this->in_lastwidth || height!=this->in_lastheight)
@@ -804,13 +816,19 @@ public:
 			this->in_lastheight=height;
 		}
 		
-		gl.EnableVertexAttribArray(this->sh_texcoordloc);
-		gl.BindBuffer(GL_ARRAY_BUFFER, this->sh_texcoordbuf);
-		gl.VertexAttribPointer(this->sh_texcoordloc, 2, GL_FLOAT, GL_FALSE, 0, (void*)0);
+		if (this->sh_texcoordloc != -1)
+		{
+			gl.EnableVertexAttribArray(this->sh_texcoordloc);
+			gl.BindBuffer(GL_ARRAY_BUFFER, this->sh_texcoordbuf);
+			gl.VertexAttribPointer(this->sh_texcoordloc, 2, GL_FLOAT, GL_FALSE, 0, (void*)0);
+		}
 		
-		gl.EnableVertexAttribArray(this->sh_vercoordloc);
-		gl.BindBuffer(GL_ARRAY_BUFFER, this->sh_vertexbuf_first);
-		gl.VertexAttribPointer(this->sh_vercoordloc, 2, GL_FLOAT, GL_FALSE, 0, (void*)0);
+		if (this->sh_vercoordloc != -1)
+		{
+			gl.EnableVertexAttribArray(this->sh_vercoordloc);
+			gl.BindBuffer(GL_ARRAY_BUFFER, this->sh_vertexbuf_first);
+			gl.VertexAttribPointer(this->sh_vercoordloc, 2, GL_FLOAT, GL_FALSE, 0, (void*)0);
+		}
 		
 		gl.ActiveTexture(GL_TEXTURE0);
 		gl.BindTexture(GL_TEXTURE_2D, this->sh_tex[0]);
@@ -1000,21 +1018,23 @@ public:
 			this->sh_vercoordloc=gl.GetAttribLocation(prog, "VertexCoord");
 			this->sh_texcoordloc=gl.GetAttribLocation(prog, "TexCoord");
 			
-			//TODO: analyze if these two do anything
-			//gl.Uniform4f(gl.GetAttribLocation(prog, "Color"), 1,1,1,1);
-			gl.Uniform4f(gl.GetAttribLocation(prog, "Color"), 1,0,0.5,1);
+			//not sure what these two are used for, but they're required for things to work
+			gl.Uniform4f(gl.GetAttribLocation(prog, "Color"), 1,1,1,1);
 			const float identity4[16]={
-				//1,0,0,0,
-				//0,1,0,0,
-				//0,0,1,0,
-				//0,0,0,1,
-				1,0.1,0,0,
-				0.1,1,0,0,
+				1,0,0,0,
+				0,1,0,0,
 				0,0,1,0,
 				0,0,0,1,
 			};
-			gl.UniformMatrix4fv(gl.GetAttribLocation(prog, "MVPMatrix"), 1, GL_FALSE, identity4);
-			gl.BindFragDataLocation(prog, 0, "FragColor");
+			gl.UniformMatrix4fv(gl.GetUniformLocation(prog, "MVPMatrix"), 1, GL_FALSE, identity4);
+			
+			//TODO: check which of the following are used:
+			//uniform mat4 MVPMatrix;
+			//uniform int FrameDirection;
+			//uniform int FrameCount;
+			//uniform COMPAT_PRECISION vec2 OutputSize;
+			//uniform COMPAT_PRECISION vec2 TextureSize;
+			//uniform COMPAT_PRECISION vec2 InputSize;
 			
 			gl.BindTexture(GL_TEXTURE_2D, this->sh_tex[pass]);
 			if (this->is3d)
@@ -1023,7 +1043,7 @@ public:
 			}
 			else
 			{
-				gl.TexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, this->in_texwidth, this->in_texheight, 0, this->in2_fmt, this->in2_type, NULL);
+				gl.TexImage2D(GL_TEXTURE_2D, 0, GL_RGB, this->in_texwidth, this->in_texheight, 0, this->in2_fmt, this->in2_type, NULL);
 			}
 			gl.TexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
 			gl.TexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
@@ -1045,12 +1065,10 @@ public:
 				gl.FramebufferRenderbuffer(GL_FRAMEBUFFER, attachment, GL_RENDERBUFFER, this->in3_renderbuffer);
 				gl.GetError();//ignore this; if it fails, it's because set_source_3d hasn't been called, and we'll get a proper call to that later.
 			}
+			//gl.BindFragDataLocation(prog, 0, "FragColor");
 			
 			if (sh) sh->pass_free(passdata);
 		}
-		
-//vertex vec4 COLOR [ = (0,0.5,1,0.8) ] [to be changed to 1,1,1,1 if it works]
-//global mat4 MVPMatrix [ = ((1,0,0,0),(0,1,0,0),(0,0,1,0),(0,0,0,1)) ]
 		
 		return true;
 		

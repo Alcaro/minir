@@ -21,14 +21,14 @@ NATCXXFLAGS = $(CPPFLAGS)
 NATLD = $(LD)
 NATLFLAGS = $(LFLAGS)
 
-include config.mk
+include config$(PROFILE).mk
 
 OUTNAME = minir$(EXESUFFIX)
 
 OBJS = $(patsubst %.cpp,obj/%$(OBJSUFFIX).o,$(wildcard *.cpp)) $(EXTRAOBJ) obj/miniz$(OBJSUFFIX).o
 
-TRUE_CFLAGS = $(CFLAGS) $(CONF_CFLAGS) -std=c99
-TRUE_CXXFLAGS = $(CXXFLAGS) $(CONF_CXXFLAGS) -std=c++98
+TRUE_CFLAGS = $(CFLAGS) $(CONF_CFLAGS) -fno-exceptions -std=c99
+TRUE_CXXFLAGS = $(CXXFLAGS) $(CONF_CXXFLAGS) -fno-exceptions -fno-rtti -std=c++98
 TRUE_LFLAGS = $(LFLAGS) $(CONF_LFLAGS)
 
 

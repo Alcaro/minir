@@ -4,8 +4,10 @@ char * video::shader::translate(lang_t from, lang_t to, const char * text)
 {
 	if (from==to) return strdup(text);
 	
-	char * (*translators[])(lang_t from, lang_t to, const char * text) = {
+	static char * (* const translators[])(lang_t from, lang_t to, const char * text) = {
+#ifdef HAVE_CG_SHADERS
 		translate_cgc,
+#endif
 		NULL
 	};
 	for (unsigned int i=0;translators[i];i++)

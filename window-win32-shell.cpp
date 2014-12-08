@@ -235,10 +235,12 @@ static void resize(struct window * this_, unsigned int width, unsigned int heigh
 	SetWindowPos(this->hwnd, NULL, 0, 0, width+padx, height+pady,
 	             SWP_NOACTIVATE|SWP_NOCOPYBITS|SWP_NOMOVE|SWP_NOOWNERZORDER|SWP_NOZORDER);
 	
-	//because we're setting the window position ourselves, reflow is likely to think the status bar is correct, so we need to fix it ourselves.
-	resize_stbar(this, width);
-	
 	_reflow((struct window*)this);
+	
+	//because we're setting the window position ourselves, reflow is likely to think the status bar is correct, so we need to fix it ourselves.
+	RECT size;
+	GetClientRect(this->hwnd, &size);
+	resize_stbar(this, size.right);
 }
 
 static void set_resizable(struct window * this_, bool resizable,
