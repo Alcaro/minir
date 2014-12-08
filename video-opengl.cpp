@@ -989,6 +989,7 @@ public:
 		{
 			const struct shader::pass_t * passdata=(sh ? sh->pass(pass, shader::la_glsl) : &defaultshader);
 			if (!passdata) goto error;
+			if (!passdata->source) goto error;
 			
 			GLuint prog=createShaderProg(210, passdata->source);
 			if (!prog) goto error;
@@ -1007,8 +1008,8 @@ public:
 				//0,1,0,0,
 				//0,0,1,0,
 				//0,0,0,1,
-				1,0,0,0,
-				0,1,0,0,
+				1,0.1,0,0,
+				0.1,1,0,0,
 				0,0,1,0,
 				0,0,0,1,
 			};

@@ -151,7 +151,8 @@ public:
 		virtual void pass_free(const struct pass_t * pass) = 0;
 		
 		//Returns NULL if it doesn't know how to do this translation, or if the syntax is invalid. Send it to free() once you're done with it.
-		//Translating from a language to itself will work. It is implementation defined whether it rejects invalid code.
+		//Translating from a language to itself will work; it is implementation defined whether this rejects invalid code.
+		//Translating a shader is not guaranteed lossless. Do not store translated text.
 		static char * translate(lang_t from, lang_t to, const char * text);
 		
 	private:

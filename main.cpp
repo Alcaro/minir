@@ -1686,7 +1686,7 @@ int main(int argc, char * argv[])
 {
 	window_init(&argc, &argv);
 window_cwd_enter(NULL);
-video::shader*g=video::shader::create_from_file("tests/shade/mcgreen.glsl");
+video::shader*g=video::shader::create_from_file("tests/shade/mcgreen.cg");
 window_cwd_leave();
 	initialize(argc, argv);
 vid->set_shader(g);

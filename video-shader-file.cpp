@@ -18,6 +18,7 @@ const struct pass_t * pass(unsigned int n, lang_t language)
 		this->pass_clone=this->passes[n];
 		this->pass_clone.lang=language;
 		this->pass_clone.source=translate(this->passes[n].lang, language, this->passes[n].source);
+		if (!this->pass_clone.source) return NULL;
 		return &this->pass_clone;
 	}
 }
