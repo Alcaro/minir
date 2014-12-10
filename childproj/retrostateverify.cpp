@@ -44,7 +44,7 @@ False positives have been observed:
 - _GLOBAL_OFFSET_TABLE_ has given weird results for unknown reasons.
 - Failures have been observed cascading back into volatile arrays (e.g. framebuffer). This makes them show up as guilty.
 
-rm retrostate; g++ -I. tests/retrostateverify.cpp tests/memdebug.cpp libretro.cpp dylib.cpp memory.cpp -ldl -lrt -DDYLIB_POSIX -DWINDOW_MINIMAL window-none.cpp -Og -g -o retrostate; gdb --args ./retrostate roms/snes9x_libretro.so ~/smw.smc 5 60 30
+rm retrostate; g++ -I. childproj/retrostateverify.cpp childproj/memdebug.cpp libretro.cpp dylib.cpp memory.cpp -ldl -lrt -DDYLIB_POSIX -DWINDOW_MINIMAL window-none.cpp -Og -g -o retrostate; gdb --args ./retrostate roms/snes9x_libretro.so ~/smw.smc 5 60 30
 
 won't work on Windows
 */

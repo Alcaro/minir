@@ -5,9 +5,9 @@
 //example: ./retroprofile roms/gambatte_libretro.so roms/zeldaseasons.gbc 10000
 COMMENT1
 
-cd tests || true
+cd childproj || true
 cd ..
-g++ -I. tests/retroprofile.cpp \
+g++ -I. childproj/retroprofile.cpp \
 	libretro.cpp dylib.cpp memory.cpp video.cpp \
 	-ldl -lrt -DDYLIB_POSIX -DWINDOW_MINIMAL window-none.cpp -Os -s -o retroprofile
 mv retroprofile ~/bin
