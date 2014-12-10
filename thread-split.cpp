@@ -22,10 +22,8 @@ struct threadpool {
 
 static struct threadpool * pool;
 
-void threadproc(void* userdata)
+void threadproc(struct threadpool * this)
 {
-	struct threadpool * this=(struct threadpool*)userdata;
-	
 	while (true)
 	{
 		this->wake->wait();

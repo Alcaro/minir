@@ -206,39 +206,44 @@ const struct window_x11_display * window_x11_get_display()
 
 
 
-static bool path_is_absolute(const char * path)
-{
-	const char * colon=strchr(path, ':');
-	const char * slash=strchr(path, '/');
-	if (slash==path) return true;//unix native
-	if (colon && (!slash || colon < slash)) return true;//URI - those are absolute
-	return false;
-}
+//static bool path_is_absolute(const char * path)
+//{
+//	const char * colon=strchr(path, ':');
+//	const char * slash=strchr(path, '/');
+//	if (slash==path) return true;//unix native
+//	if (colon && (!slash || colon < slash)) return true;//URI - those are absolute
+//	return false;
+//}
 
 char * window_get_absolute_path(const char * basepath, const char * path, bool allow_up)
 {
-	if (!path) return NULL;
-	if (!allow_up)
-	{
-		if (path_is_absolute(path)) return NULL;
-		if (path[0]=='.' && path[1]=='.' && (path[2]=='/' || path[2]=='\0')) return NULL;
-		if (strstr(path, "/../")) return NULL;
-		if (strstr(path, "/..") && strstr(path, "/..")[3]=='\0') return NULL;
-	}
-	GFile* file;
-	if (basepath)
-	{
-		const char * pathend=strrchr(basepath, '/');
-		gchar * basepath_dir=g_strndup(basepath, pathend+1-basepath);
-		file=g_file_new_for_commandline_arg_and_cwd(path, basepath_dir);
-		g_free(basepath_dir);
-	}
-	else file=g_file_new_for_commandline_arg(path);
+	if (!path || !basepath) return NULL;
+	//if (!allow_up)
+	//{
+	//	if (path_is_absolute(path)) return NULL;
+	//	if (path[0]=='.' && path[1]=='.' && (path[2]=='/' || path[2]=='\0')) return NULL;
+	//	if (strstr(path, "/../")) return NULL;
+	//	if (strstr(path, "/..") && strstr(path, "/..")[3]=='\0') return NULL;
+	//}
+	
+	const char * pathend=strrchr(basepath, '/');
+	gchar * basepath_dir=g_strndup(basepath, pathend+1-basepath);
+	GFile* file=g_file_new_for_commandline_arg_and_cwd(path, basepath_dir);
+	g_free(basepath_dir);
+	
 	gchar * ret;
 	if (g_file_is_native(file)) ret=g_file_get_path(file);
 	else ret=g_file_get_uri(file);
 	g_object_unref(file);
+	
 	if (!ret) return NULL;
+	
+	if (!allow_up && !strncmp(basepath, ret, pathend+1-basepath))
+	{
+		g_free(ret);
+		return NULL;
+	}
+	
 	return (char*)mem_from_g_alloc(ret, 0);
 }
 

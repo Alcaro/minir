@@ -1,5 +1,5 @@
 #include "io.h"
-#include "containers.h"
+#include "configreader.h"
 #include "file.h"
 #include <ctype.h>
 #include <stdio.h>
@@ -82,7 +82,8 @@ void texture_free(const struct tex_t * texture)
 	this->textures=NULL;
 	this->texpaths=NULL;
 	
-	config cfg(data);
+	configreader cfg;
+	if (!cfg.parse(data)) return false;
 	
 	bool error=false;
 	
@@ -196,12 +197,16 @@ video::shader* video::shader::create_from_data(const char * data,
 }
 
 namespace {
-void* shader_read_file(const char * path, size_t * len)
-{
-	void* ret;
-	if (!file_read(path, &ret, len)) return NULL;
-	return ret;
-}
+	char* shader_makeabs(const char * base, const char * path)
+	{
+		return window_get_absolute_path(base, path, false);
+	}
+	void* shader_readfile(const char * path, size_t * len)
+	{
+		void* ret;
+		if (!file_read(path, &ret, len)) return NULL;
+		return ret;
+	}
 }
 
 video::shader* video::shader::create_from_file(const char * filename)
@@ -221,7 +226,7 @@ video::shader* video::shader::create_from_file(const char * filename)
 	}
 	
 	video_shader_data* ret=new video_shader_data();
-	if (!ret->construct(data, bind(strdup), bind(shader_read_file), false))
+	if (!ret->construct(data, bind_ptr(shader_makeabs, filename), bind(shader_readfile), true))
 	{
 		delete ret;
 		ret=NULL;

@@ -515,9 +515,8 @@ static void poll(struct inputmapper * this_)
 	}
 }
 
-void inputmapper_kb_cb(void* this_, unsigned int keyboard, int scancode, unsigned int libretrocode, bool down)
+void inputmapper_kb_cb(struct inputmapper_impl * this, unsigned int keyboard, int scancode, unsigned int libretrocode, bool down)
 {
-	struct inputmapper_impl * this=(struct inputmapper_impl*)this_;
 	if (keyboard >= this->kb_nkb)
 	{
 		reset_shiftstates(this);

@@ -284,14 +284,21 @@ public:
 			struct param_t * pa_items;
 		} variable;
 		
+		//If lazy is true (recommended), read() may be called after create_from_data returns, until the
+		// shader object is deallocated; this allows potentially large textures to not be stored in
+		// memory multiple times. read() will still be called on some items before it returns.
+		//read() must append a NUL terminator to the returned data, and not return this in len.
+		// file_read meets these requirements, though its arguments are different, so you need a small
+		// adapter function.
+		//path_translate() will be called on each path before being sent to read(), whether lazy is true
+		// or false. The recommended use is to use it to make the path absolute (shader presets contain
+		// relative paths), though you can do pretty much whatever you want.
 		//The callback return values should be sent to free().
-		//If lazy is true (recommended), read() may be called after create_from_data returns, until the shader object is removed.
-		//path_translate() will be called on each path before being sent to read(), whether lazy is true or false.
 		static shader* create_from_data(const char * data,
 		                                function<char*(const char * path)> path_translate,
 		                                function<void*(const char * path, size_t * len)> read,
 		                                bool lazy=true);
-		//Shortcut to create_from_data.
+		//Shortcut to create_from_data, which takes a filename. If filename is a shader (not a preset), it's used.
 		static shader* create_from_file(const char * filename);
 		
 		virtual ~shader() = 0;

@@ -3,15 +3,9 @@
 
 //These are implemented by the window manager; however, due to file operations being far more common than GUI, they're split off.
 
-//These two allow use of the current working directory in multithreaded programs.
-//If dir is NULL, uses window_cwd_get_default().
-//Outside calls to these, the current directory will be set to something unspecified that is extremely
-// unlikely to contain anything useful. The program will preferably not have write access to it.
-void window_cwd_enter(const char * dir);
-void window_cwd_leave();
-
 //Returns the working directory at the time of process launch.
-const char * window_cwd_get_default();
+//The true working directory is set to something unusable, and the program may not change or use it.
+const char * window_get_cwd();
 
 //Returns the process path, without the filename. Multiple calls will return the same pointer.
 const char * window_get_proc_path();
@@ -31,21 +25,10 @@ char * window_get_absolute_path(const char * basepath, const char * path, bool a
 char * window_get_native_path(const char * path);
 
 //These two resolve paths relative to the initial working directory. Use for command line arguments.
-inline char * window_get_absolute_path_cwd(const char * path, bool allow_up)
-{
-	window_cwd_enter(NULL);
-	char * ret=window_get_absolute_path("./", path, allow_up);
-	window_cwd_leave();
-	return ret;
-}
-
-inline char * window_get_native_path_cwd(const char * path)
-{
-	window_cwd_enter(NULL);
-	char * ret=window_get_native_path(path);
-	window_cwd_leave();
-	return ret;
-}
+//inline char * window_get_absolute_path_cwd(const char * path, bool allow_up)
+//{
+//	return window_get_absolute_path(window_get_cwd(), path, allow_up);
+//}
 
 //These are implemented by the window manager, despite looking somewhat unrelated.
 //Can be just fopen, but may additionally support something implementation-defined, like gvfs;

@@ -5,7 +5,7 @@
 
 #include <new>
 template<typename T> class assocarr : nocopy {
-private:
+protected:
 	typedef uint16_t keyhash_t;
 	
 	static keyhash_t hash(const char * str)
@@ -24,13 +24,11 @@ private:
 		struct node_t * next;
 		char * key;
 		keyhash_t hash;
-		bool used;
 		T value;
 	};
 	struct node_t * * nodes;
 	unsigned int buckets;
 	unsigned int entries;
-	unsigned int used_entries;
 	
 	void resize(unsigned int newbuckets)
 	{
@@ -60,12 +58,7 @@ private:
 		while (true)
 		{
 			if (!node[0]) return NULL;
-			if (node[0]->hash==thehash && !strcmp(key, node[0]->key))
-			{
-				if (!node[0]->used) this->used_entries++;
-				node[0]->used=true;
-				return node;
-			}
+			if (node[0]->hash==thehash && !strcmp(key, node[0]->key)) return node;
 			node=&(node[0]->next);
 		}
 	}
@@ -84,7 +77,6 @@ private:
 		keyhash_t thehash=hash(key);
 		node->key=strdup(key);
 		node->hash=thehash;
-		node->used=false;
 		node->next=this->nodes[thehash%this->buckets];
 		this->nodes[thehash%this->buckets]=node;
 		this->entries++;
@@ -94,7 +86,6 @@ private:
 	
 public:
 	unsigned int size() { return this->entries; }
-	unsigned int size(unsigned int * used) { *used=this->used_entries; return this->entries; }
 	
 	bool has(const char * key) { return find(key); }
 	
@@ -164,7 +155,6 @@ public:
 		this->nodes=NULL;
 		this->buckets=0;
 		this->entries=0;
-		this->used_entries=0;
 		resize(4);
 	}
 	
@@ -177,20 +167,6 @@ public:
 			{
 				struct node_t * next=node->next;
 				iter(node->key, node->value);
-				node=next;
-			}
-		}
-	}
-	
-	void each(function<void(const char * key, T& value, bool& used)> iter)
-	{
-		for (unsigned int i=0;i<this->buckets;i++)
-		{
-			struct node_t * node=this->nodes[i];
-			while (node)
-			{
-				struct node_t * next=node->next;
-				iter(node->key, node->value, node->used);
 				node=next;
 			}
 		}
@@ -222,102 +198,10 @@ public:
 
 
 
-#include "string.h"
-//this one has too many dependencies to really fit here, but there's no better place for it
-//it's used all over, but isn't big enough to be its own header
-class config : private nocopy {
-protected:
-	assocarr<assocarr<string> > items;
-	assocarr<string>* group;
-	
-	void parse(char * data);
-	
-	
-	bool parse(const char * str, const char * * out)
-	{
-		*out=str;
-		return true;
-	}
-	
-	bool parse(const char * str, unsigned int* value)
-	{
-		char* end;
-		unsigned int ret=strtoul(str, &end, 10);
-		if (*end) return false;
-		*value=ret;
-		return true;
-	}
-	
-	bool parse(const char * str, signed int* value)
-	{
-		char* end;
-		signed int ret=strtol(str, &end, 10);
-		if (*end) return false;
-		*value=ret;
-		return true;
-	}
-	
-	bool parse(const char * str, float* value)
-	{
-		char* end;
-		float ret=strtod(str, &end);
-		if (*end) return false;
-		*value=ret;
-		return true;
-	}
-	
-	bool parse(const char * str, bool* value)
-	{
-		if(0);
-		else if (!strcmp(str, "1") || !strcasecmp(str, "true"))  *value=true;
-		else if (!strcmp(str, "0") || !strcasecmp(str, "false")) *value=false;
-		else return false;
-		return true;
-	}
-	
+template<typename T> class list {
+	T* * items;
+	unsigned int count;
+	unsigned int buflen;
 public:
-	bool set_group(const char * group)
-	{
-		this->group=this->items.get_ptr(group ? group : "");
-		return (this->group);
-	}
 	
-	//If the requested item doesn't exist, this returns false and leaves 'error' unchanged.
-	//If the requested item does exist but is not valid for that type, 'error' is set to true if non-NULL.
-	//In all failure cases, 'value' remains unchanged.
-	template<typename T> bool read(const char * item, T* value, bool * error=NULL)
-	{
-		if (!this->group) return false;
-		string* ret=this->group->get_ptr(item);
-		if (!ret) return false;
-		if (!parse(*ret, value))
-		{
-			if (error) *error=true;
-			return false;
-		}
-		return true;
-	}
-	
-public://because the function class is stupid
-	static void all_used_sub(void* ptr, const char * key, assocarr<string>& value, bool& used)
-	{
-		unsigned int child_used;
-		unsigned int child_tot=value.size(&child_used);
-		if (!used || child_used!=child_tot) *(bool*)ptr = false;
-	}
-public:
-	bool all_used()
-	{
-		bool ret=true;
-		this->items.each(bind_ptr(all_used_sub, &ret));
-		return ret;
-	}
-	
-	//This function will modify the given string.
-	config(char * data) { parse(data); }
-	//ignore destructor - we need the automatic one, but nothing explicit.
-	
-static void ggg(const char*a,string&b,bool&c){printf("  %s=%s (%i)\n",a,(const char*)b,c);}
-static void gg(const char*a,assocarr<string>&b){unsigned int c;unsigned int d;c=b.size(&d);printf("%s (%i/%i):\n",a,d,c);b.each(bind(ggg));}
-void g(){items.each(bind(gg));}
 };

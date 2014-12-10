@@ -715,7 +715,7 @@ bool handle_cli_args(const char * const * filenames, bool coresonly)
 	const char * ext=dylib_ext();
 	for (int i=0;filenames[i];i++)
 	{
-		char * path=window_get_absolute_path_cwd(filenames[i], true);
+		char * path=window_get_absolute_path(window_get_cwd(), filenames[i], true);
 		const char * end=strrchr(path, '.');
 		if (coresonly || (end && !strcmp(end, ext)))
 		{
@@ -1685,12 +1685,14 @@ void update_menu()
 int main(int argc, char * argv[])
 {
 	window_init(&argc, &argv);
-window_cwd_enter(NULL);
-//video::shader*g=video::shader::create_from_file("tests/shade/cocktail-table.glsl");
-//video::shader*g=video::shader::create_from_file("tests/shade/mcgreen.cg");
-window_cwd_leave();
+//const char * path="tests/shade/cocktail-table.glsl";
+//const char * path="tests/shade/mcgreen.cg";
+const char * path="tests/shade/mcgreen.glsl";
+char * truepath=window_get_absolute_path(window_get_cwd(), path, false);
+video::shader*g=video::shader::create_from_file(truepath);
+free(truepath);
 	initialize(argc, argv);
-//vid->set_shader(g);
+vid->set_shader(g);
 if
 (config.firstrun)
 window_message_box(

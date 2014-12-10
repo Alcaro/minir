@@ -1,10 +1,10 @@
-#include "containers.h"
+#include "configreader.h"
 #include <ctype.h>
 
-void config::parse(char * data)
+bool configreader::parse(char * data)
 {
-	assocarr<string>* group=&this->items.get("");
-	this->group=group;
+	this->items.reset();
+	assocarr<sub_inner>* group=&this->items.get("").items;
 	while (data)
 	{
 		char * nextline=strchr(data, '\n');
@@ -23,10 +23,10 @@ void config::parse(char * data)
 			if (lineend[-1]==']' && (isalpha(data[1]) || data[1]=='_'))
 			{
 				lineend[-1]='\0';
-				group=&this->items.get(data+1);
+				group=&this->items.get(data+1).items;
 				puts(data+1);
 			}
-			else group=NULL;//error
+			else goto fail;
 			goto next;
 		}
 		
@@ -36,20 +36,26 @@ void config::parse(char * data)
 			while (isalnum(*keyend) || *keyend=='_') keyend++;
 			char * valstart=keyend;
 			while (isspace(*valstart)) valstart++;
-			if (*valstart!='=') goto next;//error
+			if (*valstart!='=') goto fail;
 			valstart++;
 			while (isspace(*valstart)) valstart++;
 			*keyend='\0';
 			if (group) group->set(data, valstart);
-			//else error
+			else goto fail;
 			goto next;
 		}
 		
-		goto next;//error
+		goto fail;
 		
 	next:
 		data=nextline;
 	}
 	
 	set_group(NULL);
+	return true;
+	
+fail:
+	this->items.reset();
+	this->group=NULL;
+	return false;
 }

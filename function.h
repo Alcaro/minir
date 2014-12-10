@@ -10,10 +10,15 @@
 
 //List of libraries that do roughly the same thing:
 //http://www.codeproject.com/Articles/7150/ Member Function Pointers and the Fastest Possible C++ Delegates
+// rejected because it does ugly hacks which defeat the optimizer, and my brain
 //http://www.codeproject.com/Articles/11015/ The Impossibly Fast C++ Delegates
+// rejected because creation syntax is ugly
 //http://www.codeproject.com/Articles/13287/ Fast C++ Delegate
+// rejected because it's huge and can allocate
 //http://www.codeproject.com/Articles/18886/ A new way to implement Delegate in C++
+// rejected because it depends on sizeof in creepy ways and can throw
 //http://www.codeproject.com/Articles/136799/ Lightweight Generic C++ Callbacks (or, Yet Another Delegate Implementation)
+// chosen because it gives the slimmest function objects - unlike the others, it's just two pointers
 
 #ifndef UTIL_CALLBACK_HPP
 #define UTIL_CALLBACK_HPP
@@ -151,7 +156,7 @@ private:
     friend class MemberCallbackFactory;
     template<typename FR, class FT TYPENAMES2>
     friend class ConstMemberCallbackFactory;
-    template<typename FR TYPENAMES2>
+    template<typename FR TYPENAMES2, typename PTR>
     friend class BoundCallbackFactory;
 };
 
@@ -244,30 +249,30 @@ GetCallbackFactory(R (T::*)(ARG_TYPES) const)
     return ConstMemberCallbackFactory<R, T ARG_TYPES_C>();
 }
 
-template<typename R TYPENAMES>
+template<typename R TYPENAMES, typename PTR>
 class BoundCallbackFactory
 {
 private:
-    template<R (*Func)(void* ARG_TYPES_C)>
+    template<R (*Func)(PTR* ARG_TYPES_C)>
     static R Wrapper(const void* o ARG_TYPES_AND_NAMES_C)
     {
-        return (*Func)((void*)o ARG_NAMES_C);
+        return (*Func)((PTR*)o ARG_NAMES_C);
     }
 
 public:
-    template<R (*Func)(void* ARG_TYPES_C)>
-    inline static function<R (ARG_TYPES)> Bind(void* o)
+    template<R (*Func)(PTR* ARG_TYPES_C)>
+    inline static function<R (ARG_TYPES)> Bind(PTR* o)
     {
         return function<R (ARG_TYPES)>
             (&BoundCallbackFactory::Wrapper<Func>, o);
     }
 };
 
-template<typename R TYPENAMES>
-inline BoundCallbackFactory<R ARG_TYPES_C>
-GetBoundCallbackFactory(R (*)(void* ARG_TYPES_C))
+template<typename R TYPENAMES, typename PTR>
+inline BoundCallbackFactory<R ARG_TYPES_C, PTR>
+GetBoundCallbackFactory(R (*)(PTR* ARG_TYPES_C))
 {
-    return BoundCallbackFactory<R ARG_TYPES_C>();
+    return BoundCallbackFactory<R ARG_TYPES_C, PTR>();
 }
 
 #undef COUNT

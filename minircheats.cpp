@@ -161,9 +161,8 @@ struct minircheatdetail {
 	struct minircheatdetail * next;
 };
 
-void details_ok(void* this_)
+void details_ok(struct minircheatdetail * this)
 {
-	struct minircheatdetail * this=(struct minircheatdetail*)this_;
 	uint32_t val;
 	if (!decodeval(this->dattype, this->newval->get_text(), &val))
 	{
@@ -200,9 +199,8 @@ void details_ok(void* this_)
 	details_free(this);
 }
 
-void details_cancel(void* this_)
+void details_cancel(struct minircheatdetail * this)
 {
-	struct minircheatdetail * this=(struct minircheatdetail*)this_;
 	details_free(this);
 }
 
@@ -297,7 +295,7 @@ static void details_create(struct minircheats_impl * parent, struct window * par
 
 
 
-const char * search_get_cell(void* this_, int column, size_t row);
+const char * search_get_cell(struct minircheats_impl * this, int column, size_t row);
 
 static void search_update(struct minircheats_impl * this)
 {
@@ -317,25 +315,22 @@ static void search_update(struct minircheats_impl * this)
 	}
 }
 
-void search_set_datsize(void* this_, unsigned int state)
+void search_set_datsize(struct minircheats_impl * this, unsigned int state)
 {
-	struct minircheats_impl * this=(struct minircheats_impl*)this_;
 	this->datsize=state+1;
 	this->model->search_set_datsize(this->model, state+1);
 	search_update(this);
 }
 
-void search_set_dattype(void* this_, unsigned int state)
+void search_set_dattype(struct minircheats_impl * this, unsigned int state)
 {
-	struct minircheats_impl * this=(struct minircheats_impl*)this_;
 	this->dattype=(enum cheat_dattype)state;
 	this->model->search_set_signed(this->model, (state==cht_sign));
 	search_update(this);
 }
 
-void search_set_compto_select(void* this_, unsigned int state)
+void search_set_compto_select(struct minircheats_impl * this, unsigned int state)
 {
-	struct minircheats_impl * this=(struct minircheats_impl*)this_;
 	this->wndsrch_compto_entry->set_enabled((state!=cht_prev));
 	this->wndsrch_compto_label->set_enabled((state!=cht_prev));
 }
@@ -346,9 +341,8 @@ static void search_split(unsigned int id, void* userdata)
 	this->model->thread_do_work(this->model, id);
 }
 
-void search_dosearch(void* this_)
+void search_dosearch(struct minircheats_impl * this)
 {
-	struct minircheats_impl * this=(struct minircheats_impl*)this_;
 	uint32_t compto_val;
 	
 	enum cheat_compto comptowhat=(enum cheat_compto)(this->wndsrch_compto_select->get_state());
@@ -382,9 +376,8 @@ void search_dosearch(void* this_)
 	search_update(this);
 }
 
-void search_reset(void* this_)
+void search_reset(struct minircheats_impl * this)
 {
-	struct minircheats_impl * this=(struct minircheats_impl*)this_;
 	this->model->search_reset(this->model);
 	this->hassearched=false;
 	search_update(this);
@@ -417,15 +410,13 @@ static void search_add_cheat(struct minircheats_impl * this, int row)
 	}
 }
 
-void search_add_cheat_listbox(void* this_, size_t row)
+void search_add_cheat_listbox(struct minircheats_impl * this, size_t row)
 {
-	struct minircheats_impl * this=(struct minircheats_impl*)this_;
 	search_add_cheat(this, row);
 }
 
-void search_add_cheat_button(void* this_)
+void search_add_cheat_button(struct minircheats_impl * this)
 {
-	struct minircheats_impl * this=(struct minircheats_impl*)this_;
 	search_add_cheat(this, this->wndsrch_listbox->get_active_row());
 }
 
@@ -441,9 +432,8 @@ static void search_update_compto_prev(struct minircheats_impl * this)
 	}
 }
 
-void search_ok(void* this_)
+void search_ok(struct minircheats_impl * this)
 {
-	struct minircheats_impl * this=(struct minircheats_impl*)this_;
 	this->wndsrch->set_visible(this->wndsrch, false);
 }
 
@@ -552,10 +542,8 @@ static void show_search(struct minircheats * this_)
 	this->wndsrch->focus(this->wndsrch);
 }
 
-const char * search_get_cell(void* this_, int column, size_t row)
+const char * search_get_cell(struct minircheats_impl * this, int column, size_t row)
 {
-	struct minircheats_impl * this=(struct minircheats_impl*)this_;
-	
 	if (column==0)
 	{
 		this->model->search_get_row(this->model, row, this->celltmp, NULL, NULL);
@@ -586,9 +574,8 @@ static void list_update(struct minircheats_impl * this)
 	}
 }
 
-const char * list_get_cell(void* this_, int column, size_t row)
+const char * list_get_cell(struct minircheats_impl * this, int column, size_t row)
 {
-	struct minircheats_impl * this=(struct minircheats_impl*)this_;
 	struct cheat thecheat;
 	thecheat.addr=this->celltmp;
 	this->model->cheat_get(this->model, row, &thecheat);
@@ -602,9 +589,8 @@ const char * list_get_cell(void* this_, int column, size_t row)
 	return this->celltmp;
 }
 
-void list_listbox_activate(void* this_, size_t row)
+void list_listbox_activate(struct minircheats_impl * this, size_t row)
 {
-	struct minircheats_impl * this=(struct minircheats_impl*)this_;
 	struct cheat thecheat;
 	char addr[32];
 	thecheat.addr=addr;
@@ -612,9 +598,8 @@ void list_listbox_activate(void* this_, size_t row)
 	details_create(this, this->wndlist, &thecheat, false);
 }
 
-void list_add_cheat(void* this_)
+void list_add_cheat(struct minircheats_impl * this)
 {
-	struct minircheats_impl * this=(struct minircheats_impl*)this_;
 	struct cheat thecheat={};
 	thecheat.addr=NULL;
 	thecheat.changetype=cht_const;
@@ -624,9 +609,8 @@ void list_add_cheat(void* this_)
 	details_create(this, this->wndlist, &thecheat, false);
 }
 
-void list_delete_cheat(void* this_)
+void list_delete_cheat(struct minircheats_impl * this)
 {
-	struct minircheats_impl * this=(struct minircheats_impl*)this_;
 	size_t pos=this->wndlist_listbox->get_active_row();
 	if (pos!=(size_t)-1)
 	{
@@ -635,9 +619,8 @@ void list_delete_cheat(void* this_)
 	}
 }
 
-void list_edit_cheat(void* this_)
+void list_edit_cheat(struct minircheats_impl * this)
 {
-	struct minircheats_impl * this=(struct minircheats_impl*)this_;
 	size_t pos=this->wndlist_listbox->get_active_row();
 	if (pos!=(size_t)-1)
 	{
@@ -649,16 +632,14 @@ void list_edit_cheat(void* this_)
 	}
 }
 
-void list_clear_cheat(void* this_)
+void list_clear_cheat(struct minircheats_impl * this)
 {
-	struct minircheats_impl * this=(struct minircheats_impl*)this_;
 	for (int i=this->model->cheat_get_count(this->model)-1;i>=0;i--) this->model->cheat_remove(this->model, i);
 	list_update(this);
 }
 
-void list_sort_cheat(void* this_)
+void list_sort_cheat(struct minircheats_impl * this)
 {
-	struct minircheats_impl * this=(struct minircheats_impl*)this_;
 	this->model->cheat_sort(this->model);
 	list_update(this);
 }

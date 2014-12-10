@@ -39,31 +39,23 @@ const char * window_get_proc_path()
 	}
 }
 
+static void window_cwd_enter(const char * dir);
+static void window_cwd_leave();
+
 char * _window_native_get_absolute_path(const char * basepath, const char * path, bool allow_up)
 {
-	if (!path) return NULL;
-	window_cwd_enter(NULL);
-	char* freethis=NULL;
-	const char * matchdir=window_cwd_get_default();
-	if (basepath)
-	{
-		const char * filepart=strrchr(basepath, '/');
-		if (filepart) // if no path is present, use current
-		{
-			char * basedir=strndup(basepath, filepart+1-basepath);
-			freethis=basedir;
-			chdir(basedir);
-			matchdir=basedir;
-		}
-	}
+	if (!basepath || !path) return NULL;
+	const char * filepart=strrchr(basepath, '/');
+	if (!filepart) return NULL;
+	char * basedir=strndup(basepath, filepart+1-basepath);
 	
+	window_cwd_enter(basedir);
 	char * ret=realpath(path, NULL);
-	
 	window_cwd_leave();
 	
 	if (!allow_up)
 	{
-		if (strncasecmp(matchdir, ret, strlen(matchdir))!=0)
+		if (strncasecmp(basedir, ret, filepart+1-basepath)!=0)
 		{
 			free(ret);
 			free(freethis);
@@ -79,22 +71,21 @@ static mutex* cwd_lock;
 static char * cwd_init;
 static char * cwd_bogus;
 
-void window_cwd_enter(const char * dir)
+static void window_cwd_enter(const char * dir)
 {
 	cwd_lock->lock();
 	char * cwd_bogus_check=getcwd(NULL, 0);
 	if (strcmp(cwd_bogus, cwd_bogus_check)!=0) abort();//if this fires, someone changed the directory without us knowing - not allowed. cwd belongs to the frontend.
-	if (dir) chdir(dir);
-	else chdir(cwd_init);
+	chdir(dir);
 }
 
-void window_cwd_leave()
+static void window_cwd_leave()
 {
 	chdir(cwd_bogus);
 	cwd_lock->unlock();
 }
 
-const char * window_cwd_get_default()
+const char * window_get_cwd()
 {
 	return cwd_init;
 }
@@ -125,6 +116,9 @@ void _window_init_shared()
 #define bind BIND_CB
 #include <string.h>
 
+static void window_cwd_enter(const char * dir);
+static void window_cwd_leave();
+
 const char * window_get_proc_path()
 {
 	static char path[MAX_PATH];
@@ -140,27 +134,20 @@ const char * window_get_proc_path()
 
 char * _window_native_get_absolute_path(const char * basepath, const char * path, bool allow_up)
 {
-	if (!path) return NULL;
-	window_cwd_enter(NULL);
-	char* freethis=NULL;
-	const char * matchdir=window_cwd_get_default();
-	if (basepath)
+	if (!path || !basepath) return NULL;
+	
+	DWORD len=GetFullPathName(basepath, 0, NULL, NULL);
+	char * matchdir=malloc(len);
+	char * filepart;
+	GetFullPathName(basepath, len, matchdir, &filepart);
+	if (filepart) *filepart='\0';
+	window_cwd_enter(matchdir);
+	for (unsigned int i=0;matchdir[i];i++)
 	{
-		DWORD len=GetFullPathName(basepath, 0, NULL, NULL);
-		char * dir=malloc(len);
-		freethis=dir;
-		char * filepart;
-		GetFullPathName(basepath, len, dir, &filepart);
-		if (filepart) *filepart='\0';
-		SetCurrentDirectory(dir);
-		for (unsigned int i=0;dir[i];i++)
-		{
-			if (dir[i]=='\\') dir[i]='/';
-		}
-		matchdir=dir;
+		if (matchdir[i]=='\\') matchdir[i]='/';
 	}
 	
-	DWORD len=GetFullPathName(path, 0, NULL, NULL);
+	len=GetFullPathName(path, 0, NULL, NULL);
 	char * ret=malloc(len);
 	GetFullPathName(path, len, ret, NULL);
 	
@@ -175,12 +162,12 @@ char * _window_native_get_absolute_path(const char * basepath, const char * path
 	{
 		if (strncasecmp(matchdir, ret, strlen(matchdir))!=0)
 		{
-			free(freethis);
+			free(matchdir);
 			free(ret);
 			return NULL;
 		}
 	}
-	free(freethis);
+	free(matchdir);
 	
 	return ret;
 }
@@ -191,22 +178,21 @@ static char * cwd_bogus;
 static char * cwd_bogus_check;
 static DWORD cwd_bogus_check_len;
 
-void window_cwd_enter(const char * dir)
+static void window_cwd_enter(const char * dir)
 {
 	EnterCriticalSection(&cwd_lock);
 	GetCurrentDirectory(cwd_bogus_check_len, cwd_bogus_check);
 	if (strcmp(cwd_bogus, cwd_bogus_check)!=0) abort();//if this fires, someone changed the directory without us knowing - not allowed. cwd belongs to the frontend.
-	if (dir) SetCurrentDirectory(dir);
-	else SetCurrentDirectory(cwd_init);
+	SetCurrentDirectory(dir);
 }
 
-void window_cwd_leave()
+static void window_cwd_leave()
 {
 	SetCurrentDirectory(cwd_bogus);
 	LeaveCriticalSection(&cwd_lock);
 }
 
-const char * window_cwd_get_default()
+const char * window_get_cwd()
 {
 	return cwd_init;
 }
