@@ -2,7 +2,7 @@
 retrostateverify - a specialized libretro frontend that verifies that a savestate contains all variables that are changed by retro_run
 
 Compile with:
-g++ -I. -std=c99 tests/retrostateverify.cpp tests/memdebug.cpp libretro.cpp dylib.cpp memory.cpp -ldl -lrt -DDYLIB_POSIX -DWINDOW_MINIMAL window-none.cpp -Os -s -o retrostate
+g++ -I. -std=c99 childproj/retrostateverify.cpp childproj/memdebug.cpp libretro.cpp dylib.cpp memory.cpp -ldl -lrt -DDYLIB_POSIX -DWINDOW_MINIMAL window-none.cpp -Os -s -o retrostate
 The program runs only on Linux. You will not have any success on Windows, unless you're willing to write about 200 lines of ugly code.
 
 Run with:
