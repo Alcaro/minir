@@ -24,7 +24,8 @@ where <id> is the number after the # in the failure report.
 
 Failure report format:
 FAILURE (<type>) at <addr> [<addrbase> + <offset>/<size>, #<id>]: <expected>!=<actual>
-<type> is 'root' or 'cascaded'. There is only one of the types for any given run.
+<type> is 'root' or 'cascaded'. There is only one of the types for any given run; both show up, but
+  any 'root' shadows all 'cascade' as one incorrect value very often drags thousands more with it.
  'root' means a variable that had wrong value after loading the savestate, and continued being wrong.
  'cascaded' is an address that has the wrong value, but was right when the savestate was loaded.
   This usually means that the problem source was wrong too, but fixed itself.
