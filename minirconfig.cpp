@@ -31,6 +31,8 @@ struct minirconfig_impl {
 	
 	char * originalconfig;
 	
+	char * basepath;
+	
 	bool firstrun;
 	//char padding[7];
 };
@@ -551,7 +553,7 @@ static void data_load(struct minirconfig * this_, struct configdata * config,
 	
 	if (corepath)
 	{
-		char * truecore=window_get_absolute_path_cwd(corepath, true);
+		char * truecore=window_get_absolute_path(this->basepath, corepath, true);
 		unsigned int id=find_or_create_core(this, truecore);
 		free(truecore);
 		config->corename=this->bycore[id].corename;
@@ -571,7 +573,7 @@ static void data_load(struct minirconfig * this_, struct configdata * config,
 	
 	if (gamepath)
 	{
-		char * truegame=window_get_absolute_path_cwd(gamepath, true);
+		char * truegame=window_get_absolute_path(this->basepath, gamepath, true);
 		unsigned int id=find_or_create_game(this, truegame);
 		free(truegame);
 		join_config(config, &this->bygame[id]);
@@ -1012,6 +1014,7 @@ static void free_(struct minirconfig * this_)
 		delete_conf(&this->bygame[i]);
 	}
 	free(this->originalconfig);
+	free(this->basepath);
 	free(this);
 }
 
@@ -1346,12 +1349,12 @@ static void read_from_file(struct minirconfig_impl * this, char * rawconfig)
 			if (thisscope==cfgsc_core && !strcmp(thisline, "path"))
 			{
 				free(thisconf->_corepath);
-				thisconf->_corepath=window_get_absolute_path_cwd(value, true);
+				thisconf->_corepath=window_get_absolute_path(this->basepath, value, true);
 			}
 			if (thisscope==cfgsc_game && !strcmp(thisline, "path"))
 			{
 				free(thisconf->_gamepath);
-				thisconf->_gamepath=window_get_absolute_path_cwd(value, true);
+				thisconf->_gamepath=window_get_absolute_path(this->basepath, value, true);
 			}
 			
 			if (thisscope==cfgsc_core && !strcmp(thisline, "name"))
@@ -1451,6 +1454,8 @@ struct minirconfig * config_create(const char * path)
 	this->i.data_destroy=data_destroy;
 	this->i.write=write;
 	this->i.free=free_;
+	
+	this->basepath=strdup(path);
 	
 	tinfl_decompress_mem_to_mem(config_bytecode, CONFIG_BYTECODE_LEN, config_bytecode_comp, sizeof(config_bytecode_comp), 0);
 	

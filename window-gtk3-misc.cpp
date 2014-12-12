@@ -5,11 +5,15 @@
 #include "io.h"
 #ifdef WINDOW_GTK3
 #include <stdlib.h>
+#include <errno.h>
 #include <string.h>
 #include <ctype.h>
 #include <gtk/gtk.h>
 #ifdef WNDPROT_X11
 #include <gdk/gdkx.h>
+#endif
+#ifdef WNDPROT_WIN32
+#error Use the Win32 frontend on Windows. The GTK+ one assumes Unix in a couple of ways, which is violated on Windows.
 #endif
 
 //Number of ugly hacks: 8
@@ -62,6 +66,7 @@ g_log_set_always_fatal((GLogLevelFlags)(G_LOG_LEVEL_CRITICAL|G_LOG_LEVEL_WARNING
 	//we could tell it how to free this, but it will be used until replaced, and it won't be replaced.
 	gtk_window_set_default_icon(gdk_pixbuf_new_from_data((guchar*)img.pixels, GDK_COLORSPACE_RGB, true, 8, 64,64, 64*4, NULL, NULL));
 #endif
+	errno=0;
 }
 
 static void * mem_from_g_alloc(void * mem, size_t size)
@@ -206,25 +211,9 @@ const struct window_x11_display * window_x11_get_display()
 
 
 
-//static bool path_is_absolute(const char * path)
-//{
-//	const char * colon=strchr(path, ':');
-//	const char * slash=strchr(path, '/');
-//	if (slash==path) return true;//unix native
-//	if (colon && (!slash || colon < slash)) return true;//URI - those are absolute
-//	return false;
-//}
-
 char * window_get_absolute_path(const char * basepath, const char * path, bool allow_up)
 {
 	if (!path || !basepath) return NULL;
-	//if (!allow_up)
-	//{
-	//	if (path_is_absolute(path)) return NULL;
-	//	if (path[0]=='.' && path[1]=='.' && (path[2]=='/' || path[2]=='\0')) return NULL;
-	//	if (strstr(path, "/../")) return NULL;
-	//	if (strstr(path, "/..") && strstr(path, "/..")[3]=='\0') return NULL;
-	//}
 	
 	const char * pathend=strrchr(basepath, '/');
 	gchar * basepath_dir=g_strndup(basepath, pathend+1-basepath);
@@ -238,7 +227,7 @@ char * window_get_absolute_path(const char * basepath, const char * path, bool a
 	
 	if (!ret) return NULL;
 	
-	if (!allow_up && !strncmp(basepath, ret, pathend+1-basepath))
+	if (!allow_up && strncmp(basepath, ret, pathend+1-basepath))
 	{
 		g_free(ret);
 		return NULL;

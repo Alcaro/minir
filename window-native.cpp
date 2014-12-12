@@ -53,29 +53,26 @@ char * _window_native_get_absolute_path(const char * basepath, const char * path
 	char * ret=realpath(path, NULL);
 	window_cwd_leave();
 	
-	if (!allow_up)
+	if (!allow_up && ret && strncasecmp(basedir, ret, filepart+1-basepath)!=0)
 	{
-		if (strncasecmp(basedir, ret, filepart+1-basepath)!=0)
-		{
-			free(ret);
-			free(freethis);
-			return NULL;
-		}
+		free(ret);
+		ret=NULL;
 	}
-	free(freethis);
+	free(basedir);
 	
 	return ret;
 }
 
 static mutex* cwd_lock;
-static char * cwd_init;
-static char * cwd_bogus;
+static const char * cwd_init;
+static const char * cwd_bogus;
 
 static void window_cwd_enter(const char * dir)
 {
 	cwd_lock->lock();
 	char * cwd_bogus_check=getcwd(NULL, 0);
 	if (strcmp(cwd_bogus, cwd_bogus_check)!=0) abort();//if this fires, someone changed the directory without us knowing - not allowed. cwd belongs to the frontend.
+	free(cwd_bogus_check);
 	chdir(dir);
 }
 
@@ -94,7 +91,21 @@ void _window_init_shared()
 {
 	cwd_lock=new mutex();
 	
-	cwd_init=getcwd(NULL, 0);
+	char * cwd_init_tmp=getcwd(NULL, 0);
+	char * cwdend=strrchr(cwd_init_tmp, '/');
+	if (!cwdend) cwd_init="/";
+	else if (cwdend[1]=='/') cwd_init=cwd_init_tmp;
+	else
+	{
+		size_t cwdlen=strlen(cwd_init_tmp);
+		char * cwd_init_fixed=malloc(cwdlen+1+1);
+		memcpy(cwd_init_fixed, cwd_init_tmp, cwdlen);
+		cwd_init_fixed[cwdlen+0]='/';
+		cwd_init_fixed[cwdlen+1]='\0';
+		cwd_init=cwd_init_fixed;
+		free(cwd_init_tmp);
+	}
+	
 	//try a couple of useless directories and hope one of them works
 	//this seems to be the best one:
 	//- even root can't write to here
