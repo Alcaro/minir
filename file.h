@@ -24,12 +24,6 @@ char * window_get_absolute_path(const char * basepath, const char * path, bool a
 //It can return NULL, even for paths which file_read understands. If it doesn't, use free() when you're done.
 char * window_get_native_path(const char * path);
 
-//These two resolve paths relative to the initial working directory. Use for command line arguments.
-//inline char * window_get_absolute_path_cwd(const char * path, bool allow_up)
-//{
-//	return window_get_absolute_path(window_get_cwd(), path, allow_up);
-//}
-
 //These are implemented by the window manager, despite looking somewhat unrelated.
 //Can be just fopen, but may additionally support something implementation-defined, like gvfs;
 // however, filename support is guaranteed, both relative and absolute.
