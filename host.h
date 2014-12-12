@@ -46,7 +46,7 @@
 //#define NO_ANON_UNION_STRUCT
 #define HAVE_ASPRINTF
 //#define NO_UNALIGNED_MEM
-#define HAVE_CG_SHADERS
+//#define HAVE_CG_SHADERS
 #endif
 
 

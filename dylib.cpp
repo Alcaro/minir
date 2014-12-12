@@ -13,7 +13,7 @@
 #define bind BIND_CB
 #endif
 
-ndylib* dylib_open(const char * filename, bool * owned)
+ndylib* dylib_create(const char * filename, bool * owned)
 {
 	_int_mutex_lock(_imutex_dylib);
 	ndylib* ret=NULL;
@@ -80,15 +80,5 @@ void dylib_free(ndylib* lib)
 #endif
 #ifdef DYLIB_WIN32
 	FreeLibrary((HMODULE)lib);
-#endif
-}
-
-const char * dylib_ext()
-{
-#ifdef DYLIB_POSIX
-	return ".so";
-#endif
-#ifdef DYLIB_WIN32
-	return ".dll";
 #endif
 }

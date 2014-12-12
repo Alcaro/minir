@@ -3,11 +3,19 @@
 
 //C-based API that uses native dylib handles directly.
 typedef struct ndylib_* ndylib;
-ndylib* dylib_open(const char * filename, bool * owned=NULL);//Handles may be non-unique. First to load is owner.
+ndylib* dylib_create(const char * filename, bool * owned=NULL);//Handles may be non-unique. First to load is owner.
 void* dylib_sym_ptr(ndylib* lib, const char * name);
 funcptr dylib_sym_func(ndylib* lib, const char * name);
 void dylib_free(ndylib* lib);
-const char * dylib_ext();//Returns ".dll", ".so", ".dylib", or whatever is standard on this OS. The return value is lowercase.
+#ifdef DYLIB_POSIX
+#define DYLIB_EXT ".so"
+#define DYLIB_MAKE_NAME(name) "lib" name DYLIB_EXT
+#endif
+#ifdef DYLIB_WIN32
+#define DYLIB_EXT ".dll"
+#define DYLIB_MAKE_NAME(name) name DYLIB_EXT
+#endif
+static const char * dylib_ext() { return DYLIB_EXT; }
 
 
 
@@ -16,7 +24,7 @@ public:
 	static dylib* create(const char * filename)
 	{
 		dylib* ret=new dylib;
-		ret->lib = dylib_open(filename, &ret->owned_);
+		ret->lib = dylib_create(filename, &ret->owned_);
 		if (!ret->lib)
 		{
 			delete ret;

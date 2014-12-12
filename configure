@@ -1,4 +1,4 @@
-echo "Checking if build environment is sane..."
+echo "Checking whether build environment is sane..."
 sleep 1
 
 enabled=""
@@ -22,6 +22,13 @@ if pkg-config --exists libpulse; then
 	lflags+="`pkg-config --libs libpulse` "
 else
 	disabled+="pulseaudio"
+fi
+
+if [ -f /usr/include/Cg/cg.h ]; then
+	enabled+="Cg"
+	cflags+="-DHAVE_CG_SHADERS "
+else
+	disabled+="Cg"
 fi
 
 #uname := $(shell uname -a)
