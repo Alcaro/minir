@@ -1,26 +1,43 @@
 #pragma once
 #include "global.h"
 
+//C-based API that uses native dylib handles directly.
+typedef struct ndylib_* ndylib;
+ndylib* dylib_open(const char * filename, bool * owned=NULL);//Handles may be non-unique. First to load is owner.
+void* dylib_sym_ptr(ndylib* lib, const char * name);
+funcptr dylib_sym_func(ndylib* lib, const char * name);
+void dylib_free(ndylib* lib);
+const char * dylib_ext();//Returns ".dll", ".so", ".dylib", or whatever is standard on this OS. The return value is lowercase.
+
+
+
 class dylib : private nocopy {
 public:
+	static dylib* create(const char * filename)
+	{
+		dylib* ret=new dylib;
+		ret->lib = dylib_open(filename, &ret->owned_);
+		if (!ret->lib)
+		{
+			delete ret;
+			ret=NULL;
+		}
+		return ret;
+	}
+	
+	static const char * ext() { return dylib_ext(); }
+	
 	bool owned() { return owned_; }
 	
-	void* sym_ptr(const char * name);
-	funcptr sym_func(const char * name);
+	void* sym_ptr(const char * name) { return dylib_sym_ptr(this->lib, name); }
+	funcptr sym_func(const char * name) { return dylib_sym_func(this->lib, name); }
 	
-	~dylib();
+	~dylib() { dylib_free(this->lib); }
 	
 private:
-	void* lib;
+	ndylib* lib;
 	bool owned_;
-	
-	dylib(const char * filename);
-	friend dylib* dylib_create(const char * filename);
 };
-dylib* dylib_create(const char * filename);
-
-//Returns ".dll", ".so", ".dylib", or whatever is standard on this OS. The return value is lowercase.
-const char * dylib_ext();
 
 
 
@@ -132,3 +149,13 @@ void* lock_write_eq(void** val, void* old, void* newval);
 //Unlike thread_create, thread_split is expected to be called often, for short-running tasks. The threads may be reused.
 //It is safe to use the values 0 and 1. However, you should avoid going above thread_ideal_count().
 void thread_split(unsigned int count, void(*work)(unsigned int id, void* userdata), void* userdata);
+
+//These are provided for subsystems which can not dynamically initialize a mutex, due to not having an initialization function.
+enum _int_mutex {
+	_imutex_cwd,
+	_imutex_dylib,
+	_imutex_count
+};
+void _int_mutex_lock(enum _int_mutex id);
+bool _int_mutex_try_lock(enum _int_mutex id);
+void _int_mutex_unlock(enum _int_mutex id);

@@ -47,7 +47,7 @@ void window_init(int * argc, char * * argv[])
 		if ((*argv)[0][i]=='\\') (*argv)[0][i]='/';
 	}
 	
-	_window_init_shared();
+	_window_init_native();
 	_window_init_shell();
 	_window_init_inner();
 	

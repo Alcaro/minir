@@ -551,7 +551,7 @@ uint64_t window_get_time();
 void _window_init_inner();
 void _window_init_misc();
 void _window_init_shell();
-void _window_init_shared();
+void _window_init_native();
 //If the window shell is the one told about interaction with a widget, this sends it back to the inner area.
 uintptr_t _window_notify_inner(void* notification);
 //Because Windows is a douchebag.

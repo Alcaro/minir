@@ -63,13 +63,12 @@ char * _window_native_get_absolute_path(const char * basepath, const char * path
 	return ret;
 }
 
-static mutex* cwd_lock;
 static const char * cwd_init;
 static const char * cwd_bogus;
 
 static void window_cwd_enter(const char * dir)
 {
-	cwd_lock->lock();
+	_int_mutex_lock(_imutex_cwd);
 	char * cwd_bogus_check=getcwd(NULL, 0);
 	if (strcmp(cwd_bogus, cwd_bogus_check)!=0) abort();//if this fires, someone changed the directory without us knowing - not allowed. cwd belongs to the frontend.
 	free(cwd_bogus_check);
@@ -79,7 +78,7 @@ static void window_cwd_enter(const char * dir)
 static void window_cwd_leave()
 {
 	chdir(cwd_bogus);
-	cwd_lock->unlock();
+	_int_mutex_unlock(_imutex_cwd);
 }
 
 const char * window_get_cwd()
@@ -87,10 +86,8 @@ const char * window_get_cwd()
 	return cwd_init;
 }
 
-void _window_init_shared()
+void _window_init_native()
 {
-	cwd_lock=new mutex();
-	
 	char * cwd_init_tmp=getcwd(NULL, 0);
 	char * cwdend=strrchr(cwd_init_tmp, '/');
 	if (!cwdend) cwd_init="/";
@@ -183,7 +180,6 @@ char * _window_native_get_absolute_path(const char * basepath, const char * path
 	return ret;
 }
 
-static CRITICAL_SECTION cwd_lock;
 static char * cwd_init;
 static char * cwd_bogus;
 static char * cwd_bogus_check;
@@ -191,7 +187,7 @@ static DWORD cwd_bogus_check_len;
 
 static void window_cwd_enter(const char * dir)
 {
-	EnterCriticalSection(&cwd_lock);
+	_int_mutex_lock(_imutex_cwd);
 	GetCurrentDirectory(cwd_bogus_check_len, cwd_bogus_check);
 	if (strcmp(cwd_bogus, cwd_bogus_check)!=0) abort();//if this fires, someone changed the directory without us knowing - not allowed. cwd belongs to the frontend.
 	SetCurrentDirectory(dir);
@@ -200,7 +196,7 @@ static void window_cwd_enter(const char * dir)
 static void window_cwd_leave()
 {
 	SetCurrentDirectory(cwd_bogus);
-	LeaveCriticalSection(&cwd_lock);
+	_int_mutex_unlock(_imutex_cwd);
 }
 
 const char * window_get_cwd()
@@ -208,10 +204,8 @@ const char * window_get_cwd()
 	return cwd_init;
 }
 
-void _window_init_shared()
+void _window_init_native()
 {
-	InitializeCriticalSection(&cwd_lock);
-	
 	DWORD len=GetCurrentDirectory(0, NULL);
 	cwd_init=malloc(len+1);
 	GetCurrentDirectory(len, cwd_init);

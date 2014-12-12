@@ -3,6 +3,7 @@
 #include "minir.h"
 #include "file.h"
 #include "io.h"
+#include "os.h"
 #ifdef WINDOW_GTK3
 #include <stdlib.h>
 #include <errno.h>
@@ -46,6 +47,7 @@
 //}
 
 //#include<sys/resource.h>
+static mutex* imutex[_imutex_count];
 void window_init(int * argc, char * * argv[])
 {
 //struct rlimit core_limits;core_limits.rlim_cur=core_limits.rlim_max=64*1024*1024;setrlimit(RLIMIT_CORE,&core_limits);
@@ -56,7 +58,8 @@ g_log_set_always_fatal((GLogLevelFlags)(G_LOG_LEVEL_CRITICAL|G_LOG_LEVEL_WARNING
 	XInitThreads();
 #endif
 	gtk_init(argc, argv);
-	_window_init_shared();
+	for (unsigned int i=0;i<_imutex_count;i++) imutex[i]=new mutex;
+	_window_init_native();
 	_window_init_inner();
 	_window_init_misc();
 	//gdk_window_add_filter(NULL,scanfilter,NULL);
@@ -67,6 +70,21 @@ g_log_set_always_fatal((GLogLevelFlags)(G_LOG_LEVEL_CRITICAL|G_LOG_LEVEL_WARNING
 	gtk_window_set_default_icon(gdk_pixbuf_new_from_data((guchar*)img.pixels, GDK_COLORSPACE_RGB, true, 8, 64,64, 64*4, NULL, NULL));
 #endif
 	errno=0;
+}
+
+void _int_mutex_lock(enum _int_mutex id)
+{
+	imutex[id]->lock();
+}
+
+bool _int_mutex_try_lock(enum _int_mutex id)
+{
+	return imutex[id]->try_lock();
+}
+
+void _int_mutex_unlock(enum _int_mutex id)
+{
+	imutex[id]->unlock();
 }
 
 static void * mem_from_g_alloc(void * mem, size_t size)

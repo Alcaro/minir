@@ -1,27 +1,31 @@
 #include "io.h"
+#include "os.h"
 
 #ifdef HAVE_CG_SHADERS
+#define CG_EXPLICIT // disable prototypes
 #include <Cg/cg.h>
-
-namespace {
-
-  //CG_PROFILE_GLSLV   = 7007, /* GLSL vertex shader                                       */
-  //CG_PROFILE_GLSLF   = 7008, /* GLSL fragment shader                                     */
-  //CG_PROFILE_GLSLG   = 7016, /* GLSL geometry shader                                     */
-  //CG_PROFILE_GLSLC   = 7009, /* Combined GLSL program                                    */
-}
 
 char * video::shader::translate_cgc(lang_t from, lang_t to, const char * text)
 {
 	if (from!=la_cg) return NULL;
 	if (to!=la_glsl) return NULL;
 	
-	//"-DPARAMETER_UNIFORM",
+#if 0
+#define CG_SYM(ret, name, args) CG_SYM_N("cg"#name, ret, name, args)
+#define CG_SYMS() \
+	CG_SYM(CGcontext, CreateContext, (void)) \
 	
-	CGcontext context = cgCreateContext();
+#define CG_SYM_N(str, ret, name, args) ret (*name) args;
+	struct { CG_SYMS()  } cg;
+#undef CG_SYM_N
+#define CG_SYM_N(str, ret, name, args) str,
+	static const char * const cg_names[]={ CG_SYMS() };
+#undef CG_SYM_N
+	
+	
+	CGcontext context = cg.CreateContext();
 #define e printf("e=%s\n",cgGetLastListing(context));
-	//TODO: process with random profile with flags "-D", "PARAMETER_UNIFORM", "-E", "-I", (dir), NULL to get #includes out of the way
-	
+	//TODO: process with random profile with flags "-E", "-D", "PARAMETER_UNIFORM", "-I", (dir), NULL to get #includes out of the way
 	
 //def preprocess_vertex(source_data):
 //   input_data = source_data.split('\n')
@@ -36,8 +40,8 @@ char * video::shader::translate_cgc(lang_t from, lang_t to, const char * text)
 //   return '\n'.join(ret)
 	
 	const char * args[]={ "-D", "PARAMETER_UNIFORM", NULL };
-	CGprogram vertex = cgCreateProgram(context, CG_SOURCE, text, CG_PROFILE_GLSLV, "main_vertex", NULL);
-	CGprogram fragment = cgCreateProgram(context, CG_SOURCE, text, CG_PROFILE_GLSLF, "main_fragment", NULL);
+	CGprogram vertex = cgCreateProgram(context, CG_SOURCE, text, CG_PROFILE_GLSLV, "main_vertex", args);
+	CGprogram fragment = cgCreateProgram(context, CG_SOURCE, text, CG_PROFILE_GLSLF, "main_fragment", args);
 	cgCompileProgram(vertex);
 	cgCompileProgram(fragment);
 	if (!cgIsProgramCompiled(vertex)) goto error;
@@ -52,6 +56,8 @@ char * video::shader::translate_cgc(lang_t from, lang_t to, const char * text)
 return NULL;
 error:
 	cgDestroyContext(context);
+#endif
+	
 	return NULL;
 }
 #endif

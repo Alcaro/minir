@@ -844,7 +844,7 @@ struct libretro * libretro_create(const char * corepath, void (*message_cb)(int 
 	g_this=this;
 	if (existed) *existed=false;
 	
-	this->lib=dylib_create(corepath);
+	this->lib=dylib::create(corepath);
 	if (!this->lib) goto cancel;
 	if (!load_raw_iface(this->lib, &this->raw)) goto cancel;
 	if (this->raw.api_version()!=RETRO_API_VERSION) goto cancel;
