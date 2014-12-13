@@ -2,7 +2,7 @@
 #include "file.h"
 #include "io.h"
 #include <string.h>
-//#include <strings.h> //strcasecmp
+#include <strings.h>
 #include <stdlib.h>
 #include <ctype.h>
 #include <stdio.h>

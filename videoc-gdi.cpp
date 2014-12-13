@@ -24,10 +24,10 @@ struct video_gdi {
 	unsigned int bmppitch;
 	HBITMAP bitmap;
 	
-	int depth;
+	videoformat depth;
 };
 
-static void reinit(struct video * this_, unsigned int screen_width, unsigned int screen_height, unsigned int depth, double fps)
+static void reinit(struct video * this_, unsigned int screen_width, unsigned int screen_height, videoformat depth, double fps)
 {
 	struct video_gdi * this=(struct video_gdi*)this_;
 	
@@ -86,20 +86,20 @@ static void draw(struct video * this_, unsigned int width, unsigned int height, 
 	dst.pixels=this->bmppixels;
 	dst.pitch=this->bmppitch;
 	
-	if (this->depth==15)
+	if (this->depth==fmt_0rgb1555)
 	{
-		src.bpp=15;
-		dst.bpp=15;
+		src.format=fmt_0rgb1555;
+		dst.format=fmt_0rgb1555;
 	}
-	if (this->depth==16)
+	if (this->depth==fmt_rgb565)
 	{
-		src.bpp=16;
-		dst.bpp=32;
+		src.format=fmt_rgb565;
+		dst.format=fmt_xrgb8888;
 	}
-	if (this->depth==32)
+	if (this->depth==fmt_xrgb8888)
 	{
-		src.bpp=32;
-		dst.bpp=32;
+		src.format=fmt_xrgb8888;
+		dst.format=fmt_xrgb8888;
 	}
 	
 	//memset(this->pixels,255,this->pitch*this->screenheight);
@@ -130,17 +130,6 @@ static bool has_sync(struct video * this_)
 	return false;
 }
 
-static bool repeat_frame(struct video * this_, unsigned int * width, unsigned int * height,
-                                               const void * * data, unsigned int * pitch, unsigned int * bpp)
-{
-	if (width) *width=0;
-	if (height) *height=0;
-	if (data) *data=NULL;
-	if (pitch) *pitch=0;
-	if (bpp) *bpp=16;
-	return false;
-}
-
 static void free_(struct video * this_)
 {
 	struct video_gdi * this=(struct video_gdi*)this_;
@@ -154,14 +143,13 @@ static void free_(struct video * this_)
 }
 
 struct video * cvideo_create_gdi(uintptr_t windowhandle, unsigned int screen_width, unsigned int screen_height,
-                                   unsigned int depth, double fps)
+                                   videoformat depth, double fps)
 {
 	struct video_gdi * this=malloc(sizeof(struct video_gdi));
 	this->i.reinit=reinit;
 	this->i.draw=draw;
 	this->i.set_sync=set_sync;
 	this->i.has_sync=has_sync;
-	this->i.repeat_frame=repeat_frame;
 	this->i.free=free_;
 	
 	this->maindc=NULL;
@@ -185,7 +173,7 @@ cancel:
 #undef video
 static video* video_create_gdi(uintptr_t windowhandle)
 {
-	return video_create_compat(cvideo_create_gdi(windowhandle, 256, 256, 16, 60));
+	return video_create_compat(cvideo_create_gdi(windowhandle, 256, 256, fmt_0rgb1555, 60));
 }
 const video::driver video::create_gdi = {"GDI", video_create_gdi, NULL, 0};
 #endif

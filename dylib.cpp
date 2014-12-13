@@ -29,7 +29,7 @@ ndylib* dylib_create(const char * filename, bool * owned)
 #ifdef DYLIB_WIN32
 	if (owned)
 	{
-		if (!GetModuleHandleEx(0, filename, &ret)) ret=NULL;
+		if (!GetModuleHandleEx(0, filename, (HMODULE*)&ret)) ret=NULL;
 		*owned=(!ret);
 	}
 	
@@ -69,7 +69,7 @@ funcptr dylib_sym_func(ndylib* lib, const char * name)
 	return ret;
 #endif
 #ifdef DYLIB_WIN32
-	return (funcptr)GetProcAddress((void*)lib, name);
+	return (funcptr)GetProcAddress((HMODULE)lib, name);
 #endif
 }
 

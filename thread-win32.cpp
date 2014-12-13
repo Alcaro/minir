@@ -77,13 +77,13 @@ multievent::multievent()
 
 void multievent::signal(unsigned int count)
 {
-	InterlockedExchangeAdd((volatile unsigned int*)&this->n_count, count);
+	InterlockedExchangeAdd((volatile LONG*)&this->n_count, count);
 	ReleaseSemaphore((HANDLE)this->data, count, NULL);
 }
 
 void multievent::wait(unsigned int count)
 {
-	InterlockedExchangeAdd((volatile unsigned int*)&this->n_count, -(LONG)count);
+	InterlockedExchangeAdd((volatile LONG*)&this->n_count, -(LONG)count);
 	while (count)
 	{
 		WaitForSingleObject((HANDLE)this->data, INFINITE);
@@ -93,7 +93,7 @@ void multievent::wait(unsigned int count)
 
 signed int multievent::count()
 {
-	return InterlockedCompareExchange((volatile unsigned int*)&this->n_count, 0, 0);
+	return InterlockedCompareExchange((volatile LONG*)&this->n_count, 0, 0);
 }
 
 multievent::~multievent() { CloseHandle((HANDLE)this->data); }

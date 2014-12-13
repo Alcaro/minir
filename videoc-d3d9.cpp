@@ -79,14 +79,14 @@ static void clear(struct video_d3d9 * this)
 	this->device=NULL;
 }
 
-static bool recreate(struct video_d3d9 * this, unsigned int screenwidth, unsigned int screenheight, unsigned int depth)
+static bool recreate(struct video_d3d9 * this, unsigned int screenwidth, unsigned int screenheight, videoformat depth)
 {
 	clear(this);
 	
 	//depth=0 is allowed too, it means keep current value
-	if (depth==15) this->texformat=D3DFMT_A1R5G5B5;//X1R5G5B5 fails for no obvious reason
-	if (depth==16) this->texformat=D3DFMT_R5G6B5;
-	if (depth==32) this->texformat=D3DFMT_X8R8G8B8;
+	if (depth==fmt_0rgb1555) this->texformat=D3DFMT_A1R5G5B5;//X1R5G5B5 fails for no obvious reason
+	if (depth==fmt_rgb565) this->texformat=D3DFMT_R5G6B5;
+	if (depth==fmt_xrgb8888) this->texformat=D3DFMT_X8R8G8B8;
 	
 	D3DPRESENT_PARAMETERS parameters;
 	memset(&parameters, 0, sizeof(parameters));
@@ -154,7 +154,7 @@ static bool recreate(struct video_d3d9 * this, unsigned int screenwidth, unsigne
 	return true;
 }
 
-static void reinit(struct video * this_, unsigned int screen_width, unsigned int screen_height, unsigned int depth, double fps)
+static void reinit(struct video * this_, unsigned int screen_width, unsigned int screen_height, videoformat depth, double fps)
 {
 	struct video_d3d9 * this=(struct video_d3d9*)this_;
 	
@@ -169,7 +169,7 @@ static void draw(struct video * this_, unsigned int width, unsigned int height, 
 	if (status==D3DERR_DEVICELOST) return;
 	if (status==D3DERR_DEVICENOTRESET)
 	{
-		recreate(this, 0,0, 0);
+		recreate(this, 0,0, fmt_none);
 		status=this->device->lpVtbl->TestCooperativeLevel(this->device);
 		if (status!=D3D_OK) return;
 	}
@@ -284,21 +284,10 @@ static bool set_sync(struct video * this_, bool sync)
 		if (this->syncflags != (DWORD)sync)
 		{
 			this->syncflags=(sync);
-			recreate(this, 0,0, 0);
+			recreate(this, 0,0, fmt_none);
 		}
 	}
 	return ret;
-}
-
-static bool repeat_frame(struct video * this_, unsigned int * width, unsigned int * height,
-                                               const void * * data, unsigned int * pitch, unsigned int * bpp)
-{
-	if (width) *width=0;
-	if (height) *height=0;
-	if (data) *data=NULL;
-	if (pitch) *pitch=0;
-	if (bpp) *bpp=16;
-	return false;
 }
 
 static bool has_sync(struct video * this_)
@@ -338,7 +327,7 @@ static void libRelease()
 }
 
 struct video * cvideo_create_d3d9(uintptr_t windowhandle, unsigned int screen_width, unsigned int screen_height,
-                                 unsigned int depth, double fps)
+                                 videoformat depth, double fps)
 
 {
 	if (!libLoad()) return NULL;
@@ -348,7 +337,6 @@ struct video * cvideo_create_d3d9(uintptr_t windowhandle, unsigned int screen_wi
 	this->i.draw=draw;
 	this->i.set_sync=set_sync;
 	this->i.has_sync=has_sync;
-	this->i.repeat_frame=repeat_frame;
 	this->i.free=free_;
 	
 	this->hwnd=(HWND)windowhandle;
@@ -385,7 +373,7 @@ cancel:
 #undef video
 static video* video_create_d3d9(uintptr_t windowhandle)
 {
-	return video_create_compat(cvideo_create_d3d9(windowhandle, 32, 32, 16, 60));
+	return video_create_compat(cvideo_create_d3d9(windowhandle, 32, 32, fmt_0rgb1555, 60));
 }
 const video::driver video::create_d3d9 = {"Direct3D", video_create_d3d9, NULL, video::f_vsync};
 #endif

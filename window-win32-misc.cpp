@@ -131,7 +131,7 @@ const char * const * window_file_picker(struct window * parent,
 	if (!ismultiple)
 	{
 		ret=malloc(sizeof(char*)*2);
-		ret[0]=window_get_absolute_path_cwd(filenames, true);
+		ret[0]=window_get_absolute_path(window_get_cwd(), filenames, true);
 		ret[1]=NULL;
 		return (const char * const *)ret;
 	}
@@ -152,7 +152,7 @@ const char * const * window_file_picker(struct window * parent,
 	{
 		unsigned int thislen=strlen(filename);
 		memcpy(filenames+ofn.nFileOffset, filename, thislen+1);
-		*retout=window_get_absolute_path_cwd(filenames, true);
+		*retout=window_get_absolute_path(window_get_cwd(), filenames, true);
 		retout++;
 		filename+=thislen+1;
 	}

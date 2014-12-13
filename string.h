@@ -114,9 +114,7 @@ public:
 	
 	static void utf8writecp(char * & bytes, uint32_t codepoint)
 	{
-//printf("cp=%X ",codepoint);
 		unsigned int nbyte=utf8cplen(codepoint);
-//printf("bytes=%i ",nbyte);
 		if (nbyte==1)
 		{
 			*(bytes++)=codepoint;
@@ -127,12 +125,9 @@ public:
 		{
 			i--;
 			bytes[i] = 0x80 | (codepoint&0x3F);
-//printf("byte[%i]=%.2X ",i,bytes[i]);
 			codepoint >>= 6;
-//printf("remain=%X ",codepoint);
 		}
 		bytes[0] = (0xFF << (8-nbyte)) | codepoint;
-//printf("byte[0]=%.2X\n",bytes[0]);
 		bytes+=nbyte;
 	}
 	

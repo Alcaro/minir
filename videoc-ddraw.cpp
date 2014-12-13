@@ -16,7 +16,7 @@ struct video_ddraw {
 	
 };
 
-static void reinit(struct video * this_, unsigned int screen_width, unsigned int screen_height, unsigned int depth, double fps)
+static void reinit(struct video * this_, unsigned int screen_width, unsigned int screen_height, videoformat depth, double fps)
 {
 	//struct video_ddraw * this=(struct video_ddraw*)this_;
 	
@@ -42,17 +42,6 @@ static bool has_sync(struct video * this_)
 	return true;
 }
 
-static bool repeat_frame(struct video * this_, unsigned int * width, unsigned int * height,
-                                               const void * * data, unsigned int * pitch, unsigned int * bpp)
-{
-	if (width) *width=0;
-	if (height) *height=0;
-	if (data) *data=NULL;
-	if (pitch) *pitch=0;
-	if (bpp) *bpp=16;
-	return false;
-}
-
 static void free_(struct video * this_)
 {
 	struct video_ddraw * this=(struct video_ddraw*)this_;
@@ -63,14 +52,13 @@ static void free_(struct video * this_)
 }
 
 struct video * cvideo_create_ddraw(uintptr_t windowhandle, unsigned int screen_width, unsigned int screen_height,
-                                   unsigned int depth, double fps)
+                                   videoformat depth, double fps)
 {
 	struct video_ddraw * this=malloc(sizeof(struct video_ddraw));
 	this->i.reinit=reinit;
 	this->i.draw=draw;
 	this->i.set_sync=set_sync;
 	this->i.has_sync=has_sync;
-	this->i.repeat_frame=repeat_frame;
 	this->i.free=free_;
 	
 	if (true) goto cancel;
@@ -85,7 +73,7 @@ cancel:
 #undef video
 static video* video_create_ddraw(uintptr_t windowhandle)
 {
-	return video_create_compat(cvideo_create_ddraw(windowhandle, 256, 256, 16, 60));
+	return video_create_compat(cvideo_create_ddraw(windowhandle, 256, 256, fmt_0rgb1555, 60));
 }
 const video::driver video::create_ddraw = {"DirectDraw (unimplemented)", video_create_ddraw, NULL, video::f_vsync};
 #endif
