@@ -65,7 +65,7 @@ g_log_set_always_fatal((GLogLevelFlags)(G_LOG_LEVEL_CRITICAL|G_LOG_LEVEL_WARNING
 	//gdk_window_add_filter(NULL,scanfilter,NULL);
 #ifndef NO_ICON
 	struct image img;
-	png_decode(icon_minir_64x64_png,sizeof(icon_minir_64x64_png), &img, 33);
+	png_decode(icon_minir_64x64_png,sizeof(icon_minir_64x64_png), &img, fmt_argb8888);
 	//we could tell it how to free this, but it will be used until replaced, and it won't be replaced.
 	gtk_window_set_default_icon(gdk_pixbuf_new_from_data((guchar*)img.pixels, GDK_COLORSPACE_RGB, true, 8, 64,64, 64*4, NULL, NULL));
 #endif

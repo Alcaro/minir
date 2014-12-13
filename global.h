@@ -136,8 +136,14 @@ enum videoformat {
 	fmt_rgb565,
 	
 	//these are used only in minir
+	fmt_none,//this should be 0, but libretro compatibility means I can't do that
+	
 	fmt_rgb888,
 	fmt_argb1555,
 	fmt_argb8888,
 };
-
+static inline uint8_t videofmt_byte_per_pixel(videoformat fmt)
+{
+	static const uint8_t table[]={2, 4, 2, 0, 3, 2, 4};
+	return table[fmt];
+}

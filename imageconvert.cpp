@@ -3,14 +3,14 @@
 #include <stdint.h>
 #include <string.h>
 
-static uint32_t * table_15_32=NULL;
-static uint32_t * table_16_32=NULL;
+static uint32_t * table_0rgb1555_xrgb8888=NULL;
+static uint32_t * table_rgb565_xrgb8888=NULL;
 
-static void create_tbl_15_32(void* location)
+static void create_tbl_0rgb1555_xrgb8888(void* location)
 {
-	if (table_15_32)
+	if (table_0rgb1555_xrgb8888)
 	{
-		memcpy(location, table_15_32, sizeof(uint32_t)*65536);
+		memcpy(location, table_0rgb1555_xrgb8888, sizeof(uint32_t)*65536);
 		return;
 	}
 	
@@ -28,11 +28,11 @@ static void create_tbl_15_32(void* location)
 	memset(table+32768, 0, sizeof(uint32_t)*32768);
 }
 
-static void create_tbl_16_32(void* location)
+static void create_tbl_rgb565_xrgb8888(void* location)
 {
-	if (table_16_32)
+	if (table_rgb565_xrgb8888)
 	{
-		memcpy(location, table_16_32, sizeof(uint32_t)*65536);
+		memcpy(location, table_rgb565_xrgb8888, sizeof(uint32_t)*65536);
 		return;
 	}
 	
@@ -51,9 +51,9 @@ static void create_tbl_16_32(void* location)
 }
 
 
-static void convert_1516_32(const struct image * src, struct image * dst)
+static void convert_2_4(const struct image * src, struct image * dst)
 {
-	const uint32_t * conv=(const uint32_t*)image_get_convert_table(src->bpp, 32);
+	const uint32_t * conv=(const uint32_t*)image_get_convert_table(src->format, fmt_xrgb8888);
 	
 	uint16_t * in=(uint16_t*)src->pixels;
 	uint32_t * out=(uint32_t*)dst->pixels;
@@ -70,9 +70,9 @@ static void convert_1516_32(const struct image * src, struct image * dst)
 }
 
 
-static void convert_1516_24(const struct image * src, struct image * dst)
+static void convert_2_3(const struct image * src, struct image * dst)
 {
-	const uint32_t * conv=(const uint32_t*)image_get_convert_table(src->bpp, 32);
+	const uint32_t * conv=(const uint32_t*)image_get_convert_table(src->format, fmt_xrgb8888);
 	
 	uint16_t * in=(uint16_t*)src->pixels;
 	uint8_t * out=(uint8_t*)dst->pixels;
@@ -90,23 +90,22 @@ static void convert_1516_24(const struct image * src, struct image * dst)
 	}
 }
 
-
 #define FMT(src, dst) ((src)<<8 | (dst))
-void image_create_convert_table(unsigned int srcbpp, unsigned int dstbpp, void* dst)
+void image_create_convert_table(videoformat srcfmt, videoformat dstfmt, void* dst)
 {
-	switch (FMT(srcbpp, dstbpp))
+	switch (FMT(srcfmt, dstfmt))
 	{
-		case FMT(15, 32): create_tbl_15_32(dst); break;
-		case FMT(16, 32): create_tbl_16_32(dst); break;
+		case FMT(fmt_0rgb1555, fmt_xrgb8888): create_tbl_0rgb1555_xrgb8888(dst); break;
+		case FMT(fmt_rgb565,   fmt_xrgb8888): create_tbl_rgb565_xrgb8888(dst); break;
 	}
 }
 
-const void * image_get_convert_table(unsigned int srcbpp, unsigned int dstbpp)
+const void * image_get_convert_table(videoformat srcfmt, videoformat dstfmt)
 {
-	switch (FMT(srcbpp, dstbpp))
+	switch (FMT(srcfmt, dstfmt))
 	{
 #define IMPL(src, dst, size) \
-		case FMT(src, dst): \
+		case FMT(fmt_##src, fmt_##dst): \
 			if (!table_##src##_##dst) \
 			{ \
 				void * tmp=malloc(size); \
@@ -115,8 +114,8 @@ const void * image_get_convert_table(unsigned int srcbpp, unsigned int dstbpp)
 			} \
 			return table_##src##_##dst;
 	
-	IMPL(15, 32, sizeof(uint32_t)*65536);
-	IMPL(16, 32, sizeof(uint32_t)*65536);
+	IMPL(0rgb1555, xrgb8888, sizeof(uint32_t)*65536);
+	IMPL(rgb565, xrgb8888, sizeof(uint32_t)*65536);
 #undef IMPL
 	}
 	return NULL;
@@ -124,15 +123,15 @@ const void * image_get_convert_table(unsigned int srcbpp, unsigned int dstbpp)
 
 void image_convert(const struct image * src, struct image * dst)
 {
-	switch (FMT(src->bpp, dst->bpp))
+	switch (FMT(src->format, dst->format))
 	{
-		case FMT(15, 15):
-		case FMT(16, 16):
-		case FMT(24, 24):
-		case FMT(32, 32):
-		case FMT(33, 33):
+		case FMT(fmt_0rgb1555, fmt_0rgb1555):
+		case FMT(fmt_rgb565, fmt_rgb565):
+		case FMT(fmt_rgb888, fmt_rgb888):
+		case FMT(fmt_xrgb8888, fmt_xrgb8888):
+		case FMT(fmt_argb8888, fmt_argb8888):
 		{
-			unsigned int pixelsize=((src->bpp)<=16?2: (src->bpp)==24?3: 4);
+			unsigned int pixelsize=videofmt_byte_per_pixel(src->format);
 			unsigned int linelen=pixelsize*src->width;
 			
 			uint8_t * srcdata=(uint8_t*)src->pixels;
@@ -149,13 +148,13 @@ void image_convert(const struct image * src, struct image * dst)
 			break;
 		}
 		
-		case FMT(15, 32):
-		case FMT(16, 32):
-			convert_1516_32(src, dst);
+		case FMT(fmt_0rgb1555, fmt_xrgb8888):
+		case FMT(fmt_rgb565, fmt_xrgb8888):
+			convert_2_4(src, dst);
 			break;
-		case FMT(15, 24):
-		case FMT(16, 24):
-			convert_1516_24(src, dst);
+		case FMT(fmt_0rgb1555, fmt_rgb888):
+		case FMT(fmt_rgb565, fmt_rgb888):
+			convert_2_3(src, dst);
 			break;
 		default: ; char *e=0; *e=0;
 	}
@@ -165,7 +164,7 @@ void image_convert(const struct image * src, struct image * dst)
 
 
 
-void convert_resize_1516_self(const struct image * src, struct image * dst)
+void convert_resize_2_2_self(const struct image * src, struct image * dst)
 {
 	float xstep=(float)src->width/dst->width;
 	float ystep=(float)src->height/dst->height;
@@ -183,9 +182,9 @@ void convert_resize_1516_self(const struct image * src, struct image * dst)
 	}
 }
 
-void convert_resize_1516_32(const struct image * src, struct image * dst)
+void convert_resize_2_4(const struct image * src, struct image * dst)
 {
-	const uint32_t * conv=(const uint32_t*)image_get_convert_table(src->bpp, 32);
+	const uint32_t * conv=(const uint32_t*)image_get_convert_table(src->format, fmt_xrgb8888);
 	float xstep=(float)src->width/dst->width;
 	float ystep=(float)src->height/dst->height;
 	for (unsigned int y=0;y<dst->height;y++)
@@ -202,7 +201,7 @@ void convert_resize_1516_32(const struct image * src, struct image * dst)
 	}
 }
 
-void convert_resize_3233_self(const struct image * src, struct image * dst)
+void convert_resize_4_4_self(const struct image * src, struct image * dst)
 {
 	float xstep=(float)src->width/dst->width;
 	float ystep=(float)src->height/dst->height;
@@ -222,26 +221,23 @@ void convert_resize_3233_self(const struct image * src, struct image * dst)
 
 void image_convert_resize(const struct image * src, struct image * dst)
 {
-	switch (FMT(src->bpp, dst->bpp))
+	switch (FMT(src->format, dst->format))
 	{
-		case FMT(15, 15):
-		case FMT(16, 16):
-		{
-			convert_resize_1516_self(src, dst);
+		case FMT(fmt_0rgb1555, fmt_0rgb1555):
+		case FMT(fmt_rgb565, fmt_rgb565):
+			convert_resize_2_2_self(src, dst);
 			break;
-		}
 		
-		case FMT(32, 32):
-		case FMT(33, 33):
-		{
-			convert_resize_3233_self(src, dst);
+		case FMT(fmt_0rgb1555, fmt_xrgb8888):
+		case FMT(fmt_rgb565, fmt_xrgb8888):
+			convert_resize_2_4(src, dst);
 			break;
-		}
 		
-		case FMT(15, 32):
-		case FMT(16, 32):
-			convert_resize_1516_32(src, dst);
+		case FMT(fmt_xrgb8888, fmt_xrgb8888):
+		case FMT(fmt_argb8888, fmt_argb8888):
+			convert_resize_4_4_self(src, dst);
 			break;
+		
 		default: ; char *e=0; *e=0;
 	}
 }

@@ -317,11 +317,9 @@ public:
 	//The returned integer can only be compared with 0, or sent to release_screenshot(). It can vary depending on anything the object wants.
 	//If get_screenshot can fail, release_screenshot with ret=0 is guaranteed to do nothing.
 	//Whether it succeeds or fails, release_screenshot() must be the next called function. It is not allowed to ask for both screenshots then release both.
-	virtual int get_screenshot(unsigned int * width, unsigned int * height, unsigned int * pitch, unsigned int * depth,
-	                           void* * data, size_t datasize) { *data=NULL; return 0; }
+	virtual int get_screenshot(struct image * img) { img->pixels=NULL; return 0; }
 	//Returns the last output of this object. This is different from the input if shaders are present.
-	virtual int get_screenshot_out(unsigned int * width, unsigned int * height, unsigned int * pitch, unsigned int * depth,
-	                               void* * data, size_t datasize) { return get_screenshot(width, height, pitch, depth, data, datasize); }
+	virtual int get_screenshot_out(struct image * img) { return get_screenshot(img); }
 	//Frees the data returned from the above.
 	virtual void release_screenshot(int ret, void* data) {}
 	
@@ -504,7 +502,7 @@ struct cvideo {
 	//The user guarantees that the window is size screen_width*screen_height when This is called, and at
 	// every subsequent call to draw(). If the window is resized, reinit() (or free()) must be called again.
 	//The bit depths may be 32 (XRGB8888), 16 (RGB565), or 15 (0RGB1555).
-	void (*reinit)(struct cvideo * This, unsigned int screen_width, unsigned int screen_height, unsigned int depth, double fps);
+	void (*reinit)(struct cvideo * This, unsigned int screen_width, unsigned int screen_height, videoformat format, double fps);
 	
 	//Draws the given data. Size doesn't need to be same as above; if it isn't, nearest neighbor scaling will be used.
 	//pitch is how many bytes to go forward to reach the next scanline.
@@ -518,11 +516,6 @@ struct cvideo {
 	
 	//Whether vsync can be enabled on This item.
 	bool (*has_sync)(struct cvideo * This);
-	
-	//Returns the last frame drawn.
-	//If This video driver doesn't support This, or if there is no previous frame, returns 0,0,NULL,0,16.
-	bool (*repeat_frame)(struct cvideo * This, unsigned int * width, unsigned int * height,
-	                                          const void * * data, unsigned int * pitch, unsigned int * bpp);
 	
 	//Deletes the structure.
 	void (*free)(struct cvideo * This);

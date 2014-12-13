@@ -938,7 +938,7 @@ bool create_screenshot()
 	int scret=0;
 {
 	struct image img;
-	scret=vid->get_screenshot(&img.width, &img.height, &img.pitch, &img.bpp, &img.pixels, 0);
+	scret=vid->get_screenshot(&img);
 	data=img.pixels;
 	if (!scret) goto bad;
 	

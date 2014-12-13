@@ -30,8 +30,8 @@ public://since this entire file is private, making it public inside here does no
 	//src and dest are used instead of src/dst because they have different length and are therefore easier to identify
 	unsigned int src_width;//Shared (external).
 	unsigned int src_height;//Shared (external).
-	uint8_t src_depth;//Shared (external).
 	uint8_t src_bpp;//Shared (external).
+	videoformat src_format;//Shared (external).
 	//char padding[2];
 	
 	unsigned int dest_width;//Shared (external).
@@ -78,7 +78,7 @@ public://since this entire file is private, making it public inside here does no
 		this->next->initialize();
 		unsigned int src_width=0;
 		unsigned int src_height=0;
-		uint8_t src_depth=0;
+		videoformat src_format=fmt_none;
 		unsigned int dest_width=0;
 		unsigned int dest_height=0;
 		//not calling set_source and set_dest here
@@ -105,10 +105,10 @@ public://since this entire file is private, making it public inside here does no
 			bool set_vsync=(vsync!=this->vsync);
 			vsync=this->vsync;
 			
-			bool set_src=(src_width!=this->src_width || src_height!=this->src_height || src_depth!=this->src_depth);
+			bool set_src=(src_width!=this->src_width || src_height!=this->src_height || src_format!=this->src_format);
 			src_width=this->src_width;
 			src_height=this->src_height;
-			src_depth=this->src_depth;
+			src_format=this->src_format;
 			
 			bool set_dest=(dest_width!=this->dest_width || dest_height!=this->dest_height);
 			dest_width=this->dest_width;
@@ -124,13 +124,16 @@ public://since this entire file is private, making it public inside here does no
 			
 			this->lock->unlock();
 			
-			if (set_src) this->next->set_source(src_width, src_height, (videoformat)src_depth);
+			if (set_src) this->next->set_source(src_width, src_height, src_format);
 			if (set_dest) this->next->set_dest_size(dest_width, dest_height);
 			
 			if (set_vsync) this->next->set_vsync(vsync);
 			
-			if (draw_null) this->next->draw_repeat();
-			else this->next->draw_2d(buf.width, buf.height, buf.data, this->src_bpp*buf.width);
+			if (draw)
+			{
+				if (draw_null) this->next->draw_repeat();
+				else this->next->draw_2d(buf.width, buf.height, buf.data, this->src_bpp*buf.width);
+			}
 			
 			if (vsync!=0)
 			{
@@ -148,19 +151,13 @@ public://since this entire file is private, making it public inside here does no
 		this->wake_parent->wait();
 	}
 	
-	/*private*/ uint8_t depthtobpp(uint8_t depth)
-	{
-		if (depth==fmt_xrgb8888) return 4;
-		else return 2;
-	}
-	
 	void set_chain(video* next) { this->next=next; }
 	
-	void set_source(unsigned int max_width, unsigned int max_height, videoformat depth)
+	void set_source(unsigned int max_width, unsigned int max_height, videoformat format)
 	{
 		this->lock->lock();
-		this->src_depth=depth;
-		this->src_bpp=depthtobpp(depth);
+		this->src_format=format;
+		this->src_bpp=videofmt_byte_per_pixel(format);
 		this->src_width=max_width;
 		this->src_height=max_height;
 		this->lock->unlock();
@@ -255,16 +252,15 @@ public://since this entire file is private, making it public inside here does no
 		this->lock->unlock();
 	}
 	
-	int get_screenshot(unsigned int * width, unsigned int * height, unsigned int * pitch, unsigned int * depth,
-	                   void* * data, size_t datasize)
+	int get_screenshot(struct image * img)
 	{
 		//this protects not against the child thread, but against the parent thread - screenshot/shader/vsync functions can be called by a third thread
 		this->lock->lock();
-		if (width) *width=this->buf_last.width;
-		if (height) *height=this->buf_last.height;
-		if (pitch) *pitch=this->src_bpp*this->buf_last.width;
-		if (depth) *depth=this->src_depth;
-		if (data) *data=this->buf_last.data;
+		img->width=this->buf_last.width;
+		img->height=this->buf_last.height;
+		img->pitch=this->src_bpp*this->buf_last.width;
+		img->format=this->src_format;
+		img->pixels=this->buf_last.data;
 		return 1;
 	}
 	
@@ -280,7 +276,7 @@ public://since this entire file is private, making it public inside here does no
 	
 	video_thread()
 	{
-		this->src_depth=0;
+		this->src_format=fmt_none;
 		this->src_bpp=0;
 		this->src_width=0;
 		this->src_height=0;

@@ -22,7 +22,7 @@ class video_compat : public video {
 	
 	uintptr_t windowhandle;
 	
-	unsigned int depth;
+	videoformat depth;
 	unsigned int base_width;
 	unsigned int base_height;
 	
@@ -40,8 +40,7 @@ public:
 	
 	void set_source(unsigned int max_width, unsigned int max_height, videoformat depth)
 	{
-		int fmt[]={15,32,16};
-		this->depth=fmt[depth];
+		this->depth=depth;
 		child->reinit(child, this->base_width, this->base_height, this->depth, 60);
 	}
 	
@@ -74,7 +73,7 @@ public:
 	video_compat(cvideo* child)
 	{
 		this->child=child;
-		this->depth=15;
+		this->depth=fmt_0rgb1555;
 		this->base_width=256;
 		this->base_height=256;
 	}

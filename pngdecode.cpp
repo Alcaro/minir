@@ -14,10 +14,10 @@
 #define read32r(source) (((source)[0]<<24)|((source)[1]<<16)|((source)[2]<<8)|((source)[3]<<0))
 #define read32(target) do { target=read32r(chunkdata); chunkdata+=4; } while(0)
 
-bool png_decode(const void * pngdata, unsigned int pnglen, struct image * img, unsigned int bpp)
+bool png_decode(const void * pngdata, unsigned int pnglen, struct image * img, videoformat format)
 {
 	memset(img, 0, sizeof(struct image));
-	if (bpp!=24 && bpp!=32 && bpp!=33) return false;
+	if (format!=fmt_rgb888 && format!=fmt_xrgb8888 && format!=fmt_argb8888) return false;
 	
 	if (pnglen<8) return false;
 	const uint8_t * data=(const uint8_t*)pngdata;
@@ -84,7 +84,7 @@ bool png_decode(const void * pngdata, unsigned int pnglen, struct image * img, u
 				if (colortype==2 && bitsperchannel!=8) goto bad;//truecolor; can be 16bpp but I don't want that.
 				if (colortype==3 && bitsperchannel!=1 && bitsperchannel!=2 && bitsperchannel!=4 && bitsperchannel!=8) goto bad;//paletted
 				if (colortype==6 && bitsperchannel!=8) goto bad;//truecolor with alpha
-				if (colortype==6 && bpp!=33) goto bad;//can only decode alpha on format 33
+				if (colortype==6 && format!=fmt_argb8888) goto bad;//can only decode alpha on ARGB formats
 				if (compressiontype!=0) goto bad;
 				if (filtertype!=0) goto bad;
 				if (interlacetype!=0 && interlacetype!=1) goto bad;
@@ -112,7 +112,7 @@ bool png_decode(const void * pngdata, unsigned int pnglen, struct image * img, u
 			break;
 			case 0x74524E53: //tRNS
 			{
-				if (bpp!=33 || pixels==NULL || pixels!=pixelsat) goto bad;
+				if (format!=fmt_argb8888 || pixels==NULL || pixels!=pixelsat) goto bad;
 				if (colortype==2)
 				{
 					if (palettelen==0) goto bad;
@@ -143,12 +143,12 @@ goto bad;
 				size_t zero=0;
 				size_t finalbytes=(pixelsend-pixelsat);
 				tinfl_status status=tinfl_decompress(&inflator, (const mz_uint8 *)NULL, &zero, pixels, pixelsat, &finalbytes,
-																							TINFL_FLAG_USING_NON_WRAPPING_OUTPUT_BUF | TINFL_FLAG_PARSE_ZLIB_HEADER);
+				                                     TINFL_FLAG_USING_NON_WRAPPING_OUTPUT_BUF | TINFL_FLAG_PARSE_ZLIB_HEADER);
 				pixelsat+=finalbytes;
 				if (status<TINFL_STATUS_DONE) goto bad;
 				if (status>TINFL_STATUS_DONE) goto bad;
 				if (pixelsat!=pixelsend) goto bad;//too little data (can't be too much because we didn't give it that buffer size)
-				uint8_t * out=(uint8_t*)malloc(bpp/8*width*height);
+				uint8_t * out=(uint8_t*)malloc(videofmt_byte_per_pixel(format)*width*height);
 				
 				//TODO: deinterlace at random point
 				
@@ -339,7 +339,7 @@ goto bad;
 				}
 				
 				//unpack to 32bpp if requested
-				if (bpp==32)
+				if (format!=fmt_rgb888 && colortype==2)
 				{
 					uint8_t * inp=out+width*height*3;
 					uint32_t * outp=((uint32_t*)out)+width*height;
@@ -348,15 +348,15 @@ goto bad;
 						i--;
 						inp-=3;
 						outp--;
-						*outp=read24r(inp);
+						*outp = read24r(inp) | 0xFF000000;
 					} while(i);
 				}
 				
 				img->width=width;
 				img->height=height;
 				img->pixels=out;
-				img->pitch=bpp/8*width;
-				img->bpp=bpp;
+				img->pitch=videofmt_byte_per_pixel(format)*width;
+				img->format=format;
 				free(pixels);
 				return true;
 			}

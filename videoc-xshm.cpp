@@ -24,7 +24,7 @@ struct video_xshm {
 	unsigned int width;
 	unsigned int height;
 	unsigned int pitch;
-	unsigned int bpp;
+	videoformat bpp;
 	
 	XShmSegmentInfo shmInfo;
 	XImage* image;
@@ -41,7 +41,7 @@ static void reset(struct video_xshm * this)
 	XDestroyWindow(this->display, this->wndw);
 }
 
-static void reinit(struct video * this_, unsigned int screen_width, unsigned int screen_height, unsigned int depth, double fps)
+static void reinit(struct video * this_, unsigned int screen_width, unsigned int screen_height, videoformat depth, double fps)
 {
 	struct video_xshm * this=(struct video_xshm*)this_;
 	
@@ -83,14 +83,14 @@ static void draw(struct video * this_, unsigned int width, unsigned int height, 
 	src.height=height;
 	src.pixels=(void*)data;
 	src.pitch=pitch;
-	src.bpp=this->bpp;
+	src.format=this->bpp;
 	
 	struct image dst;
 	dst.width=this->width;
 	dst.height=this->height;
 	dst.pixels=this->shmInfo.shmaddr;
 	dst.pitch=this->pitch;
-	dst.bpp=32;
+	dst.format=fmt_xrgb8888;
 	image_convert_resize(&src, &dst);
 	
 	XShmPutImage(this->display, this->wndw, this->gc, this->image,
@@ -108,17 +108,6 @@ static bool has_sync(struct video * this_)
 	return false;
 }
 
-static bool repeat_frame(struct video * this_, unsigned int * width, unsigned int * height,
-                                               const void * * data, unsigned int * pitch, unsigned int * bpp)
-{
-	if (width) *width=0;
-	if (height) *height=0;
-	if (data) *data=NULL;
-	if (pitch) *pitch=0;
-	if (bpp) *bpp=16;
-	return false;
-}
-
 static void free_(struct video * this_)
 {
 	struct video_xshm * this=(struct video_xshm*)this_;
@@ -127,14 +116,13 @@ static void free_(struct video * this_)
 }
 
 struct video * cvideo_create_xshm(uintptr_t windowhandle, unsigned int screen_width, unsigned int screen_height,
-                                 unsigned int depth, double fps)
+                                 videoformat depth, double fps)
 {
 	struct video_xshm * this=malloc(sizeof(struct video_xshm));
 	this->i.reinit=reinit;
 	this->i.draw=draw;
 	this->i.set_sync=set_sync;
 	this->i.has_sync=has_sync;
-	this->i.repeat_frame=repeat_frame;
 	this->i.free=free_;
 	
 	this->display=window_x11_get_display()->display;
@@ -157,7 +145,7 @@ cancel:
 #undef video
 static video* video_create_xshm(uintptr_t windowhandle)
 {
-	return video_create_compat(cvideo_create_xshm(windowhandle, 256, 256, 16, 60));
+	return video_create_compat(cvideo_create_xshm(windowhandle, 256, 256, fmt_0rgb1555, 60));
 }
 const video::driver video::create_xshm = {"XShm", video_create_xshm, NULL, 0};
 #endif

@@ -42,7 +42,10 @@ char * video::shader::translate_cgc(lang_t from, lang_t to, const char * text)
 	CGcontext context;
 	context = cg.CreateContext();
 #define e printf("e=%s\n",cg.GetLastListing(context));
-	//TODO: process with random profile with flags "-E", "-D", "PARAMETER_UNIFORM", "-I", (dir), NULL to get #includes out of the way
+	//TODO: process with random profile with flags "-E", "-DPARAMETER_UNIFORM", "-I"(dir), NULL to get #includes out of the way
+	//I only have the source, no filename, but I can refactor that and use cgSetCompilerIncludeCallback
+	//(when do I free return values from SetCompilerIncludeCallback? On next call? After the program is created?
+	// After destroying the context? Does Cg send it to free()?)
 	
 //def preprocess_vertex(source_data):
 //   input_data = source_data.split('\n')
@@ -68,6 +71,7 @@ char * video::shader::translate_cgc(lang_t from, lang_t to, const char * text)
 	goto error;
 	
 	cg.DestroyContext(context);
+	dylib_free(cg.lib);
 return NULL;
 error:
 	cg.DestroyContext(context);

@@ -113,7 +113,7 @@ struct video_opengl {
 	unsigned int texwidth;
 	unsigned int texheight;
 	
-	int pixelformat;
+	videoformat pixelformat;
 	int byteperpix;
 	GLenum inputformat;
 	GLenum format;
@@ -132,7 +132,7 @@ struct video_opengl {
 	size_t convert_bufsize;
 };
 
-static void reinit(struct video * this_, unsigned int screen_width, unsigned int screen_height, unsigned int depth, double fps)
+static void reinit(struct video * this_, unsigned int screen_width, unsigned int screen_height, videoformat format, double fps)
 {
 	struct video_opengl * this=(struct video_opengl*)this_;
 #ifdef WNDPROT_X11
@@ -141,11 +141,11 @@ static void reinit(struct video * this_, unsigned int screen_width, unsigned int
 	this->screenwidth=screen_width;
 	this->screenheight=screen_height;
 	
-	this->pixelformat=depth;
+	this->pixelformat=format;
 	this->convert_image=false;
 	this->byteperpix=1;//to avoid a zero division
 	
-	if (depth==15)
+	if (format==fmt_0rgb1555)
 	{
 		if (this->support_bitpack_1555)
 		{
@@ -158,7 +158,7 @@ static void reinit(struct video * this_, unsigned int screen_width, unsigned int
 			this->convert_image=true;
 		}
 	}
-	if (depth==16)
+	if (format==fmt_rgb565)
 	{
 		if (this->support_bitpack_565)
 		{
@@ -171,7 +171,7 @@ static void reinit(struct video * this_, unsigned int screen_width, unsigned int
 			this->convert_image=true;
 		}
 	}
-	if (depth==32)
+	if (format==fmt_xrgb8888)
 	{
 		if (this->support_bitpack_8888)
 		{
@@ -275,13 +275,13 @@ q22("tx")
 			src.height=height;
 			src.pixels=(void*)data;
 			src.pitch=pitch;
-			src.bpp=this->pixelformat;
+			src.format=this->pixelformat;
 			struct image dst;
 			dst.width=width;
 			dst.height=height;
 			dst.pixels=this->convert_buf;
 			dst.pitch=3*width;
-			dst.bpp=24;
+			dst.format=fmt_rgb888;
 			image_convert(&src, &dst);
 			glPixelStorei(GL_UNPACK_ROW_LENGTH, width);
 			glTexSubImage2D(GL_TEXTURE_2D,
@@ -343,17 +343,6 @@ static bool has_sync(struct video * this_)
 #endif
 }
 
-static bool repeat_frame(struct video * this_, unsigned int * width, unsigned int * height,
-                                               const void * * data, unsigned int * pitch, unsigned int * bpp)
-{
-	if (width) *width=0;
-	if (height) *height=0;
-	if (data) *data=NULL;
-	if (pitch) *pitch=0;
-	if (bpp) *bpp=16;
-	return false;
-}
-
 static void free_(struct video * this_)
 {
 	struct video_opengl * this=(struct video_opengl*)this_;
@@ -382,14 +371,13 @@ static Bool glx_wait_for_map_notify(Display* d, XEvent* e, char* arg) {
 #endif
 
 struct video * cvideo_create_opengl_old(uintptr_t windowhandle, unsigned int screen_width, unsigned int screen_height,
-                                   unsigned int depth, double fps)
+                                   videoformat depth, double fps)
 {
 	struct video_opengl * this=malloc(sizeof(struct video_opengl));
 	this->i.reinit=reinit;
 	this->i.draw=draw;
 	this->i.set_sync=set_sync;
 	this->i.has_sync=has_sync;
-	this->i.repeat_frame=repeat_frame;
 	this->i.free=free_;
 	
 	this->gltexture=0;
@@ -533,7 +521,7 @@ cancel:
 #undef video
 static video* video_create_opengl_old(uintptr_t windowhandle)
 {
-	return video_create_compat(cvideo_create_opengl_old(windowhandle, 32, 32, 16, 60));
+	return video_create_compat(cvideo_create_opengl_old(windowhandle, 32, 32, fmt_0rgb1555, 60));
 }
 const video::driver video::create_opengl_old = {"OpenGL-1.x", video_create_opengl_old, NULL, 0};
 #else

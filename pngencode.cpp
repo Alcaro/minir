@@ -64,7 +64,7 @@ bool png_encode(const struct image * img, const char * * pngcomments,  void* * p
 {
 	*pngdata=NULL;
 	*pnglen=0;
-	if (img->bpp!=15 && img->bpp!=16 && img->bpp!=24 && img->bpp!=32) return false;
+	if (img->format!=fmt_0rgb1555 && img->format!=fmt_rgb565 && img->format!=fmt_rgb888 && img->format!=fmt_xrgb8888) return false;
 	
 	unsigned int width=img->width;
 	unsigned int height=img->height;
@@ -79,7 +79,7 @@ bool png_encode(const struct image * img, const char * * pngcomments,  void* * p
 	
 	uint8_t * thislineraw=(uint8_t*)img->pixels;
 	
-	if (img->bpp==15 || img->bpp==16)
+	if (img->format==fmt_0rgb1555 || img->format==fmt_rgb565)
 	{
 		if (!upconv) upconv=(uint32_t*)malloc(sizeof(uint32_t)*65536);
 		
@@ -93,7 +93,7 @@ bool png_encode(const struct image * img, const char * * pngcomments,  void* * p
 				{
 					if (palettelen>=256) goto nopal_1516bpp;
 					upconv[col16]=palettelen;
-					if (img->bpp==15)
+					if (img->format==fmt_0rgb1555)
 					{
 						int col=(((col16>>10)&31)<<19)|(((col16>>5)&31)<<11)|(((col16>>0)&31)<<3);
 						col|=(col>>5)&0x070707;
@@ -116,10 +116,10 @@ bool png_encode(const struct image * img, const char * * pngcomments,  void* * p
 		{
 		nopal_1516bpp:;
 			palettelen=0;
-			image_create_convert_table(img->bpp, 32, upconv);
+			image_create_convert_table(img->format, fmt_xrgb8888, upconv);
 		}
 	}
-	else if (img->bpp==24)
+	else if (img->format==fmt_rgb888)
 	{
 		for (unsigned int y=0;y<height;y++)
 		{
@@ -143,7 +143,7 @@ bool png_encode(const struct image * img, const char * * pngcomments,  void* * p
 			thislineraw+=img->pitch;
 		}
 	}
-	else if (img->bpp==32)
+	else if (img->format==fmt_xrgb8888)
 	{
 		for (unsigned int y=0;y<height;y++)
 		{
@@ -268,16 +268,16 @@ bool png_encode(const struct image * img, const char * * pngcomments,  void* * p
 	{
 		if (palettelen)
 		{
-			switch (img->bpp)
+			switch (img->format)
 			{
-			case 15: case 16:
+			case fmt_0rgb1555: case fmt_rgb565:
 				for (unsigned int x=0;x<width;x++)
 				{
 					int col=upconv[((uint16_t*)thislineraw)[x]];
 					thisline[x]=col;
 				}
 				break;
-			case 24:
+			case fmt_rgb888:
 				for (unsigned int x=0;x<width;x++)
 				{
 					int col32=thislineraw[x*3+0]<<16|
@@ -295,7 +295,7 @@ bool png_encode(const struct image * img, const char * * pngcomments,  void* * p
 					}
 				}
 				break;
-			case 32:
+			case fmt_xrgb8888:
 				for (unsigned int x=0;x<width;x++)
 				{
 					int col32=((uint32_t*)thislineraw)[x];
@@ -348,9 +348,9 @@ bool png_encode(const struct image * img, const char * * pngcomments,  void* * p
 		}
 		else
 		{
-			switch (img->bpp)
+			switch (img->format)
 			{
-			case 15: case 16:
+			case fmt_0rgb1555: case fmt_rgb565:
 				for (unsigned int x=0;x<width;x++)
 				{
 					int col=upconv[((uint16_t*)thislineraw)[x]];
@@ -359,10 +359,10 @@ bool png_encode(const struct image * img, const char * * pngcomments,  void* * p
 					thisline[x*3+2]=(col    )&0xFF;
 				}
 				break;
-			case 24:
+			case fmt_rgb888:
 				memcpy(thisline, thislineraw, bpl);
 				break;
-			case 32:
+			case fmt_xrgb8888:
 				for (unsigned int x=0;x<width;x++)
 				{
 					int col=((uint32_t*)thislineraw)[x];
