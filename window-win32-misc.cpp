@@ -1,5 +1,6 @@
 #include "window.h"
 #include "file.h"
+#include "os.h"
 #ifdef WINDOW_WIN32
 #undef _WIN32_WINNT
 #define _WIN32_WINNT 0x0501
@@ -40,11 +41,18 @@
 
 //static LARGE_INTEGER timer_freq;
 
+static CRITICAL_SECTION imutex[_imutex_count];
+
 void window_init(int * argc, char * * argv[])
 {
-	for (int i=0;(*argv)[0][i];i++)
+	for (unsigned int i=0;(*argv)[0][i];i++)
 	{
 		if ((*argv)[0][i]=='\\') (*argv)[0][i]='/';
+	}
+	
+	for (unsigned int i=0;i<_imutex_count;i++)
+	{
+		InitializeCriticalSection(&imutex[i]);
 	}
 	
 	_window_init_native();
@@ -52,6 +60,21 @@ void window_init(int * argc, char * * argv[])
 	_window_init_inner();
 	
 	//QueryPerformanceFrequency(&timer_freq);
+}
+
+void _int_mutex_lock(enum _int_mutex id)
+{
+	EnterCriticalSection(&imutex[id]);
+}
+
+bool _int_mutex_try_lock(enum _int_mutex id)
+{
+	return TryEnterCriticalSection(&imutex[id]);
+}
+
+void _int_mutex_unlock(enum _int_mutex id)
+{
+	LeaveCriticalSection(&imutex[id]);
 }
 
 bool window_message_box(const char * text, const char * title, enum mbox_sev severity, enum mbox_btns buttons)

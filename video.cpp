@@ -97,14 +97,14 @@ const video::driver* const video::drivers[]={
 #ifdef VIDEO_OPENGL
 	&create_opengl,
 #endif
-#ifdef VIDEO_OPENGL
-	&create_opengl_old,
-#endif
 #ifdef VIDEO_GDI
 	&create_gdi,
 #endif
 #ifdef VIDEO_XSHM
 	&create_xshm,
+#endif
+#ifdef VIDEO_OPENGL
+	&create_opengl_old,
 #endif
 	&create_none,
 	NULL
