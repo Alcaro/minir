@@ -86,10 +86,10 @@ static void draw(struct video * this_, unsigned int width, unsigned int height, 
 	dst.pixels=this->bmppixels;
 	dst.pitch=this->bmppitch;
 	
-	if (this->depth==fmt_0rgb1555)
+	if (this->depth==fmt_xrgb1555)
 	{
-		src.format=fmt_0rgb1555;
-		dst.format=fmt_0rgb1555;
+		src.format=fmt_xrgb1555;
+		dst.format=fmt_xrgb1555;
 	}
 	if (this->depth==fmt_rgb565)
 	{
@@ -173,7 +173,7 @@ cancel:
 #undef video
 static video* video_create_gdi(uintptr_t windowhandle)
 {
-	return video_create_compat(cvideo_create_gdi(windowhandle, 256, 256, fmt_0rgb1555, 60));
+	return video_create_compat(cvideo_create_gdi(windowhandle, 256, 256, fmt_xrgb1555, 60));
 }
 const video::driver video::create_gdi = {"GDI", video_create_gdi, NULL, 0};
 #endif

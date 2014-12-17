@@ -84,7 +84,7 @@ static bool recreate(struct video_d3d9 * this, unsigned int screenwidth, unsigne
 	clear(this);
 	
 	//depth=0 is allowed too, it means keep current value
-	if (depth==fmt_0rgb1555) this->texformat=D3DFMT_A1R5G5B5;//X1R5G5B5 fails for no obvious reason
+	if (depth==fmt_xrgb1555) this->texformat=D3DFMT_A1R5G5B5;//X1R5G5B5 fails for no obvious reason
 	if (depth==fmt_rgb565) this->texformat=D3DFMT_R5G6B5;
 	if (depth==fmt_xrgb8888) this->texformat=D3DFMT_X8R8G8B8;
 	
@@ -373,7 +373,7 @@ cancel:
 #undef video
 static video* video_create_d3d9(uintptr_t windowhandle)
 {
-	return video_create_compat(cvideo_create_d3d9(windowhandle, 32, 32, fmt_0rgb1555, 60));
+	return video_create_compat(cvideo_create_d3d9(windowhandle, 32, 32, fmt_xrgb1555, 60));
 }
 const video::driver video::create_d3d9 = {"Direct3D", video_create_d3d9, NULL, video::f_vsync};
 #endif

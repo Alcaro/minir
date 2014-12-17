@@ -860,7 +860,7 @@ struct libretro * libretro_create(const char * corepath, void (*message_cb)(int 
 	this->tmpptr[3]=NULL;
 	
 	this->audiobufpos=0;
-	this->videodepth=fmt_0rgb1555;
+	this->videodepth=fmt_xrgb1555;
 	
 	this->message_cb=message_cb;
 	

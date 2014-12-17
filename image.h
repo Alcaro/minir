@@ -17,35 +17,16 @@ struct image {
 extern "C" {
 #endif
 
-	//fmt_0rgb1555,
-	//fmt_xrgb8888,
-	//fmt_rgb565,
-	//
-	//fmt_none,//this should be 0, but libretro says I can't do that
-	//
-	//fmt_rgb888,
-	//fmt_argb1555,
-	//fmt_argb8888,
-
 //Supported bit depths:
 //c=convert, t=table, C=convert but not resize
-//                          src
-//        1/555 8/888 565 - 888 1555 8888
-//  1/555
-//  8/888
-//    565
-//dst   -
-//    888
+//                      src
+//        1/555 8/888 565 888 1555 8888
+//  1/555   ct
+//  8/888   ct    c    ct
+//dst 565              c
+//    888   Ct         Ct  C
 //   1555
-//   8888
-//    
-//    
-//       15 16 24 32 33
-//    15 c
-//    16    c
-//    24 Ct Ct C
-//    32 ct ct    c
-//    33             c
+//   8888                           c
 //More will be added as needed.
 //For image_convert, src and dst must have the same width and height; however, pitch and bpp may vary. Overlap is not allowed.
 //Converting a format to itself just uses memcpy on each scanline.

@@ -131,7 +131,7 @@ static inline void shutupgcc(int x){}
 class video;
 enum videoformat {
 	//these three are same as in libretro
-	fmt_0rgb1555,
+	fmt_xrgb1555,
 	fmt_xrgb8888,
 	fmt_rgb565,
 	

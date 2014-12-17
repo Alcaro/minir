@@ -3,14 +3,14 @@
 #include <stdint.h>
 #include <string.h>
 
-static uint32_t * table_0rgb1555_xrgb8888=NULL;
+static uint32_t * table_xrgb1555_xrgb8888=NULL;
 static uint32_t * table_rgb565_xrgb8888=NULL;
 
-static void create_tbl_0rgb1555_xrgb8888(void* location)
+static void create_tbl_xrgb1555_xrgb8888(void* location)
 {
-	if (table_0rgb1555_xrgb8888)
+	if (table_xrgb1555_xrgb8888)
 	{
-		memcpy(location, table_0rgb1555_xrgb8888, sizeof(uint32_t)*65536);
+		memcpy(location, table_xrgb1555_xrgb8888, sizeof(uint32_t)*65536);
 		return;
 	}
 	
@@ -95,7 +95,7 @@ void image_create_convert_table(videoformat srcfmt, videoformat dstfmt, void* ds
 {
 	switch (FMT(srcfmt, dstfmt))
 	{
-		case FMT(fmt_0rgb1555, fmt_xrgb8888): create_tbl_0rgb1555_xrgb8888(dst); break;
+		case FMT(fmt_xrgb1555, fmt_xrgb8888): create_tbl_xrgb1555_xrgb8888(dst); break;
 		case FMT(fmt_rgb565,   fmt_xrgb8888): create_tbl_rgb565_xrgb8888(dst); break;
 	}
 }
@@ -114,7 +114,7 @@ const void * image_get_convert_table(videoformat srcfmt, videoformat dstfmt)
 			} \
 			return table_##src##_##dst;
 	
-	IMPL(0rgb1555, xrgb8888, sizeof(uint32_t)*65536);
+	IMPL(xrgb1555, xrgb8888, sizeof(uint32_t)*65536);
 	IMPL(rgb565, xrgb8888, sizeof(uint32_t)*65536);
 #undef IMPL
 	}
@@ -125,7 +125,7 @@ void image_convert(const struct image * src, struct image * dst)
 {
 	switch (FMT(src->format, dst->format))
 	{
-		case FMT(fmt_0rgb1555, fmt_0rgb1555):
+		case FMT(fmt_xrgb1555, fmt_xrgb1555):
 		case FMT(fmt_rgb565, fmt_rgb565):
 		case FMT(fmt_rgb888, fmt_rgb888):
 		case FMT(fmt_xrgb8888, fmt_xrgb8888):
@@ -148,11 +148,11 @@ void image_convert(const struct image * src, struct image * dst)
 			break;
 		}
 		
-		case FMT(fmt_0rgb1555, fmt_xrgb8888):
+		case FMT(fmt_xrgb1555, fmt_xrgb8888):
 		case FMT(fmt_rgb565, fmt_xrgb8888):
 			convert_2_4(src, dst);
 			break;
-		case FMT(fmt_0rgb1555, fmt_rgb888):
+		case FMT(fmt_xrgb1555, fmt_rgb888):
 		case FMT(fmt_rgb565, fmt_rgb888):
 			convert_2_3(src, dst);
 			break;
@@ -223,12 +223,12 @@ void image_convert_resize(const struct image * src, struct image * dst)
 {
 	switch (FMT(src->format, dst->format))
 	{
-		case FMT(fmt_0rgb1555, fmt_0rgb1555):
+		case FMT(fmt_xrgb1555, fmt_xrgb1555):
 		case FMT(fmt_rgb565, fmt_rgb565):
 			convert_resize_2_2_self(src, dst);
 			break;
 		
-		case FMT(fmt_0rgb1555, fmt_xrgb8888):
+		case FMT(fmt_xrgb1555, fmt_xrgb8888):
 		case FMT(fmt_rgb565, fmt_xrgb8888):
 			convert_resize_2_4(src, dst);
 			break;

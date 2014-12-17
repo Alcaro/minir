@@ -73,7 +73,7 @@ public:
 	video_compat(cvideo* child)
 	{
 		this->child=child;
-		this->depth=fmt_0rgb1555;
+		this->depth=fmt_xrgb1555;
 		this->base_width=256;
 		this->base_height=256;
 	}
