@@ -37,6 +37,7 @@
 //Level 1: LVCFMT_FIXED_WIDTH on the listbox is ignored before Vista
 //Danger list (likely to hit):
 //Level 4: printf dislikes z (size_t) size specifiers; they must be behind #ifdef DEBUG, or turned into "I" via #define
+// NOTE: This is present on Vista too. z requires 7 or higher.
 //Level 5: 64-bit programs dislike XP (there are 32bit Vista/7/8, but Vista is practically dead, as is 32bit 7+)
 
 //static LARGE_INTEGER timer_freq;
