@@ -311,6 +311,7 @@ bool png_encode(const struct image * img, const char * * pngcomments,  void* * p
 					}
 				}
 				break;
+			default: break;//impossible, checked for elsewhere
 			}
 			switch (bits_per_channel)
 			{
@@ -371,6 +372,7 @@ bool png_encode(const struct image * img, const char * * pngcomments,  void* * p
 					thisline[x*3+2]=col;
 				}
 				break;
+			default: break;//impossible, checked for elsewhere
 			}
 		}
 		

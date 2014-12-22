@@ -1,6 +1,7 @@
 #pragma once
 #include "global.h"
 
+class video;
 
 
 #ifdef NEED_ICON_PNG

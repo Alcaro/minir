@@ -48,20 +48,34 @@ typedef const string & cstring;
 //static inline size_t strlen(cstring str);
 
 class string {
-public:
+private:
 	//Variable naming convention:
 	//char*:
 	// utf - Valid UTF-8.
-	// bytes - Unvalidated UTF-8.
+	// bytes - Unvalidated UTF-8, or sometimes another charset.
 	//size_t:
 	// nbyte - Byte count of possibly invalid data.
 	// codepoints - Number of code points. No normalization is done.
 	//Any of the above may be suffixed with anything.
 	//Anything else, in particular 'ptr', 'str', 'data' and 'len', may not be used.
+	//Other types may have any name.
+	
+	//Pure UTF-8 is beautiful and simple. However, the official UTF-8 is dirtied with various workarounds for other things (for example UTF-16) being shitty.
+	//Therefore:
+	//- RFC3629's restriction to the UTF-16 compatible range is ignored. The upper limit is U+8000_0000.
+	//- The UTF-16 reserved range (U+D800..U+DFFF) is considered to be valid characters.
+	//- Invalid sequences of high-bit characters are replaced with one or more U+FFFD. It is not specified exactly how many.
+	//- U+0000 NUL is rejected. If encountered, it's replaced with U+FFFD.
+	
+	enum {
+		//Don't change the values - there's a pile of bit math going on.
+		st_ascii=0,   // Contains only ASCII-compatible data.
+		st_utf8=1,    // Has contained at least one non-ASCII character. Not guaranteed to still contain any non-ASCII.
+		st_invalid=3, // Was created from an invalid byte sequence. Contains or has contained one or more U+FFFD.
+	};
 	
 	static unsigned int utf8cplen(uint32_t codepoint)
 	{
-		//if (codepoint==0) assert();
 		if (codepoint<0x80) return 1;
 		if (codepoint<0x800) return 2;
 		if (codepoint<0x10000) return 3;
@@ -79,7 +93,7 @@ public:
 		else if (byte<0xE0) return 2;
 		else if (byte<0xF0) return 3;
 		else if (byte<0xF8) return 4;
-		else if (byte<0xFC) return 5;
+		else if (byte<0xFC) return 5;//screw RFC3629, this is valid
 		else if (byte<0xFE) return 6;
 		else return 0;
 	}
@@ -87,11 +101,13 @@ public:
 	//'valid' remains unchanged on success, and becomes false on failure. Failure returns U+FFFD.
 	//However, U+FFFD is a valid answer if the input is EF BF FD.
 	//'bytes' is incremented as appropriate.
-	static uint32_t utf8readcp(const char * & bytes, bool * valid)
+	static uint32_t utf8readcp(const char * & bytes, uint8_t * state)
 	{
 		unsigned int len=utf8firstlen(*bytes);
 		if (len==0) goto error;
 		if (len==1) return *(bytes++);
+		
+		if (state) *state |= st_utf8;
 		
 		uint32_t ret;
 		ret = (bytes[0] & (0x7F>>len));
@@ -108,7 +124,7 @@ public:
 		
 	error:
 		bytes+=1;
-		if (valid) *valid=false;
+		if (state) *state |= st_invalid;
 		return 0xFFFD;
 	}
 	
@@ -131,24 +147,24 @@ public:
 		bytes+=nbyte;
 	}
 	
-	static bool utf8validate(const char * bytes, size_t * nbyte_cleaned)
+	static uint8_t utf8validate(const char * bytes, size_t * nbyte_cleaned)
 	{
-		bool ok=true;
+		uint8_t state=st_ascii;
 		size_t nbyte_ret=0;
 		//the optimizer probably flattens this into not actually calculating the code point
-		while (*bytes) nbyte_ret+=utf8cplen(utf8readcp(bytes, &ok));
+		while (*bytes) nbyte_ret+=utf8cplen(utf8readcp(bytes, &state));
 		if (nbyte_cleaned) *nbyte_cleaned=nbyte_ret;
-		return ok;
+		return state;
 	}
 	
-	static char * utf8dup(const char * bytes, bool * valid=NULL)
+	static char * utf8dup(const char * bytes, uint8_t * state=NULL)
 	{
 		size_t nbyte_alloc;
-		bool is_valid=utf8validate(bytes, &nbyte_alloc);
-		if (valid) *valid=is_valid;
+		uint8_t in_state=utf8validate(bytes, &nbyte_alloc);
+		if (state) *state=in_state;
 		
 		char * utfret=malloc(nbyte_out);
-		if (is_valid) memcpy(utfret, bytes, nbyte_alloc);
+		if (in_state!=st_invalid) memcpy(utfret, bytes, nbyte_alloc);
 		else
 		{
 			char * utfret_w=utfret;
@@ -170,63 +186,65 @@ public:
 	
 private:
 	char * utf;
-	size_t nbyte;
+	size_t nbyte; //utf[nbyte] is guaranteed '\0'. Buffer length is bitround(nbyte).
+	uint16_t readpos_nbyte;
+	uint16_t readpos_codepoints;//If either value would go above 65535, neither is written.
+	uint16_t len_codepoints;//65535 means "too long".
+	uint8_t state;
+	//char padding[1];
 	
 	//TODO: figure out which members are needed
-	//UTF-8 length
-	//buffer length
-	//number of code points
-	//last read position, in code points and bytes
-	//refcount
+	//1 UTF-8 length (bytes)
+	//0 buffer length (bytes)
+	//1 string length (code points)
+	//1 last read position, in code points and bytes (may be static - but wipe the cache on change of any string, including destruct)
+	//1 is US-ASCII flag
+	//1 is valid flag
+	//0 refcount
 	
-	//ensures that the object has a valid state
-	bool verify_self()
+	void set_to_bytes(const char * bytes)
 	{
-		//if (!this->ptr) return false;
-		//size_t bytelen=strlen(this->ptr);
-		//if (bytelen!=this->bytelen) return false;
 		
-		//ptr!=NULL
-		//can evaluate strlen(ptr)
-		//strlen(ptr)==utf8 length
-		//strlen(ptr) < buffer length
-		//count code points
-		//verify read position
 	}
 	
-	
-	
-	
-	
+	void set_to_str(cstring other)
+	{
+		
+	}
 	
 	void swap(string& other)
 	{
-		//char* tmp=other.ptr;
-		//other.ptr=ptr;
-		//ptr=tmp;
-		//len=other.len;
+		
 	}
 	
 public:
-	//string() { set(""); }
-	//string(const char * newstr) { set(newstr); }
-	//string(const string& newstr) { set(newstr.ptr); }
-	//~string() { free(ptr); }
-	//string& operator=(const char * newstr) { char* prev=ptr; set(newstr); free(prev); return *this; }
-	//string& operator=(string newstr) { swap(newstr); return *this; } // my sources tell me this can sometimes avoid copying entirely
-	//uint32_t operator[](int index) {}
-	//string operator+(const char * right) {}
-	//string operator+(cstring right) {}
-	//string operator+(uint32_t right) {}
-	//string& operator+=(const char * right) {}
-	//string& operator+=(cstring right) {}
-	//string& operator+=(uint32_t right) {}
-	//bool operator==(const char * right) {}
-	//bool operator==(cstring right) {}
-	//operator const char * () { return ptr; }
+	//static string from_us_ascii(const char * bytes) {}
 	
-	//friend inline size_t strlen(cstring str);
+	string()
+	{
+		
+	}
+	
+	string(const char * bytes) { set_to_bytes(bytes); }
+	string(const string& other) { set_to_str(other); }
+	~string() { free(utf); }
+	string& operator=(const char * bytes) { free(utf); set_bytes(bytes); }
+	string& operator=(string other) { swap(other); } // my sources tell me that copying as the argument can sometimes avoid copying entirely
+	//string operator+(const char * bytes) const {}
+	//string operator+(cstring other) const {}
+	//string operator+(uint32_t other) const {}
+	//string& operator+=(const char * bytes) {}
+	//string& operator+=(cstring other) {}
+	//string& operator+=(uint32_t other) {}
+	//bool operator==(const char * other) const {}
+	//bool operator==(cstring other) const {}
+	//uint32_t operator[](size_t index) const {}
+	//operator const char * () const {}
+	
+	//size_t len()
+	//{
+		
+	//}
 };
-
-//static inline size_t strlen(cstring str) { return str.len; }
+static inline void strlen(cstring){}//don't do this - use .len()
 #endif

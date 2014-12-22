@@ -136,7 +136,7 @@ const char * window_get_proc_path()
 		if (path[i]=='\\') path[i]='/';
 	}
 	char * end=strrchr(path, '/');
-	if (end) *end='\0';
+	if (end) end[1]='\0';
 	return path;
 }
 

@@ -40,7 +40,7 @@ public:
 	void* sym_ptr(const char * name) { return dylib_sym_ptr(this->lib, name); }
 	funcptr sym_func(const char * name) { return dylib_sym_func(this->lib, name); }
 	
-	~dylib() { dylib_free(this->lib); }
+	~dylib() { if (this->lib) dylib_free(this->lib); }
 	
 private:
 	ndylib* lib;

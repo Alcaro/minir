@@ -186,18 +186,6 @@ static void reinit(struct video * this_, unsigned int screen_width, unsigned int
 	}
 }
 
-static unsigned int bitround(unsigned int in)
-{
-	in--;
-	in|=in>>1;
-	in|=in>>2;
-	in|=in>>4;
-	in|=in>>8;
-	in|=in>>16;
-	in++;
-	return in;
-}
-
 static void draw(struct video * this_, unsigned int width, unsigned int height, const void * data, unsigned int pitch)
 {
 //puts("b");

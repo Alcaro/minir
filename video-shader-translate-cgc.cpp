@@ -1,8 +1,11 @@
 #include "io.h"
 #include "os.h"
 
+//For compatibilty with RetroArch, this file may not use
+//- the overloaded string operators (member functions are fine)
+
 #ifdef HAVE_CG_SHADERS
-#define CG_EXPLICIT // disable prototypes
+#define CG_EXPLICIT // disable prototypes so I don't use them by accident
 #include <Cg/cg.h>
 
 #define CG_SYM(ret, name, args) CG_SYM_N("cg"#name, ret, name, args)
@@ -59,6 +62,7 @@ char * video::shader::translate_cgc(lang_t from, lang_t to, const char * text)
 //         ret.append(line)
 //   return '\n'.join(ret)
 	
+	//TODO: remove args, only -D -E -I are used and they're handled above
 	static const char * args[]={ "-DPARAMETER_UNIFORM", NULL };
 	CGprogram vertex = cg.CreateProgram(context, CG_SOURCE, text, CG_PROFILE_GLSLV, "main_vertex", args);
 	CGprogram fragment = cg.CreateProgram(context, CG_SOURCE, text, CG_PROFILE_GLSLF, "main_fragment", args);

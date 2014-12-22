@@ -90,6 +90,30 @@ static inline void shutupgcc(int x){}
 #define asprintf(...) shutupgcc(asprintf(__VA_ARGS__))
 #endif
 
+
+static inline uint32_t bitround(uint32_t in)
+{
+	in--;
+	in|=in>>1;
+	in|=in>>2;
+	in|=in>>4;
+	in|=in>>16;
+	in++;
+	return in;
+}
+static inline uint64_t bitround(uint64_t in)
+{
+	in--;
+	in|=in>>1;
+	in|=in>>2;
+	in|=in>>4;
+	in|=in>>16;
+	in|=in>>32;
+	in++;
+	return in;
+}
+
+
 //#include "window.h"
 //#include "image.h"
 
@@ -128,7 +152,8 @@ static inline void shutupgcc(int x){}
 // insistence on overloading the escape character is irritating. Since this excludes following
 // any single OS, the rest is personal preference.
 
-class video;
+//This one doesn't really belong here, but it's used by both image.h and minir.h (and io.h, but image.h uses that).
+//If minir.h grows a dependency on image.h or io.h, move this to image.h.
 enum videoformat {
 	//these three are same as in libretro
 	fmt_xrgb1555,
@@ -142,8 +167,3 @@ enum videoformat {
 	fmt_argb1555,
 	fmt_argb8888,
 };
-static inline uint8_t videofmt_byte_per_pixel(videoformat fmt)
-{
-	static const uint8_t table[]={2, 4, 2, 0, 3, 2, 4};
-	return table[fmt];
-}

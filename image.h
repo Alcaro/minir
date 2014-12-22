@@ -13,6 +13,12 @@ struct image {
 	videoformat format;
 };
 
+static inline uint8_t videofmt_byte_per_pixel(videoformat fmt)
+{
+	static const uint8_t table[]={2, 4, 2, 0, 3, 2, 4};
+	return table[fmt];
+}
+
 #ifdef __cplusplus
 extern "C" {
 #endif

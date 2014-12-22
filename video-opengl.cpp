@@ -650,17 +650,6 @@ public:
 		this->set_shader(NULL);
 	}
 	
-	/*private*/ unsigned int bitround(unsigned int in)
-	{
-		in--;
-		in|=in>>1;
-		in|=in>>2;
-		in|=in>>4;
-		in|=in>>16;
-		in++;
-		return in;
-	}
-	
 	void set_source(unsigned int max_width, unsigned int max_height, videoformat depth)
 	{
 		if (this->is3d) this->set_source_3d(max_width, max_height, depth);

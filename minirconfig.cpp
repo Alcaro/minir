@@ -168,32 +168,20 @@ static void delete_conf(struct configdata * this)
 
 
 
-static unsigned int bitround(unsigned int in)
+static int find_place(char* * start, unsigned int len, char* newitem)
 {
-	in--;
-	in|=in>>1;
-	in|=in>>2;
-	in|=in>>4;
-	in|=in>>8;
-	in|=in>>16;
-	in++;
-	return in;
-}
-
-static int find_place(char* * start, int len, char* newitem)
-{
-	int jumpsize=bitround(len+1)/2;
-	int pos=0;
+	unsigned int jumpsize=bitround(len+1)/2;
+	signed int pos=0;
 	while (jumpsize)
 	{
 		if (pos<0) pos+=jumpsize;
-		else if (pos>=len) pos-=jumpsize;
+		else if ((unsigned)pos>=len) pos-=jumpsize;
 		else if (strcmp(start[pos], newitem)<0) pos+=jumpsize;
 		else pos-=jumpsize;
 		jumpsize/=2;
 	}
 	if (pos<0) pos+=1;
-	else if (pos>=len) pos-=0;
+	else if ((unsigned)pos>=len) pos-=0;
 	else if (strcmp(start[pos], newitem)<0) pos+=1;
 	else pos-=0;
 	

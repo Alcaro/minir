@@ -7,6 +7,9 @@
 #include <ctype.h>
 #include "libretro.h"
 
+//For compatibilty with RetroArch, this file may not use
+//- printf with 'z' size specifier - use the 'z' macro
+
 #define this This
 
 //how address conversion works

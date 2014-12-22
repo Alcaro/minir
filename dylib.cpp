@@ -43,7 +43,7 @@ ndylib* dylib_create(const char * filename, bool * owned)
 		SetDllDirectory(filename_copy);
 		free(filename_copy);
 		
-		HMODULE ret=LoadLibrary(filename);
+		ret=(ndylib*)LoadLibrary(filename);
 		SetDllDirectory(NULL);
 	}
 #endif
