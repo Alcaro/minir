@@ -106,7 +106,7 @@ protected:
 		bool used;
 		
 		sub_inner() : used(false) {}
-		sub_inner(const string& copy) : item(copy), used(false) {}
+		sub_inner(string copy) : item(copy), used(false) {}
 		sub_inner(const char * copy) : item(copy), used(false) {}
 	};
 	class sub_outer {
@@ -204,9 +204,9 @@ public:
 		return ret;
 	}
 	
+	//This function will modify the given string.
 	bool parse(char * data);
 	
-	//This function will modify the given string.
 	configreader(char * data) { parse(data); }
 	configreader() {}
 	//ignore destructor - we need the automatic one, but nothing explicit.

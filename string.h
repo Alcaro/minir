@@ -2,6 +2,7 @@
 #include "global.h" // stdlib.h is enough, but I want to ensure the malloc seatbelt is enabled.
 #include <string.h> // memcpy
 
+#define NEW_STRING
 #ifndef NEW_STRING
 class string;
 typedef const string & cstring;
@@ -98,7 +99,7 @@ private:
 		else return 0;
 	}
 	
-	//'valid' remains unchanged on success, and becomes false on failure. Failure returns U+FFFD.
+	//Bits in 'state' are set as needed, never cleared. Failure returns U+FFFD.
 	//However, U+FFFD is a valid answer if the input is EF BF FD.
 	//'bytes' is incremented as appropriate.
 	static uint32_t utf8readcp(const char * & bytes, uint8_t * state)
@@ -124,7 +125,7 @@ private:
 		
 	error:
 		bytes+=1;
-		if (state) *state |= st_invalid;
+		if (state) *state = st_invalid;
 		return 0xFFFD;
 	}
 	
@@ -147,24 +148,30 @@ private:
 		bytes+=nbyte;
 	}
 	
-	static uint8_t utf8validate(const char * bytes, size_t * nbyte_cleaned)
+	static uint8_t utf8validate(const char * bytes, size_t * codepoints, size_t * nbyte_cleaned)
 	{
 		uint8_t state=st_ascii;
 		size_t nbyte_ret=0;
 		//the optimizer probably flattens this into not actually calculating the code point
-		while (*bytes) nbyte_ret+=utf8cplen(utf8readcp(bytes, &state));
-		if (nbyte_cleaned) *nbyte_cleaned=nbyte_ret;
+		*codepoints=0;
+		while (*bytes)
+		{
+			nbyte_ret+=utf8cplen(utf8readcp(bytes, &state));
+			*codepoints++;
+		}
+		*nbyte_cleaned=nbyte_ret;
 		return state;
 	}
 	
-	static char * utf8dup(const char * bytes, uint8_t * state=NULL)
+	static char * utf8dup(const char * bytes, size_t * codepoints, size_t * nbyte, uint8_t * state)
 	{
 		size_t nbyte_alloc;
-		uint8_t in_state=utf8validate(bytes, &nbyte_alloc);
+		uint8_t in_state=utf8validate(bytes, codepoints, &nbyte_alloc);
 		if (state) *state=in_state;
 		
-		char * utfret=malloc(nbyte_out);
-		if (in_state!=st_invalid) memcpy(utfret, bytes, nbyte_alloc);
+		if (nbyte) *nbyte=nbyte_alloc;
+		char * utfret=malloc(bitround(nbyte_alloc+1));
+		if (in_state!=st_invalid) memcpy(utfret, bytes, nbyte_alloc+1);
 		else
 		{
 			char * utfret_w=utfret;
@@ -174,24 +181,33 @@ private:
 		return utfret;
 	}
 	
-	static size_t utf8len(const char * utf)
+	//static size_t utf8len(const char * utf)
+	//{
+	//	size_t codepoints=0;
+	//	while (*utf)
+	//	{
+	//		if ((*utf & 0xC0) != 0xC0) codepoints++;
+	//	}
+	//	return codepoints;
+	//}
+	
+	//this can either be UTF-8 or not UTF-8, it works for both; therefore, the argument is misnamed
+	static char* rounddup(const char * str)
 	{
-		size_t codepoints=0;
-		while (*utf)
-		{
-			if ((*utf & 0xC0) != 0xC0) codepoints++;
-		}
-		return codepoints;
+		size_t len=strlen(str);
+		char* ret=malloc(bitround(len+1));
+		memcpy(ret, str, len+1);
+		return ret;
 	}
 	
 private:
 	char * utf;
 	size_t nbyte; //utf[nbyte] is guaranteed '\0'. Buffer length is bitround(nbyte).
-	uint16_t readpos_nbyte;
-	uint16_t readpos_codepoints;//If either value would go above 65535, neither is written.
 	uint16_t len_codepoints;//65535 means "too long".
 	uint8_t state;
 	//char padding[1];
+	volatile uint16_t readpos_nbyte;
+	volatile uint16_t readpos_codepoints;//If either value would go above 65535, neither is written.
 	
 	//TODO: figure out which members are needed
 	//1 UTF-8 length (bytes)
@@ -204,32 +220,48 @@ private:
 	
 	void set_to_bytes(const char * bytes)
 	{
-		
+		size_t codepoints;
+		this->state=st_ascii;
+		this->utf=utf8dup(bytes, &codepoints, &this->nbyte, &this->state);
+		if (codepoints>65535) codepoints=65535;
+		this->len_codepoints=codepoints;
+		this->readpos_nbyte=0;
+		this->readpos_codepoints=0;
 	}
 	
-	void set_to_str(cstring other)
+	void set_to_str_clone(cstring other)
 	{
-		
+		this->utf=rounddup(other.utf);
+		this->nbyte=other.nbyte;
+		this->len_codepoints=other.len_codepoints;
+		this->state=other.state;
+		this->readpos_nbyte=other.readpos_nbyte;
+		this->readpos_codepoints=other.readpos_codepoints;
 	}
 	
-	void swap(string& other)
+	void set_to_str_consume(string& other)
 	{
-		
+		this->utf=other.utf;
+		other.utf=NULL;
+		this->nbyte=other.nbyte;
+		this->len_codepoints=other.len_codepoints;
+		this->state=other.state;
+		this->readpos_nbyte=other.readpos_nbyte;
+		this->readpos_codepoints=other.readpos_codepoints;
 	}
+	
+	//void append_bytes(const char * bytes)
+	//void append_str(cstring other)
 	
 public:
 	//static string from_us_ascii(const char * bytes) {}
 	
-	string()
-	{
-		
-	}
-	
+	string() { set_to_bytes(""); }
 	string(const char * bytes) { set_to_bytes(bytes); }
-	string(const string& other) { set_to_str(other); }
+	string(const string& other) { set_to_str_clone(other); }
 	~string() { free(utf); }
-	string& operator=(const char * bytes) { free(utf); set_bytes(bytes); }
-	string& operator=(string other) { swap(other); } // my sources tell me that copying as the argument can sometimes avoid copying entirely
+	string& operator=(const char * bytes) { free(utf); set_to_bytes(bytes); }
+	string& operator=(string other) { set_to_str_consume(other); } // copying as the argument can sometimes avoid copying entirely
 	//string operator+(const char * bytes) const {}
 	//string operator+(cstring other) const {}
 	//string operator+(uint32_t other) const {}
@@ -239,7 +271,7 @@ public:
 	//bool operator==(const char * other) const {}
 	//bool operator==(cstring other) const {}
 	//uint32_t operator[](size_t index) const {}
-	//operator const char * () const {}
+	operator const char * () const { return utf; }
 	
 	//size_t len()
 	//{

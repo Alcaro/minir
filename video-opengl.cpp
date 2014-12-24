@@ -203,7 +203,7 @@ void DeinitGlobalGLFunctions()
 #define GL_SYMS() \
 /* misc */ \
 GL_SYM_T(void, Clear, (GLbitfield mask)) \
-GL_SYM_T(void, Viewport, (GLint x,GLint y,GLsizei width,GLsizei height)) \
+GL_SYM_T(void, Viewport, (GLint x, GLint y, GLsizei width, GLsizei height)) \
 GL_SYM_T(void, DrawArrays, (GLenum mode, GLint first, GLsizei count)) \
 GL_SYM_T(void, Finish, ()) \
 /* textures */ \
