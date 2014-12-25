@@ -150,13 +150,15 @@ public:
 		virtual const struct pass_t * pass(unsigned int n, lang_t language) = 0;
 		virtual void pass_free(const struct pass_t * pass) = 0;
 		
-		//Returns NULL if it doesn't know how to do this translation, or if the syntax is invalid. Send it to free() once you're done with it.
-		//Translating from a language to itself will work; it is implementation defined whether this rejects invalid code.
+		//Returns NULL if it doesn't know how to do this translation, or if the syntax is invalid. Send
+		// it to free() once you're done with it.
+		//Translating from a language to itself will work. It is implementation defined whether this
+		// resolves #includes and #ifdef SHADER_PARAMETER, rejects invalid code, and various other stuff.
 		//Translating a shader is not guaranteed lossless. Do not store translated text.
-		static char * translate(lang_t from, lang_t to, const char * text);
+		static char * translate(lang_t from, lang_t to, const char * text, function<char*(const char * filename)> get_include=NULL);
 		
 	private:
-		static char * translate_cgc(lang_t from, lang_t to, const char * text);
+		static char * translate_cgc(lang_t from, lang_t to, const char * text, function<char*(const char * filename)> get_include);
 	public:
 		
 		struct tex_t {
@@ -265,7 +267,7 @@ public:
 			struct au_item {
 				uint8_t sem;
 				uint8_t sem_org;
-				uint8_t source;//can't optimize into uint16* because that would violate alignment
+				uint8_t source;//can't optimize source+index into uint16* because that would violate alignment
 				//char padding[1];
 				uint16_t mask;
 				uint16_t equal;
@@ -284,21 +286,29 @@ public:
 			struct param_t * pa_items;
 		} variable;
 		
-		//If lazy is true (recommended), read() may be called after create_from_data returns, until the
-		// shader object is deallocated; this allows potentially large textures to not be stored in
-		// memory multiple times. read() will still be called on some items before it returns.
+		//data must be a 
+		//read() may be called after create_from_data returns, until the shader object is deallocated;
+		// this allows potentially large textures to not be stored in memory multiple times. read() will
+		// still be called on some items before it returns.
 		//read() must append a NUL terminator to the returned data, and not return this in len.
 		// file_read meets these requirements, though its arguments are different, so you need a small
 		// adapter function.
-		//path_translate() will be called on each path before being sent to read(), whether lazy is true
-		// or false. The recommended use is to use it to make the path absolute (shader presets contain
-		// relative paths), though you can do pretty much whatever you want.
-		//The callback return values should be sent to free().
+		//path_translate() will take two paths and merge and return them, like file.h get_absolute_path.
+		// For the base shaders and other resources, basepath==rootpath; however, if any shader path
+		// contains a #include, it will be called with one of its previous return values.
+		//Both functions are allowed to return NULL, in which case the caller returns failure.
+		//The callback return values will be sent to free().
 		static shader* create_from_data(const char * data,
-		                                function<char*(const char * path)> path_translate,
 		                                function<void*(const char * path, size_t * len)> read,
-		                                bool lazy=true);
-		//Shortcut to create_from_data, which takes a filename. If filename is a shader (not a preset), it's used.
+		                                function<char*(const char * basepath, const char * path)> path_translate,
+		                                const char * rootpath);
+		//Same as create_from_data, but changes 'data' into garbage. (create_from_data uses strdup on 'data', then calls this.)
+		static shader* create_from_scratch_data(char * data,
+		                                function<void*(const char * path, size_t * len)> read,
+		                                function<char*(const char * basepath, const char * path)> path_translate,
+		                                const char * rootpath);
+		//Convenience shortcut to create_from_data. The filename can be either a shader or a preset; if
+		// the filename ends with 'p', it's a preset.
 		static shader* create_from_file(const char * filename);
 		
 		virtual ~shader() = 0;
@@ -306,7 +316,7 @@ public:
 	
 	//NULL is valid and means nearest neighbor.
 	//The shader object remains owned by the caller. Each shader object can only be used by one video driver simultaneously (except NULL).
-	//If the given shader object is incompatible, a NULL will be assigned.
+	//If the given shader object is broken, incompatible, or otherwise unusable, a NULL will be assigned.
 	//The shader can be changed multiple times, both with NULL and non-NULL arguments.
 	virtual bool set_shader(shader * sh) { return (!sh); }
 	

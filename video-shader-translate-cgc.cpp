@@ -1,6 +1,8 @@
 #include "io.h"
 #include "os.h"
 
+#define HAVE_PARAMETER_UNIFORM 1
+
 //For compatibilty with RetroArch, this file may not use
 //- the overloaded string operators (member functions are fine)
 
@@ -25,7 +27,7 @@ struct cglib { CG_SYMS() ndylib* lib; };
 static const char * const cg_names[]={ CG_SYMS() };
 #undef CG_SYM_N
 
-char * video::shader::translate_cgc(lang_t from, lang_t to, const char * text)
+char * video::shader::translate_cgc(lang_t from, lang_t to, const char * text, function<char*(const char * filename)> get_include)
 {
 	if (from!=la_cg) return NULL;
 	if (to!=la_glsl) return NULL;
@@ -46,9 +48,10 @@ char * video::shader::translate_cgc(lang_t from, lang_t to, const char * text)
 	context = cg.CreateContext();
 #define e printf("e=%s\n",cg.GetLastListing(context));
 	//TODO: process with random profile with flags "-E", "-DPARAMETER_UNIFORM", "-I"(dir), NULL to get #includes out of the way
-	//I only have the source, no filename, but I can refactor that and use cgSetCompilerIncludeCallback
-	//(when do I free return values from SetCompilerIncludeCallback? On next call? After the program is created?
-	// After destroying the context? Does Cg send it to free()?)
+	//TODO: use cgSetCompilerIncludeCallback and point it to get_include
+	//on failure, have it hand out some random invalid string so it doesn't look in the file system, "\xEF\xBF\xBD" or "#error" maybe
+	//(worst case, set a flag in the caller using bind_ptr, then return NULL)
+	//#include "/etc/passwd" MUST fail
 	
 //def preprocess_vertex(source_data):
 //   input_data = source_data.split('\n')

@@ -8,7 +8,24 @@ namespace {
 class video_shader_data : public video::shader {
 public:
 struct pass_t * passes;
+struct pass_bind_t {
+	video_shader_data * parent;
+	char * filename;
+};
+struct pass_bind_t * pass_bind;
 struct pass_t pass_clone;
+
+function<void*(const char * path, size_t * len)> read;
+function<char*(const char * basepath, const char * path)> path_translate;
+
+/*private*/ static char* get_include(struct pass_bind_t * bind, const char * path)
+{
+	char* new_path=bind->parent->path_translate(bind->filename, path);
+	size_t ignore;
+	void* ret=bind->parent->read(new_path, &ignore);
+	free(new_path);
+	return (char*)ret;
+}
 
 const struct pass_t * pass(unsigned int n, lang_t language)
 {
@@ -17,7 +34,7 @@ const struct pass_t * pass(unsigned int n, lang_t language)
 	{
 		this->pass_clone=this->passes[n];
 		this->pass_clone.lang=language;
-		this->pass_clone.source=translate(this->passes[n].lang, language, this->passes[n].source);
+		this->pass_clone.source=translate(this->passes[n].lang, language, this->passes[n].source, bind_ptr(get_include, &pass_bind[n]));
 		if (!this->pass_clone.source) return NULL;
 		return &this->pass_clone;
 	}
@@ -71,12 +88,13 @@ void texture_free(const struct tex_t * texture)
 }
 
 /*private*/ bool construct(char * data,
-                           function<char*(const char * path)> path_translate,
                            function<void*(const char * path, size_t * len)> read,
-                           bool lazy)
+                           function<char*(const char * basepath, const char * path)> path_translate,
+                           const char * rootpath)
 {
 	this->n_pass=0;
 	this->passes=NULL;
+	this->pass_bind=NULL;
 	
 	this->n_tex=0;
 	this->textures=NULL;
@@ -92,16 +110,23 @@ void texture_free(const struct tex_t * texture)
 	this->passes=malloc(sizeof(pass_t)*this->n_pass);
 	memset(this->passes, 0, sizeof(pass_t)*this->n_pass);
 	
+	this->pass_bind=malloc(sizeof(struct pass_bind_t)*this->n_pass);
+	for (unsigned int i=0;i<this->n_pass;i++)
+	{
+		this->pass_bind[i].parent=this;
+		this->pass_bind[i].filename=NULL;
+	}
+	
 	for (unsigned int i=0;i<this->n_pass;i++)
 	{
 		char tmp[32];
 #define read_pass(prefix, loc) (sprintf(tmp, prefix"%i", i) && cfg.read(tmp, loc, &error))
 		const char * subname;
 		if (!read_pass("shader", &subname)) return false;
-		char * subname_abs=path_translate(subname);
+		char * subname_abs=path_translate(rootpath, subname);
+		this->pass_bind[i].filename=subname_abs;
 		size_t ignore;
 		this->passes[i].source=(char*)read(subname_abs, &ignore);
-		free(subname_abs);
 		if (!this->passes[i].source) return false;
 		
 		const char * ext=strrchr(subname, '.');
@@ -166,7 +191,12 @@ void texture_free(const struct tex_t * texture)
 
 ~video_shader_data()
 {
+	for (unsigned int i=0;i<this->n_pass;i++)
+	{
+		free(this->pass_bind[i].filename);
+	}
 	free(this->passes);
+	free(this->pass_bind);
 	for (unsigned int i=0;i<this->n_tex;i++)
 	{
 		free((char*)this->textures[i].name);
@@ -180,32 +210,41 @@ void texture_free(const struct tex_t * texture)
 
 }
 
-video::shader* video::shader::create_from_data(const char * data,
-                                               function<char*(const char * path)> path_translate,
-                                               function<void*(const char * path, size_t * len)> read,
-                                               bool lazy)
+video::shader* video::shader::create_from_scratch_data(char * data,
+                                                       function<void*(const char * path, size_t * len)> read,
+                                                       function<char*(const char * basepath, const char * path)> path_translate,
+                                                       const char * rootpath)
 {
 	video_shader_data* ret=new video_shader_data();
-	char * datacopy=strdup(data);
-	if (!ret->construct(datacopy, path_translate, read, lazy))
+	if (!ret->construct(data, read, path_translate, rootpath))
 	{
 		delete ret;
 		ret=NULL;
 	}
+	return ret;
+}
+
+video::shader* video::shader::create_from_data(const char * data,
+                                               function<void*(const char * path, size_t * len)> read,
+                                               function<char*(const char * basepath, const char * path)> path_translate,
+                                               const char * rootpath)
+{
+	char * datacopy=strdup(data);
+	shader* ret=shader::create_from_scratch_data(datacopy, read, path_translate, rootpath);
 	free(datacopy);
 	return ret;
 }
 
 namespace {
-	char* shader_makeabs(const char * base, const char * path)
-	{
-		return window_get_absolute_path(base, path, false);
-	}
 	void* shader_readfile(const char * path, size_t * len)
 	{
 		void* ret;
 		if (!file_read(path, &ret, len)) return NULL;
 		return ret;
+	}
+	char* shader_makeabs(const char * base, const char * path)
+	{
+		return window_get_absolute_path(base, path, false);
 	}
 }
 
@@ -225,12 +264,7 @@ video::shader* video::shader::create_from_file(const char * filename)
 		asprintf(&data, "shaders=1\nshader0=%s", filename);
 	}
 	
-	video_shader_data* ret=new video_shader_data();
-	if (!ret->construct(data, bind_ptr(shader_makeabs, filename), bind(shader_readfile), true))
-	{
-		delete ret;
-		ret=NULL;
-	}
+	shader* ret=shader::create_from_scratch_data(data, bind(shader_readfile), bind(shader_makeabs), filename);
 	free(data);
 	return ret;
 }

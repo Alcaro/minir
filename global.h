@@ -15,6 +15,7 @@ typedef void(*funcptr)();
 
 //Note to anyone interested in reusing these objects:
 //Many, if not most, of them will likely change their interface, likely quite fundamentally, in the future.
+//No attempt is made to keep any kind of backwards or forwards compatibility.
 
 //#include "function.h"
 

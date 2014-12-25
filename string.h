@@ -140,15 +140,15 @@ private:
 		return utfret;
 	}
 	
-	//static size_t utf8len(const char * utf)
-	//{
-	//	size_t codepoints=0;
-	//	while (*utf)
-	//	{
-	//		if ((*utf & 0xC0) != 0xC0) codepoints++;
-	//	}
-	//	return codepoints;
-	//}
+	static size_t utf8len(const char * utf)
+	{
+		size_t codepoints=0;
+		while (*utf)
+		{
+			if ((*utf & 0xC0) != 0xC0) codepoints++;
+		}
+		return codepoints;
+	}
 	
 	//this can either be UTF-8 or not UTF-8, it works for both; therefore, the argument is misnamed
 	static char* rounddup(const char * str)
@@ -212,6 +212,22 @@ private:
 	//void append_bytes(const char * bytes)
 	//void append_str(cstring other)
 	
+	uint32_t char_at(size_t index) const
+	{
+		if (!(this->state & st_utf8)) return this->utf[index];
+		//TODO
+	}
+	
+	void set_char_at(size_t index, uint32_t val)
+	{
+		if (!(this->state & st_utf8) && !(val&~0x7F))
+		{
+			this->utf[index]=val;
+			return;
+		}
+		//TODO
+	}
+	
 public:
 	//static string from_us_ascii(const char * bytes) {}
 	
@@ -227,14 +243,23 @@ public:
 	//string& operator+=(const char * bytes) {}
 	//string& operator+=(cstring other) {}
 	//string& operator+=(uint32_t other) {}
-	//bool operator==(const char * other) const {}
-	//bool operator==(cstring other) const {}
-	//uint32_t operator[](size_t index) const {}
+	
+	//this can get non-utf, but non-utf is never equal to valid utf
+	//this lets "\x80" != (string)"\x80", but comparing invalid strings is an invalid operation anyways
+	bool operator==(const char * other) const { return (!strcmp(this->utf, other)); }
+	bool operator==(cstring other) const { return (!strcmp(this->utf, other.utf)); }
+	
+	uint32_t operator[](size_t index) const { return char_at(index); }
+	//TODO: remove
 	operator const char * () const { return utf; }
 	
-	//size_t len()
-	//{
-		
-	//}
+	size_t len()
+	{
+		if (this->len_codepoints == 65535) return utf8len(this->utf);
+		else return this->len_codepoints;
+	}
+	
+	bool valid() { return (this->state != st_invalid); }
 };
 static inline void strlen(cstring){}//don't do this - use .len()
+//I can't force use to give an error, but strlen() is expected to return a value, and using a void will throw.

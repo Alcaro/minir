@@ -1,8 +1,10 @@
 #include "io.h"
 
-char * video::shader::translate(lang_t from, lang_t to, const char * text)
+char * video::shader::translate(lang_t from, lang_t to, const char * text,
+                                function<char*(const char * filename)> get_include)
 {
-	static char * (* const translators[])(lang_t from, lang_t to, const char * text) = {
+	static char * (* const translators[])(lang_t from, lang_t to, const char * text,
+	                                      function<char*(const char * filename)> get_include) = {
 #ifdef HAVE_CG_SHADERS
 		translate_cgc,
 #endif
@@ -10,7 +12,7 @@ char * video::shader::translate(lang_t from, lang_t to, const char * text)
 	};
 	for (unsigned int i=0;translators[i];i++)
 	{
-		char * ret=translators[i](from, to, text);
+		char * ret=translators[i](from, to, text, get_include);
 		if (ret) return ret;
 	}
 	
