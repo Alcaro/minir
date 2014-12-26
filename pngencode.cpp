@@ -60,7 +60,7 @@ static mz_bool chunk_append(const void* pBuf, int len, void* pUser)
 	return true;
 }
 
-bool png_encode(const struct image * img, const char * * pngcomments,  void* * pngdata, unsigned int * pnglen)
+bool png_encode(const struct image * img, const char * * pngcomments,  void* * pngdata, size_t * pnglen)
 {
 	*pngdata=NULL;
 	*pnglen=0;
@@ -179,7 +179,7 @@ bool png_encode(const struct image * img, const char * * pngcomments,  void* * p
 	//it would be fun with a 0bpp screenshot, but it's not allowed. whatever, zeroes compress well
 	if (palettelen==0) bits_per_channel=8;
 	
-	buf_append(&buf, "\x89\x50\x4E\x47\x0D\x0A\x1A\x0A", 8);
+	buf_append(&buf, "\x89PNG\r\n\x1A\n", 8);
 #define CHUNK(name, data, len) do { \
 			buf_reserve(&buf, 4+4+len+4); \
 			buf_append_u32_d(&buf, len); \

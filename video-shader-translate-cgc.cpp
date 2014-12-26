@@ -50,7 +50,7 @@ char * video::shader::translate_cgc(lang_t from, lang_t to, const char * text, f
 	//TODO: process with random profile with flags "-E", "-DPARAMETER_UNIFORM", "-I"(dir), NULL to get #includes out of the way
 	//TODO: use cgSetCompilerIncludeCallback and point it to get_include
 	//on failure, have it hand out some random invalid string so it doesn't look in the file system, "\xEF\xBF\xBD" or "#error" maybe
-	//(worst case, set a flag in the caller using bind_ptr, then return NULL)
+	//or maybe set a flag in the caller using bind_ptr, then return NULL
 	//#include "/etc/passwd" MUST fail
 	
 //def preprocess_vertex(source_data):

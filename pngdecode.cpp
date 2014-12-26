@@ -14,14 +14,14 @@
 #define read32r(source) (((source)[0]<<24)|((source)[1]<<16)|((source)[2]<<8)|((source)[3]<<0))
 #define read32(target) do { target=read32r(chunkdata); chunkdata+=4; } while(0)
 
-bool png_decode(const void * pngdata, unsigned int pnglen, struct image * img, videoformat format)
+bool png_decode(const void * pngdata, size_t pnglen, struct image * img, videoformat format)
 {
 	memset(img, 0, sizeof(struct image));
 	if (format!=fmt_rgb888 && format!=fmt_xrgb8888 && format!=fmt_argb8888) return false;
 	
 	if (pnglen<8) return false;
 	const uint8_t * data=(const uint8_t*)pngdata;
-	if (memcmp(data, "\x89\x50\x4E\x47\x0D\x0A\x1A\x0A", 8)) return false;
+	if (memcmp(data, "\x89PNG\r\n\x1A\n", 8)) return false;
 	const uint8_t * dataend=data+pnglen;
 	data+=8;
 	

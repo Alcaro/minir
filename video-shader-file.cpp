@@ -15,14 +15,14 @@ struct pass_bind_t {
 struct pass_bind_t * pass_bind;
 struct pass_t pass_clone;
 
-function<void*(const char * path, size_t * len)> read;
-function<char*(const char * basepath, const char * path)> path_translate;
+function<char*(const char * basepath, const char * path)> path_join;
+function<char*(const char * path)> read_text;
+function<struct image(const char * path, bool * free)> read_image;
 
 /*private*/ static char* get_include(struct pass_bind_t * bind, const char * path)
 {
-	char* new_path=bind->parent->path_translate(bind->filename, path);
-	size_t ignore;
-	void* ret=bind->parent->read(new_path, &ignore);
+	char * new_path=bind->parent->path_join(bind->filename, path);
+	void* ret=bind->parent->read_text(new_path);
 	free(new_path);
 	return (char*)ret;
 }
@@ -88,9 +88,9 @@ void texture_free(const struct tex_t * texture)
 }
 
 /*private*/ bool construct(char * data,
-                           function<void*(const char * path, size_t * len)> read,
-                           function<char*(const char * basepath, const char * path)> path_translate,
-                           const char * rootpath)
+                           function<char*(const char * basepath, const char * path)> path_join,
+                           function<char*(const char * path)> read_text,
+                           function<struct image(const char * path, bool * free)> read_image)
 {
 	this->n_pass=0;
 	this->passes=NULL;
@@ -104,6 +104,10 @@ void texture_free(const struct tex_t * texture)
 	if (!cfg.parse(data)) return false;
 	
 	bool error=false;
+	
+	this->path_join=path_join;
+	this->read_text=read_text;
+	this->read_image=read_image;
 	
 //cfg.g();
 	if (!cfg.read("shaders", &this->n_pass) || !this->n_pass) return false;
@@ -123,10 +127,10 @@ void texture_free(const struct tex_t * texture)
 #define read_pass(prefix, loc) (sprintf(tmp, prefix"%i", i) && cfg.read(tmp, loc, &error))
 		const char * subname;
 		if (!read_pass("shader", &subname)) return false;
-		char * subname_abs=path_translate(rootpath, subname);
+		char * subname_abs=path_join(NULL, subname);
 		this->pass_bind[i].filename=subname_abs;
 		size_t ignore;
-		this->passes[i].source=(char*)read(subname_abs, &ignore);
+		this->passes[i].source=read_text(subname_abs);
 		if (!this->passes[i].source) return false;
 		
 		const char * ext=strrchr(subname, '.');
@@ -211,12 +215,12 @@ void texture_free(const struct tex_t * texture)
 }
 
 video::shader* video::shader::create_from_scratch_data(char * data,
-                                                       function<void*(const char * path, size_t * len)> read,
-                                                       function<char*(const char * basepath, const char * path)> path_translate,
-                                                       const char * rootpath)
+                                                       function<char*(const char * basepath, const char * path)> path_join,
+                                                       function<char*(const char * path)> read_text,
+                                                       function<struct image(const char * path, bool * free)> read_image)
 {
 	video_shader_data* ret=new video_shader_data();
-	if (!ret->construct(data, read, path_translate, rootpath))
+	if (!ret->construct(data, path_join, read_text, read_image))
 	{
 		delete ret;
 		ret=NULL;
@@ -225,26 +229,35 @@ video::shader* video::shader::create_from_scratch_data(char * data,
 }
 
 video::shader* video::shader::create_from_data(const char * data,
-                                               function<void*(const char * path, size_t * len)> read,
-                                               function<char*(const char * basepath, const char * path)> path_translate,
-                                               const char * rootpath)
+                                               function<char*(const char * basepath, const char * path)> path_join,
+                                               function<char*(const char * path)> read_text,
+                                               function<struct image(const char * path, bool * free)> read_image)
 {
 	char * datacopy=strdup(data);
-	shader* ret=shader::create_from_scratch_data(datacopy, read, path_translate, rootpath);
+	shader* ret=shader::create_from_scratch_data(datacopy, path_join, read_text, read_image);
 	free(datacopy);
 	return ret;
 }
 
 namespace {
-	void* shader_readfile(const char * path, size_t * len)
+	char* shfile_makeabs(const char * basebasepath, const char * basepath, const char * path)
+	{
+		return window_get_absolute_path(basepath ? basepath : basebasepath, path, false);
+	}
+	char* shfile_readfile(const char * path)
 	{
 		void* ret;
-		if (!file_read(path, &ret, len)) return NULL;
-		return ret;
+		if (!file_read(path, &ret, NULL)) return NULL;
+		return (char*)ret;
 	}
-	char* shader_makeabs(const char * base, const char * path)
+	struct image shfile_readimg(const char * path, bool * free)
 	{
-		return window_get_absolute_path(base, path, false);
+		void* data;
+		size_t len;
+		if (!file_read(path, &data, &len)) return (struct image){0};
+		struct image img={0};
+		image_decode(data, len, &img, fmt_rgb888);
+		return img;
 	}
 }
 
@@ -264,7 +277,7 @@ video::shader* video::shader::create_from_file(const char * filename)
 		asprintf(&data, "shaders=1\nshader0=%s", filename);
 	}
 	
-	shader* ret=shader::create_from_scratch_data(data, bind(shader_readfile), bind(shader_makeabs), filename);
+	shader* ret=shader::create_from_scratch_data(data, bind_ptr(shfile_makeabs, filename), bind(shfile_readfile), bind(shfile_readimg));
 	free(data);
 	return ret;
 }

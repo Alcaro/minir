@@ -943,7 +943,7 @@ bool create_screenshot()
 	if (!scret) goto bad;
 	
 	void* pngdata;
-	unsigned int pnglen;
+	size_t pnglen;
 	
 	const char * comments[]={
 		"Software", NULL,

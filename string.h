@@ -220,6 +220,7 @@ private:
 	
 	void set_char_at(size_t index, uint32_t val)
 	{
+		if (val==0x00) val=0xFFFD;
 		if (!(this->state & st_utf8) && !(val&~0x7F))
 		{
 			this->utf[index]=val;
@@ -250,6 +251,8 @@ public:
 	bool operator==(cstring other) const { return (!strcmp(this->utf, other.utf)); }
 	
 	uint32_t operator[](size_t index) const { return char_at(index); }
+	//TODO: operator[] that returns a fancy object that calls char_at from operator uint32_t, or set_char_at from operator =
+	
 	//TODO: remove
 	operator const char * () const { return utf; }
 	

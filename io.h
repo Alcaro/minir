@@ -286,28 +286,25 @@ public:
 			struct param_t * pa_items;
 		} variable;
 		
-		//data must be a 
-		//read() may be called after create_from_data returns, until the shader object is deallocated;
-		// this allows potentially large textures to not be stored in memory multiple times. read() will
-		// still be called on some items before it returns.
-		//read() must append a NUL terminator to the returned data, and not return this in len.
-		// file_read meets these requirements, though its arguments are different, so you need a small
-		// adapter function.
-		//path_translate() will take two paths and merge and return them, like file.h get_absolute_path.
-		// For the base shaders and other resources, basepath==rootpath; however, if any shader path
-		// contains a #include, it will be called with one of its previous return values.
-		//Both functions are allowed to return NULL, in which case the caller returns failure.
-		//The callback return values will be sent to free().
+		//data must be a shader preset.
+		//All three functions may be called after create_from_data returns, until the shader object is
+		// deallocated, so that potentially large objects aren't stored in memory multiple times.
+		// However, path_join is guaranteed to have basepath equal to one of its prior return values if
+		// the create_* call has returned.
+		//All functions are allowed to return NULL, in which case the caller returns failure.
+		//read_image's 'free' parameter tells whether to free() the returned image.pixels. If not, it is
+		// assumed valid until the next call to the same function or until anything higher-level
+		// returns. It will not be changed.
 		static shader* create_from_data(const char * data,
-		                                function<void*(const char * path, size_t * len)> read,
-		                                function<char*(const char * basepath, const char * path)> path_translate,
-		                                const char * rootpath);
+		                                function<char*(const char * basepath, const char * path)> path_join,
+		                                function<char*(const char * path)> read_text,
+		                                function<struct image(const char * path, bool * free)> read_image);
 		//Same as create_from_data, but changes 'data' into garbage. (create_from_data uses strdup on 'data', then calls this.)
 		static shader* create_from_scratch_data(char * data,
-		                                function<void*(const char * path, size_t * len)> read,
-		                                function<char*(const char * basepath, const char * path)> path_translate,
-		                                const char * rootpath);
-		//Convenience shortcut to create_from_data. The filename can be either a shader or a preset; if
+		                                        function<char*(const char * basepath, const char * path)> path_join,
+		                                        function<char*(const char * path)> read_text,
+		                                        function<struct image(const char * path, bool * free)> read_image);
+		//Another convenience shortcut to the above. The filename can be either a shader or a preset; if
 		// the filename ends with 'p', it's a preset.
 		static shader* create_from_file(const char * filename);
 		

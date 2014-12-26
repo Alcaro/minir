@@ -241,3 +241,11 @@ void image_convert_resize(const struct image * src, struct image * dst)
 		default: ; char *e=0; *e=0;
 	}
 }
+
+
+
+bool image_decode(const void * imagedata, size_t imglen, struct image * out, videoformat format)
+{
+	if (imglen>=8 && !memcmp(imagedata, "\x89PNG\r\n\x1A\n", 8)) return png_decode(imagedata, imglen, out, format);
+	return false;
+}

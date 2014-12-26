@@ -6,7 +6,7 @@
 #include <new>
 template<typename T> class assocarr : nocopy {
 protected:
-	typedef uint16_t keyhash_t;
+	typedef size_t keyhash_t;
 	
 	static keyhash_t hash(const char * str)
 	{
@@ -27,14 +27,14 @@ protected:
 		T value;
 	};
 	struct node_t * * nodes;
-	unsigned int buckets;
-	unsigned int entries;
+	keyhash_t buckets;
+	size_t entries;
 	
-	void resize(unsigned int newbuckets)
+	void resize(size_t newbuckets)
 	{
 		struct node_t * * newnodes=malloc(sizeof(struct node_t*)*newbuckets);
 		memset(newnodes, 0, sizeof(struct node_t*)*newbuckets);
-		for (unsigned int i=0;i<this->buckets;i++)
+		for (size_t i=0;i<this->buckets;i++)
 		{
 			struct node_t * node=this->nodes[i];
 			while (node)
@@ -198,10 +198,30 @@ public:
 
 
 
-template<typename T> class list {
-	T* * items;
-	unsigned int count;
-	unsigned int buflen;
+template<typename T> class array {
+	T * items;
+	size_t count;
+	size_t buflen;
 public:
 	
+	T& operator[](size_t n)
+	{
+		
+	}
+	
+	const T& operator[](size_t n) const
+	{
+		return items[n];
+	}
+	
+	size_t len() const { return count; }
+	
+	~array()
+	{
+		for (size_t i=0;i<count;i++) items[i].~T();
+		free(items);
+	}
 };
+
+class string;
+typedef array<string> stringlist;

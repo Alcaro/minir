@@ -139,7 +139,7 @@ static inline size_t find_same(const uint16_t * a, const uint16_t * b)
 		//With this, it's random whether two consecutive identical words are caught.
 		//Luckily, compression rate is the same for both cases, and three is always caught.
 		//(We prefer to miss two-word blocks, anyways; it gives fewer iterations of the outer loop, as well as in the decompressor.)
-		//We can not change it to size_t because that could (on 64bit) miss up to siz consecutive words.
+		//We can not change it to size_t because that could (on 64bit) miss up to six consecutive words.
 		const uint32_t* a_big=(const uint32_t*)a;
 		const uint32_t* b_big=(const uint32_t*)b;
 		

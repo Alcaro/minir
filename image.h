@@ -23,8 +23,9 @@ static inline uint8_t videofmt_byte_per_pixel(videoformat fmt)
 extern "C" {
 #endif
 
-//Supported bit depths:
+//Four-digit values have alpha channels. Values with a slash discard some of the bits.
 //c=convert, t=table, C=convert but not resize
+//Supported bit depths:
 //                      src
 //        1/555 8/888 565 888 1555 8888
 //  1/555   ct
@@ -45,11 +46,14 @@ void image_convert_resize(const struct image * src, struct image * dst);
 
 //Valid formats: All
 //pngcomments are { "key", "value", "key", "value", NULL }, or a toplevel NULL
-bool png_encode(const struct image * img, const char * * pngcomments,  void* * pngdata, unsigned int * pnglen);
+bool png_encode(const struct image * img, const char * * pngcomments,  void* * pngdata, size_t * pnglen);
 
 //Valid formats: 888, (8)888, 8888
 //If there is transparency, 8888 is mandatory.
-bool png_decode(const void* pngdata, unsigned int pnglen, struct image * img, videoformat format);
+bool png_decode(const void * pngdata, size_t pnglen, struct image * img, videoformat format);
+
+//Calls png_decode or similar.
+bool image_decode(const void * imagedata, size_t imglen, struct image * out, videoformat format);
 
 #ifdef __cplusplus
 }
