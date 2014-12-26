@@ -76,7 +76,7 @@ void thread_split(unsigned int count, void(*work)(unsigned int id, void* userdat
 	{
 		this->numthreads++;
 		lock_incr(&this->numidle);
-		thread_create(bind_ptr(threadproc, this));
+		thread_create(bind_this(threadproc));
 	}
 	
 	this->wake->signal(count-1);

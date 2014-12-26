@@ -25,7 +25,7 @@
 # include <dlfcn.h>
 # include <GL/glx.h>
 #endif
-#define bind BIND_CB
+#define bind bind_func
 
 #include <stdio.h>
 #include "libretro.h"

@@ -7,7 +7,7 @@
 #define _WIN32_IE 0x0600
 #undef bind
 #include <windows.h>
-#define bind BIND_CB
+#define bind bind_func
 
 //Number of ugly hacks: 5
 //If a status bar item is right-aligned, a space is appended.

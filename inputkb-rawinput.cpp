@@ -22,7 +22,7 @@
 #define _WIN32_WINNT 0x0501
 #undef bind
 #include <windows.h>
-#define bind BIND_CB
+#define bind bind_func
 #include <stdlib.h>
 #include "libretro.h"
 

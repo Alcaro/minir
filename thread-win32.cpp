@@ -2,7 +2,7 @@
 #ifdef THREAD_WIN32
 #undef bind
 #include <windows.h>
-#define bind BIND_CB
+#define bind bind_func
 #include <stdlib.h>
 #include <string.h>
 

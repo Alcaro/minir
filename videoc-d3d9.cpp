@@ -4,7 +4,7 @@
 #define CINTERFACE
 #undef bind
 #include <D3D9.h>
-#define bind BIND_CB
+#define bind bind_func
 
 #define this This
 

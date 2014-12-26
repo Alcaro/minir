@@ -27,11 +27,12 @@
 
 #define UTIL_CALLBACK_HPP_INSIDE
 
-#define BIND_CB(func, ...) (GetCallbackFactory(func).Bind<func>(__VA_ARGS__))
-#define BIND_CB_PTR(func, arg) (GetBoundCallbackFactory(func).Bind<func>(arg))
-#define bind BIND_CB
-#define bind_ptr BIND_CB_PTR
-#define bind_this(func) BIND_CB(func, this)
+#define bind1(func) (GetFreeCallbackFactory(func).Bind<func>())
+#define bind2(func, ptr) (GetCallbackFactory(func, ptr).Bind<func>(ptr))
+#define bind_count(_1, _2, N, ...) N
+#define bind_func(...) bind_count(__VA_ARGS__, bind2(__VA_ARGS__), bind1(__VA_ARGS__))
+#define bind bind_func
+#define bind_this(func) bind_func(func, this) // can't merge this into 
 
 template<typename FuncSignature> class function;
 
@@ -188,7 +189,7 @@ public:
 
 template<typename R TYPENAMES>
 inline FreeCallbackFactory<R ARG_TYPES_C>
-GetCallbackFactory(R (*)(ARG_TYPES))
+GetFreeCallbackFactory(R (*)(ARG_TYPES))
 {
     return FreeCallbackFactory<R ARG_TYPES_C>();
 }
@@ -216,7 +217,7 @@ public:
 
 template<typename R, class T TYPENAMES>
 inline MemberCallbackFactory<R, T ARG_TYPES_C>
-GetCallbackFactory(R (T::*)(ARG_TYPES))
+GetCallbackFactory(R (T::*)(ARG_TYPES), T*)
 {
     return MemberCallbackFactory<R, T ARG_TYPES_C>();
 }
@@ -244,7 +245,7 @@ public:
 
 template<typename R, class T TYPENAMES>
 inline ConstMemberCallbackFactory<R, T ARG_TYPES_C>
-GetCallbackFactory(R (T::*)(ARG_TYPES) const)
+GetCallbackFactory(R (T::*)(ARG_TYPES) const, const T*)
 {
     return ConstMemberCallbackFactory<R, T ARG_TYPES_C>();
 }
@@ -270,7 +271,7 @@ public:
 
 template<typename R TYPENAMES, typename PTR>
 inline BoundCallbackFactory<R ARG_TYPES_C, PTR>
-GetBoundCallbackFactory(R (*)(PTR* ARG_TYPES_C))
+GetCallbackFactory(R (*)(PTR* ARG_TYPES_C), PTR*)
 {
     return BoundCallbackFactory<R ARG_TYPES_C, PTR>();
 }

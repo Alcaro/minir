@@ -277,8 +277,8 @@ static void details_create(struct minircheats_impl * parent, struct window * par
 	this->allowinc->set_state((thecheat->changetype&1));
 	this->allowdec->set_state((thecheat->changetype&2));
 	
-	ok->set_onclick(bind_ptr(details_ok, this));
-	cancel->set_onclick(bind_ptr(details_cancel, this));
+	ok->set_onclick(bind_this(details_ok));
+	cancel->set_onclick(bind_this(details_cancel));
 	
 	if (*addr) this->newval->focus();
 	else this->addr->focus();
@@ -511,26 +511,26 @@ static void show_search(struct minircheats * this_)
 		this->wndsrch_compto_select_prev=compto_select[cht_prev];
 		search_update_compto_prev(this);
 		
-		this->wndsrch_listbox->set_contents(bind_ptr(search_get_cell, this), NULL);
+		this->wndsrch_listbox->set_contents(bind_this(search_get_cell), NULL);
 		const unsigned int tmp[]={15, 15, 15};
 		//const unsigned int tmp[]={1,2,2};
 		this->wndsrch_listbox->set_size(16, tmp, -1);
-		this->wndsrch_listbox->set_onactivate(bind_ptr(search_add_cheat_listbox, this));
+		this->wndsrch_listbox->set_onactivate(bind_this(search_add_cheat_listbox));
 		
-		dosearch->set_onclick(bind_ptr(search_dosearch, this));
-		reset->set_onclick(bind_ptr(search_reset, this));
-		ok->set_onclick(bind_ptr(search_ok, this));
+		dosearch->set_onclick(bind_this(search_dosearch));
+		reset->set_onclick(bind_this(search_reset));
+		ok->set_onclick(bind_this(search_ok));
 		
-		this->wndsrch_compto_select->set_onclick(bind_ptr(search_set_compto_select, this));
+		this->wndsrch_compto_select->set_onclick(bind_this(search_set_compto_select));
 		search_set_compto_select(this, 0);
 		
-		this->wndsrch_datsize->set_onclick(bind_ptr(search_set_datsize, this));
+		this->wndsrch_datsize->set_onclick(bind_this(search_set_datsize));
 		search_set_datsize(this, 0);
 		
-		this->wndsrch_dattype->set_onclick(bind_ptr(search_set_dattype, this));
+		this->wndsrch_dattype->set_onclick(bind_this(search_set_dattype));
 		search_set_dattype(this, 0);
 		
-		addcheat->set_onclick(bind_ptr(search_add_cheat_button, this));
+		addcheat->set_onclick(bind_this(search_add_cheat_button));
 		
 		this->wndsrch_nummatch->set_alignment(0);
 		this->wndsrch_nummatch->set_ellipsize(true);
@@ -654,11 +654,11 @@ static void show_list(struct minircheats * this_)
 				widget_create_layout_horz(
 					this->wndlist_listbox=widget_create_listbox("Address", "Value", "Description", NULL),
 					widget_create_layout_vert(
-						widget_create_button("Add")->set_onclick(bind_ptr(list_add_cheat, this)),
-						widget_create_button("Delete")->set_onclick(bind_ptr(list_delete_cheat, this)),
-						widget_create_button("Edit")->set_onclick(bind_ptr(list_edit_cheat, this)),
-						widget_create_button("Clear")->set_onclick(bind_ptr(list_clear_cheat, this)),
-						widget_create_button("Sort")->set_onclick(bind_ptr(list_sort_cheat, this)),
+						widget_create_button("Add")->set_onclick(bind_this(list_add_cheat)),
+						widget_create_button("Delete")->set_onclick(bind_this(list_delete_cheat)),
+						widget_create_button("Edit")->set_onclick(bind_this(list_edit_cheat)),
+						widget_create_button("Clear")->set_onclick(bind_this(list_clear_cheat)),
+						widget_create_button("Sort")->set_onclick(bind_this(list_sort_cheat)),
 						widget_create_padding_vert(),
 						NULL),
 					NULL)//,
@@ -684,8 +684,8 @@ static void show_list(struct minircheats * this_)
 		this->wndlist->set_parent(this->wndlist, this->parent);
 		this->wndlist->set_title(this->wndlist, "Cheat Entry and Editor");
 		
-		this->wndlist_listbox->set_contents(bind_ptr(list_get_cell, this), NULL);
-		this->wndlist_listbox->set_onactivate(bind_ptr(list_listbox_activate, this));
+		this->wndlist_listbox->set_contents(bind_this(list_get_cell), NULL);
+		this->wndlist_listbox->set_onactivate(bind_this(list_listbox_activate));
 		//value width is max length of 4294967295 and 0xFFFFFFFF
 		//description width is just something random
 		const unsigned int tmp[]={this->model->cheat_get_max_addr_len(this->model), 10, 10};

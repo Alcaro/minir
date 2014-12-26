@@ -3,7 +3,7 @@
 #define DIRECTINPUT_VERSION 0x0800
 #undef bind
 #include <dinput.h>
-#define bind BIND_CB
+#define bind bind_func
 
 namespace {
 

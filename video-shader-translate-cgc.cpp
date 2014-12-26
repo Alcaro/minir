@@ -3,7 +3,7 @@
 
 #define HAVE_PARAMETER_UNIFORM 1
 
-//For compatibilty with RetroArch, this file may not use
+//For easier compatibilty with RetroArch, this file may not use
 //- the overloaded string operators (member functions are fine)
 
 #ifdef HAVE_CG_SHADERS
@@ -47,11 +47,12 @@ char * video::shader::translate_cgc(lang_t from, lang_t to, const char * text, f
 	CGcontext context;
 	context = cg.CreateContext();
 #define e printf("e=%s\n",cg.GetLastListing(context));
-	//TODO: process with random profile with flags "-E", "-DPARAMETER_UNIFORM", "-I"(dir), NULL to get #includes out of the way
-	//TODO: use cgSetCompilerIncludeCallback and point it to get_include
+	//TODO: process with random profile with flags "-E", "-DPARAMETER_UNIFORM", NULL to get #includes out of the way
+	//use cgSetCompilerIncludeCallback and point it to get_include
 	//on failure, have it hand out some random invalid string so it doesn't look in the file system, "\xEF\xBF\xBD" or "#error" maybe
 	//or maybe set a flag in the caller using bind_ptr, then return NULL
-	//#include "/etc/passwd" MUST fail
+	//#include "/dev/zero" must return in finite time and with finite memory use
+	//#include "/etc/passwd" must fail
 	
 //def preprocess_vertex(source_data):
 //   input_data = source_data.split('\n')

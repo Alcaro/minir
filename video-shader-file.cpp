@@ -34,7 +34,7 @@ const struct pass_t * pass(unsigned int n, lang_t language)
 	{
 		this->pass_clone=this->passes[n];
 		this->pass_clone.lang=language;
-		this->pass_clone.source=translate(this->passes[n].lang, language, this->passes[n].source, bind_ptr(get_include, &pass_bind[n]));
+		this->pass_clone.source=translate(this->passes[n].lang, language, this->passes[n].source, bind(get_include, &pass_bind[n]));
 		if (!this->pass_clone.source) return NULL;
 		return &this->pass_clone;
 	}
@@ -273,11 +273,10 @@ video::shader* video::shader::create_from_file(const char * filename)
 	}
 	else
 	{
-		//synthesizing a preset gives less duplicate code and therefore less potential errors
 		asprintf(&data, "shaders=1\nshader0=%s", filename);
 	}
 	
-	shader* ret=shader::create_from_scratch_data(data, bind_ptr(shfile_makeabs, filename), bind(shfile_readfile), bind(shfile_readimg));
+	shader* ret=shader::create_from_scratch_data(data, bind(shfile_makeabs, filename), bind(shfile_readfile), bind(shfile_readimg));
 	free(data);
 	return ret;
 }

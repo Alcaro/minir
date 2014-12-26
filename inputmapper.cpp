@@ -571,7 +571,7 @@ static void set_inputkb(struct inputmapper * this_, struct inputkb * kb)
 	reset(this);
 	
 	this->kb=kb;
-	if (this->kb) this->kb->set_kb_cb(bind_ptr(inputmapper_kb_cb, this));
+	if (this->kb) this->kb->set_kb_cb(bind_this(inputmapper_kb_cb));
 }
 
 static void free_(struct inputmapper * this_)

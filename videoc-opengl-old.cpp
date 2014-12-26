@@ -76,7 +76,7 @@ return diff.tv_nsec;
 #elif defined(WNDPROT_WINDOWS)
   #undef bind
   #include <windows.h>
-  #define bind BIND_CB
+  #define bind bind_func
   #include <GL/gl.h>
   #include <GL/glext.h>
   #define glGetProcAddress(name) wglGetProcAddress(name)

@@ -3,7 +3,7 @@
 #define video cvideo
 #undef bind
 #include <windows.h>
-#define bind BIND_CB
+#define bind bind_func
 
 #define this This
 

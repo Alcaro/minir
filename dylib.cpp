@@ -10,7 +10,7 @@
 #define _WIN32_WINNT 0x0502//0x0501 excludes SetDllDirectory, so I need to put it at 0x0502
 #undef bind
 #include <windows.h>
-#define bind BIND_CB
+#define bind bind_func
 #endif
 
 ndylib* dylib_create(const char * filename, bool * owned)

@@ -200,7 +200,7 @@ public:
 			}
 		};
 		bool ret=true;
-		this->items.each(bind_ptr(sub::iter, &ret));
+		this->items.each(bind(sub::iter, &ret));
 		return ret;
 	}
 	

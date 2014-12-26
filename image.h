@@ -44,7 +44,7 @@ void image_convert(const struct image * src, struct image * dst);
 void image_convert_resize(const struct image * src, struct image * dst);
 
 
-//Valid formats: All
+//Valid formats: 1/555, 565, 888, 8/888
 //pngcomments are { "key", "value", "key", "value", NULL }, or a toplevel NULL
 bool png_encode(const struct image * img, const char * * pngcomments,  void* * pngdata, size_t * pnglen);
 

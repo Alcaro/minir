@@ -156,7 +156,7 @@ static inline uint64_t bitround(uint64_t in)
 //This one doesn't really belong here, but it's used by both image.h and minir.h (and io.h, but image.h uses that).
 //If minir.h grows a dependency on image.h or io.h, move this to image.h.
 enum videoformat {
-	//these three are same as in libretro
+	//these three are same values and order as in libretro - do not change
 	fmt_xrgb1555,
 	fmt_xrgb8888,
 	fmt_rgb565,

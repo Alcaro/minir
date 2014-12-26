@@ -3,7 +3,7 @@
 #define CINTERFACE
 #undef bind
 #include <dsound.h>
-#define bind BIND_CB
+#define bind bind_func
 
 //this file is heavily based on ruby by byuu
 
