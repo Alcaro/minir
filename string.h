@@ -1,9 +1,11 @@
 #pragma once
 #include "global.h" // stdlib.h is enough, but I want to ensure the malloc seatbelt is enabled.
+#include "containers.h" // some functions return array<string>
 #include <string.h> // memcpy
 
 class string;
 typedef const string & cstring;
+typedef array<string> stringlist;
 
 //static inline size_t strlen(cstring str);
 
@@ -161,7 +163,7 @@ private:
 	
 private:
 	char * utf;
-	size_t nbyte; //utf[nbyte] is guaranteed '\0'. Buffer length is bitround(nbyte).
+	size_t nbyte; //utf[nbyte] is guaranteed '\0'. Buffer length is bitround(nbyte+1).
 	uint16_t len_codepoints;//65535 means "too long".
 	uint8_t state;
 	//char padding[1];
@@ -258,7 +260,7 @@ public:
 	
 	size_t len()
 	{
-		if (this->len_codepoints == 65535) return utf8len(this->utf);
+		if (this->len_codepoints == 65535) return utf8len(this->utf+this->readpos_nbyte)+this->readpos_codepoints;
 		else return this->len_codepoints;
 	}
 	

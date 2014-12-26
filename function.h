@@ -10,7 +10,7 @@
 
 //List of libraries that do roughly the same thing:
 //http://www.codeproject.com/Articles/7150/ Member Function Pointers and the Fastest Possible C++ Delegates
-// rejected because it does ugly hacks which defeat the optimizer, and my brain
+// rejected because it uses ugly hacks which defeat the optimizer, and my brain
 //http://www.codeproject.com/Articles/11015/ The Impossibly Fast C++ Delegates
 // rejected because creation syntax is ugly
 //http://www.codeproject.com/Articles/13287/ Fast C++ Delegate
@@ -46,25 +46,23 @@ template<typename FuncSignature> class function;
 
 #define ARG_TYPES_I(n) JOIN(P,n)
 #define ARG_TYPES LOOP(ARG_TYPES_I)
-#define ARG_TYPES_C COMMA_IF_ARGS ARG_TYPES
 #define ARG_NAMES_I(n) JOIN(a,n)
 #define ARG_NAMES LOOP(ARG_NAMES_I)
-#define ARG_NAMES_C COMMA_IF_ARGS ARG_NAMES
 #define ARG_TYPES_AND_NAMES_I(n) JOIN(P,n) JOIN(a,n)
 #define ARG_TYPES_AND_NAMES LOOP(ARG_TYPES_AND_NAMES_I)
-#define ARG_TYPES_AND_NAMES_C COMMA_IF_ARGS ARG_TYPES_AND_NAMES
 #define TYPENAMES_I(n) typename JOIN(P,n)
-#define TYPENAMES COMMA_IF_ARGS LOOP(TYPENAMES_I)
+#define TYPENAMES LOOP(TYPENAMES_I)
+
 #define TYPENAMES2_I(n) typename JOIN(FP,n)
-#define TYPENAMES2 COMMA_IF_ARGS LOOP(TYPENAMES2_I)
+#define TYPENAMES2 LOOP(TYPENAMES2_I)
 
 #define COUNT 0
 #define LOOP(macro) /* */
-#define COMMA_IF_ARGS /* */
+#define C /* */
 #include "function.h"
-#undef COMMA_IF_ARGS
+#undef C
 
-#define COMMA_IF_ARGS ,
+#define C ,
 #define COUNT 1
 #define LOOP(macro) macro(1)
 #include "function.h"
@@ -97,15 +95,13 @@ template<typename FuncSignature> class function;
 #undef BoundCallbackFactory
 #undef ARG_TYPES_I
 #undef ARG_TYPES
-#undef ARG_TYPES_C
 #undef ARG_NAMES_I
 #undef ARG_NAMES
-#undef ARG_NAMES_C
 #undef ARG_TYPES_AND_NAMES_I
 #undef ARG_TYPES_AND_NAMES
-#undef ARG_TYPES_AND_NAMES_C
 #undef TYPENAMES_I
 #undef TYPENAMES
+
 #undef TYPENAMES2_I
 #undef TYPENAMES2
 
@@ -114,7 +110,7 @@ template<typename FuncSignature> class function;
 #endif
 
 #ifdef UTIL_CALLBACK_HPP_INSIDE
-template<typename R TYPENAMES>
+template<typename R C TYPENAMES>
 class function<R (ARG_TYPES)>
 {
 private: class null_only;
@@ -130,7 +126,7 @@ public:
 
     inline R operator()(ARG_TYPES_AND_NAMES) const
     {
-        return (*func)(obj ARG_NAMES_C);
+        return (*func)(obj C ARG_NAMES);
     }
 
 private:
@@ -142,38 +138,38 @@ public:
         { return func == EmptyHandler; }
 
 private:
-    typedef R (*FuncType)(const void* ARG_TYPES_C);
+    typedef R (*FuncType)(const void* C ARG_TYPES);
     function(FuncType f, const void* o) : func(f), obj(o) {}
 
 private:
     FuncType func;
     const void* obj;
 
-    static R EmptyHandler(const void* o ARG_TYPES_AND_NAMES_C) { return R(); }
+    static R EmptyHandler(const void* o C ARG_TYPES_AND_NAMES) { return R(); }
 
-    template<typename FR TYPENAMES2>
+    template<typename FR C TYPENAMES2>
     friend class FreeCallbackFactory;
-    template<typename FR, class FT TYPENAMES2>
+    template<typename FR, class FT C TYPENAMES2>
     friend class MemberCallbackFactory;
-    template<typename FR, class FT TYPENAMES2>
+    template<typename FR, class FT C TYPENAMES2>
     friend class ConstMemberCallbackFactory;
-    template<typename FR TYPENAMES2, typename PTR>
+    template<typename FR C TYPENAMES2, typename PTR>
     friend class BoundCallbackFactory;
 };
 
-template<typename R TYPENAMES>
+template<typename R C TYPENAMES>
 void operator==(const function<R (ARG_TYPES)>&,
                 const function<R (ARG_TYPES)>&);
-template<typename R TYPENAMES>
+template<typename R C TYPENAMES>
 void operator!=(const function<R (ARG_TYPES)>&,
                 const function<R (ARG_TYPES)>&);
 
-template<typename R TYPENAMES>
+template<typename R C TYPENAMES>
 class FreeCallbackFactory
 {
 private:
     template<R (*Func)(ARG_TYPES)>
-    static R Wrapper(const void* ARG_TYPES_AND_NAMES_C)
+    static R Wrapper(const void* C ARG_TYPES_AND_NAMES)
     {
         return (*Func)(ARG_NAMES);
     }
@@ -187,19 +183,19 @@ public:
     }
 };
 
-template<typename R TYPENAMES>
-inline FreeCallbackFactory<R ARG_TYPES_C>
+template<typename R C TYPENAMES>
+inline FreeCallbackFactory<R C ARG_TYPES>
 GetFreeCallbackFactory(R (*)(ARG_TYPES))
 {
-    return FreeCallbackFactory<R ARG_TYPES_C>();
+    return FreeCallbackFactory<R C ARG_TYPES>();
 }
 
-template<typename R, class T TYPENAMES>
+template<typename R, class T C TYPENAMES>
 class MemberCallbackFactory
 {
 private:
     template<R (T::*Func)(ARG_TYPES)>
-    static R Wrapper(const void* o ARG_TYPES_AND_NAMES_C)
+    static R Wrapper(const void* o C ARG_TYPES_AND_NAMES)
     {
         T* obj = const_cast<T*>(static_cast<const T*>(o));
         return (obj->*Func)(ARG_NAMES);
@@ -215,19 +211,19 @@ public:
     }
 };
 
-template<typename R, class T TYPENAMES>
-inline MemberCallbackFactory<R, T ARG_TYPES_C>
+template<typename R, class T C TYPENAMES>
+inline MemberCallbackFactory<R, T C ARG_TYPES>
 GetCallbackFactory(R (T::*)(ARG_TYPES), T*)
 {
-    return MemberCallbackFactory<R, T ARG_TYPES_C>();
+    return MemberCallbackFactory<R, T C ARG_TYPES>();
 }
 
-template<typename R, class T TYPENAMES>
+template<typename R, class T C TYPENAMES>
 class ConstMemberCallbackFactory
 {
 private:
     template<R (T::*Func)(ARG_TYPES) const>
-    static R Wrapper(const void* o ARG_TYPES_AND_NAMES_C)
+    static R Wrapper(const void* o C ARG_TYPES_AND_NAMES)
     {
         const T* obj = static_cast<const T*>(o);
         return (obj->*Func)(ARG_NAMES);
@@ -243,25 +239,25 @@ public:
     }
 };
 
-template<typename R, class T TYPENAMES>
-inline ConstMemberCallbackFactory<R, T ARG_TYPES_C>
+template<typename R, class T C TYPENAMES>
+inline ConstMemberCallbackFactory<R, T C ARG_TYPES>
 GetCallbackFactory(R (T::*)(ARG_TYPES) const, const T*)
 {
-    return ConstMemberCallbackFactory<R, T ARG_TYPES_C>();
+    return ConstMemberCallbackFactory<R, T C ARG_TYPES>();
 }
 
-template<typename R TYPENAMES, typename PTR>
+template<typename R C TYPENAMES, typename PTR>
 class BoundCallbackFactory
 {
 private:
-    template<R (*Func)(PTR* ARG_TYPES_C)>
-    static R Wrapper(const void* o ARG_TYPES_AND_NAMES_C)
+    template<R (*Func)(PTR* C ARG_TYPES)>
+    static R Wrapper(const void* o C ARG_TYPES_AND_NAMES)
     {
-        return (*Func)((PTR*)o ARG_NAMES_C);
+        return (*Func)((PTR*)o C ARG_NAMES);
     }
 
 public:
-    template<R (*Func)(PTR* ARG_TYPES_C)>
+    template<R (*Func)(PTR* C ARG_TYPES)>
     inline static function<R (ARG_TYPES)> Bind(PTR* o)
     {
         return function<R (ARG_TYPES)>
@@ -269,11 +265,11 @@ public:
     }
 };
 
-template<typename R TYPENAMES, typename PTR>
-inline BoundCallbackFactory<R ARG_TYPES_C, PTR>
-GetCallbackFactory(R (*)(PTR* ARG_TYPES_C), PTR*)
+template<typename R C TYPENAMES, typename PTR>
+inline BoundCallbackFactory<R C ARG_TYPES, PTR>
+GetCallbackFactory(R (*)(PTR* C ARG_TYPES), PTR*)
 {
-    return BoundCallbackFactory<R ARG_TYPES_C, PTR>();
+    return BoundCallbackFactory<R C ARG_TYPES, PTR>();
 }
 
 #undef COUNT

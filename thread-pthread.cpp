@@ -124,19 +124,31 @@ signed int multievent::count()
 	return active;
 }
 
+
 //this is gcc, not pthread, but it works.
-unsigned int lock_incr(unsigned int * val)
-{
-	return __sync_fetch_and_add(val, 1);
-}
+#if __GNUC__*10000 + __GNUC_MINOR__*100 + __GNUC_PATCHLEVEL__*1 >= 40700
+//https://gcc.gnu.org/onlinedocs/gcc-4.7.0/gcc/_005f_005fatomic-Builtins.html
+uint32_t lock_incr(uint32_t * val) { return __atomic_fetch_add(val, 1, __ATOMIC_ACQ_REL); }
+uint32_t lock_decr(uint32_t * val) { return __atomic_fetch_sub(val, 1, __ATOMIC_ACQ_REL); }
+uint32_t lock_read(uint32_t * val) { return __atomic_load_n(val, __ATOMIC_ACQUIRE); }
 
-unsigned int lock_decr(unsigned int * val)
-{
-	return __sync_fetch_and_sub(val, 1);
-}
+void* lock_read(void* * val) { return __atomic_load_n(val, __ATOMIC_ACQUIRE); }
+void lock_write(void** val, void* newval) { return __atomic_store_n(val, newval, __ATOMIC_RELEASE); }
+//there is a modern version of this, but it adds another move instruction for whatever reason and otherwise gives the same binary.
+void* lock_write_eq(void** val, void* old, void* newval) { return __sync_val_compare_and_swap(val, old, newval); }
+//void* lock_write_eq(void** val, void* old, void* newval)
+//{
+//	__atomic_compare_exchange_n(val, &old, newval, false, __ATOMIC_ACQ_REL, __ATOMIC_ACQUIRE);
+//	return old;
+//}
+#else
+//https://gcc.gnu.org/onlinedocs/gcc-4.1.2/gcc/Atomic-Builtins.html
+uint32_t lock_incr(uint32_t * val) { return __sync_fetch_and_add(val, 1); }
+uint32_t lock_decr(uint32_t * val) { return __sync_fetch_and_sub(val, 1); }
+uint32_t lock_read(uint32_t * val) { return __sync_val_compare_and_swap(val, 0, 0); }
 
-unsigned int lock_read(unsigned int * val)
-{
-	return __sync_val_compare_and_swap(val, 0, 0);
-}
+void* lock_read(void* * val) { return __sync_val_compare_and_swap(val, 0, 0); }
+void lock_write(void** val, void* newval) { *val=newval; __sync_synchronize(); }
+void* lock_write_eq(void** val, void* old, void* newval) { return __sync_val_compare_and_swap(val, old, newval); }
+#endif
 #endif

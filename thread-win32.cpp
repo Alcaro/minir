@@ -102,4 +102,8 @@ multievent::~multievent() { CloseHandle((HANDLE)this->data); }
 uint32_t lock_incr(uint32_t * val) { return InterlockedIncrement((LONG*)val)-1; }
 uint32_t lock_decr(uint32_t * val) { return InterlockedDecrement((LONG*)val)+1; }
 uint32_t lock_read(uint32_t * val) { return InterlockedCompareExchange((LONG*)val, 0, 0); }
+
+void* lock_read(void* * val) { return InterlockedCompareExchangePointer(val, 0, 0); }
+void lock_write(void** val, void* value) { return InterlockedExchangePointer(val, value); }
+void* lock_write_eq(void** val, void* old, void* newval) { return InterlockedCompareExchangePointer(val, old, newval); }
 #endif

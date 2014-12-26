@@ -124,44 +124,42 @@ private:
 //Returns the value before changing it.
 uint32_t lock_incr(uint32_t* val);
 uint32_t lock_decr(uint32_t* val);
+
 uint32_t lock_read(uint32_t* val);
-void lock_write(uint32_t* val, uint32_t value);
+void lock_write(uint32_t* val, uint32_t newval);
 //Writes 'newval' to *val only if it currently equals 'old'. Returns the old value of *val, which can be compared with 'old'.
 uint32_t lock_write_eq(uint32_t* val, uint32_t old, uint32_t newval);
 
-//For various data sizes.
-uint8_t lock_incr(uint8_t* val);
-uint8_t lock_decr(uint8_t* val);
-uint8_t lock_read(uint8_t* val);
-void lock_write(uint8_t* val, uint8_t value);
-uint8_t lock_write_eq(uint8_t* val, uint8_t old, uint8_t newval);
-
-uint16_t lock_incr(uint16_t* val);
-uint16_t lock_decr(uint16_t* val);
-uint16_t lock_read(uint16_t* val);
-void lock_write(uint16_t* val, uint16_t value);
-uint16_t lock_write_eq(uint16_t* val, uint16_t old, uint16_t newval);
-
-uint64_t lock_incr(uint64_t* val);
-uint64_t lock_decr(uint64_t* val);
-uint64_t lock_read(uint64_t* val);
-void lock_write(uint64_t* val, uint64_t value);
-uint64_t lock_write_eq(uint64_t* val, uint64_t old, uint64_t newval);
-
+//Alternate overload for pointer-sized items.
 void* lock_read(void** val);
-void lock_write(void** val, void* value);
+void lock_write(void** val, void* newval);
 void* lock_write_eq(void** val, void* old, void* newval);
+
+void thread_sleep(unsigned int usec);
 
 //This one creates 'count' threads, calls startpos() in each of them with 'id' from 0 to 'count'-1, and
 // returns once each thread has returned.
 //Unlike thread_create, thread_split is expected to be called often, for short-running tasks. The threads may be reused.
 //It is safe to use the values 0 and 1. However, you should avoid going above thread_ideal_count().
-void thread_split(unsigned int count, void(*work)(unsigned int id, void* userdata), void* userdata);
+void thread_split(unsigned int count, function<void(unsigned int id)> work);
 
-//These are provided for subsystems which can not dynamically initialize a mutex, due to not having an initialization function.
+//Executes 'calculate' exactly once. The return value is stored in 'item'. If multiple threads call
+// this simultaneously, none returns until calculate() is done.
+//'item' must be initialized to NULL. calculate() must return a valid pointer to an object.
+// 'return new mutex();' is valid, as is returning the address of something static.
+//Returns *item.
+void* thread_once_core(void* * item, function<void*()> calculate);
+template<typename T> T* thread_once(T* * item, function<T*()> calculate)
+{
+	return (T*)thread_once_core((void**)item, *(function<void*()>*)&calculate);
+}
+
+//These are provided for subsystems which require no initialization beyond a mutex. Only acceptable for system components;
+// user code may not add itself here.
 enum _int_mutex {
-	_imutex_cwd,
-	_imutex_dylib,
+	_imutex_cwd,   // protects the current working directory
+	_imutex_dylib, // protects SetDllDirectory (Windows), and the 'once' flag to dylib_create
+	_imutex_once,  // protects thread_once
 	_imutex_count
 };
 void _int_mutex_lock(enum _int_mutex id);

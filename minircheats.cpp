@@ -335,10 +335,11 @@ void search_set_compto_select(struct minircheats_impl * this, unsigned int state
 	this->wndsrch_compto_label->set_enabled((state!=cht_prev));
 }
 
-static void search_split(unsigned int id, void* userdata)
+namespace {
+void search_split(struct minircheats_impl * this, unsigned int id)
 {
-	struct minircheats_impl * this=(struct minircheats_impl*)userdata;
 	this->model->thread_do_work(this->model, id);
+}
 }
 
 void search_dosearch(struct minircheats_impl * this)
@@ -369,7 +370,7 @@ void search_dosearch(struct minircheats_impl * this)
 	}
 	
 	this->model->search_do_search(this->model, (enum cheat_compfunc)this->wndsrch_comptype->get_state(), comptoprev, compto_val);
-	thread_split(this->model->thread_get_count(this->model), search_split, this);
+	thread_split(this->model->thread_get_count(this->model), bind(search_split, this));
 	this->model->thread_finish_work(this->model);
 	
 	this->hassearched=true;

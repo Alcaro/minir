@@ -201,27 +201,58 @@ public:
 template<typename T> class array {
 	T * items;
 	size_t count;
-	size_t buflen;
+	
+	void resize_to_min(size_t count)
+	{
+		if (this->count >= count) return;
+		size_t bufsize_pre=bitround(this->count);
+		size_t bufsize_post=bitround(count);
+		if (bufsize_pre != bufsize_post) this->items=realloc(this->items, sizeof(T)*bufsize_post);
+		for (size_t i=this->count;i<count;i++)
+		{
+			new(&items[i]) T();
+		}
+		this->count=count;
+	}
+	
+	void resize_to_max(size_t count)
+	{
+		if (this->count < count) return;
+		for (size_t i=count;i<this->count;i++)
+		{
+			items[i]->~T();
+		}
+		size_t bufsize_pre=bitround(this->count);
+		size_t bufsize_post=bitround(count);
+		if (bufsize_pre != bufsize_post) this->items=realloc(this->items, sizeof(T)*bufsize_post);
+		this->count=count;
+	}
+	
+	void resize_to(size_t count)
+	{
+		if (count < this->count) resize_to_max(count);
+		else resize_to_min(count);
+	}
+	
 public:
 	
-	T& operator[](size_t n)
-	{
-		
-	}
-	
-	const T& operator[](size_t n) const
-	{
-		return items[n];
-	}
-	
+	T& operator[](size_t n) { resize_to_min(n+1); return items[n]; }
+	const T& operator[](size_t n) const { return items[n]; }
 	size_t len() const { return count; }
+	operator T*() { return items; }
+	operator const T*() const { return items; }
+	
+	void reset() { resize_to_max(0); }
+	
+	array()
+	{
+		this->items=NULL;
+		this->count=0;
+	}
 	
 	~array()
 	{
-		for (size_t i=0;i<count;i++) items[i].~T();
-		free(items);
+		for (size_t i=0;i<this->count;i++) this->items[i].~T();
+		free(this->items);
 	}
 };
-
-class string;
-typedef array<string> stringlist;

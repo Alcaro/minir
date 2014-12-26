@@ -14,9 +14,8 @@ struct threadpool {
 	uint32_t numidle;
 	
 	//these vary between each piece of work
-	void(*work)(unsigned int id, void* userdata);
+	function<void(unsigned int id)> work;
 	uint32_t id;
-	void* userdata;
 	multievent* done;
 };
 
@@ -29,13 +28,12 @@ void threadproc(struct threadpool * this)
 		this->wake->wait();
 		lock_decr(&this->numidle);
 		
-		void(*work)(unsigned int id, void* userdata) = this->work;
+		function<void(unsigned int id)> work = this->work;
 		unsigned int id = lock_incr(&this->id);
-		void* userdata = this->userdata;
 		multievent* done = this->done;
 		
 		this->started->signal();
-		work(id, userdata);
+		work(id);
 		done->signal();
 		lock_incr(&this->numidle);
 	}
@@ -43,12 +41,12 @@ void threadproc(struct threadpool * this)
 
 }
 
-void thread_split(unsigned int count, void(*work)(unsigned int id, void* userdata), void* userdata)
+void thread_split(unsigned int count, function<void(unsigned int id)> work)
 {
 	if (!count) return;
 	if (count==1)
 	{
-		work(0, userdata);
+		work(0);
 		return;
 	}
 	struct threadpool * this=pool;
@@ -69,7 +67,6 @@ void thread_split(unsigned int count, void(*work)(unsigned int id, void* userdat
 	
 	this->work=work;
 	this->id=1;
-	this->userdata=userdata;
 	this->done=done;
 	
 	while (lock_read(&this->numidle) < count-1)
@@ -83,7 +80,7 @@ void thread_split(unsigned int count, void(*work)(unsigned int id, void* userdat
 	this->started->wait(count-1);
 	this->lock->unlock();
 	
-	work(0, userdata);
+	work(0);
 	
 	done->wait(count-1);
 	delete done;
