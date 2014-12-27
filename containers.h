@@ -4,27 +4,15 @@
 #include <string.h> // strdup
 
 #include <new>
-template<typename T> class assocarr : nocopy {
+template<typename key_t, typename val_t, typename key_t_pub = key_t> class assocarr : nocopy {
 protected:
 	typedef size_t keyhash_t;
 	
-	static keyhash_t hash(const char * str)
-	{
-		keyhash_t ret=0;
-		while (*str)
-		{
-			ret*=101;
-			ret+=*str;
-			str++;
-		}
-		return ret;
-	}
-	
 	struct node_t {
 		struct node_t * next;
-		char * key;
 		keyhash_t hash;
-		T value;
+		key_t key;
+		val_t value;
 	};
 	struct node_t * * nodes;
 	keyhash_t buckets;
@@ -51,19 +39,19 @@ protected:
 		this->buckets=newbuckets;
 	}
 	
-	struct node_t * * find_ref(const char * key)
+	struct node_t * * find_ref(const key_t& key)
 	{
-		keyhash_t thehash=hash(key);
+		keyhash_t thehash=key.hash();
 		struct node_t * * node=&this->nodes[thehash%this->buckets];
 		while (true)
 		{
 			if (!node[0]) return NULL;
-			if (node[0]->hash==thehash && !strcmp(key, node[0]->key)) return node;
+			if (node[0]->hash==thehash && key==node[0]->key) return node;
 			node=&(node[0]->next);
 		}
 	}
 	
-	struct node_t * find(const char * key)
+	struct node_t * find(const key_t& key)
 	{
 		struct node_t * * node=find_ref(key);
 		if (node) return *node;
@@ -71,11 +59,11 @@ protected:
 	}
 	
 	//use only after checking that there is no item with this name already
-	struct node_t * create(const char * key)
+	struct node_t * create(const key_t& key)
 	{
 		struct node_t * node=malloc(sizeof(struct node_t));
-		keyhash_t thehash=hash(key);
-		node->key=strdup(key);
+		keyhash_t thehash=key.hash();
+		new(&node->key) key_t(key);
 		node->hash=thehash;
 		node->next=this->nodes[thehash%this->buckets];
 		this->nodes[thehash%this->buckets]=node;
@@ -87,27 +75,27 @@ protected:
 public:
 	unsigned int size() { return this->entries; }
 	
-	bool has(const char * key) { return find(key); }
+	bool has(const key_t& key) { return find(key); }
 	
-	T& get(const char * key)
+	val_t& get(const key_t& key)
 	{
 		struct node_t * node=find(key);
 		if (!node)
 		{
 			node=create(key);
-			new(&node->value) T();
+			new(&node->value) val_t();
 		}
 		return node->value;
 	}
 	
-	T* get_ptr(const char * key)
+	val_t* get_ptr(const key_t& key)
 	{
 		struct node_t * node=find(key);
 		if (node) return &node->value;
 		else return NULL;
 	}
 	
-	void set(const char * key, const T& value)
+	void set(const key_t& key, const val_t& value)
 	{
 		struct node_t * node=find(key);
 		if (node)
@@ -117,20 +105,19 @@ public:
 		else
 		{
 			node=create(key);
-			new(&node->value) T(value);
+			new(&node->value) val_t(value);
 		}
 	}
 	
-	void remove(const char * key)
+	void remove(const key_t& key)
 	{
 		struct node_t * * noderef=find_ref(key);
 		if (!noderef) return;
 		
 		struct node_t * node=*noderef;
 		*noderef=node->next;
-		if (node->used) this->used_entries--;
-		free(node->key);
-		node->value.~T();
+		node->key.~key_t();
+		node->value.~val_t();
 		free(node);
 		
 		this->entries--;
@@ -145,8 +132,8 @@ public:
 			while (node)
 			{
 				struct node_t * next=node->next;
-				node->value.~T();
-				free(node->key);
+				node->key.~key_t();
+				node->value.~val_t();
 				free(node);
 				node=next;
 			}
@@ -158,7 +145,7 @@ public:
 		resize(4);
 	}
 	
-	void each(function<void(const char * key, T& value)> iter)
+	void each(function<void(key_t_pub key, val_t& value)> iter)
 	{
 		for (unsigned int i=0;i<this->buckets;i++)
 		{
@@ -187,14 +174,50 @@ public:
 			while (item)
 			{
 				struct node_t * next=item->next;
-				free(item->key);
-				item->value.~T();
+				item->key.~key_t();
+				item->value.~val_t();
 				free(item);
 				item=next;
 			}
 		}
 	}
 };
+
+class simple_string {
+	char* ptr;
+	simple_string();
+public:
+	simple_string(const char * other) { ptr=strdup(other); }
+	simple_string(const simple_string& other) { ptr=strdup(other.ptr); }
+	~simple_string() { free(ptr); }
+	bool operator==(const simple_string& other) const { return (!strcmp(ptr, other.ptr)); }
+	operator const char *() const { return ptr; }
+	uintptr_t hash() const
+	{
+		const char * str=ptr;
+		size_t ret=0;
+		while (*str)
+		{
+			ret*=101;
+			ret+=*str;
+			str++;
+		}
+		return ret;
+	}
+};
+template<typename T> class stringmap : public assocarr<simple_string, T, const char *> {};
+
+template<typename T> class simple_ptr {
+	uintptr_t ptr;
+	simple_ptr();
+public:
+	simple_ptr(T other) { ptr=(uintptr_t)other; }
+	simple_ptr(const simple_ptr& other) { ptr=other.ptr; }
+	bool operator==(const simple_ptr& other) const { return (ptr==other.ptr); }
+	operator T() const { return (T)ptr; }
+	uintptr_t hash() const { return ptr; }
+};
+template<typename T1, typename T2> class ptrmap : public assocarr<simple_ptr<T1>, T2, T1> {};
 
 
 

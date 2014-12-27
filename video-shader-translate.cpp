@@ -3,6 +3,8 @@
 char * video::shader::translate(lang_t from, lang_t to, const char * text,
                                 function<char*(const char * filename)> get_include)
 {
+	if (from==la_none || to==la_none) return NULL;
+	
 	static char * (* const translators[])(lang_t from, lang_t to, const char * text,
 	                                      function<char*(const char * filename)> get_include) = {
 #ifdef HAVE_CG_SHADERS

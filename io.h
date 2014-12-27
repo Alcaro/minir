@@ -125,7 +125,20 @@ public:
 	//Shaders can only be set after initialize().
 	class shader : nocopy {
 	public:
-		enum lang_t { la_glsl, la_cg };
+		enum lang_t { la_none, la_glsl, la_cg, la_last };
+		#define VIDEO_SHADER_LANG_NAMES "glsl", "cg"
+		static const char * langtable[];
+		
+		static const char * lang_to_str(lang_t lang) { return langtable[lang]; }
+		static lang_t str_to_lang(const char * str)
+		{
+			for (size_t i=1;i<la_last;i++)
+			{
+				if (!strcmp(str, langtable[i])) return (lang_t)i;
+			}
+			return la_none;
+		}
+		
 		enum interp_t { in_nearest, in_linear };
 		enum wrap_t { wr_border, wr_edge, wr_repeat, wr_mir_repeat };
 		enum scale_t { sc_source, sc_absolute, sc_viewport };
@@ -290,7 +303,7 @@ public:
 		//All three functions may be called after create_from_data returns, until the shader object is
 		// deallocated, so that potentially large objects aren't stored in memory multiple times.
 		// However, path_join is guaranteed to have basepath equal to one of its prior return values if
-		// the create_* call has returned.
+		// the create_from_* call has returned.
 		//All functions are allowed to return NULL, in which case the caller returns failure.
 		//read_image's 'free' parameter tells whether to free() the returned image.pixels. If not, it is
 		// assumed valid until the next call to the same function or until anything higher-level

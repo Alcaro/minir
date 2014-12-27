@@ -1,7 +1,7 @@
 #pragma once
 #include "global.h"
 
-//C-based API that uses native dylib handles directly.
+//C-style API that uses native dylib handles directly.
 typedef struct ndylib_* ndylib;
 ndylib* dylib_create(const char * filename, bool * owned=NULL);//Handles may be non-unique. First to load is owner.
 void* dylib_sym_ptr(ndylib* lib, const char * name);
@@ -153,6 +153,24 @@ template<typename T> T* thread_once(T* * item, function<T*()> calculate)
 {
 	return (T*)thread_once_core((void**)item, *(function<void*()>*)&calculate);
 }
+
+class mutexlocker {
+	mutex * m;
+public:
+	mutexlocker(mutex * m)
+	{
+		this->m=m;
+		m->lock();
+	}
+	~mutexlocker()
+	{
+		this->m->unlock();
+	}
+	static mutex * create() { return new mutex; }
+private:
+	mutexlocker();
+};
+#define CRITICAL_FUNCTION() static mutex * mf_holder=NULL; mutexlocker mf_lock(thread_once(&mf_holder, bind(mutexlocker::create)))
 
 //These are provided for subsystems which require no initialization beyond a mutex. Only acceptable for system components;
 // user code may not add itself here.

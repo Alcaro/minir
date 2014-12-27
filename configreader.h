@@ -111,13 +111,13 @@ protected:
 	};
 	class sub_outer {
 	public:
-		assocarr<sub_inner> items;
+		stringmap<sub_inner> items;
 		bool used;
 		unsigned int children_used;
 		
 		sub_outer() : used(false), children_used(0) {}
 	};
-	assocarr<sub_outer> items;
+	stringmap<sub_outer> items;
 	sub_outer* group;
 	
 	

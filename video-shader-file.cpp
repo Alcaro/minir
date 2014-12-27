@@ -135,10 +135,9 @@ void texture_free(const struct tex_t * texture)
 		
 		const char * ext=strrchr(subname, '.');
 		if (!ext) return false;
-		else if (!strcasecmp(ext, ".glsl")) this->passes[i].lang=la_glsl;
-		else if (!strcasecmp(ext, ".cg"))   this->passes[i].lang=la_cg;
-		//else if (!strcasecmp(ext, ".hlsl")) this->passes[i].lang=la_hlsl;
-		else return false;
+		
+		this->passes[i].lang=shader::str_to_lang(ext+1);
+		if (!this->passes[i].lang) return false;
 		
 		bool linear=false;
 		read_pass("filter_linear", &linear);

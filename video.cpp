@@ -109,3 +109,5 @@ const video::driver* const video::drivers[]={
 	&create_none,
 	NULL
 };
+
+const char * video::shader::langtable[]={NULL, VIDEO_SHADER_LANG_NAMES};
