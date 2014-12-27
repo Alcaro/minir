@@ -10,9 +10,9 @@
 //the savestate will be loaded if present; if not, the game is started from scratch
 COMMENT1
 
-cd childproj || true
+cd subproj || true
 cd ..
-g++ -I. -Wno-unused-result childproj/retrorepeat.cpp \
+g++ -I. -Wno-unused-result subproj/retrorepeat.cpp \
 	libretro.cpp -DDYLIB_POSIX dylib.cpp -DWINDOW_MINIMAL window-none.cpp \
 	memory.cpp video.cpp miniz.c -ldl -lrt -Os -s -o retrorepeat
 mv retrorepeat ~/bin

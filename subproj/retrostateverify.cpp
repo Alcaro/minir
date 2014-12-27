@@ -2,7 +2,7 @@
 retrostateverify - a specialized libretro frontend that verifies that a savestate contains all variables that are changed by retro_run
 
 Compile with:
-g++ -I. -std=c99 childproj/retrostateverify.cpp childproj/memdebug.cpp libretro.cpp dylib.cpp memory.cpp -ldl -lrt -DDYLIB_POSIX -DWINDOW_MINIMAL window-none.cpp -Os -s -o retrostate
+g++ -I. -std=c99 subproj/retrostateverify.cpp subproj/memdebug.cpp libretro.cpp dylib.cpp memory.cpp -ldl -lrt -DDYLIB_POSIX -DWINDOW_MINIMAL window-none.cpp -Os -s -o retrostate
 The program runs only on Linux. You will not have any success on Windows, unless you're willing to write about 200 lines of ugly code.
 
 Run with:
@@ -45,7 +45,7 @@ False positives have been observed:
 - _GLOBAL_OFFSET_TABLE_ has given weird results for unknown reasons.
 - Failures have been observed cascading back into volatile arrays (e.g. framebuffer). This makes them show up as guilty.
 
-rm retrostate; g++ -I. childproj/retrostateverify.cpp childproj/memdebug.cpp libretro.cpp dylib.cpp memory.cpp -ldl -lrt -DDYLIB_POSIX -DWINDOW_MINIMAL window-none.cpp -Og -g -o retrostate; gdb --args ./retrostate roms/snes9x_libretro.so ~/smw.smc 5 60 30
+rm retrostate; g++ -I. subproj/retrostateverify.cpp subproj/memdebug.cpp libretro.cpp dylib.cpp memory.cpp -ldl -lrt -DDYLIB_POSIX -DWINDOW_MINIMAL window-none.cpp -Og -g -o retrostate; gdb --args ./retrostate roms/snes9x_libretro.so ~/smw.smc 5 60 30
 
 won't work on Windows
 */

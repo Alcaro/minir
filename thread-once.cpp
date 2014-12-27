@@ -40,5 +40,6 @@ void* thread_once_core(void* * item, function<void*()> calculate)
 			contention_unlocker->signal();
 		}
 	}
+	//it's possible to hit neither of the above if the object was written between the nonatomic read and the swap
 	return *item;
 }
