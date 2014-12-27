@@ -1,8 +1,14 @@
 #include "os.h"
 
 static event* contention_unlocker=NULL;
-#define tag_busy ((void*)&contention_unlocker)
-#define tag_contended ((void*)((char*)tag_busy + 1))
+#if 1
+#define tag_busy ((void*)1)
+#define tag_contended ((void*)2)
+#else
+#define MAKE_TAG(n) (void*)(((char*)&contention_unlocker)+n)
+#define tag_busy MAKE_TAG(0)
+#define tag_contended MAKE_TAG(1)
+#endif
 
 static void make_event()
 {
