@@ -124,6 +124,12 @@ private:
 		return state;
 	}
 	
+	static void utf8copy(char * utf_dst, const char * bytes_src)
+	{
+		while (*bytes_src) utf8writecp(utf_dst, utf8readcp(bytes_src, NULL));
+		*utf_dst='\0';
+	}
+	
 	static char * utf8dup(const char * bytes, size_t * codepoints, size_t * nbyte, uint8_t * state)
 	{
 		size_t nbyte_alloc;
@@ -133,13 +139,24 @@ private:
 		if (nbyte) *nbyte=nbyte_alloc;
 		char * utfret=malloc(bitround(nbyte_alloc+1));
 		if (in_state!=st_invalid) memcpy(utfret, bytes, nbyte_alloc+1);
-		else
-		{
-			char * utfret_w=utfret;
-			while (*bytes) utf8writecp(utfret_w, utf8readcp(bytes, NULL));
-			*utfret_w='\0';
-		}
+		else utf8copy(utfret, bytes);
 		return utfret;
+	}
+	
+	static char * utf8append(char * utf, size_t nbyte_utf,
+	                         const char * bytes, size_t * codepoints, size_t * nbyte, uint8_t * state)
+	{
+		size_t nbyte_new;
+		uint8_t in_state=utf8validate(bytes, codepoints, &nbyte_new);
+		if (state) *state=in_state;
+		
+		size_t nbyte_alloc = nbyte_utf + nbyte_new;
+		
+		if (nbyte) *nbyte=nbyte_alloc;
+		if (bitround(nbyte_alloc+1) != bitround(nbyte_utf+1)) utf=realloc(utf, bitround(nbyte_alloc+1));
+		if (in_state!=st_invalid) memcpy(utf+nbyte_utf, bytes, nbyte_new+1);
+		else utf8copy(utf+nbyte_utf, bytes);
+		return utf;
 	}
 	
 	static size_t utf8len(const char * utf)
@@ -181,8 +198,8 @@ private:
 	
 	void set_to_bytes(const char * bytes)
 	{
-		size_t codepoints;
 		this->state=st_ascii;
+		size_t codepoints;
 		this->utf=utf8dup(bytes, &codepoints, &this->nbyte, &this->state);
 		if (codepoints>65535) codepoints=65535;
 		this->len_codepoints=codepoints;
@@ -231,6 +248,13 @@ private:
 		//TODO
 	}
 	
+	void reserve_bytes(size_t newbytes)
+	{
+		size_t insize=bitround(this->nbyte+1);
+		size_t outsize=bitround(this->nbyte + newbytes + 1);
+		if (insize!=outsize) this->utf=realloc(this->utf, outsize);
+	}
+	
 public:
 	//static string from_us_ascii(const char * bytes) {}
 	
@@ -240,23 +264,86 @@ public:
 	~string() { free(utf); }
 	string& operator=(const char * bytes) { free(utf); set_to_bytes(bytes); }
 	string& operator=(string other) { set_to_str_consume(other); } // copying as the argument can sometimes avoid copying entirely
-	//string operator+(const char * bytes) const {}
-	//string operator+(cstring other) const {}
-	//string operator+(uint32_t other) const {}
-	//string& operator+=(const char * bytes) {}
-	//string& operator+=(cstring other) {}
-	//string& operator+=(uint32_t other) {}
+	
+	string& operator+=(const char * bytes)
+	{
+		size_t codepoints;
+		utf8append(this->utf, this->nbyte, bytes, &codepoints, &this->nbyte, &this->state);
+		codepoints += this->len_codepoints;
+		if (codepoints>65535) codepoints=65535;
+		this->len_codepoints=codepoints;
+		return *this;
+	}
+	
+	string& operator+=(cstring other)
+	{
+		reserve_bytes(other.nbyte);
+		
+		memcpy(this->utf + this->nbyte, other.utf, other.nbyte+1);
+		this->nbyte += other.nbyte;
+		this->state |= other.state;
+		if (this->len_codepoints + other.len_codepoints < 0x10000) this->len_codepoints += other.len_codepoints;
+		else this->len_codepoints = 0xFFFF;
+		
+		return *this;
+	}
+	
+	string& operator+=(uint32_t other)
+	{
+		if (other==0x0000) { other=0xFFFD; this->state=st_invalid; }
+		if (other >= 0x80) this->state |= st_utf8;
+		
+		size_t newbytes=utf8cplen(other);
+		reserve_bytes(newbytes);
+		char * tmp = this->utf + this->nbyte;
+		utf8writecp(tmp, other);
+		
+		this->nbyte += newbytes;
+		if (this->len_codepoints != 0xFFFF) this->len_codepoints++;
+	}
+	
+	string operator+(const char * other) const { string ret(*this); ret+=other; return ret; }
+	string operator+(cstring other) const { string ret(*this); ret+=other; return ret; }
+	string operator+(uint32_t other) const { string ret(*this); ret+=other; return ret; }
 	
 	//this can get non-utf, but non-utf is never equal to valid utf
-	//this lets "\x80" != (string)"\x80", but comparing invalid strings is an invalid operation anyways
+	//this lets (string)"\x80" != "\x80", but comparing invalid strings is stupid anyways
 	bool operator==(const char * other) const { return (!strcmp(this->utf, other)); }
 	bool operator==(cstring other) const { return (!strcmp(this->utf, other.utf)); }
 	
 	uint32_t operator[](size_t index) const { return char_at(index); }
 	//TODO: operator[] that returns a fancy object that calls char_at from operator uint32_t, or set_char_at from operator =
 	
-	//TODO: remove
+	stringlist split(const char * sep) const
+	{
+		stringlist ret;
+		char * at=this->utf;
+		char * next=strstr(at, sep);
+		while (next)
+		{
+			char tmp=*next;
+			*next='\0';
+			string s;
+			s.set_to_bytes(at);
+			ret.append(s);
+			*next=tmp;
+			at=next+strlen(sep);
+			next=strstr(at, sep);
+		}
+		ret.append(at);
+		return ret;
+	}
+	
+	stringlist split(char sep) const
+	{
+		char sep_s[]={sep, '\0'};
+		return split(sep_s);
+	}
+	
+	operator bool() const { return (*this->utf); }
 	operator const char * () const { return utf; }
+	
+	bool contains(const char * other) { return (strstr(this->utf, other)); }
 	
 	size_t len()
 	{

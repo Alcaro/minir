@@ -225,7 +225,7 @@ template<typename T> class array {
 	T * items;
 	size_t count;
 	
-	void resize_to_min(size_t count)
+	void resize_grow(size_t count)
 	{
 		if (this->count >= count) return;
 		size_t bufsize_pre=bitround(this->count);
@@ -238,7 +238,7 @@ template<typename T> class array {
 		this->count=count;
 	}
 	
-	void resize_to_max(size_t count)
+	void resize_shrink(size_t count)
 	{
 		if (this->count < count) return;
 		for (size_t i=count;i<this->count;i++)
@@ -253,19 +253,52 @@ template<typename T> class array {
 	
 	void resize_to(size_t count)
 	{
-		if (count < this->count) resize_to_max(count);
-		else resize_to_min(count);
+		if (count > this->count) resize_grow(count);
+		else resize_shrink(count);
 	}
 	
 public:
 	
-	T& operator[](size_t n) { resize_to_min(n+1); return items[n]; }
+	T& operator[](size_t n) { resize_grow(n+1); return items[n]; }
 	const T& operator[](size_t n) const { return items[n]; }
 	size_t len() const { return count; }
 	operator T*() { return items; }
 	operator const T*() const { return items; }
 	
-	void reset() { resize_to_max(0); }
+	T join()
+	{
+		T out=items[0];
+		for (size_t n=1;n<count;n++)
+		{
+			out+=items[n];
+		}
+		return out;
+	}
+	
+	T join(T between)
+	{
+		T out=items[0];
+		for (size_t n=1;n<count;n++)
+		{
+			out+=between;
+			out+=items[n];
+		}
+		return out;
+	}
+	
+	T join(char between)
+	{
+		T out=items[0];
+		for (size_t n=1;n<count;n++)
+		{
+			out+=between;
+			out+=items[n];
+		}
+		return out;
+	}
+	
+	void append(const T& item) { size_t pos=this->count; resize_grow(pos+1); items[pos]=item; }
+	void reset() { resize_shrink(0); }
 	
 	array()
 	{
