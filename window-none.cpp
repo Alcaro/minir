@@ -1,9 +1,18 @@
 #include "window.h"
+#include "file.h"
+#include "os.h"
 #ifdef WINDOW_MINIMAL
 #include <stdio.h>
 #include <stdlib.h>
 
 #include <time.h>
+
+static void init_mutex_stuff();
+void window_init(int * argc, char * * argv[])
+{
+	_window_init_native();
+	init_mutex_stuff();
+}
 
 uint64_t window_get_time()
 {
@@ -47,16 +56,14 @@ bool file_write(const char * filename, const char * data, size_t len)
 	//
 //}
 
-#if defined(WINDOW_MINIMAL_IMUTEX_DUMMY)
-#include "os.h"
-void window_init(int * argc, char * * argv[]) {}
-void _int_mutex_lock(enum _int_mutex id) {}
-bool _int_mutex_try_lock(enum _int_mutex id) {}
-void _int_mutex_unlock(enum _int_mutex id) {}
-#elif defined(WINDOW_MINIMAL_IMUTEX)
-#include "os.h"
+char * window_get_absolute_path(const char * basepath, const char * path, bool allow_up)
+{
+	return _window_native_get_absolute_path(basepath, path, allow_up);
+}
+
+#if defined(WINDOW_MINIMAL_IMUTEX)
 static mutex* imutex[_imutex_count];
-void window_init(int * argc, char * * argv[])
+static void init_mutex_stuff()
 {
 	for (unsigned int i=0;i<_imutex_count;i++) imutex[i]=new mutex;
 }
@@ -64,5 +71,10 @@ void window_init(int * argc, char * * argv[])
 void _int_mutex_lock(enum _int_mutex id) { imutex[id]->lock(); }
 bool _int_mutex_try_lock(enum _int_mutex id) { return imutex[id]->try_lock(); }
 void _int_mutex_unlock(enum _int_mutex id) { imutex[id]->unlock(); }
+#else
+static void init_mutex_stuff() {}
+void _int_mutex_lock(enum _int_mutex id) {}
+bool _int_mutex_try_lock(enum _int_mutex id) {}
+void _int_mutex_unlock(enum _int_mutex id) {}
 #endif
 #endif

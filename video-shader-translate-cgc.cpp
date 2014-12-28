@@ -2,16 +2,18 @@
 #include "os.h"
 #include "containers.h"
 
+#ifdef HAVE_CG_SHADERS
+
+//TODO: This file will be translated to C once it's finished. Don't do anything too scary.
+
 #ifndef HAVE_PARAMETER_UNIFORM
 #define HAVE_PARAMETER_UNIFORM 1
 #endif
 
-//For easier compatibilty with RetroArch, this file may not use
-//- the overloaded string operators (member functions are fine)
-
-#ifdef HAVE_CG_SHADERS
 #define CG_EXPLICIT // disable prototypes so I don't use them by accident
 #include <Cg/cg.h>
+
+namespace {
 
 #define CG_SYM(ret, name, args) CG_SYM_N("cg"#name, ret, name, args)
 #define CG_SYMS() \
@@ -28,23 +30,30 @@
 	CG_SYM(const char *, GetLastListing, (CGcontext context)) \
 	CG_SYM(void, SetAutoCompile, (CGcontext context, CGenum autoCompileMode)) \
 
-
 #define CG_SYM_N(str, ret, name, args) ret (*name) args;
-struct cglib { CG_SYMS() ndylib* lib; } cg;
+struct cglib { CG_SYMS() ndylib* lib; };
 #undef CG_SYM_N
 #define CG_SYM_N(str, ret, name, args) str,
 static const char * const cg_names[]={ CG_SYMS() };
 #undef CG_SYM_N
 
-struct cg_include_data {
-	function<char*(const char * filename)> include;
-};
-static ptrmap<CGcontext, struct cg_include_data*> cgc_data;
-static void cgc_get_file(CGcontext context, const char * filename)
-{
-	struct cg_include_data * data = cgc_data.get(context);
-	char * text=data->include(filename);
-	if (text)
+class cg_translator;
+static ptrmap<CGcontext, cg_translator*> cgc_translators;
+class cg_translator {
+public:
+	struct cglib cg;
+	CGcontext context;
+	
+	function<char*(const char * filename)> get_include;
+	//TODO: parameter list
+	
+	cg_translator()
+	{
+		memset(&cg, 0, sizeof(cg));
+		context=NULL;
+	}
+	
+	char* preprocess(const char * text)
 	{
 		//TODO:
 		//def preprocess_vertex(source_data):
@@ -58,68 +67,90 @@ static void cgc_get_file(CGcontext context, const char * filename)
 		//      else:
 		//         ret.append(line)
 		//   return '\n'.join(ret)
-		cg.SetCompilerIncludeString(context, filename, text);
-		free(text);
+		return strdup(text);
 	}
-	else
+	
+	bool load_functions()
 	{
-		cg.SetCompilerIncludeString(context, filename, "#error \"File not available.\"");
+		cg.lib=dylib_create(DYLIB_MAKE_NAME("Cg"));
+		if (!cg.lib) return false;
+		
+		funcptr* functions=(funcptr*)&cg;
+		for (unsigned int i=0;i<sizeof(cg_names)/sizeof(*cg_names);i++)
+		{
+			functions[i]=dylib_sym_func(cg.lib, cg_names[i]);
+			if (!functions[i]) return false;
+		}
+		return true;
 	}
-printf("%s -> %p\n",filename,text);
-}
+	
+	void cgc_include_cb(const char * filename)
+	{
+		while (*filename=='/') filename++; // what the hell
+		char * text=this->get_include(filename);
+		if (text)
+		{
+			cg.SetCompilerIncludeString(context, filename, preprocess(text));
+			free(text);
+		}
+		else
+		{
+			cg.SetCompilerIncludeString(context, filename, "#error \"File not available.\"");
+		}
+	}
+	
+	static void cgc_include_cb_s(CGcontext context, const char * filename)
+	{
+		cgc_translators.get(context)->cgc_include_cb(filename);
+	}
+	
+	char* translate(video::shader::lang_t from, video::shader::lang_t to, const char * text,
+	                function<char*(const char * filename)> get_include)
+	{
+		if (from!=video::shader::la_cg) return NULL;
+		if (to!=video::shader::la_glsl) return NULL;
+		
+		if (!load_functions()) return NULL;
+		
+		this->context = cg.CreateContext();
+		this->get_include = get_include;
+		cgc_translators.set(this->context, this);
+		
+#define e printf("e=%s\n",cg.GetLastListing(this->context));
+		cg.SetCompilerIncludeCallback(this->context, cgc_include_cb_s);
+		
+		char * text_p=preprocess(text);
+		static const char * args[]={ "-DPARAMETER_UNIFORM", NULL };
+		CGprogram vertex_p = cg.CreateProgram(this->context, CG_SOURCE, text_p, CG_PROFILE_GLSLV, "main_vertex", args);
+		CGprogram fragment_p = cg.CreateProgram(this->context, CG_SOURCE, text_p, CG_PROFILE_GLSLF, "main_fragment", args);
+		free(text_p);
+		if (!cg.IsProgramCompiled(vertex_p) || !cg.IsProgramCompiled(fragment_p)) return NULL;
+		
+		const char * vertex=cg.GetProgramString(vertex_p, CG_COMPILED_PROGRAM);
+		const char * fragment=cg.GetProgramString(fragment_p, CG_COMPILED_PROGRAM);
+		
+//TODO: do this properly, start at line cg2glsl.py line 581
+//TODO: use a proper string class over here
+printf("%s\n", vertex);
+printf("%s\n", fragment);
+		
+puts("ALL OK");
+		return NULL;
+	}
+	
+	~cg_translator()
+	{
+		if (context) cgc_translators.remove(context);
+		if (cg.DestroyContext && context) cg.DestroyContext(context);
+		if (cg.lib) dylib_free(cg.lib);
+	}
+};
 
-void cgSetCompilerIncludeCallback( CGcontext context, CGIncludeCallbackFunc func );
+}
 
 char * video::shader::translate_cgc(lang_t from, lang_t to, const char * text, function<char*(const char * filename)> get_include)
 {
-	if (from!=la_cg) return NULL;
-	if (to!=la_glsl) return NULL;
-	
-	char * ret=NULL;
-	
-	cg.lib=dylib_create(DYLIB_MAKE_NAME("Cg"));
-	if (!cg.lib) return NULL;
-	
-	funcptr* functions=(funcptr*)&cg;
-	for (unsigned int i=0;i<sizeof(cg_names)/sizeof(*cg_names);i++)
-	{
-		functions[i]=dylib_sym_func(cg.lib, cg_names[i]);
-		if (!functions[i]) goto error_noctx;
-	}
-	
-	{
-	CGcontext context;
-	context = cg.CreateContext();
-	
-	struct cg_include_data includedata={get_include};
-	cgc_data.set(context, &includedata);
-#define e printf("e=%s\n",cg.GetLastListing(context));
-	cg.SetCompilerIncludeCallback(context, cgc_get_file);
-	
-	static const char * args[]={ "-DPARAMETER_UNIFORM", NULL };
-e	CGprogram vertex = cg.CreateProgram(context, CG_SOURCE, text, CG_PROFILE_GLSLV, "main_vertex", args);
-e	CGprogram fragment = cg.CreateProgram(context, CG_SOURCE, text, CG_PROFILE_GLSLF, "main_fragment", args);
-e	if (!cg.IsProgramCompiled(vertex)) goto error;
-e	if (!cg.IsProgramCompiled(fragment)) goto error;
-	
-	//TODO: do this properly
-	//printf("%s\n", cg.GetProgramString(vertex, CG_COMPILED_PROGRAM));
-	//printf("%s\n", cg.GetProgramString(fragment, CG_COMPILED_PROGRAM));
-	
-puts("ALL OK");
-	goto error;
-	
-	if (false)
-	{
-	error:
-		ret=NULL;
-	}
-	cgc_data.remove(context);
-	cg.DestroyContext(context);
-	}
-error_noctx:
-	dylib_free(cg.lib);
-	
-	return ret;
+	cg_translator tr;
+	return tr.translate(from, to, text, get_include);
 }
 #endif

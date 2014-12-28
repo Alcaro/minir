@@ -9,7 +9,9 @@ COMMENT1
 cd subproj || true
 cd ..
 g++ -Wno-unused-result subproj/shadetr.cpp \
-	-DDYLIB_POSIX dylib.cpp -ldl -DWINDOW_MINIMAL -DWINDOW_MINIMAL_IMUTEX_DUMMY window-none.cpp \
+	-DDYLIB_POSIX dylib.cpp -ldl \
+	-DWINDOW_MINIMAL window-none.cpp \
+	-DFILEPATH_POSIX window-native.cpp \
 	-DHAVE_CG_SHADERS video-shader-translate*.cpp \
 	memory.cpp video.cpp -g -o shadetr
 mv shadetr ~/bin
@@ -20,41 +22,63 @@ mv shadetr ~/bin
 #include "../io.h"
 #include "../string.h"
 #include "../file.h"
+#include "../window.h"
 #include <stdio.h>
+
+const char * shaderpath;
 
 char * readfile(const char * filename)
 {
-	//return strdup("#error Q");
-	return NULL;
+	char * path=window_get_absolute_path(shaderpath, filename, false);
+printf("%s %s %s\n",shaderpath,filename,path);
+	if (!path) return NULL;
+	char* ret;
+	file_read(path, (void**)&ret, NULL);
+	free(path);
+	return ret;
 }
 
-int main(int argc, char * argv[])
+char * convert_one(const char * filename, video::shader::lang_t target)
 {
+	shaderpath=filename;
+	
 	char* text;
-	if (!file_read(argv[1], (void**)&text, NULL))
+	if (!file_read(filename, (void**)&text, NULL))
 	{
 		puts("Couldn't read file");
-		return 1;
+		exit(1);
 	}
-	const char * srcext=strrchr(argv[1], '.');
-	const char * dstext=strrchr(argv[2], '.');
-	if (!srcext || !dstext)
+	
+	const char * srcext=strrchr(filename, '.');
+	if (!srcext)
 	{
-		puts("Couldn't determine file type");
-		return 1;
+		puts("Couldn't determine source file type");
+		exit(1);
 	}
-	//preset format: shaders=1\nshader0=%s
 	char* new_text=video::shader::translate(video::shader::str_to_lang(srcext+1),
-	                                        video::shader::str_to_lang(dstext+1),
+	                                        target,
 	                                        text, bind(readfile));
 	free(text);
 	
 	if (!new_text)
 	{
 		puts("Couldn't translate");
-		return 1;
+		exit(1);
 	}
-	
+	return new_text;
+}
+
+int main(int argc, char * argv[])
+{
+	window_init(&argc, &argv);
+	const char * dstext=strrchr(argv[2], '.');
+	if (!dstext)
+	{
+		puts("Couldn't determine destination file type");
+		exit(1);
+	}
+//preset format: shaders=1\nshader0=%s
+char* new_text=convert_one(window_get_absolute_path(window_get_cwd(), argv[1], true), video::shader::str_to_lang(dstext+1));
 puts(new_text);
 	//if (!file_write(argv[2], 
 }

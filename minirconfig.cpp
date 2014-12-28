@@ -17,6 +17,9 @@
 #define nop(x) (x)
 #define strdup_s(x) ((x) ? strdup(x) : NULL)
 
+//TODO: store some version info in the config
+//git commit, date, public version
+
 struct minirconfig_impl {
 	struct minirconfig i;
 	
