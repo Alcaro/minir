@@ -228,31 +228,73 @@ private:
 		this->readpos_codepoints=other.readpos_codepoints;
 	}
 	
-	//void append_bytes(const char * bytes)
-	//void append_str(cstring other)
-	
-	uint32_t char_at(size_t index) const
-	{
-		if (!(this->state & st_utf8)) return this->utf[index];
-		//TODO
-	}
-	
-	void set_char_at(size_t index, uint32_t val)
-	{
-		if (val==0x00) val=0xFFFD;
-		if (!(this->state & st_utf8) && !(val&~0x7F))
-		{
-			this->utf[index]=val;
-			return;
-		}
-		//TODO
-	}
-	
 	void reserve_bytes(size_t newbytes)
 	{
 		size_t insize=bitround(this->nbyte+1);
 		size_t outsize=bitround(this->nbyte + newbytes + 1);
 		if (insize!=outsize) this->utf=realloc(this->utf, outsize);
+	}
+	
+	size_t find_nbyte_for_codepoint(size_t index) const
+	{
+		if (!(this->state & st_utf8)) return index;
+		const char * utf=this->utf;
+		while (index)
+		{
+			if (!*utf) return (size_t)-1;
+			utf+=utf8firstlen(*utf);
+			index--;
+		}
+		return (utf - this->utf);
+	}
+	
+	uint32_t char_at(size_t index) const
+	{
+		if (!(this->state & st_utf8)) return this->utf[index];
+		size_t nbyte=find_nbyte_for_codepoint(index);
+		if (nbyte==(size_t)-1)
+		{
+			this->state=st_invalid;
+			return 0xFFFD;
+		}
+		
+		const char * utf=this->utf + nbyte;
+		return utf8readcp(utf, NULL);
+	}
+	
+	void set_char_at(size_t index, uint32_t val)
+	{
+		if (val==0x00)
+		{
+			val=0xFFFD;
+			this->state=st_invalid;
+		}
+		if (!(this->state & st_utf8) && val<=0x7F)
+		{
+			this->utf[index]=val;
+			return;
+		}
+		
+		size_t nbyte=find_nbyte_for_codepoint(index);
+		if (nbyte==(size_t)-1)
+		{
+			this->state=st_invalid;
+			return;
+		}
+		
+		const char * utf=this->utf + nbyte;
+		unsigned int nbyte_now=utf8firstlen(*utf);
+		unsigned int nbyte_new=utf8cplen(val);
+		if (nbyte_now!=nbyte_new)
+		{
+			if (nbyte_new > nbyte_now)
+			{
+				reserve_bytes(nbyte_new);
+				utf = this->utf + nbyte;
+			}
+			memmove(this->utf+nbyte+nbyte_new, this->utf+nbyte+nbyte_now, this->nbyte-nbyte-this->nbyte_now+1);
+		}
+		utf8writecp(utf, val);
 	}
 	
 public:
@@ -345,10 +387,36 @@ public:
 		return ret;
 	}
 	
-	stringlist split(char sep) const
+	stringlist split(uint32_t sep) const
 	{
-		char sep_s[]={sep, '\0'};
-		return split(sep_s);
+		if (sep>=0x80)
+		{
+			char sep_s[6];
+			char * sep_s_p=sep_s;
+			utf8writecp(sep_s_p, sep);
+			*sep_s_p='\0';
+			return split(sep_s);
+		}
+		
+		stringlist ret;
+		char * at=this->utf;
+		char * next=strchr(at, sep);
+		while (next)
+		{
+			char tmp=*next;
+			*next='\0';
+			ret.append(at);
+			*next=tmp;
+			at=next+strlen(sep);
+			next=strchr(at, sep);
+		}
+		ret.append(at);
+		return ret;
+	}
+	
+	string replace(const char * from, const char * to)
+	{
+		
 	}
 	
 	bool valid() { return (this->state != st_invalid); }
