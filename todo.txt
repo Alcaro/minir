@@ -1,5 +1,6 @@
 * = currently working on
 
+major:
 - various parts need to become proper C++
  - more strings
 - main.cpp is a mess, global variables all over
@@ -33,8 +34,10 @@
   - don't do it yet
  - tie core options to input sources, for layer toggle in snes9x
 
-bugs:
+minor:
 - (gtk+) starting without rom then opening one screws up window width due to status bar not resizing
  - can I get rid of the manual layout management there?
 - (win32) dropping a file into the window segfaults - but only with debugger disabled
+
+incomprehensible:
 - figure out the Mupen64 issues
