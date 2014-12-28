@@ -1,6 +1,28 @@
-current:
-- finish c++ rewrite
-- finish rewriting inputraw to inputkb, then rename it back because we probably don't want mixed input sources
+* = currently working on
+
+- various parts need to become proper C++
+ - more strings
+- main.cpp is a mess, global variables all over
+* finish shader support
+ * finish Cg to GLSL compiler
+ - add multipass
+ - add custom textures
+ - add imports
+ - add parameters
+- more input options
+ - mouse support
+  - automatic mouse control for scrolling shooters
+ - controller support, if I can get my hands on any
+ - tablets and other bizarre input devices?
+- netplay
+ - need both RetroArch rewind and laggy
+- rewrite audio
+ - C++
+ - RetroArch-style Dynamic Rate Control
+ - thread it
+- video recording
+ - record to ffmpeg
+ - record to GIF
 - rewrite config handler again
  - it's currently fairly leaky
  - will need to rewrite minir.cfg.tmpl, in a new format that can be turned into a GUI
@@ -15,21 +37,4 @@ bugs:
 - (gtk+) starting without rom then opening one screws up window width due to status bar not resizing
  - can I get rid of the manual layout management there?
 - (win32) dropping a file into the window segfaults - but only with debugger disabled
-
-other:
-- get gl cores working
-- get shaders working
-- get video recorder working
- - multiple video backends
-  - ffmpeg
-  - gif
-
-- rewrite main.c (maybe do one part at the time?)
-
-- figure out how to handle mice
- - controllers (only if I can get my hands on any)
- - tablets and other bizarre devices?
-
-- rewrite audio:
- - dynamic rate control
- - move to another thread
+- figure out the Mupen64 issues
