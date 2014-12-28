@@ -262,8 +262,12 @@ public:
 	string(const char * bytes) { set_to_bytes(bytes); }
 	string(const string& other) { set_to_str_clone(other); }
 	~string() { free(utf); }
-	string& operator=(const char * bytes) { free(utf); set_to_bytes(bytes); }
-	string& operator=(string other) { set_to_str_consume(other); } // copying as the argument can sometimes avoid copying entirely
+	string& operator=(const char * bytes) { free(this->utf); set_to_bytes(bytes); }
+	string& operator=(string other) // copying as the argument can sometimes avoid copying entirely
+	{
+		free(this->utf);
+		set_to_str_consume(other);
+	}
 	
 	string& operator+=(const char * bytes)
 	{
@@ -314,6 +318,15 @@ public:
 	uint32_t operator[](size_t index) const { return char_at(index); }
 	//TODO: operator[] that returns a fancy object that calls char_at from operator uint32_t, or set_char_at from operator =
 	
+	operator const char * () const { return utf; }
+	
+	size_t len()
+	{
+		if (this->len_codepoints == 65535) return utf8len(this->utf+this->readpos_nbyte)+this->readpos_codepoints;
+		else return this->len_codepoints;
+	}
+	operator bool() const { return (*this->utf); }
+	
 	stringlist split(const char * sep) const
 	{
 		stringlist ret;
@@ -323,9 +336,7 @@ public:
 		{
 			char tmp=*next;
 			*next='\0';
-			string s;
-			s.set_to_bytes(at);
-			ret.append(s);
+			ret.append(at);
 			*next=tmp;
 			at=next+strlen(sep);
 			next=strstr(at, sep);
@@ -340,18 +351,9 @@ public:
 		return split(sep_s);
 	}
 	
-	operator bool() const { return (*this->utf); }
-	operator const char * () const { return utf; }
+	bool valid() { return (this->state != st_invalid); }
 	
 	bool contains(const char * other) { return (strstr(this->utf, other)); }
-	
-	size_t len()
-	{
-		if (this->len_codepoints == 65535) return utf8len(this->utf+this->readpos_nbyte)+this->readpos_codepoints;
-		else return this->len_codepoints;
-	}
-	
-	bool valid() { return (this->state != st_invalid); }
 };
 static inline void strlen(cstring){}//don't do this - use .len()
 //I can't force use to give an error, but strlen() is expected to return a value, and using a void will throw.

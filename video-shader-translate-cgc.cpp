@@ -86,7 +86,9 @@ public:
 	void cgc_include_cb(const char * filename)
 	{
 		while (*filename=='/') filename++; // what the hell
-		string text=this->get_include(filename);
+		char* text_tmp=this->get_include(filename);
+		string text=text_tmp;
+		free(text_tmp);
 		if (text)
 		{
 			cg.SetCompilerIncludeString(context, filename, preprocess(text));
