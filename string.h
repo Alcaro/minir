@@ -311,7 +311,7 @@ public:
 	string& operator+=(const char * bytes)
 	{
 		size_t codepoints;
-		utf8append(this->utf, this->nbyte, bytes, &codepoints, &this->nbyte, &this->state);
+		this->utf=utf8append(this->utf, this->nbyte, bytes, &codepoints, &this->nbyte, &this->state);
 		codepoints += this->len_codepoints;
 		if (codepoints>65535) codepoints=65535;
 		this->len_codepoints=codepoints;
@@ -413,7 +413,6 @@ public:
 	
 	string replace(const char * bytes_from, const char * bytes_to) const
 	{
-return *this;
 		char * start=this->utf;
 		char * next=strstr(start, bytes_from);
 		if (!next) return *this;
