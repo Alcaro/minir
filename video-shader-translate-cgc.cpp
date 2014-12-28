@@ -63,7 +63,7 @@ public:
 		{
 			if (lines[i].contains("uniform") && (lines[i].contains("float4x4") || lines[i].contains("half4x4")))
 			{
-				lines[i]=((string)"#pragma pack_matrix(column_major)\n" + lines[i] + "\n#pragma pack_matrix(row_major)");
+				lines[i]=(S"#pragma pack_matrix(column_major)\n"+lines[i]+"\n#pragma pack_matrix(row_major)");
 			}
 		}
 		return lines.join('\n');
@@ -128,6 +128,26 @@ public:
 		
 		string vertex=cg.GetProgramString(vertex_p, CG_COMPILED_PROGRAM);
 		string fragment=cg.GetProgramString(fragment_p, CG_COMPILED_PROGRAM);
+		
+		vertex=vertex.replace("attribute", "COMPAT_ATTRIBUTE");
+		vertex=vertex.replace("varying", "COMPAT_VARYING");
+		vertex=vertex	.replace("texture2D", "COMPAT_TEXTURE");
+			vertex=vertex.replace("POSITION", "VertexCoord");
+			vertex=vertex.replace("TEXCOORD1", "LUTTexCoord");
+			vertex=vertex.replace("TEXCOORD0", "TexCoord");
+			vertex=vertex.replace("TEXCOORD", "TexCoord");
+			vertex=vertex.replace("uniform vec4 _modelViewProj1[4];", "");
+			vertex=vertex.replace("_modelViewProj1", "MVPMatrix")
+			.replace("_IN1._mvp_matrix[0]", "MVPMatrix[0]")
+			.replace("_IN1._mvp_matrix[1]", "MVPMatrix[1]")
+			.replace("_IN1._mvp_matrix[2]", "MVPMatrix[2]")
+			.replace("_IN1._mvp_matrix[3]", "MVPMatrix[3]")
+
+			.replace("FrameCount", "float(FrameCount)")
+			.replace("FrameDirection", "float(FrameDirection)")
+			.replace("input", "input_dummy") // "input" is reserved in GLSL.
+			.replace("output", "output_dummy") // "output" is reserved in GLSL.
+			;
 		
 //TODO: do this properly, start at line cg2glsl.py line 581
 puts(vertex);

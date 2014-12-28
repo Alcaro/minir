@@ -252,11 +252,8 @@ private:
 	{
 		if (!(this->state & st_utf8)) return this->utf[index];
 		size_t nbyte=find_nbyte_for_codepoint(index);
-		if (nbyte==(size_t)-1)
-		{
-			this->state=st_invalid;
-			return 0xFFFD;
-		}
+		
+		if (nbyte==(size_t)-1) return 0xFFFD;
 		
 		const char * utf=this->utf + nbyte;
 		return utf8readcp(utf, NULL);
@@ -282,7 +279,7 @@ private:
 			return;
 		}
 		
-		const char * utf=this->utf + nbyte;
+		char * utf=this->utf + nbyte;
 		unsigned int nbyte_now=utf8firstlen(*utf);
 		unsigned int nbyte_new=utf8cplen(val);
 		if (nbyte_now!=nbyte_new)
@@ -292,7 +289,7 @@ private:
 				reserve_bytes(nbyte_new);
 				utf = this->utf + nbyte;
 			}
-			memmove(this->utf+nbyte+nbyte_new, this->utf+nbyte+nbyte_now, this->nbyte-nbyte-this->nbyte_now+1);
+			memmove(this->utf+nbyte+nbyte_new, this->utf+nbyte+nbyte_now, this->nbyte-nbyte-nbyte_now+1);
 		}
 		utf8writecp(utf, val);
 	}
@@ -407,16 +404,34 @@ public:
 			*next='\0';
 			ret.append(at);
 			*next=tmp;
-			at=next+strlen(sep);
+			at=next+utf8cplen(sep);
 			next=strchr(at, sep);
 		}
 		ret.append(at);
 		return ret;
 	}
 	
-	string replace(const char * from, const char * to)
+	string replace(const char * bytes_from, const char * bytes_to) const
 	{
+return *this;
+		char * start=this->utf;
+		char * next=strstr(start, bytes_from);
+		if (!next) return *this;
 		
+		string out;
+		string to=bytes_to;
+		while (next)
+		{
+			char tmp=*next;
+			*next='\0';
+			out+=start;
+			out+=to;
+			*next=tmp;
+			start=next+strlen(bytes_from);
+			next=strstr(start, bytes_from);
+		}
+		out+=start;
+		return out;
 	}
 	
 	bool valid() { return (this->state != st_invalid); }
@@ -425,3 +440,4 @@ public:
 };
 static inline void strlen(cstring){}//don't do this - use .len()
 //I can't force use to give an error, but strlen() is expected to return a value, and using a void will throw.
+#define S (string)

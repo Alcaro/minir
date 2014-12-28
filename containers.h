@@ -233,7 +233,7 @@ template<typename T> class array {
 		if (bufsize_pre != bufsize_post) this->items=realloc(this->items, sizeof(T)*bufsize_post);
 		for (size_t i=this->count;i<count;i++)
 		{
-			new(&items[i]) T();
+			new(&this->items[i]) T();
 		}
 		this->count=count;
 	}
@@ -243,7 +243,7 @@ template<typename T> class array {
 		if (this->count < count) return;
 		for (size_t i=count;i<this->count;i++)
 		{
-			items[i]->~T();
+			this->items[i]->~T();
 		}
 		size_t bufsize_pre=bitround(this->count);
 		size_t bufsize_post=bitround(count);
@@ -304,6 +304,13 @@ public:
 	{
 		this->items=NULL;
 		this->count=0;
+	}
+	
+	array(const array<T>& other)
+	{
+		this->count=other.count;
+		this->items=malloc(sizeof(T)*bitround(this->count));
+		for (size_t i=0;i<this->count;i++) new(&this->items[i]) T(other.items[i]);
 	}
 	
 	~array()
