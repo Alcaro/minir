@@ -87,6 +87,7 @@ template<typename FuncSignature> class function;
 #define LOOP(macro) macro(1), macro(2), macro(3), macro(4), macro(5), macro(6)
 #include "function.h"
 
+#undef C
 #undef JOIN2
 #undef JOIN
 #undef FreeCallbackFactory
@@ -101,7 +102,6 @@ template<typename FuncSignature> class function;
 #undef ARG_TYPES_AND_NAMES
 #undef TYPENAMES_I
 #undef TYPENAMES
-
 #undef TYPENAMES2_I
 #undef TYPENAMES2
 
