@@ -41,3 +41,4 @@ minor:
 
 incomprehensible:
 - figure out the Mupen64 issues
+- why is Windows OpenGL 48fps?
