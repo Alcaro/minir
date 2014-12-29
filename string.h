@@ -300,6 +300,9 @@ public:
 	string() { set_to_bytes(""); }
 	string(const char * bytes) { set_to_bytes(bytes); }
 	string(const string& other) { set_to_str_clone(other); }
+#ifdef HAVE_MOVE_SEMANTICS
+	string(string&& other) { set_to_str_consume(other); }
+#endif
 	~string() { free(utf); }
 	string& operator=(const char * bytes) { free(this->utf); set_to_bytes(bytes); }
 	string& operator=(string other) // copying as the argument can sometimes avoid copying entirely

@@ -8,7 +8,7 @@ COMMENT1
 
 cd subproj || true
 cd ..
-g++ -Wno-unused-result subproj/shadetr.cpp \
+g++ -std=c++11 -Wno-unused-result subproj/shadetr.cpp \
 	-DDYLIB_POSIX dylib.cpp -ldl \
 	-DWINDOW_MINIMAL window-none.cpp \
 	-DFILEPATH_POSIX window-native.cpp \
@@ -30,7 +30,6 @@ const char * shaderpath;
 char * readfile(const char * filename)
 {
 	char * path=window_get_absolute_path(shaderpath, filename, false);
-printf("%s %s %s\n",shaderpath,filename,path);
 	if (!path) return NULL;
 	char* ret;
 	file_read(path, (void**)&ret, NULL);

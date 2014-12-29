@@ -9,10 +9,6 @@
 
 //http://http.developer.nvidia.com/Cg/cgSetCompilerIncludeString.html
 
-#ifndef HAVE_PARAMETER_UNIFORM
-#define HAVE_PARAMETER_UNIFORM 1
-#endif
-
 #define CG_EXPLICIT // disable prototypes so I don't use them by accident
 #include <Cg/cg.h>
 
@@ -22,7 +18,7 @@ namespace {
 #define CG_SYMS() \
 	CG_SYM(CGcontext, CreateContext, (void)) \
 	CG_SYM(CGprogram, CreateProgram, (CGcontext context, CGenum program_type, const char * program, \
-	                                  CGprofile profile, const char *entry, const char **args)) \
+	                                  CGprofile profile, const char * entry, const char ** args)) \
 	CG_SYM(void, CompileProgram, (CGprogram program)) \
 	CG_SYM(CGbool, IsProgramCompiled, (CGprogram program)) \
 	CG_SYM(const char *, GetProgramString, (CGprogram program, CGenum pname)) \
@@ -30,8 +26,7 @@ namespace {
 	CG_SYM(void, SetCompilerIncludeCallback, (CGcontext context, CGIncludeCallbackFunc func)) \
 	CG_SYM(void, SetCompilerIncludeString, (CGcontext context, const char * name, const char * source)) \
 	\
-	CG_SYM(const char *, GetLastListing, (CGcontext context)) \
-	CG_SYM(void, SetAutoCompile, (CGcontext context, CGenum autoCompileMode)) \
+	CG_SYM(CGprofile, GetProfile, (const char * profile_string )) \
 
 #define CG_SYM_N(str, ret, name, args) ret (*name) args;
 struct cglib { CG_SYMS() ndylib* lib; };
@@ -44,29 +39,17 @@ class cg_translator;
 static ptrmap<CGcontext, cg_translator*> cgc_translators;
 class cg_translator {
 public:
+	
 	struct cglib cg;
 	CGcontext context;
 	
 	function<char*(const char * filename)> get_include;
-	//TODO: parameter list
+	//TODO: shader parameters
 	
 	cg_translator()
 	{
-		memset(&cg, 0, sizeof(cg));
 		context=NULL;
-	}
-	
-	string preprocess(cstring text)
-	{
-		stringlist lines=text.split('\n');
-		for (size_t i=0;i<lines.len();i++)
-		{
-			if (lines[i].contains("uniform") && (lines[i].contains("float4x4") || lines[i].contains("half4x4")))
-			{
-				lines[i]=(S"#pragma pack_matrix(column_major)\n"+lines[i]+"\n#pragma pack_matrix(row_major)");
-			}
-		}
-		return lines.join('\n');
+		cg.lib=NULL;
 	}
 	
 	bool load_functions()
@@ -81,6 +64,19 @@ public:
 			if (!functions[i]) return false;
 		}
 		return true;
+	}
+	
+	string preprocess(cstring text)
+	{
+		stringlist lines=text.split('\n');
+		for (size_t i=0;i<lines.len();i++)
+		{
+			if (lines[i].contains("uniform") && (lines[i].contains("float4x4") || lines[i].contains("half4x4")))
+			{
+				lines[i]=(S"#pragma pack_matrix(column_major)\n"+lines[i]+"\n#pragma pack_matrix(row_major)");
+			}
+		}
+		return lines.join('\n');
 	}
 	
 	void cgc_include_cb(const char * filename)
@@ -114,13 +110,14 @@ public:
 		
 		this->context = cg.CreateContext();
 		this->get_include = get_include;
-		cgc_translators.set(this->context, this);
 		
+//printf("f=%i v=%i\n",cg.GetProfile("glesf"),cg.GetProfile("glesv"));exit(0);
 #define e printf("e=%s\n",cg.GetLastListing(this->context));
+		cgc_translators.set(this->context, this);
 		cg.SetCompilerIncludeCallback(this->context, cgc_include_cb_s);
 		
 		string text_p=preprocess(text);
-		static const char * args[]={ "-DPARAMETER_UNIFORM", NULL };
+		static const char * args[]={ /*"-O3",*/ "version=130"/*GL 3.0*/, "-DPARAMETER_UNIFORM", NULL };
 		CGprogram vertex_p = cg.CreateProgram(this->context, CG_SOURCE, text_p, CG_PROFILE_GLSLV, "main_vertex", args);
 		CGprogram fragment_p = cg.CreateProgram(this->context, CG_SOURCE, text_p, CG_PROFILE_GLSLF, "main_fragment", args);
 		
@@ -129,27 +126,40 @@ public:
 		string vertex=cg.GetProgramString(vertex_p, CG_COMPILED_PROGRAM);
 		string fragment=cg.GetProgramString(fragment_p, CG_COMPILED_PROGRAM);
 		
-		vertex=vertex.replace("attribute", "COMPAT_ATTRIBUTE")
-			.replace("varying", "COMPAT_VARYING")
-			.replace("texture2D", "COMPAT_TEXTURE")
-			.replace("POSITION", "VertexCoord")
-			.replace("TEXCOORD1", "LUTTexCoord")
-			.replace("TEXCOORD0", "TexCoord")
-			.replace("TEXCOORD", "TexCoord")
+		//TODO: emulate replace_global_in (cg2glsl.py:33..56) on both vertex and fragment after finding any shader containing one or more of
+		//IN.video_size IN.texture_size IN.output_size IN.frame_count IN.frame_direction
+		
+		vertex=vertex
+			.replace("attribute",                        "COMPAT_ATTRIBUTE")
+			.replace("varying",                          "COMPAT_VARYING")
+			.replace("texture2D",                        "COMPAT_TEXTURE")
+			.replace("POSITION",                         "VertexCoord")
+			.replace("TEXCOORD1",                        "LUTTexCoord")
+			.replace("TEXCOORD0",                        "TexCoord")
+			.replace("TEXCOORD",                         "TexCoord")
 			.replace("uniform vec4 _modelViewProj1[4];", "")
-			.replace("_modelViewProj1", "MVPMatrix")
-			.replace("_IN1._mvp_matrix[0]", "MVPMatrix[0]")
-			.replace("_IN1._mvp_matrix[1]", "MVPMatrix[1]")
-			.replace("_IN1._mvp_matrix[2]", "MVPMatrix[2]")
-			.replace("_IN1._mvp_matrix[3]", "MVPMatrix[3]")
-			
-			.replace("FrameCount", "float(FrameCount)")
-			.replace("FrameDirection", "float(FrameDirection)")
-			.replace("input", "input_dummy") // "input" is reserved in GLSL.
-			.replace("output", "output_dummy") // "output" is reserved in GLSL.
+			.replace("_modelViewProj1",                  "MVPMatrix")
+			.replace("_IN1._mvp_matrix[0]",              "MVPMatrix[0]")
+			.replace("_IN1._mvp_matrix[1]",              "MVPMatrix[1]")
+			.replace("_IN1._mvp_matrix[2]",              "MVPMatrix[2]")
+			.replace("_IN1._mvp_matrix[3]",              "MVPMatrix[3]")
+			.replace("FrameCount",                       "float(FrameCount)")
+			.replace("FrameDirection",                   "float(FrameDirection)")
+			.replace("input",                            "input_dummy") // "input" is reserved in GLSL.
+			.replace("output",                           "output_dummy") // "output" is reserved in GLSL.
 			;
 		
-//TODO: do this properly, start at line cg2glsl.py line 581
+		fragment=fragment
+			.replace("varying",        "COMPAT_VARYING")
+			.replace("texture2D",      "COMPAT_TEXTURE")
+			.replace("FrameCount",     "float(FrameCount)")
+			.replace("FrameDirection", "float(FrameDirection)")
+			.replace("input",          "input_dummy")
+			.replace("output",         "output_dummy") // "output" is reserved in GLSL.
+			.replace("gl_FragColor",   "FragColor")
+			;
+		
+//TODO: do this properly, start at cg2glsl.py:584
 puts(vertex);
 puts(fragment);
 		

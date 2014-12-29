@@ -97,6 +97,10 @@
 //#define HAVE_CG_SHADERS
 #endif
 
+#if __cplusplus >= 201103L
+#define HAVE_MOVE_SEMANTICS
+#endif
+
 #ifdef __linux__
 #define HAVE_ASPRINTF
 #endif
