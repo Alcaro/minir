@@ -88,7 +88,7 @@ static void init()
 {
 	memset(libretrofor, 0, sizeof(libretrofor));
 	
-	Display* display=window_x11_get_display()->display;
+	Display* display=window_x11.display;
 	
 	
 	//128KB for something this simple and sparse may look weird, but the alternative is a huge loop -

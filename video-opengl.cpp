@@ -490,7 +490,7 @@ public:
 		if (gles) return false;//rejected for now
 		
 		//this doesn't really belong here, but I don't want to promote it to a class member and I can't add another parameter.
-		int screen = window_x11_get_display()->screen;
+		int screen = window_x11.screen;
 		
 		int glxmajor=0;
 		int glxminor=0;
@@ -572,7 +572,7 @@ public:
 		this->sh_fbo=NULL;
 		
 #ifdef WNDPROT_X11
-		this->display=window_x11_get_display()->display;
+		this->display=window_x11.display;
 		this->xwindow=None;
 		this->glxwindow=None;
 		this->glxsurface=None;

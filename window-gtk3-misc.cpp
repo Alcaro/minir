@@ -48,6 +48,11 @@
 
 //#include<sys/resource.h>
 static mutex* imutex[_imutex_count];
+
+#ifdef WNDPROT_X11
+struct window_x11_info window_x11;
+#endif
+
 void window_init(int * argc, char * * argv[])
 {
 //struct rlimit core_limits;core_limits.rlim_cur=core_limits.rlim_max=64*1024*1024;setrlimit(RLIMIT_CORE,&core_limits);
@@ -68,6 +73,10 @@ g_log_set_always_fatal((GLogLevelFlags)(G_LOG_LEVEL_CRITICAL|G_LOG_LEVEL_WARNING
 	png_decode(icon_minir_64x64_png,sizeof(icon_minir_64x64_png), &img, fmt_argb8888);
 	//we could tell it how to free this, but it will be used until replaced, and it won't be replaced.
 	gtk_window_set_default_icon(gdk_pixbuf_new_from_data((guchar*)img.pixels, GDK_COLORSPACE_RGB, true, 8, 64,64, 64*4, NULL, NULL));
+#endif
+#ifdef WNDPROT_X11
+	window_x11.display=gdk_x11_get_default_xdisplay();
+	window_x11.screen=gdk_x11_get_default_screen();
 #endif
 	errno=0;
 }
@@ -212,20 +221,6 @@ void window_run_wait()
 {
 	gtk_main_iteration_do(true);
 }
-
-#ifdef WNDPROT_X11
-static struct window_x11_display display={NULL,0};
-
-const struct window_x11_display * window_x11_get_display()
-{
-	if (!display.display)
-	{
-		display.display=gdk_x11_get_default_xdisplay();
-		display.screen=gdk_x11_get_default_screen();
-	}
-	return &display;
-}
-#endif
 
 
 

@@ -371,8 +371,8 @@ struct video * cvideo_create_opengl_old(uintptr_t windowhandle, unsigned int scr
 	this->gltexture=0;
 	
 #ifdef WNDPROT_X11
-	this->display = window_x11_get_display()->display;
-	this->screen = window_x11_get_display()->screen;
+	this->display = window_x11.display;
+	this->screen = window_x11.screen;
 	
 	int version_major=0;
 	int version_minor=0;

@@ -92,7 +92,7 @@ public:
 	
 	inputkb_xinput2(uintptr_t windowhandle)
 	{
-		this->display=window_x11_get_display()->display;
+		this->display=window_x11.display;
 		this->windowhandle=(Window)windowhandle;
 		this->numdevices=0;
 		this->numvaliddevices=0;
@@ -262,7 +262,7 @@ static inputkb* inputkb_create_xinput2(uintptr_t windowhandle)
 	int xi_opcode;
 	int event;
 	int error;
-	if (!XQueryExtension(window_x11_get_display()->display, "XInputExtension", &xi_opcode, &event, &error)) return NULL;
+	if (!XQueryExtension(window_x11.display, "XInputExtension", &xi_opcode, &event, &error)) return NULL;
 	
 	return new inputkb_xinput2(windowhandle);
 }

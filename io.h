@@ -10,11 +10,11 @@
 //Only I/O drivers should have any reason to use this.
 struct _XDisplay;
 typedef struct _XDisplay Display;
-struct window_x11_display {
+struct window_x11_info {
 	Display* display; //The real type is Display*.
 	unsigned long screen; //The real type is Window aka XID.
 };
-const struct window_x11_display * window_x11_get_display();
+extern struct window_x11_info window_x11;
 #endif
 
 //needed features:
@@ -429,7 +429,7 @@ public:
 	//It is safe to set this callback multiple times; the latest one applies. It is also safe to not set it at all, though that makes the structure quite useless.
 	//scancode is in the range -1..1023, and libretrocode is in the range 0..RETROK_LAST-1. keyboard is in 0..31.
 	//If scancode is -1 or libretrocode is 0, it means that the key does not have any assigned value. (Undefined scancodes are extremely rare, though.)
-	//It may repeat the current state.
+	//It may repeat the current state. It may trigger for scancodes that are impossible to hit.
 	void set_kb_cb(function<void(unsigned int keyboard, int scancode, unsigned int libretrocode, bool down)> key_cb) { this->key_cb = key_cb; }
 	
 	//Returns the features this driver supports. Numerically higher is better. Some flags contradict each other.

@@ -125,8 +125,8 @@ struct video * cvideo_create_xshm(uintptr_t windowhandle, unsigned int screen_wi
 	this->i.has_sync=has_sync;
 	this->i.free=free_;
 	
-	this->display=window_x11_get_display()->display;
-	this->screen=window_x11_get_display()->screen;
+	this->display=window_x11.display;
+	this->screen=window_x11.screen;
 	
 	if (!XShmQueryExtension(this->display)) goto cancel;
 	

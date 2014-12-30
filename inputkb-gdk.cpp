@@ -125,7 +125,7 @@ inputkb_gdk::~inputkb_gdk()
 inputkb_gdk::inputkb_gdk(uintptr_t windowhandle)
 {
 #ifdef WNDPROT_X11
-	this->display=gdk_x11_lookup_xdisplay(window_x11_get_display()->display);
+	this->display=gdk_x11_lookup_xdisplay(window_x11.display);
 #else
 #error Fill this in.
 #endif
