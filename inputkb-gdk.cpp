@@ -27,6 +27,25 @@ public:
 	//void refresh(); // we cannot poll the device
 	//void poll(); // we do this through the gtk+ main loop
 
+unsigned int find_or_allocate_id_for(GdkDevice* device)
+{
+	unsigned int kb=0;
+	while (kb<this->numdevices && this->devices[kb]!=device) kb++;
+	if (kb==this->numdevices)
+	{
+		kb=0;
+		while (kb<this->numdevices && this->devices[kb]) kb++;
+		if (kb==this->numdevices)
+		{
+			this->devices=realloc(this->devices, sizeof(GdkDevice*)*(this->numdevices+1));
+			this->devices[this->numdevices]=device;
+			this->numdevices++;
+		}
+		else this->devices[kb]=device;
+	}
+	return kb;
+}
+
 //static void device_add(GdkDeviceManager* object, GdkDevice* device, gpointer user_data)
 //{
 //ignore everything, because there are a LOT of bogus entries in the device list
@@ -85,20 +104,7 @@ gboolean key_action(GtkWidget* widget, GdkEvent* event)
 	//for some reason, repeated keystrokes come from the master device, which screws up device ID assignments
 	//we don't want repeats all, let's just kill them.
 	
-	unsigned int kb=0;
-	while (kb<this->numdevices && this->devices[kb]!=device) kb++;
-	if (kb==this->numdevices)
-	{
-		kb=0;
-		while (kb<this->numdevices && this->devices[kb]) kb++;
-		if (kb==this->numdevices)
-		{
-			this->devices=realloc(this->devices, sizeof(GdkDevice*)*(this->numdevices+1));
-			this->devices[this->numdevices]=device;
-			this->numdevices++;
-		}
-		else this->devices[kb]=device;
-	}
+	unsigned int kb=find_or_allocate_id_for(device);
 	
 	guint16 keycode;
 	gdk_event_get_keycode(event, &keycode);
