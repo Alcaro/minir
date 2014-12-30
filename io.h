@@ -435,7 +435,7 @@ public:
 	//Returns the features this driver supports. Numerically higher is better. Some flags contradict each other.
 	enum {
 		f_multi    = 0x0080,//Can differ between multiple keyboards.
-		f_delta    = 0x0040,//Does not call the callback for unchanged state, except for key repeat events. Improves processing time.
+		f_delta    = 0x0040,//Does not call the callback for unchanged state. Improves processing time. Key repeat events may still happen.
 		f_auto     = 0x0020,//poll() is empty, and the callback is called by window_run_*(). Implies f_delta.
 		f_direct   = 0x0010,//Does not go through a separate process. Improves latency.
 		f_background=0x0008,//Can view input events while the window is not focused. Implies f_auto.
@@ -467,16 +467,71 @@ public:
 inline inputkb::~inputkb(){}
 
 
+class inputmouse {
+public:
+	struct driver {
+		const char * name;
+		inputmouse* (*create)(uintptr_t windowhandle);
+		uint32_t features;
+	};
+	
+private:
+	static const driver driver_rawinput;
+	static const driver driver_udev;
+	static const driver driver_gdk;
+	static const driver driver_xinput2;
+	static const driver driver_directinput;
+	static const driver driver_x11;
+	static const driver driver_none;
+	
+public:
+	static const driver* const drivers[];
+	
+protected:
+	function<void(unsigned int keyboard, int scancode, unsigned int libretrocode, bool down)> key_cb;
+	
+public:
+	//It is safe to set this callback multiple times; the latest one applies. It is also safe to not set it at all, though that makes the structure quite useless.
+	//scancode is in the range -1..1023, and libretrocode is in the range 0..RETROK_LAST-1. keyboard is in 0..31.
+	//If scancode is -1 or libretrocode is 0, it means that the key does not have any assigned value. (Undefined scancodes are extremely rare, though.)
+	//It may repeat the current state. It may trigger for scancodes that are impossible to hit.
+	void set_kb_cb(function<void(unsigned int keyboard, int scancode, unsigned int libretrocode, bool down)> key_cb) { this->key_cb = key_cb; }
+	
+	//Returns the features this driver supports. Numerically higher is better. Some flags contradict each other.
+	enum {
+		f_multi    = 0x0080,//Can differ between multiple mice.
+		f_delta    = 0x0040,//Does not call the callback for unchanged state. Improves processing time.
+		f_auto     = 0x0020,//poll() is empty, and the callback is called by window_run_*(). Implies f_delta.
+		f_direct   = 0x0010,//Does not go through a separate process. Improves latency.
+		f_background=0x0008,//Can view input events while the window is not focused. Implies f_auto.
+		f_pollable = 0x0004,//refresh() is implemented.
+		f_remote   = 0x0002,//Compatible with X11 remoting, or equivalent. Implies !f_direct.
+		f_public   = 0x0001,//Does not require elevated privileges to use.
+	};
+	//virtual uint32_t features() = 0; // Features are constantly known at the start.
+	
+	//Returns the number of keyboards.
+	//virtual unsigned int numkb() { return 1; }
+	
+	//If f_pollable is set, this calls the callback for all pressed keys.
+	//The implementation is allowed to call it for non-pressed keys.
+	virtual void refresh() {}
+	
+	//If f_auto is not set, this calls the callback for all key states that changed since the last poll().
+	//The implementation is allowed to call it for unchanged keys.
+	virtual void poll() {}
+	
+	virtual ~inputmouse() = 0;
+	
+	//These translate hardware scancodes or virtual keycodes to libretro cores. Can return RETROK_UNKNOWN.
+	//Note that "virtual keycode" is platform dependent, and because they're huge on X11, they don't exist at all there.
+	//void inputkb_translate_init();
+	static unsigned translate_scan(unsigned int scancode);
+	static unsigned translate_vkey(unsigned int vkey);
+};
+inline inputmouse::~inputmouse(){}
 
 
-//class inputmouse;
-//struct driver_inputmouse {
-	//const char * name;
-	//inputmouse* (*create)(uintptr_t windowhandle);
-	//uint32_t features;
-//};
-//inline inputmouse::~inputmouse(){}
-//extern const driver_inputkb * list_inputkb[];
 
 struct inputjoy;
 
