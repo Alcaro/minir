@@ -23,11 +23,7 @@ public:
 		}
 	}
 	
-	static inputkb* create(uintptr_t windowhandle)
-	{
-		return new inputkb_x11();
-	}
-	
+	static inputkb* create(uintptr_t windowhandle) { return new inputkb_x11(); }
 	~inputkb_x11() {}
 };
 
