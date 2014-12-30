@@ -24,12 +24,12 @@ else
 	disabled+="pulseaudio"
 fi
 
-if [ -f /usr/include/Cg/cg.h ]; then
-	enabled+="Cg"
-	cflags+="-DHAVE_CG_SHADERS "
-else
-	disabled+="Cg"
-fi
+#if [ -f /usr/include/Cg/cg.h ]; then
+#	enabled+="Cg"
+#	cflags+="-DHAVE_CG_SHADERS "
+#else
+#	disabled+="Cg"
+#fi
 
 #uname := $(shell uname -a)
 #ifeq ($(uname),) win

@@ -13,7 +13,8 @@ g++ -std=c++11 -Wno-unused-result subproj/shadetr.cpp \
 	-DWINDOW_MINIMAL window-none.cpp \
 	-DFILEPATH_POSIX window-native.cpp \
 	-DHAVE_CG_SHADERS video-shader-translate*.cpp \
-	memory.cpp video.cpp -g -o shadetr
+	memory.cpp video.cpp -g -o shadetr ||
+	exit 1
 mv shadetr ~/bin
 
 <<COMMENT2
