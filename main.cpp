@@ -227,12 +227,12 @@ bool try_create_interface_audio(const char * interface)
 
 bool try_set_interface_input(unsigned int id, uintptr_t windowhandle)
 {
-	inputkb* device=list_inputkb[id]->create(windowhandle);
+	inputkb* device=inputkb::drivers[id]->create(windowhandle);
 	if (!device) return false;
-	if (!config.driver_inputkb || strcasecmp(config.driver_inputkb, list_inputkb[id]->name))
+	if (!config.driver_inputkb || strcasecmp(config.driver_inputkb, inputkb::drivers[id]->name))
 	{
 		free(config.driver_inputkb);
-		config.driver_inputkb=strdup(list_inputkb[id]->name);
+		config.driver_inputkb=strdup(inputkb::drivers[id]->name);
 	}
 	inp->set_keyboard(inp, device);
 	return true;
@@ -242,9 +242,9 @@ void create_interface_input(uintptr_t windowhandle)
 {
 	if (config.driver_inputkb)
 	{
-		for (unsigned int i=0;list_inputkb[i];i++)
+		for (unsigned int i=0;inputkb::drivers[i];i++)
 		{
-			if (!strcasecmp(config.driver_inputkb, list_inputkb[i]->name))
+			if (!strcasecmp(config.driver_inputkb, inputkb::drivers[i]->name))
 			{
 				if (try_set_interface_input(i, windowhandle)) return;
 				break;

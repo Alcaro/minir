@@ -50,13 +50,13 @@ public:
 	};
 	
 private:
-	static const driver create_d3d9;
-	static const driver create_ddraw;
-	static const driver create_opengl;
-	static const driver create_gdi;
-	static const driver create_xshm;
-	static const driver create_none;
-	static const driver create_opengl_old;
+	static const driver driver_d3d9;
+	static const driver driver_ddraw;
+	static const driver driver_opengl;
+	static const driver driver_gdi;
+	static const driver driver_xshm;
+	static const driver driver_none;
+	static const driver driver_opengl_old;
 	
 public:
 	static const driver* const drivers[];
@@ -401,15 +401,27 @@ struct audio * audio_create_none(uintptr_t windowhandle, double samplerate, doub
 
 
 
-class inputkb;
-struct driver_inputkb {
-	const char * name;
-	inputkb* (*create)(uintptr_t windowhandle);
-	uint32_t features;
-};
-
 //inputkb is a quite low-level structure. You'll have to keep the state yourself.
 class inputkb : nocopy {
+public:
+	struct driver {
+		const char * name;
+		inputkb* (*create)(uintptr_t windowhandle);
+		uint32_t features;
+	};
+	
+private:
+	static const driver driver_rawinput;
+	static const driver driver_udev;
+	static const driver driver_gdk;
+	static const driver driver_xinput2;
+	static const driver driver_directinput;
+	static const driver driver_x11;
+	static const driver driver_none;
+	
+public:
+	static const driver* const drivers[];
+	
 protected:
 	function<void(unsigned int keyboard, int scancode, unsigned int libretrocode, bool down)> key_cb;
 	
@@ -420,7 +432,7 @@ public:
 	//It may repeat the current state.
 	void set_kb_cb(function<void(unsigned int keyboard, int scancode, unsigned int libretrocode, bool down)> key_cb) { this->key_cb = key_cb; }
 	
-	//Returns the features this driver supports. Numerically higher is better. (Some flags contradict each other.)
+	//Returns the features this driver supports. Numerically higher is better. Some flags contradict each other.
 	enum {
 		f_multi    = 0x0080,//Can differ between multiple keyboards.
 		f_delta    = 0x0040,//Does not call the callback for unchanged state, except for key repeat events. Improves processing time.
@@ -431,7 +443,7 @@ public:
 		f_remote   = 0x0002,//Compatible with X11 remoting, or equivalent. Implies !f_direct.
 		f_public   = 0x0001,//Does not require elevated privileges to use.
 	};
-	//virtual uint32_t features() = 0;
+	//virtual uint32_t features() = 0; // Features are constantly known at the start.
 	
 	//Returns the number of keyboards.
 	//virtual unsigned int numkb() { return 1; }
@@ -445,21 +457,27 @@ public:
 	virtual void poll() {}
 	
 	virtual ~inputkb() = 0;
+	
+	//These translate hardware scancodes or virtual keycodes to libretro cores. Can return RETROK_UNKNOWN.
+	//Note that "virtual keycode" is platform dependent, and because they're huge on X11, they don't exist at all there.
+	//void inputkb_translate_init();
+	static unsigned translate_scan(unsigned int scancode);
+	static unsigned translate_vkey(unsigned int vkey);
 };
 inline inputkb::~inputkb(){}
 
-extern const driver_inputkb * list_inputkb[];
-
-//These translate hardware scancodes or virtual keycodes to libretro cores. Can return RETROK_UNKNOWN.
-//Note that "virtual keycode" is platform dependent, and because they're huge on X11, they don't exist at all there.
-//void inputkb_translate_init();
-unsigned inputkb_translate_scan(unsigned int scancode);
-unsigned inputkb_translate_vkey(unsigned int vkey);
 
 
 
+//class inputmouse;
+//struct driver_inputmouse {
+	//const char * name;
+	//inputmouse* (*create)(uintptr_t windowhandle);
+	//uint32_t features;
+//};
+//inline inputmouse::~inputmouse(){}
+//extern const driver_inputkb * list_inputkb[];
 
-struct inputmouse;
 struct inputjoy;
 
 

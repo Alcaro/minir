@@ -122,13 +122,13 @@ static void init()
 	initialized=true;
 }
 
-unsigned int inputkb_translate_scan(unsigned int scancode)
+unsigned int inputkb::translate_scan(unsigned int scancode)
 {
 	if (!initialized) init();
 	return sc_to_libretro[scancode];
 }
 
-unsigned int inputkb_translate_vkey(unsigned int vkey)
+unsigned int inputkb::translate_vkey(unsigned int vkey)
 {
 	if (!initialized) init();
 	return vk_to_libretro[vkey];

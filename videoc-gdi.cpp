@@ -175,5 +175,5 @@ static video* video_create_gdi(uintptr_t windowhandle)
 {
 	return video_create_compat(cvideo_create_gdi(windowhandle, 256, 256, fmt_xrgb1555, 60));
 }
-const video::driver video::create_gdi = {"GDI", video_create_gdi, NULL, 0};
+const video::driver video::driver_gdi = {"GDI", video_create_gdi, NULL, 0};
 #endif

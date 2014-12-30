@@ -76,7 +76,7 @@ public:
 		}
 		for (unsigned int i=0;i<256;i++)
 		{
-			this->key_cb(0, i, inputkb_translate_scan(i), keys[i]);
+			this->key_cb(0, i, inputkb::translate_scan(i), keys[i]);
 		}
 	}
 };
@@ -94,5 +94,5 @@ static inputkb* inputkb_create_dinput(uintptr_t windowhandle)
 
 }
 
-extern const driver_inputkb inputkb_directinput_desc={ "DirectInput", inputkb_create_dinput, inputkb_dinput::features };
+const inputkb::driver inputkb::driver_directinput={ "DirectInput", inputkb_create_dinput, inputkb_dinput::features };
 #endif

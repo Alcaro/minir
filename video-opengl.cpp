@@ -1204,8 +1204,8 @@ video* video_create_opengl_3d(uintptr_t windowhandle, struct retro_hw_render_cal
 
 }
 
-const video::driver video::create_opengl = { "OpenGL", video_create_opengl_2d, video_create_opengl_3d, video_opengl::max_features };
+const video::driver video::driver_opengl = { "OpenGL", video_create_opengl_2d, video_create_opengl_3d, video_opengl::max_features };
 //#else
 //video* video_create_opengl(uintptr_t windowhandle) { return NULL; }
-//const video::driver video::create_opengl = { "OpenGL", video_create_opengl, NULL, 0 };
+//const video::driver video::driver_opengl = { "OpenGL", video_create_opengl, NULL, 0 };
 #endif

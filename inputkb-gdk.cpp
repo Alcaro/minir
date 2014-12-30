@@ -105,7 +105,7 @@ inline gboolean inputkb_gdk::key_action_p(GtkWidget* widget, GdkEvent* event)
 	gdk_event_get_keycode(event, &keycode);
 	
 //printf("%i: %.2X %.2X\n", kb, keycode, inputkb_translate_scan(keycode));
-	this->key_cb(kb, keycode, inputkb_translate_scan(keycode), (event->type==GDK_KEY_PRESS));
+	this->key_cb(kb, keycode, inputkb::translate_scan(keycode), (event->type==GDK_KEY_PRESS));
 	return FALSE;
 }
 
@@ -188,5 +188,5 @@ static inputkb* inputkb_create_gdk(uintptr_t windowhandle)
 
 }
 
-extern const driver_inputkb inputkb_gdk_desc={ "GDK", inputkb_create_gdk, inputkb_gdk::features };
+const inputkb::driver inputkb::driver_gdk={ "GDK", inputkb_create_gdk, inputkb_gdk::features };
 #endif

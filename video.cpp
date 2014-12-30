@@ -13,7 +13,7 @@ class video_none : public video {
 video* video_create_none(uintptr_t windowhandle) { return new video_none(); }
 };
 
-const video::driver video::create_none={ "None", video_create_none, NULL, 0 };
+const video::driver video::driver_none={ "None", video_create_none, NULL, 0 };
 
 
 namespace {
@@ -89,24 +89,24 @@ video* video_create_compat(cvideo* child)
 
 const video::driver* const video::drivers[]={
 #ifdef VIDEO_D3D9
-	&create_d3d9,
+	&driver_d3d9,
 #endif
 #ifdef VIDEO_DDRAW
-	&create_ddraw,
+	&driver_ddraw,
 #endif
 #ifdef VIDEO_OPENGL
-	&create_opengl,
+	&driver_opengl,
 #endif
 #ifdef VIDEO_GDI
-	&create_gdi,
+	&driver_gdi,
 #endif
 #ifdef VIDEO_XSHM
-	&create_xshm,
+	&driver_xshm,
 #endif
 #ifdef VIDEO_OPENGL
-	&create_opengl_old,
+	&driver_opengl_old,
 #endif
-	&create_none,
+	&driver_none,
 	NULL
 };
 

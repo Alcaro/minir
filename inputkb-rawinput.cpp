@@ -168,7 +168,7 @@ void inputkb_rawinput::handle_event(RAWINPUT* input)
 			}
 			
 			//TODO: figure out if happy dude key can be sent here while ignoring fake keys from SysRq/Pause/Ins/Del/etc.
-			this->key_cb(deviceid, scan, inputkb_translate_vkey(vkey), !(flags&RI_KEY_BREAK));
+			this->key_cb(deviceid, scan, inputkb::translate_vkey(vkey), !(flags&RI_KEY_BREAK));
 		}
 		
 #ifdef DEBUG
@@ -260,5 +260,5 @@ static inputkb* inputkb_create_rawinput(uintptr_t windowhandle)
 
 }
 
-extern const driver_inputkb inputkb_rawinput_desc={ "RawInput", inputkb_create_rawinput, inputkb_rawinput::features };
+const inputkb::driver inputkb::driver_rawinput={ "RawInput", inputkb_create_rawinput, inputkb_rawinput::features };
 #endif

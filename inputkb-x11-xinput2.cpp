@@ -162,7 +162,7 @@ public:
 							this->deviceids[kb_id]=deviceid;
 							this->numvaliddevices++;
 						}
-						if (kb_id<this->numvaliddevices) key_cb(kb_id, key, inputkb_translate_scan(key), down);
+						if (kb_id<this->numvaliddevices) key_cb(kb_id, key, inputkb::translate_scan(key), down);
 					}
 					break;
 				}
@@ -269,5 +269,5 @@ static inputkb* inputkb_create_xinput2(uintptr_t windowhandle)
 
 }
 
-extern const driver_inputkb inputkb_xinput2_desc={ "XInput2", inputkb_create_xinput2, inputkb_xinput2::features };
+const inputkb::driver inputkb::driver_xinput2={ "XInput2", inputkb_create_xinput2, inputkb_xinput2::features };
 #endif

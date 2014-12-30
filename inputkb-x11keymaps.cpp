@@ -126,7 +126,7 @@ static void init()
 	initialized=true;
 }
 
-unsigned int inputkb_translate_scan(unsigned int scancode)
+unsigned int inputkb::translate_scan(unsigned int scancode)
 {
 	if (!initialized) init();
 	return libretrofor[scancode];

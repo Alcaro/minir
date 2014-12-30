@@ -147,5 +147,5 @@ static video* video_create_xshm(uintptr_t windowhandle)
 {
 	return video_create_compat(cvideo_create_xshm(windowhandle, 256, 256, fmt_xrgb1555, 60));
 }
-const video::driver video::create_xshm = {"XShm", video_create_xshm, NULL, 0};
+const video::driver video::driver_xshm = {"XShm", video_create_xshm, NULL, 0};
 #endif

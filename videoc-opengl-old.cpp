@@ -511,11 +511,11 @@ static video* video_create_opengl_old(uintptr_t windowhandle)
 {
 	return video_create_compat(cvideo_create_opengl_old(windowhandle, 32, 32, fmt_xrgb1555, 60));
 }
-const video::driver video::create_opengl_old = {"OpenGL-1.x", video_create_opengl_old, NULL, 0};
+const video::driver video::driver_opengl_old = {"OpenGL-1.x", video_create_opengl_old, NULL, 0};
 #else
 static video* video_create_opengl_old(uintptr_t windowhandle)
 {
 	return NULL;
 }
-const video::driver video::create_opengl_old = {"OpenGL-1.x", video_create_opengl_old, NULL, 0};
+const video::driver video::driver_opengl_old = {"OpenGL-1.x", video_create_opengl_old, NULL, 0};
 #endif

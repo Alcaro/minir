@@ -173,7 +173,7 @@ void inputkb_udev::fd_activity(int fd)
 				if (scan<0) continue;
 //printf("evc=%.2X sc=%.2X\n",ev.code,scan);
 				this->key_cb(this->fd[id].id,
-				             scan, inputkb_translate_scan(scan), (ev.value!=0));//ev.value==2 means repeated
+				             scan, inputkb::translate_scan(scan), (ev.value!=0));//ev.value==2 means repeated
 			}
 		}
 	}
@@ -242,7 +242,7 @@ void inputkb_udev::refresh()
 			{
 				int scan=this->linuxcode_to_scan(this->fd[id].fd, bit);
 				if (scan<0) continue;
-				this->key_cb(this->fd[id].id, scan, inputkb_translate_scan(scan), true);
+				this->key_cb(this->fd[id].id, scan, inputkb::translate_scan(scan), true);
 			}
 		}
 	}
@@ -346,5 +346,5 @@ static inputkb* inputkb_create_udev(uintptr_t windowhandle)
 
 }
 
-extern const driver_inputkb inputkb_udev_desc={ "udev", inputkb_create_udev, inputkb_udev::features };
+const inputkb::driver inputkb::driver_udev={ "udev", inputkb_create_udev, inputkb_udev::features };
 #endif

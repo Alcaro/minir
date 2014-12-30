@@ -19,7 +19,7 @@ public:
 		if (!XQueryKeymap(window_x11_get_display()->display, (char*)state)) return;
 		for (unsigned int i=0;i<256;i++)
 		{
-			this->key_cb(0, i, inputkb_translate_scan(i), state[i>>3]&(1<<(i&7)));
+			this->key_cb(0, i, inputkb::translate_scan(i), state[i>>3]&(1<<(i&7)));
 		}
 	}
 	
@@ -33,5 +33,5 @@ static inputkb* inputkb_create_x11(uintptr_t windowhandle)
 
 }
 
-extern const driver_inputkb inputkb_x11_desc={ "X11", inputkb_create_x11, inputkb_x11::features };
+const inputkb::driver inputkb::driver_x11={ "X11", inputkb_create_x11, inputkb_x11::features };
 #endif

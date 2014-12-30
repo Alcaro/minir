@@ -4,17 +4,19 @@ major:
 - various parts need to become proper C++
  - more strings
 - main.cpp is a mess, global variables all over
-* finish shader support
- * finish Cg to GLSL compiler
+- finish shader support
+ - finish Cg to GLSL compiler
  - add multipass
  - add custom textures
  - add imports
  - add parameters
-- more input options
- - mouse support
-  - automatic mouse control for scrolling shooters
- - controller support, if I can get my hands on any
- - tablets and other bizarre input devices?
+* rewrite input
+ * C++
+ * more input options
+  * mouse support
+   * automatic mouse control for scrolling shooters
+  - controller support, if I can get my hands on any
+  - tablets and other bizarre input devices?
 - netplay
  - need both RetroArch rewind and laggy
 - rewrite audio
