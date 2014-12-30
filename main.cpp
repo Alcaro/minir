@@ -1663,12 +1663,12 @@ int main(int argc, char * argv[])
 	window_init(&argc, &argv);
 //const char * path="tests/shade/cocktail-table.glsl";
 //const char * path="tests/shade/mcgreen.cg";
-const char * path="tests/shade/mcgreen.glsl";
-char * truepath=window_get_absolute_path(window_get_cwd(), path, false);
-video::shader*g=video::shader::create_from_file(truepath);
-free(truepath);
+//const char * path="tests/shade/mcgreen.glsl";
+//char * truepath=window_get_absolute_path(window_get_cwd(), path, false);
+//video::shader*g=video::shader::create_from_file(truepath);
+//free(truepath);
 	initialize(argc, argv);
-vid->set_shader(g);
+//vid->set_shader(g);
 if
 (config.firstrun)
 window_message_box(

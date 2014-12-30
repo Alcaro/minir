@@ -1012,7 +1012,8 @@ public:
 			this->sh_vercoordloc=gl.GetAttribLocation(prog, "VertexCoord");
 			this->sh_texcoordloc=gl.GetAttribLocation(prog, "TexCoord");
 			
-			//not sure what these two are used for, but they're required for things to work
+			//not sure what these two are used for, but some shaders use them for whatever reason
+			//probably something RetroArch-specific
 			gl.Uniform4f(gl.GetAttribLocation(prog, "Color"), 1,1,1,1);
 			const float identity4[16]={
 				1,0,0,0,
@@ -1039,11 +1040,16 @@ public:
 			{
 				gl.TexImage2D(GL_TEXTURE_2D, 0, GL_RGB, this->in_texwidth, this->in_texheight, 0, this->in2_fmt, this->in2_type, NULL);
 			}
-			gl.TexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-			gl.TexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-			gl.TexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-			gl.TexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
 			
+			static const GLint wrapmodes[]={ GL_CLAMP_TO_BORDER, GL_CLAMP_TO_EDGE, GL_REPEAT, GL_MIRRORED_REPEAT };
+			gl.TexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, wrapmodes[passdata->wrap]);
+			gl.TexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, wrapmodes[passdata->wrap]);
+			//border color defaults to black, which is what we want
+			
+			static const GLint interpmodes[]={ GL_NEAREST, GL_LINEAR };
+			gl.TexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, interpmodes[passdata->interpolate]);
+			gl.TexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, interpmodes[passdata->interpolate]);
+		
 			GLint texid=gl.GetUniformLocation(prog, "Texture");
 			gl.Uniform1i(texid, 0);
 			
