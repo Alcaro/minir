@@ -8,6 +8,7 @@
 namespace {
 class inputkb_x11 : public inputkb {
 public:
+
 static const uint32_t features = f_public|f_pollable|f_remote;
 
 void refresh() { poll(); }
@@ -24,9 +25,8 @@ void poll()
 }
 
 static inputkb* create(uintptr_t windowhandle) { return new inputkb_x11(); }
-~inputkb_x11() {}
-};
 
+};
 }
 
 const inputkb::driver inputkb::driver_x11={ "X11", inputkb_x11::create, inputkb_x11::features };
