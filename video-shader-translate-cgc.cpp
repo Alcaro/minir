@@ -112,7 +112,7 @@ static const char * const cg_names[]={ CG_SYMS() };
 #undef CG_SYM
 
 class cg_translator;
-static ptrmap<CGcontext, cg_translator*> cgc_translators;
+static ptrmap<CGcontext, cg_translator*> cgc_translators;//TODO: this object is not thread safe.
 class cg_translator {
 public:
 	

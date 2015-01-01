@@ -43,7 +43,7 @@ public:
 		// set it up, as a function pointer cannot point to a C++ member.
 		//On failure, the descriptor is guaranteed to remain sufficiently untouched that creation can be retried
 		// with another driver, and the results will be the same as if this other driver was the first tried.
-		//If ::features & f_3d is 0, this can be NULL.
+		//Can be NULL if features&f_3d == 0.
 		video* (*create3d)(uintptr_t windowhandle, struct retro_hw_render_callback * desc);
 		
 		uint32_t features;
@@ -428,8 +428,9 @@ protected:
 public:
 	//It is safe to set this callback multiple times; the latest one applies. It is also safe to not set it at all, though that makes the structure quite useless.
 	//scancode is in the range -1..1023, and libretrocode is in the range 0..RETROK_LAST-1. keyboard is in 0..31.
+	//A libretrocode is the same across multiple different drivers (see libretro.h RETROK_ for values); scancodes are not.
 	//If scancode is -1 or libretrocode is 0, it means that the key does not have any assigned value. (Undefined scancodes are extremely rare, though.)
-	//It may repeat the current state. It may trigger for scancodes that are impossible to hit.
+	//It may repeat the current state. It may say 'not pressed' for keys that are impossible to hit on the current hardware.
 	void set_kb_cb(function<void(unsigned int keyboard, int scancode, unsigned int libretrocode, bool down)> key_cb) { this->key_cb = key_cb; }
 	
 	//Returns the features this driver supports. Numerically higher is better. Some flags contradict each other.
@@ -441,7 +442,7 @@ public:
 		f_background=0x0008,//Can view input events while the window is not focused. Implies f_auto.
 		f_pollable = 0x0004,//refresh() is implemented.
 		f_remote   = 0x0002,//Compatible with X11 remoting, or equivalent. Implies !f_direct.
-		f_public   = 0x0001,//Does not require elevated privileges to use.
+		f_public   = 0x0001,//Does not require elevated privileges to use. While this is quite important, insufficient privileges make it fail creation, and so it should have little if any effect on creation order.
 	};
 	//virtual uint32_t features() = 0; // Features are constantly known at the start.
 	
@@ -488,23 +489,31 @@ public:
 	static const driver* const drivers[];
 	
 protected:
-	function<void(unsigned int keyboard, int scancode, unsigned int libretrocode, bool down)> key_cb;
+	//TODO: delta, relative to window top left, or relative to primary monitor? (All three must be signed because Windows is crazy.)
+	function<void(unsigned int mouse, signed int x, signed int y)> move_cb;
+	
+	//The "button-press-event" signal
+	//The "button-release-event" signal
+	//The "motion-notify-event" signal
+	//gboolean user_function(GtkWidget* widget, GdkEvent* event, gpointer user_data)
+	//https://developer.gnome.org/gdk3/stable/gdk3-Events.html#GDK-BUTTON-PRESS-MASK:CAPS
+	//https://developer.gnome.org/gdk3/stable/gdk3-Events.html#GDK-POINTER-MOTION-MASK:CAPS
+	//https://developer.gnome.org/gdk3/stable/gdk3-Events.html#GDK-BUTTON-RELEASE-MASK:CAPS
+	//https://developer.gnome.org/gdk3/stable/gdk3-Event-Structures.html#GdkEventButton
+	//https://developer.gnome.org/gdk3/stable/gdk3-Event-Structures.html#GdkEventMotion
 	
 public:
-	//It is safe to set this callback multiple times; the latest one applies. It is also safe to not set it at all, though that makes the structure quite useless.
-	//scancode is in the range -1..1023, and libretrocode is in the range 0..RETROK_LAST-1. keyboard is in 0..31.
-	//If scancode is -1 or libretrocode is 0, it means that the key does not have any assigned value. (Undefined scancodes are extremely rare, though.)
-	//It may repeat the current state. It may trigger for scancodes that are impossible to hit.
-	void set_kb_cb(function<void(unsigned int keyboard, int scancode, unsigned int libretrocode, bool down)> key_cb) { this->key_cb = key_cb; }
+	//
+	void set_kb_cb(function<void(unsigned int mouse, signed int x, signed int y)> move_cb) { this->move_cb = move_cb; }
 	
 	//Returns the features this driver supports. Numerically higher is better. Some flags contradict each other.
 	enum {
-		f_multi    = 0x0080,//Can differ between multiple mice.
-		f_delta    = 0x0040,//Does not call the callback for unchanged state. Improves processing time.
-		f_auto     = 0x0020,//poll() is empty, and the callback is called by window_run_*(). Implies f_delta.
-		f_direct   = 0x0010,//Does not go through a separate process. Improves latency.
-		f_background=0x0008,//Can view input events while the window is not focused. Implies f_auto.
-		f_pollable = 0x0004,//refresh() is implemented.
+		f_outside  = 0x0040,//Reports the mouse position when it's outside the window.
+		f_bind     = 0x0000,//Can 'bind' the mouse, g.
+		f_multi    = 0x0020,//Can differ between multiple mice.
+		f_auto     = 0x0010,//poll() is empty, and the callback is called by window_run_*(). Implies f_delta.
+		f_direct   = 0x0008,//Does not go through a separate process. Improves latency.
+		f_background=0x0004,//Can view input events while the window is not focused. Implies f_auto.
 		f_remote   = 0x0002,//Compatible with X11 remoting, or equivalent. Implies !f_direct.
 		f_public   = 0x0001,//Does not require elevated privileges to use.
 	};

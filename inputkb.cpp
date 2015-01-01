@@ -5,11 +5,10 @@
 #undef this
 
 namespace {
-	class inputkb_none : public inputkb {
-		~inputkb_none(){}
-		uint32_t features() { return 0; }
-	};
-	inputkb* inputkb_create_none(uintptr_t windowhandle) { return new inputkb_none(); }
+class inputkb_none : public inputkb {
+	~inputkb_none(){}
+};
+inputkb* inputkb_create_none(uintptr_t windowhandle) { return new inputkb_none(); }
 };
 
 const inputkb::driver inputkb::driver_none={ "None", inputkb_create_none, 0 };

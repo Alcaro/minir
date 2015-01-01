@@ -11,7 +11,7 @@ major:
  - add imports
  - add parameters
 * rewrite input
- * C++
+ - C++
  * more input options
   * mouse support
    * automatic mouse control for scrolling shooters

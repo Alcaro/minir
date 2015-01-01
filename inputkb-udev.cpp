@@ -165,16 +165,23 @@ void inputkb_udev::fd_activity(int fd)
 		//https://www.kernel.org/doc/Documentation/input/input.txt says
 		//"and you'll always get a whole number of input events on a read"
 		//their size is constant, no need to do anything weird
-		while (read(fd, &ev, sizeof(ev)) > 0)
+	another:
+		ssize_t nbyte = read(fd, &ev, sizeof(ev));
+		if (nbyte<=0)
 		{
-			if (ev.type==EV_KEY)
+			for (unsigned int i=0;i<256;i++)//release all keys if the keyboad is unplugged
 			{
-				int scan=linuxcode_to_scan(fd, ev.code);
-				if (scan<0) continue;
-//printf("evc=%.2X sc=%.2X\n",ev.code,scan);
-				this->key_cb(this->fd[id].id,
-				             scan, inputkb::translate_scan(scan), (ev.value!=0));//ev.value==2 means repeated
+				this->key_cb(this->fd[id].id, i, inputkb::translate_scan(i), false);
 			}
+			fd_unwatch(id);
+		}
+		if (ev.type==EV_KEY)
+		{
+			int scan=linuxcode_to_scan(fd, ev.code);
+			if (scan<0) goto another;
+//printf("evc=%.2X sc=%.2X\n",ev.code,scan);
+			this->key_cb(this->fd[id].id, scan, inputkb::translate_scan(scan), (ev.value!=0));//ev.value==2 means repeated
+			goto another;
 		}
 	}
 }

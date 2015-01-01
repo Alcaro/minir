@@ -12,7 +12,6 @@ namespace {
 
 class inputkb_gdk : public inputkb {
 public:
-	GdkDisplay* display;
 	GdkDeviceManager* devicemanager;
 	GtkWidget* widget;//likely a GtkWindow, but we only use it as GtkWidget so let's keep it as that.
 	
@@ -86,6 +85,10 @@ void device_remove(GdkDeviceManager* object, GdkDevice* device)
 {
 	for (unsigned int i=0;i<this->numdevices;i++)
 	{
+		for (unsigned int j=0;j<256;j++)
+		{
+			this->key_cb(i, j, inputkb::translate_scan(j), false);
+		}
 		if (this->devices[i]==device) this->devices[i]=NULL;
 	}
 }
@@ -100,9 +103,9 @@ gboolean key_action(GtkWidget* widget, GdkEvent* event)
 {
 	GdkDevice* device=gdk_event_get_source_device(event);
 	
-	if (gdk_device_get_device_type(device)==GDK_DEVICE_TYPE_MASTER) return FALSE;
 	//for some reason, repeated keystrokes come from the master device, which screws up device ID assignments
 	//we don't want repeats all, let's just kill them.
+	if (gdk_device_get_device_type(device)==GDK_DEVICE_TYPE_MASTER) return FALSE;
 	
 	unsigned int kb=find_or_allocate_id_for(device);
 	
@@ -130,15 +133,15 @@ static gboolean key_action_s(GtkWidget* widget, GdkEvent* event, gpointer user_d
 inputkb_gdk(uintptr_t windowhandle)
 {
 #ifdef WNDPROT_X11
-	this->display=gdk_x11_lookup_xdisplay(window_x11.display);
+	GdkDisplay* display=gdk_x11_lookup_xdisplay(window_x11.display);
 #else
 #error Fill this in.
 #endif
-	this->devicemanager=gdk_display_get_device_manager(this->display);
+	this->devicemanager=gdk_display_get_device_manager(display);
 	//g_signal_connect(this->devicemanager, "device-added", G_CALLBACK(device_add_s), this);
 	g_signal_connect(this->devicemanager, "device-removed", G_CALLBACK(device_remove_s), this);
 	
-	gdk_window_get_user_data(gdk_x11_window_lookup_for_display(this->display, windowhandle), (void**)&this->widget);
+	gdk_window_get_user_data(gdk_x11_window_lookup_for_display(display, windowhandle), (void**)&this->widget);
 	//we probably have a GtkDrawingArea, and those can't have keyboard focus. Let's ask for the GtkWindow it is in instead.
 	this->widget=gtk_widget_get_toplevel(this->widget);
 	gtk_widget_add_events(this->widget, GDK_KEY_PRESS_MASK|GDK_KEY_RELEASE_MASK);
