@@ -1,5 +1,9 @@
 #if (!defined(WINDOW_WIN32) && !defined(WINDOW_GTK3) && !defined(WINDOW_MINIMAL))
+#ifdef __linux__
+#define WINDOW_GTK3
+#else
 #define WINDOW_WIN32
+#endif
 #endif
 
 #ifdef WINDOW_GTK3

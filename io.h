@@ -511,7 +511,7 @@ public:
 		f_outside  = 0x0040,//Reports the mouse position when it's outside the window.
 		f_bind     = 0x0000,//Can 'bind' the mouse, g.
 		f_multi    = 0x0020,//Can differ between multiple mice.
-		f_auto     = 0x0010,//poll() is empty, and the callback is called by window_run_*(). Implies f_delta.
+		f_auto     = 0x0010,//poll() is empty, and the callback is called by window_run_*().
 		f_direct   = 0x0008,//Does not go through a separate process. Improves latency.
 		f_background=0x0004,//Can view input events while the window is not focused. Implies f_auto.
 		f_remote   = 0x0002,//Compatible with X11 remoting, or equivalent. Implies !f_direct.
