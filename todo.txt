@@ -11,14 +11,22 @@ major:
  - add imports
  - add parameters
 * rewrite input
- - C++
+ - more C++ in inputmapper and libretroinput
+  - libretroinput needs massive expansion, or merging into libretro
+   - struct libretro is messy anyways - needs to be handled more cleanly, I only want one load function.
  * more input options
   * mouse support
-   * automatic mouse control for scrolling shooters
+   * needed features:
+    - view position relative to window
+     - inputmouse or put that in widget_viewport?
+    - bind a mouse, removing its cursor and sending relative data to minir instead
+    * find how to implement that
+   - automatic mouse control for scrolling shooters
   - controller support, if I can get my hands on any
   - tablets and other bizarre input devices?
 - netplay
- - need both RetroArch rewind and laggy
+ - need both RetroArch-style rewind and laggy
+  - and selecting the right amount of each
 - rewrite audio
  - C++
  - RetroArch-style Dynamic Rate Control
@@ -37,9 +45,8 @@ major:
  - tie core options to input sources, for layer toggle in snes9x
 
 minor:
-- (gtk+) starting without rom then opening one screws up window width due to status bar not resizing
- - can I get rid of the manual layout management there?
 - (win32) dropping a file into the window segfaults - but only with debugger disabled
+ - does this still exist?
 
 incomprehensible:
 - figure out the Mupen64 issues
