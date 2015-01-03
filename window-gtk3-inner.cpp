@@ -553,6 +553,7 @@ widget_viewport* widget_viewport::set_hide_cursor(bool hide)
 	g_signal_connect(widget, "motion-notify-event", G_CALLBACK(viewport_mouse_move_handler), this);
 	
 	//seems to not exist in gtk+ 3.8
+	//and gdk_event_request_motions does nothing, either - am I building for an older GTK+ than I'm using?
 	//gdk_window_set_event_compression(gtk_widget_get_window(this->i._base.widget), false);
 	
 	m->hide_mouse_timer_active=false;
