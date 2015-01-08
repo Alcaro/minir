@@ -4,6 +4,10 @@
 #include "io.h"
 #ifdef VIDEO_OPENGL
 
+//http://www.opengl-tutorial.org/beginners-tutorials/tutorial-1-opening-a-window/
+//https://github.com/libretro/RetroArch/blob/master/gfx/shader/shader_parse.c
+//http://apitrace.github.io/
+
 #undef bind
 #ifdef _MSC_VER
 //MSVC's gl.h doesn't seem to include the stuff it should. Copying these five lines from mingw's gl.h...
@@ -46,11 +50,11 @@
 
 #define ENABLE_DEBUG 2//0 = no, 2 = yes, 1 = if the core asks for it
 #if ENABLE_DEBUG==0
-#define DO_DEBUG false
+# define DO_DEBUG false
 #elif ENABLE_DEBUG==2
-#define DO_DEBUG true
+# define DO_DEBUG true
 #else
-#define DO_DEBUG (this->is3d && this->in3.debug_context)
+# define DO_DEBUG (this->is3d && this->in3.debug_context)
 #endif
 
 namespace {

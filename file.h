@@ -24,6 +24,21 @@ char * window_get_absolute_path(const char * basepath, const char * path, bool a
 //It can return NULL, even for paths which file_read understands. If it doesn't, use free() when you're done.
 char * window_get_native_path(const char * path);
 
+class file : nocopy {
+private:
+	//This one will memory map the file from the filesystem.
+	//create() can be simply return create_fs(filename, write), or can additionally support stuff like gvfs.
+	static file* create_fs(const char * filename, bool write);
+	file();
+protected:
+	file(void* data, size_t len) : data(data), len(len) {}
+public:
+	void* const data;
+	size_t const len;
+	static file* create(const char * filename, bool write);
+	virtual ~file(){}
+};
+
 //These are implemented by the window manager, despite looking somewhat unrelated.
 //Can be just fopen, but may additionally support something implementation-defined, like gvfs;
 // however, filename support is guaranteed, both relative and absolute.

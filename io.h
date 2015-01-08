@@ -113,10 +113,10 @@ public:
 	virtual funcptr draw_3d_get_proc_address(const char * sym) { return NULL; }
 	virtual void draw_3d(unsigned int width, unsigned int height) {}
 	
-	//This repeats the last drawn frame until the next vblank. If the device does not vsync, it does nothing.
+	//This repeats the last drawn frame until the next vblank. Also affects time-dependent shaders. If the device does not vsync, it does nothing.
 	//It can be called whether this one is configured as 2d or 3d.
-	//If there is no last frame (that is, set_source_size was called after the last draw_* cycle), it is undefined what will be shown
-	// and whether vsync will apply, but any resulting anomalies are guaranteed to go away once the next draw_[23]d cycle is finished.
+	//If there is no last frame (for example if set_source_size was called after the last draw_* cycle), it is undefined what will be
+	// shown and whether vsync will apply, but any resulting anomalies are guaranteed to go away once the next draw_* cycle is finished.
 	virtual void draw_repeat() {}
 	
 	//This only has effect if the device is enabled. 0 means off, and is the default.
@@ -166,7 +166,7 @@ public:
 		//Returns NULL if it doesn't know how to do this translation, or if the syntax is invalid. Send
 		// it to free() once you're done with it.
 		//Translating from a language to itself will work. It is implementation defined whether this
-		// resolves #includes and #ifdef SHADER_PARAMETER, rejects invalid code, and various other stuff.
+		// resolves #include/#ifdef SHADER_PARAMETER/etc, rejects invalid code, and various other stuff.
 		//Translating a shader is not guaranteed lossless. Do not store translated text.
 		static char * translate(lang_t from, lang_t to, const char * text, function<char*(const char * filename)> get_include=NULL);
 		
@@ -212,7 +212,7 @@ public:
 		/*protected:*/
 			//For video_*.
 			//Imports and parameters are combined; video_* has no reason to treat them differently, they're just uniform floats.
-			//The IDs here have no relation to the IDs elsewhere.
+			//The IDs here shall be treated separately from all IDs elsewhere.
 			const char * const * out_get_names(unsigned int * count) { if (count) *count=this->au_count+this->pa_count; return this->out_names; }
 			struct change_t {
 				unsigned int index;
@@ -468,6 +468,7 @@ public:
 inline inputkb::~inputkb(){}
 
 
+//This refers to the mouse hardware.
 class inputmouse {
 public:
 	struct driver {
@@ -490,7 +491,8 @@ public:
 	
 protected:
 	//TODO: delta, relative to window top left, or relative to primary monitor? (All three must be signed because Windows is crazy.)
-	function<void(unsigned int mouse, signed int x, signed int y)> move_cb;
+	//function<void(unsigned int mouse, signed int x, signed int y)> move_cb;
+	//function<void(unsigned int mouse, unsigned int button, bool down)> button_cb;
 	
 	//The "button-press-event" signal
 	//The "button-release-event" signal
@@ -503,42 +505,58 @@ protected:
 	//https://developer.gnome.org/gdk3/stable/gdk3-Event-Structures.html#GdkEventMotion
 	
 public:
-	//
-	void set_kb_cb(function<void(unsigned int mouse, signed int x, signed int y)> move_cb) { this->move_cb = move_cb; }
+	//Not all of the drivers are 
+	void set_listeners(function<void(unsigned int mouse, signed int x, signed int y)> move_cb,
+	                   function<void(unsigned int mouse, signed int x, signed int y)> move_abs_cb,
+	                   function<void(unsigned int mouse, unsigned int button, bool down)> button_cb)
+	                   //TODO: mouse wheel?
+	{
+		//this->move_cb = move_cb;
+		//this->move_abs_cb = move_abs_cb;
+		//this->button_cb = button_cb;
+	}
 	
 	//Returns the features this driver supports. Numerically higher is better. Some flags contradict each other.
+	//f_abs_* is defined for pointers. f_rel_* is defined for mouse hardware, including touchpads and other non-classical mice.
+	//. It may be desirable to have two different mouse drivers; one maximizing f_abs and one maximizing f_rel.
 	enum {
-		f_outside  = 0x0040,//Reports the mouse position when it's outside the window.
-		f_bind     = 0x0000,//Can 'bind' the mouse, g.
-		f_multi    = 0x0020,//Can differ between multiple mice.
-		f_auto     = 0x0010,//poll() is empty, and the callback is called by window_run_*().
-		f_direct   = 0x0008,//Does not go through a separate process. Improves latency.
-		f_background=0x0004,//Can view input events while the window is not focused. Implies f_auto.
-		f_remote   = 0x0002,//Compatible with X11 remoting, or equivalent. Implies !f_direct.
-		f_public   = 0x0001,//Does not require elevated privileges to use.
+		//f_cur      = 0x00000,//Can show the mouse position without binding.
+		//f_cur_global=0x00000,//Can show the mouse position while the cursor is outside the window.
+		//f_cur_multi= 0x00000,//Can differ between multiple mouse cursors.
+		//
+		//f_dev = 0x00000000,//Can show the mouse position 'bind' the mouse, making it not affect the cursor. If all mice are bound using this driver, the cursor is hidden.
+		//
+		//f_auto     = 0x0000,
+		//f_bind     = 0x0000,
+		//f_abs      = 0x0000,//Can show the absolute position of the mouse.
+		//f_multi    = 0x0000,//Can differ between multiple mice.
+		//f_multi_abs= 0x0000,//Can differ between multiple mice when the mouse is not bound.
+		//f_auto     = 0x0000,//poll() is empty, and the callback is called by window_run_*().
+		//f_direct   = 0x0000,//Does not go through a separate process. Improves latency.
+		//f_remote   = 0x0000,//Compatible with X11 remoting, or equivalent. Implies !f_direct.
+		//f_public   = 0x0000,//Does not require elevated privileges to use.
 	};
 	//virtual uint32_t features() = 0; // Features are constantly known at the start.
 	
-	//Returns the number of keyboards.
-	//virtual unsigned int numkb() { return 1; }
+	//Calls the callbacks for all state. move_cb is called relative to (0,0).
+	virtual void refresh() = 0;
 	
-	//If f_pollable is set, this calls the callback for all pressed keys.
-	//The implementation is allowed to call it for non-pressed keys.
-	virtual void refresh() {}
-	
-	//If f_auto is not set, this calls the callback for all key states that changed since the last poll().
-	//The implementation is allowed to call it for unchanged keys.
+	//If f_auto is not set, this calls the callback for all state that changed since the last poll().
+	//The implementation is allowed to call the callbacks for unchanged state.
 	virtual void poll() {}
 	
 	virtual ~inputmouse() = 0;
-	
-	//These translate hardware scancodes or virtual keycodes to libretro cores. Can return RETROK_UNKNOWN.
-	//Note that "virtual keycode" is platform dependent, and because they're huge on X11, they don't exist at all there.
-	//void inputkb_translate_init();
-	static unsigned translate_scan(unsigned int scancode);
-	static unsigned translate_vkey(unsigned int vkey);
 };
 inline inputmouse::~inputmouse(){}
+
+
+//This refers to the mouse cursor.
+class inputcursor {
+	//http://www.x.org/docs/Xext/recordlib.pdf
+	
+	virtual ~inputcursor();
+};
+inline inputcursor::~inputcursor(){}
 
 
 

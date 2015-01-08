@@ -11,6 +11,10 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include <sys/types.h>
+#include <fcntl.h>
+#include <sys/mman.h>
+
 const char * window_get_proc_path()
 {
 	//we could lstat it, but apparently that just returns zero on /proc on Linux.
@@ -116,6 +120,33 @@ void _window_init_native()
 		!chdir("/tmp/") ||
 		!chdir("/");
 	cwd_bogus=getcwd(NULL, 0);
+}
+
+
+namespace {
+	class file_raw : public file {
+	public:
+		file_raw(void* data, size_t len) : file(data, len) {}
+		~file_raw() { munmap(this->data, this->len); }
+	};
+};
+file* file::create_raw(const char * filename, bool write)
+{
+	int fd=open(filename, write ? O_RDWR : O_RDONLY);
+	if (fd<0) return NULL;
+	
+	struct stat st;
+	if (fstat(fd, &st)<0) goto fail;
+	
+	void* data;
+	data=mmap(NULL, st.st_size, write ? (PROT_READ|PROT_WRITE) : PROT_READ, MAP_SHARED, fd, 0);
+	if (data==MAP_FAILED) goto fail;
+	
+	return new file_raw(data, st.st_size);
+	
+fail:
+	close(fd);
+	return NULL;
 }
 
 #elif defined(FILEPATH_WINDOWS)
