@@ -10,11 +10,11 @@
 #include <string.h>
 #include <ctype.h>
 #include <gtk/gtk.h>
-#ifdef WNDPROT_X11
-#include <gdk/gdkx.h>
-#endif
 #ifdef WNDPROT_WIN32
 #error Use the Win32 frontend on Windows. The GTK+ one assumes Unix in a couple of ways, which is violated on Windows.
+#endif
+#ifdef WNDPROT_X11
+#include <gdk/gdkx.h>
 #endif
 
 //Number of ugly hacks: 8

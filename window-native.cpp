@@ -124,30 +124,59 @@ void _window_init_native()
 
 
 namespace {
-	class file_raw : public file {
+	class file_fs_rd : public file {
 	public:
-		file_raw(void* data, size_t len) : file(data, len) {}
-		~file_raw() { munmap(this->data, this->len); }
+		file_fs_rd(void* data, size_t len) { this->data=data; this->len=len; }
+		~file_fs_rd() { munmap(this->data, this->len); }
+	};
+	class file_fs_wr : public filewrite {
+	public:
+		int fd;
+		file_fs_wr(void* data, size_t len, int fd) { this->data=data; this->len=len; this->fd=fd; }
+		
+		void resize(size_t newsize)
+		{
+			if (ftruncate(this->fd, newsize) < 0) return;
+			munmap(this->data, this->len);
+			this->len=newsize;
+			this->data=mmap(NULL, newsize, PROT_READ|PROT_WRITE, MAP_SHARED, this->fd, 0);
+			if (this->data==MAP_FAILED) abort();
+		}
+		
+		~file_fs_wr()
+		{
+			munmap(this->data, this->len);
+			close(this->fd);
+		}
 	};
 };
-file* file::create_raw(const char * filename, bool write)
+
+enum filemode { f_rd, f_rw, f_wr };
+static file* file_create(const char * filename, filemode mode)
 {
-	int fd=open(filename, write ? O_RDWR : O_RDONLY);
+	static const int oflags[]={ O_RDONLY, O_RDWR, O_WRONLY|O_CREAT|O_TRUNC };
+	int fd=open(filename, oflags[mode], 0666);//umask defaults to turning this to 644
 	if (fd<0) return NULL;
+	
+	if (mode==f_wr) return new file_fs_wr(NULL, 0, fd);
 	
 	struct stat st;
 	if (fstat(fd, &st)<0) goto fail;
 	
 	void* data;
-	data=mmap(NULL, st.st_size, write ? (PROT_READ|PROT_WRITE) : PROT_READ, MAP_SHARED, fd, 0);
+	data=mmap(NULL, st.st_size, (mode==f_rw) ? (PROT_READ|PROT_WRITE) : PROT_READ, MAP_SHARED, fd, 0);
 	if (data==MAP_FAILED) goto fail;
 	
-	return new file_raw(data, st.st_size);
+	if (mode==f_rw) return new file_fs_wr(data, st.st_size, fd);
+	else return new file_fs_rd(data, st.st_size);
 	
 fail:
 	close(fd);
 	return NULL;
 }
+
+file*           file::create_fs(const char * filename)                { return             file_create(filename, f_rd); }
+filewrite* filewrite::create_fs(const char * filename, bool truncate) { return (filewrite*)file_create(filename, truncate ? f_wr : f_rw); }
 
 #elif defined(FILEPATH_WINDOWS)
 #undef bind

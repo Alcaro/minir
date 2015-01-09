@@ -27,21 +27,35 @@ char * window_get_native_path(const char * path);
 class file : nocopy {
 private:
 	//This one will memory map the file from the filesystem.
-	//create() can be simply return create_fs(filename, write), or can additionally support stuff like gvfs.
-	static file* create_fs(const char * filename, bool write);
-	file();
+	//create() can be simply return create_fs(filename), or can additionally support stuff like gvfs.
+	static file* create_fs(const char * filename);
 protected:
-	file(void* data, size_t len) : data(data), len(len) {}
+	file(){}
 public:
-	void* const data;
-	size_t const len;
-	static file* create(const char * filename, bool write);
+	void* data;
+	size_t len;
+	static file* create(const char * filename);
+	virtual void resize(size_t newsize) {}
 	virtual ~file(){}
+};
+class filewrite : public file {
+private:
+	static filewrite* create_fs(const char * filename, bool truncate);
+protected:
+	filewrite(){}
+public:
+	static filewrite* create(const char * filename);
+	static filewrite* create_truncate(const char * filename);
+	//If a file is grown, the new area is uninitialized. To check for success, access .len.
+	//Changes are written only in the destructor.
+	virtual void resize(size_t newsize) {}
+	virtual ~filewrite(){}
 };
 
 //These are implemented by the window manager, despite looking somewhat unrelated.
-//Can be just fopen, but may additionally support something implementation-defined, like gvfs;
-// however, filename support is guaranteed, both relative and absolute.
+//Support for absolute filenames is present.
+//Support for relative filenames will be rejected as much as possible. However, ../../../../../etc/passwd may work.
+//Other things, for example http://example.com/roms/snes/smw.sfc, may work too.
 //Directory separator is '/', extension separator is '.'.
 //file_read appends a '\0' to the output (whether the file is text or binary); this is not reported in the length.
 //Use free() on the return value from file_read().
