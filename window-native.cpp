@@ -129,22 +129,32 @@ namespace {
 		file_fs_rd(void* data, size_t len) { this->data=data; this->len=len; }
 		~file_fs_rd() { munmap(this->data, this->len); }
 	};
+	
 	class file_fs_wr : public filewrite {
 	public:
 		int fd;
 		file_fs_wr(void* data, size_t len, int fd) { this->data=data; this->len=len; this->fd=fd; }
 		
-		void resize(size_t newsize)
+		bool resize(size_t newsize)
 		{
-			if (ftruncate(this->fd, newsize) < 0) return;
+			if (ftruncate(this->fd, newsize) < 0) return false;
 			munmap(this->data, this->len);
 			this->len=newsize;
 			this->data=mmap(NULL, newsize, PROT_READ|PROT_WRITE, MAP_SHARED, this->fd, 0);
 			if (this->data==MAP_FAILED) abort();
+			
+			return true;
+		}
+		
+		void sync()
+		{
+			msync(this->data, this->len, MS_SYNC);//no MS_INVALIDATE because I can't figure out what it's supposed to do
+			                                      //on linux, it does nothing whatsoever, except in some EINVAL handlers
 		}
 		
 		~file_fs_wr()
 		{
+			//no msync - munmap is guaranteed to do that already (and linux tracks dirty pages anyways)
 			munmap(this->data, this->len);
 			close(this->fd);
 		}

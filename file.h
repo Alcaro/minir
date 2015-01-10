@@ -27,17 +27,18 @@ char * window_get_native_path(const char * path);
 class file : nocopy {
 private:
 	//This one will memory map the file from the filesystem.
-	//create() can be simply return create_fs(filename), or can additionally support stuff like gvfs.
-	static file* create_fs(const char * filename);
+	//create() can simply return create_fs(filename), or can additionally support stuff like gvfs.
+	file* create_fs(const char * filename);
 protected:
 	file(){}
 public:
 	void* data;
 	size_t len;
+	
 	static file* create(const char * filename);
-	virtual void resize(size_t newsize) {}
 	virtual ~file(){}
 };
+
 class filewrite : public file {
 private:
 	static filewrite* create_fs(const char * filename, bool truncate);
@@ -45,11 +46,13 @@ protected:
 	filewrite(){}
 public:
 	static filewrite* create(const char * filename);
-	static filewrite* create_truncate(const char * filename);
-	//If a file is grown, the new area is uninitialized. To check for success, access .len.
-	//Changes are written only in the destructor.
-	virtual void resize(size_t newsize) {}
-	virtual ~filewrite(){}
+	static filewrite* create_replace(const char * filename);
+	
+	//If a file is grown, the new area has undefined values. Most implementations initialize it to 00s, but this is not guaranteed.
+	virtual bool resize(size_t newsize) { return false; }
+	//Sends all the data to the disk. Does not return until it's there.
+	//The destructor also sends the data to disk, but does not guarantee that it's done immediately.
+	virtual void sync(){}
 };
 
 //These are implemented by the window manager, despite looking somewhat unrelated.
