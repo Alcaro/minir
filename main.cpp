@@ -1661,6 +1661,24 @@ void update_menu()
 int main(int argc, char * argv[])
 {
 	window_init(&argc, &argv);
+for (int i=4095;i<=4097;i++)
+{
+for (int k=0;k<64;k++)
+{
+char q[64];
+sprintf(q, "/home/alcaro/Desktop/minir/%i.bin", i);
+file* g=file::create(q);
+const uint8_t * data=(uint8_t*)g->data;
+for (int j=0;j<i;j++)
+{
+	if (data[j]!=0xFF) abort();
+}
+if (data[i]!='\0') abort();
+printf("%p ",g->data+g->len);
+delete g;
+}
+}
+puts("ok");exit(0);
 //const char * path="tests/shade/cocktail-table.glsl";
 //const char * path="tests/shade/mcgreen.cg";
 //const char * path="tests/shade/mcgreen.glsl";
@@ -1682,6 +1700,6 @@ config.firstrun
 //cheats->show_list(cheats);
 #endif
 	mainloop();
-
+	
 	deinit();
 }

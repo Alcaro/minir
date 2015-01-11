@@ -96,6 +96,12 @@ void _int_mutex_unlock(enum _int_mutex id)
 	imutex[id]->unlock();
 }
 
+file* file::create(const char * filename)
+{
+	//TODO
+	return create_fs(filename);
+}
+
 static void * mem_from_g_alloc(void * mem, size_t size)
 {
 	if (g_mem_is_system_malloc()) return mem;

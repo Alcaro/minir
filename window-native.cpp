@@ -119,65 +119,54 @@ void _window_init_native()
 		!chdir("/home/") ||
 		!chdir("/tmp/") ||
 		!chdir("/");
-	cwd_bogus=getcwd(NULL, 0);
+	cwd_bogus=getcwd(NULL, 0);//POSIX does not specify getcwd(NULL), it's Linux-specific
 }
 
+
+
+#define MMAP_THRESHOLD 128*1024
+
+static void* file_alloc(int fd, size_t len, bool writable)
+{
+	if (len <= MMAP_THRESHOLD)
+	{
+		uint8_t* data=malloc(len+1);
+		pread(fd, data, len, 0);
+		data[len]='\0';
+		return data;
+	}
+	else
+	{
+		void* data=mmap(NULL, len+1, writable ? (PROT_READ|PROT_WRITE) : PROT_READ, MAP_SHARED, fd, 0);
+		if (data==MAP_FAILED) return NULL;
+		
+		if (len % sysconf(_SC_PAGESIZE) == 0)
+		{
+			mmap((char*)data + len, 1, PROT_READ, MAP_PRIVATE|MAP_ANONYMOUS|MAP_FIXED, -1, 0);
+		}
+		return data;
+	}
+}
 
 namespace {
 	class file_fs_rd : public file {
 	public:
-		file_fs_rd(void* data, size_t len) { this->data=data; this->len=len; }
-		~file_fs_rd() { munmap(this->data, this->len); }
+		file_fs_rd(void* data, size_t len) : file(data, len) {}
+		~file_fs_rd() { munmap((void*)this->data, this->len+1); }
 	};
-	
-	class file_fs_wr : public filewrite {
-	public:
-		int fd;
-		file_fs_wr(void* data, size_t len, int fd) { this->data=data; this->len=len; this->fd=fd; }
-		
-		bool resize(size_t newsize)
-		{
-			if (ftruncate(this->fd, newsize) < 0) return false;
-			munmap(this->data, this->len);
-			this->len=newsize;
-			this->data=mmap(NULL, newsize, PROT_READ|PROT_WRITE, MAP_SHARED, this->fd, 0);
-			if (this->data==MAP_FAILED) abort();
-			
-			return true;
-		}
-		
-		void sync()
-		{
-			msync(this->data, this->len, MS_SYNC);//no MS_INVALIDATE because I can't figure out what it's supposed to do
-			                                      //on linux, it does nothing whatsoever, except in some EINVAL handlers
-		}
-		
-		~file_fs_wr()
-		{
-			//no msync - munmap is guaranteed to do that already (and linux tracks dirty pages anyways)
-			munmap(this->data, this->len);
-			close(this->fd);
-		}
-	};
-};
+}
 
-enum filemode { f_rd, f_rw, f_wr };
-static file* file_create(const char * filename, filemode mode)
+file* file::create_fs(const char * filename)
 {
-	static const int oflags[]={ O_RDONLY, O_RDWR, O_WRONLY|O_CREAT|O_TRUNC };
-	int fd=open(filename, oflags[mode], 0666);//umask defaults to turning this to 644
+	int fd=open(filename, O_RDONLY);
 	if (fd<0) return NULL;
-	
-	if (mode==f_wr) return new file_fs_wr(NULL, 0, fd);
 	
 	struct stat st;
 	if (fstat(fd, &st)<0) goto fail;
 	
-	void* data;
-	data=mmap(NULL, st.st_size, (mode==f_rw) ? (PROT_READ|PROT_WRITE) : PROT_READ, MAP_SHARED, fd, 0);
-	if (data==MAP_FAILED) goto fail;
-	
-	if (mode==f_rw) return new file_fs_wr(data, st.st_size, fd);
+	void* data; data=file_alloc(fd, st.st_size, false);
+	close(fd);
+	if (st.st_size <= MMAP_THRESHOLD) return new file::malloc(data, st.st_size);
 	else return new file_fs_rd(data, st.st_size);
 	
 fail:
@@ -185,8 +174,98 @@ fail:
 	return NULL;
 }
 
-file*           file::create_fs(const char * filename)                { return             file_create(filename, f_rd); }
-filewrite* filewrite::create_fs(const char * filename, bool truncate) { return (filewrite*)file_create(filename, truncate ? f_wr : f_rw); }
+namespace {
+	class file_fs_wr : public filewrite {
+	public:
+		int fd;
+		bool truncate;
+		file_fs_wr(int fd) : fd(fd) {}
+		
+		/*private*/ void* alloc(size_t size)
+		{
+			this->data=file_alloc(this->fd, size, true);
+			this->len=size;
+			if (this->data==NULL) abort();
+		}
+		
+		/*private*/ void dealloc()
+		{
+			//no msync - munmap is guaranteed to do that already (and linux tracks dirty pages anyways)
+			if (this->len <= MMAP_THRESHOLD)
+			{
+				pwrite(this->fd, this->data, this->len, 0);
+				free(this->data);
+			}
+			else
+			{
+				munmap(this->data, this->len+1);
+			}
+		}
+		
+		bool resize(size_t newsize)
+		{
+			if (ftruncate(this->fd, newsize) < 0) return false;
+			if (this->len < MMAP_THRESHOLD && newsize < MMAP_THRESHOLD)
+			{
+				this->len=newsize;
+				uint8_t* data=realloc(this->data, newsize+1);
+				data[newsize]='\0';
+				this->data=data;
+				return true;
+			}
+			dealloc();
+			alloc(newsize);
+			return true;
+		}
+		
+		void sync()
+		{
+			if (this->truncate)
+			{
+				ftruncate(this->fd, this->len);
+				this->truncate=false;
+			}
+			msync(this->data, this->len, MS_SYNC);//no MS_INVALIDATE because I can't figure out what it's supposed to do
+			                                      //on linux, it does nothing whatsoever, except in some EINVAL handlers
+		}
+		
+		~file_fs_wr()
+		{
+			sync();
+			dealloc();
+			close(this->fd);
+		}
+	};
+};
+
+filewrite* filewrite::create_fs(const char * filename, bool truncate)
+{
+	static const int oflags[]={ O_RDWR|O_CREAT, O_WRONLY|O_CREAT };
+	int fd=open(filename, oflags[truncate], 0666);//umask defaults to turning this to 644
+	if (fd<0) return NULL;
+	
+	if (truncate)
+	{
+		file_fs_wr* f=new file_fs_wr(fd);
+		f->truncate=true;
+		return f;
+	}
+	else
+	{
+		struct stat st;
+		if (fstat(fd, &st)<0) goto fail;
+		
+		file_fs_wr* f; f=new file_fs_wr(fd);
+		f->alloc(st.st_size);
+		return f;
+	}
+	
+fail:
+	close(fd);
+	return NULL;
+}
+
+
 
 #elif defined(FILEPATH_WINDOWS)
 #undef bind

@@ -28,30 +28,42 @@ class file : nocopy {
 private:
 	//This one will memory map the file from the filesystem.
 	//create() can simply return create_fs(filename), or can additionally support stuff like gvfs.
-	file* create_fs(const char * filename);
+	static file* create_fs(const char * filename);
+	file();
 protected:
-	file(){}
+	class malloc;
+	file(const void * data, size_t len) : data(data), len(len) {}
+	
 public:
-	void* data;
-	size_t len;
+	const void* const data;
+	size_t const len;
 	
 	static file* create(const char * filename);
 	virtual ~file(){}
 };
+class file::malloc : public file {
+public:
+	malloc(void* data, size_t len) : file(data, len) {}
+	~malloc() { free((void*)this->data); }
+};
 
-class filewrite : public file {
+class filewrite : nocopy {
 private:
 	static filewrite* create_fs(const char * filename, bool truncate);
 protected:
 	filewrite(){}
+	
 public:
+	void* data;
+	size_t len;
+	
 	static filewrite* create(const char * filename);
 	static filewrite* create_replace(const char * filename);
-	
-	//If a file is grown, the new area has undefined values. Most implementations initialize it to 00s, but this is not guaranteed.
+	//If a file is grown, the new area has undefined values.
 	virtual bool resize(size_t newsize) { return false; }
 	//Sends all the data to the disk. Does not return until it's there.
 	//The destructor also sends the data to disk, but does not guarantee that it's done immediately.
+	//There may be more ways to send the file to disk, but this is not guaranteed either.
 	virtual void sync(){}
 };
 
