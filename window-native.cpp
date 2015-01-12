@@ -166,7 +166,7 @@ file* file::create_fs(const char * filename)
 	
 	void* data; data=file_alloc(fd, st.st_size, false);
 	close(fd);
-	if (st.st_size <= MMAP_THRESHOLD) return new file::malloc(data, st.st_size);
+	if (st.st_size <= MMAP_THRESHOLD) return new file::mem(data, st.st_size);
 	else return new file_fs_rd(data, st.st_size);
 	
 fail:
@@ -181,7 +181,7 @@ namespace {
 		bool truncate;
 		file_fs_wr(int fd) : fd(fd) {}
 		
-		/*private*/ void* alloc(size_t size)
+		/*private*/ void alloc(size_t size)
 		{
 			this->data=file_alloc(this->fd, size, true);
 			this->len=size;

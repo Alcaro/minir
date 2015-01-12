@@ -31,7 +31,7 @@ private:
 	static file* create_fs(const char * filename);
 	file();
 protected:
-	class malloc;
+	class mem;
 	file(const void * data, size_t len) : data(data), len(len) {}
 	
 public:
@@ -41,10 +41,10 @@ public:
 	static file* create(const char * filename);
 	virtual ~file(){}
 };
-class file::malloc : public file {
+class file::mem : public file {
 public:
-	malloc(void* data, size_t len) : file(data, len) {}
-	~malloc() { free((void*)this->data); }
+	mem(void* data, size_t len) : file(data, len) {}
+	~mem() { free((void*)this->data); }
 };
 
 class filewrite : nocopy {
