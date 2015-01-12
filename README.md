@@ -16,4 +16,4 @@ List of features (including unimplemented ones) where the idea is from RetroArch
 - Dynamic Rate Control (unimplemented)
 - Real-time rewind
 - Rewind-based netplay (unimplemented)
-- Custom shaders
+- Custom shaders (unfinished)
