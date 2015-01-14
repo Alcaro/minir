@@ -78,6 +78,12 @@ void _int_mutex_unlock(enum _int_mutex id)
 	LeaveCriticalSection(&imutex[id]);
 }
 
+file::impl* file::create_raw(const char * filename)
+{
+	//sorry, Windows - no fancy features for you, you suck
+	return create_fs(filename);
+}
+
 bool window_message_box(const char * text, const char * title, enum mbox_sev severity, enum mbox_btns buttons)
 {
 	UINT sev[3]={ 0, MB_ICONWARNING, MB_ICONERROR };

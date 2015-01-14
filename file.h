@@ -24,28 +24,83 @@ char * window_get_absolute_path(const char * basepath, const char * path, bool a
 //It can return NULL, even for paths which file_read understands. If it doesn't, use free() when you're done.
 char * window_get_native_path(const char * path);
 
-class file : nocopy {
+class file {
 private:
+	file();//can't be used
+public:
+	class impl;
+	friend class file::impl;
+	
+public:
+	class impl : nocopy {
+	protected:
+		static file* wrap(impl* item) { return new file(item); }
+		impl(size_t len) : len(len) {}
+	public:
+		const size_t len;
+		virtual void read(size_t start, void* target, size_t len) = 0;
+		virtual void* map(size_t start, size_t len) = 0;
+		virtual void unmap(const void* data, size_t len) = 0;
+		virtual ~impl(){}
+		
+		class mem;
+	};
+	class impl::mem : public impl {
+		void* data;
+	public:
+		mem(void* data, size_t len) : impl(len), data(data) {}
+		void read(size_t start, void* target, size_t len) { memcpy(target, (char*)data+start, len); }
+		void* map(size_t start, size_t len) { return (char*)data+start; }
+		void unmap(const void* data, size_t len) {}
+		~mem() { free(data); }
+	};
+	
+private:
+	file::impl* core;
 	//This one will memory map the file from the filesystem.
 	//create() can simply return create_fs(filename), or can additionally support stuff like gvfs.
-	static file* create_fs(const char * filename);
-	file();
-protected:
-	class mem;
-	file(const void * data, size_t len) : data(data), len(len) {}
-	
+	static file::impl* create_fs(const char * filename);
+	file(file::impl* core) : core(core), len(core->len) {}
 public:
-	const void* const data;
 	size_t const len;
 	
-	static file* create(const char * filename);
-	virtual ~file(){}
+	class write;
+	
+	void read(size_t start, void* target, size_t len) { core->read(start, target, len); }
+	void read(void* target, size_t len) { this->read(0, target, len); }
+	
+	//The mmap functions should be used only for large binary files, like ISOs. For anything else, use read().
+	void* map_raw(size_t start, size_t len) { return core->mmap(start, len); }
+	void* map_raw() { return this->map_raw(0, this->len); }
+	void unmap(const void* data, size_t len) { core->unmap(data, len); }
+	
+	class map : autoref<map> {
+		file::impl* parent;
+	public:
+		const void* const ptr;
+		map(file::impl* parent, const void* ptr, size_t len) : parent(parent), ptr(ptr), len(len) {}
+		void release() { this->parent->unmap(this->ptr, this->len); }
+	private:
+		size_t len;//gcc, shut up about initialization order, pointers and integers don't care
+	};
+	file::map mmap(size_t start, size_t len) { return file::map(core, this->map_raw(start, len), len); }
+	file::map mmap() { return this->mmap(0, this->len); }
+	
+	
+	operator bool() { return core; }
+	
+	~file() { delete core; }
+	
+	static file::impl* create_raw(const char * filename);
+	static file create(const char * filename) { return file(create_raw(filename)); }
+	static file::write create_update(const char * filename);
+	static file::write create_overwrite(const char * filename);
 };
-class file::mem : public file {
-public:
-	mem(void* data, size_t len) : file(data, len) {}
-	~mem() { free((void*)this->data); }
-};
+//class file::mem : public file {
+//public:
+//	mem(void* data, size_t len) : file(data, len) {}
+//	~mem() { free((void*)this->data); }
+//};
 
 class filewrite : nocopy {
 private:

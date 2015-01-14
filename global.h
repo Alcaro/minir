@@ -33,10 +33,6 @@ typedef void(*funcptr)();
 //#endif
 
 #ifdef __cplusplus
- //template<bool cond> class static_assertion { private: enum { val=0 }; };
- //template<> class static_assertion<true> { public: enum { val=1 }; };
- //#define STATIC_ASSERT(cond, name) (void)(static_assertion<(cond)>::val)
- //#define STATIC_ASSERT_GSCOPE(cond, name) extern static_assertion<static_assertion<(cond)>::val> name
  #define STATIC_ASSERT(cond, name) extern char name[(cond)?1:-1]; (void)name
  #define STATIC_ASSERT_GSCOPE(cond, name) extern char name[(cond)?1:-1]
 #else
@@ -76,9 +72,86 @@ class nocopy {
 protected:
 	nocopy() {}
 	~nocopy() {}
+#ifdef HAVE_MOVE_SEMANTICS
+	nocopy(nocopy&&) = default;
+	const nocopy& operator=(nocopy&&) = default;
+#endif
 private:
 	nocopy(const nocopy&);
 	const nocopy& operator=(const nocopy&);
+};
+
+
+/*
+template<typename T> class autoptr : nocopy {
+	T* obj;
+#ifdef HAVE_MOVE_SEMANTICS
+public:
+	autoptr(T* obj) : obj(obj) {}
+	autoptr(map&& other) : obj(other.obj) { other.obj=NULL; }
+	~map() { delete obj; }
+#else
+	unsigned int* refcount;
+public:
+	autoptr(T* obj) : obj(obj)
+	{
+		this->refcount=new unsigned int;
+		this->refcount[0]=1;
+	}
+	autoptr(const autoptr& other) : obj(other.obj)
+	{
+		this->refcount=other.refcount;
+		this->refcount[0]++;
+	}
+	~autoptr()
+	{
+		this->refcount[0]--;
+		if (this->refcount[0]==0)
+		{
+			delete this->refcount;
+			delete this->obj;
+		}
+	}
+#endif
+	
+	T& operator*() { return *obj; }
+	T* operator->() { return obj; }
+};
+*/
+#ifdef HAVE_MOVE_SEMANTICS
+#define autoref nocopy
+#else
+template<typename T> class autoref {
+	unsigned int* refcount;
+public:
+	autoref()
+	{
+		this->refcount=new unsigned int;
+		this->refcount[0]=1;
+	}
+	autoref(const autoref& other)
+	{
+		this->refcount=other.refcount;
+		this->refcount[0]++;
+	}
+	~autoref()
+	{
+		this->refcount[0]--;
+		if (this->refcount[0]==0)
+		{
+			((T*)this) -> release();
+		}
+	}
+};
+#endif
+template<typename T> class autoptr : autoref<T> {
+	T* obj;
+public:
+	autoptr(T* obj) : obj(obj) {}
+	void release() { delete obj; }
+	
+	T& operator*() { return *obj; }
+	T* operator->() { return obj; }
 };
 
 

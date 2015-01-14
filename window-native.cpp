@@ -1,6 +1,8 @@
 #include "file.h"
 #include "os.h"
 
+#define MMAP_THRESHOLD 128*1024
+
 //Not in the other window-* because GTK does not demand Linux, and vice versa.
 #if 0
 #error
@@ -123,8 +125,6 @@ void _window_init_native()
 }
 
 
-
-#define MMAP_THRESHOLD 128*1024
 
 static void* file_alloc(int fd, size_t len, bool writable)
 {
@@ -386,6 +386,109 @@ void _window_init_native()
 	cwd_bogus_check_len=len;
 	GetCurrentDirectory(len, cwd_bogus);
 }
+
+
+
+//static void* file_alloc(int fd, size_t len, bool writable)
+//{
+
+//}
+//static size_t pagesize()
+//{
+//	SYSTEM_INFO inf;
+//	GetSystemInfo(&inf);
+//	return inf.dwPageSize;//dwAllocationGranularity?
+//}
+//static size_t allocgran()
+//{
+//	SYSTEM_INFO inf;
+//	GetSystemInfo(&inf);
+//	return inf.dwAllocationGranularity;
+//}
+
+namespace {
+	class file_fs_rd : public file::impl {
+	public:
+		HANDLE handle;
+		file_fs_rd(HANDLE handle, size_t len) : file::impl(len), handle(handle) {}
+		
+		void read(size_t start, void* target, size_t len)
+		{
+			LARGE_INTEGER pos;
+			pos.QuadPart=start;
+			SetFilePointerEx(this->handle, &pos, NULL, FILE_BEGIN);
+			DWORD ignore;
+		more:
+			ReadFile(this->handle, target, len, &ignore, NULL);
+			if (len>0xFFFFFFFF)//you shouldn't be reading multiple gigabytes at all...
+			{
+				len-=0xFFFFFFFF;
+				target+=0xFFFFFFFF;
+				goto more;
+			}
+		}
+		
+		void* map(size_t start, size_t len)
+		{
+			HANDLE mem=CreateFileMapping(handle, NULL, PAGE_READONLY, 0, 0, NULL);
+			void* ptr=MapViewOfFile(mem, FILE_MAP_READ, (SIZE_MAX>0xFFFFFFFF ? start>>32 : 0), start&0xFFFFFFFF, len);
+			CloseHandle(mem);
+			return ptr;
+		}
+		
+		void unmap(const void* data, size_t len) { UnmapViewOfFile((void*)data); }
+		~file_fs_rd() { CloseHandle(handle); }
+	};
+}
+
+file::impl* file::create_fs(const char * filename)
+{
+	HANDLE file=CreateFile(filename, GENERIC_READ, FILE_SHARE_READ, NULL, OPEN_EXISTING,  FILE_ATTRIBUTE_NORMAL, NULL);
+	if (file == INVALID_HANDLE_VALUE) return NULL;
+	LARGE_INTEGER size;
+	GetFileSizeEx(file, &size);
+	return new file_fs_rd(file, size.QuadPart);
+}
+
+//namespace {
+//	class file_fs_wr : public filewrite {
+//	public:
+//		int fd;
+//		file_fs_wr(int fd) : fd(fd) {}
+		
+//		/*private*/ void alloc(size_t size)
+//		{
+
+//		}
+		
+//		/*private*/ void dealloc()
+//		{
+
+//		}
+		
+//		bool resize(size_t newsize)
+//		{
+
+//		}
+		
+//		void sync()
+//		{
+
+//		}
+		
+//		~file_fs_wr()
+//		{
+//			sync();
+//			dealloc();
+//			close(this->fd);
+//		}
+//	};
+//};
+
+//filewrite* filewrite::create_fs(const char * filename, bool truncate)
+//{
+
+//}
 #else
 	//Mac OS X: _NSGetExecutablePath() http://stackoverflow.com/questions/799679/#1024933
 	//Mac OS X, some BSDs, Solaris: dlinfo https://gist.github.com/kode54/8534201
