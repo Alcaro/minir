@@ -123,6 +123,7 @@ void _window_init_native()
 
 
 
+/*
 static void* file_alloc(int fd, size_t len, bool writable)
 {
 	if (len <= MMAP_THRESHOLD)
@@ -144,16 +145,36 @@ static void* file_alloc(int fd, size_t len, bool writable)
 		return data;
 	}
 }
+*/
+
+static long pagesize() { return sysconf(_SC_PAGESIZE); }
 
 namespace {
-	class file_fs_rd : public file {
+	class file_fs_rd : public file::impl {
+		int fd;
 	public:
-		file_fs_rd(void* data, size_t len) : file(data, len) {}
-		~file_fs_rd() { munmap((void*)this->data, this->len+1); }
+		file_fs_rd(int fd, size_t len) : fd(fd), impl(len) {}
+		
+		void read(size_t start, void* target, size_t len) { pread(fd, target, len, start); }
+		
+		void* map(size_t start, size_t len)
+		{
+			size_t offset = start % pagesize();
+			void* data=::mmap(NULL, len+offset, PROT_READ, MAP_SHARED, this->fd, start-offset);
+			if (data==MAP_FAILED) return NULL;
+			return (char*)data+offset;
+		}
+		
+		void unmap(const void* data, size_t len)
+		{
+			size_t offset = (uintptr_t)data % pagesize();
+			munmap((char*)data-offset, len+offset);
+		}
+		~file_fs_rd() { close(fd); }
 	};
 }
 
-file* file::create_fs(const char * filename)
+file::impl* file::create_fs(const char * filename)
 {
 	int fd=open(filename, O_RDONLY);
 	if (fd<0) return NULL;
@@ -161,16 +182,14 @@ file* file::create_fs(const char * filename)
 	struct stat st;
 	if (fstat(fd, &st)<0) goto fail;
 	
-	void* data; data=file_alloc(fd, st.st_size, false);
-	close(fd);
-	if (st.st_size <= MMAP_THRESHOLD) return new file::mem(data, st.st_size);
-	else return new file_fs_rd(data, st.st_size);
+	return new file_fs_rd(fd, st.st_size);
 	
 fail:
 	close(fd);
 	return NULL;
 }
 
+#if 0
 namespace {
 	class file_fs_wr : public filewrite {
 	public:
@@ -261,4 +280,5 @@ fail:
 	close(fd);
 	return NULL;
 }
+#endif
 #endif

@@ -1,5 +1,6 @@
 #pragma once
 #include "global.h"
+#include <string.h>
 
 //These are implemented by the window manager; however, due to file operations being far more common than GUI, they're split off.
 
@@ -44,6 +45,7 @@ public:
 		virtual ~impl(){}
 		
 		class mem;
+		class autoalloc;
 	};
 	class impl::mem : public impl {
 		void* data;
@@ -70,7 +72,7 @@ public:
 	void read(void* target, size_t len) { this->read(0, target, len); }
 	
 	//The mmap functions should be used only for large binary files, like ISOs. For anything else, use read().
-	void* map_raw(size_t start, size_t len) { return core->mmap(start, len); }
+	void* map_raw(size_t start, size_t len) { return core->map(start, len); }
 	void* map_raw() { return this->map_raw(0, this->len); }
 	void unmap(const void* data, size_t len) { core->unmap(data, len); }
 	
