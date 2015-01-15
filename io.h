@@ -531,7 +531,7 @@ inline inputmouse::~inputmouse(){}
 
 
 //This refers to the mouse cursor.
-class inputcursor : public inputmouse::button { // this inheritance imports the mouse button enum
+class inputcursor { // this inheritance imports the mouse button enum
 public:
 	struct driver {
 		const char * name;
@@ -554,6 +554,8 @@ protected:
 	function<void(unsigned int cursor, unsigned int button, bool down)> button_cb;
 	
 public:
+	class button : public inputmouse::button {};//import the button enum from inputmouse
+	
 	void set_listeners(function<void(unsigned int cursor, signed int x, signed int y)> move_cb,
 	                   function<void(unsigned int cursor, unsigned int button, bool down)> button_cb)
 	                   //TODO: mouse wheel?
