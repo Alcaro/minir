@@ -469,8 +469,7 @@ public:
 inline inputkb::~inputkb(){}
 
 
-//This refers to the mouse hardware.
-//TODO: clean up
+//In minir, mouse and cursor are two separate concepts. Mouse is the physical device; cursor is the item on the screen.
 class inputmouse {
 public:
 	struct driver {
@@ -493,62 +492,38 @@ public:
 	static const driver* const drivers[];
 	
 protected:
-	//TODO: delta, relative to window top left, or relative to primary monitor? (All three must be signed because Windows is crazy.)
-	//function<void(unsigned int mouse, signed int x, signed int y)> move_cb;
-	//function<void(unsigned int mouse, unsigned int button, bool down)> button_cb;
-	
-	//The "button-press-event" signal
-	//The "button-release-event" signal
-	//The "motion-notify-event" signal
-	//gboolean user_function(GtkWidget* widget, GdkEvent* event, gpointer user_data)
-	//https://developer.gnome.org/gdk3/stable/gdk3-Events.html#GDK-BUTTON-PRESS-MASK:CAPS
-	//https://developer.gnome.org/gdk3/stable/gdk3-Events.html#GDK-POINTER-MOTION-MASK:CAPS
-	//https://developer.gnome.org/gdk3/stable/gdk3-Events.html#GDK-BUTTON-RELEASE-MASK:CAPS
-	//https://developer.gnome.org/gdk3/stable/gdk3-Event-Structures.html#GdkEventButton
-	//https://developer.gnome.org/gdk3/stable/gdk3-Event-Structures.html#GdkEventMotion
+	function<void(unsigned int mouse, signed int x, signed int y)> move_cb;
+	function<void(unsigned int mouse, unsigned int button, bool down)> button_cb;
 	
 public:
-	class button { public: enum { left, right, middle }; };//this is stupid, why do I need this child class
+	//this class is quite ugly, but it lets me import the enum to inputcursor too
+	class button { public: enum { left, right, middle, x4, x5 }; };
+	//x4 and higher are unsupported because I don't have any mice with extra buttons
 	
-	//Not all of the drivers are 
 	void set_listeners(function<void(unsigned int mouse, signed int x, signed int y)> move_cb,
-	                   function<void(unsigned int mouse, signed int x, signed int y)> move_abs_cb,
 	                   function<void(unsigned int mouse, unsigned int button, bool down)> button_cb)
 	                   //TODO: mouse wheel?
 	{
-		//this->move_cb = move_cb;
-		//this->move_abs_cb = move_abs_cb;
-		//this->button_cb = button_cb;
+		this->move_cb = move_cb;
+		this->button_cb = button_cb;
 	}
 	
 	//Returns the features this driver supports. Numerically higher is better. Some flags contradict each other.
-	//f_abs_* is defined for pointers. f_rel_* is defined for mouse hardware, including touchpads and other non-classical mice.
-	//. It may be desirable to have two different mouse drivers; one maximizing f_abs and one maximizing f_rel.
 	enum {
-		//f_cur      = 0x00000,//Can show the mouse position without binding.
-		//f_cur_global=0x00000,//Can show the mouse position while the cursor is outside the window.
-		//f_cur_multi= 0x00000,//Can differ between multiple mouse cursors.
-		//
-		//f_dev = 0x00000000,//Can show the mouse position 'bind' the mouse, making it not affect the cursor. If all mice are bound using this driver, the cursor is hidden.
-		//
-		//f_auto     = 0x0000,
-		//f_bind     = 0x0000,
-		//f_abs      = 0x0000,//Can show the absolute position of the mouse.
-		//f_multi    = 0x0000,//Can differ between multiple mice.
-		//f_multi_abs= 0x0000,//Can differ between multiple mice when the mouse is not bound.
-		//f_auto     = 0x0000,//poll() is empty, and the callback is called by window_run_*().
-		//f_direct   = 0x0000,//Does not go through a separate process. Improves latency.
-		//f_remote   = 0x0000,//Compatible with X11 remoting, or equivalent. Implies !f_direct.
-		//f_public   = 0x0000,//Does not require elevated privileges to use.
+		f_multi    = 0x0010,//Can differ between multiple mice.
+		f_auto     = 0x0008,//poll() is empty, and the callback is called by window_run_*().
+		f_direct   = 0x0004,//Does not go through a separate process. Improves latency.
+		f_remote   = 0x0002,//Compatible with X11 remoting, or equivalent. Implies !f_direct.
+		f_public   = 0x0001,//Does not require elevated privileges to use.
 	};
 	//virtual uint32_t features() = 0; // Features are constantly known at the start.
 	
-	//Calls the callbacks for all buttons.
-	virtual void refresh() = 0;
+	//Calls the callbacks for all pressed buttons. May return mouse movement too.
+	virtual void refresh() { poll(); }
 	
 	//If f_auto is not set, this calls the callback for all state that changed since the last poll().
 	//The implementation is allowed to call the callbacks for unchanged state.
-	virtual void poll() {}
+	virtual void poll() = 0;
 	
 	virtual ~inputmouse() = 0;
 };
@@ -556,7 +531,7 @@ inline inputmouse::~inputmouse(){}
 
 
 //This refers to the mouse cursor.
-class inputcursor {
+class inputcursor : public inputmouse::button { // this inheritance imports the mouse button enum
 public:
 	struct driver {
 		const char * name;
@@ -567,7 +542,7 @@ public:
 private:
 	static const driver driver_xrecord; //http://www.x.org/docs/Xext/recordlib.pdf
 	static const driver driver_windowshook; //http://msdn.microsoft.com/en-us/library/windows/desktop/ms644990%28v=vs.85%29.aspx
-	static const driver driver_x11; //XQueryPointer
+	static const driver driver_x11;
 	static const driver driver_wm; //WM_MOUSE
 	static const driver driver_none;
 	
@@ -575,26 +550,25 @@ public:
 	static const driver* const drivers[];
 	
 protected:
-	function<void(unsigned int mouse, signed int x, signed int y)> move_cb;
-	function<void(unsigned int mouse, unsigned int button, bool down)> button_cb;
+	function<void(unsigned int cursor, signed int x, signed int y)> move_cb;
+	function<void(unsigned int cursor, unsigned int button, bool down)> button_cb;
 	
 public:
-	class button { public: enum { left, right, middle }; };//this is stupid, why do I need this child class
-	
-	void set_listeners(function<void(unsigned int mouse, signed int x, signed int y)> move_cb,
-	                   function<void(unsigned int mouse, unsigned int button, bool down)> button_cb)
+	void set_listeners(function<void(unsigned int cursor, signed int x, signed int y)> move_cb,
+	                   function<void(unsigned int cursor, unsigned int button, bool down)> button_cb)
 	                   //TODO: mouse wheel?
 	{
 		this->move_cb = move_cb;
 		this->button_cb = button_cb;
 	}
 	
+	//Returns the features this driver supports. Numerically higher is better. Some flags contradict each other.
 	enum {
-		f_outside  = 0x0100,//Can show mouse position while the mouse is not on top of the owner window.
-		f_move     = 0x0080,//Can move the pointer to another position.
-		f_delta    = 0x0040,//Only fires events if the mouse state has changed. Improves processing time.
+		f_outside  = 0x0100,//Can show cursor position while it is not on top of the owner window.
+		f_move     = 0x0080,//Can move the cursor to another position.
+		f_delta    = 0x0040,//Only fires events if the cursor state has changed. Improves processing time.
 		f_multi    = 0x0020,//Can differ between multiple mice.
-		f_inactive = 0x0010,//Can show mouse position while the owner window is not the foreground window.
+		f_background=0x0010,//Can show cursor position while the owner window is not the foreground window.
 		f_auto     = 0x0008,//poll() is empty, and the callback is called by window_run_*().
 		f_direct   = 0x0004,//Does not go through a separate process. Improves latency.
 		f_remote   = 0x0002,//Compatible with X11 remoting, or equivalent. Implies !f_direct.

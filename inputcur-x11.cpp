@@ -7,7 +7,7 @@ namespace {
 class inputcursor_x11 : public inputcursor {
 public:
 
-static const uint32_t features = f_outside|f_move|f_inactive|f_remote|f_public;
+static const uint32_t features = f_outside|f_move|f_background|f_remote|f_public;
 
 //Bool XQueryPointer(Display *display, Window w, Window *root_return, Window *child_return,
 // int *root_x_return, int *root_y_return, int *win_x_return, int *win_y_return, unsigned int *mask_return); 
