@@ -531,7 +531,7 @@ inline inputmouse::~inputmouse(){}
 
 
 //This refers to the mouse cursor.
-class inputcursor { // this inheritance imports the mouse button enum
+class inputcursor {
 public:
 	struct driver {
 		const char * name;
@@ -551,23 +551,27 @@ public:
 	
 protected:
 	function<void(unsigned int cursor, signed int x, signed int y)> move_cb;
+	function<void(unsigned int cursor, signed int x, signed int y)> move_grab_cb;
 	function<void(unsigned int cursor, unsigned int button, bool down)> button_cb;
 	
 public:
 	class button : public inputmouse::button {};//import the button enum from inputmouse
 	
 	void set_listeners(function<void(unsigned int cursor, signed int x, signed int y)> move_cb,
+	                   function<void(unsigned int cursor, signed int x, signed int y)> move_grab_cb,
 	                   function<void(unsigned int cursor, unsigned int button, bool down)> button_cb)
 	                   //TODO: mouse wheel?
 	{
 		this->move_cb = move_cb;
+		this->move_grab_cb = move_grab_cb;
 		this->button_cb = button_cb;
 	}
 	
 	//Returns the features this driver supports. Numerically higher is better. Some flags contradict each other.
 	enum {
-		f_outside  = 0x0100,//Can show cursor position while it is not on top of the owner window.
-		f_move     = 0x0080,//Can move the cursor to another position.
+		f_outside  = 0x0200,//Can show cursor position while it is not on top of the owner window.
+		f_move     = 0x0100,//Can move the cursor to another position.
+		f_grab     = 0x0080,//Can remove the cursor from the screen and send its movement to move_grab_cb. There may be ways for the user to get his mouse back.
 		f_delta    = 0x0040,//Only fires events if the cursor state has changed. Improves processing time.
 		f_multi    = 0x0020,//Can differ between multiple mice.
 		f_background=0x0010,//Can show cursor position while the owner window is not the foreground window.
@@ -585,7 +589,9 @@ public:
 	virtual void poll() { refresh(); }
 	
 	//Moves the cursor so that the next refresh() (assuming no user input) will return x,y.
-	virtual void move(unsigned int mouse, signed int x, signed int y) {}
+	virtual void move(unsigned int cursor, signed int x, signed int y) {}
+	
+	virtual void grab(unsigned int cursor, bool grab) {}
 	
 	virtual ~inputcursor() = 0;
 };
