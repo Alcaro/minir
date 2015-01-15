@@ -150,16 +150,17 @@ namespace {
 		
 		void read(size_t start, void* target, size_t len)
 		{
+			char* target_c=(char*)target;
 			LARGE_INTEGER pos;
 			pos.QuadPart=start;
-			SetFilePointerEx(this->handle, &pos, NULL, FILE_BEGIN);
+			SetFilePointerEx(this->handle, pos, NULL, FILE_BEGIN);
 			DWORD ignore;
 		more:
-			ReadFile(this->handle, target, len, &ignore, NULL);
+			ReadFile(this->handle, target_c, len, &ignore, NULL);
 			if (len>0xFFFFFFFF)//you shouldn't be reading multiple gigabytes at all...
 			{
 				len-=0xFFFFFFFF;
-				target+=0xFFFFFFFF;
+				target_c+=0xFFFFFFFF;
 				goto more;
 			}
 		}
