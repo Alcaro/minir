@@ -11,8 +11,9 @@
 struct _XDisplay;
 typedef struct _XDisplay Display;
 struct window_x11_info {
-	Display* display; //The real type is Display*.
-	unsigned long screen; //The real type is Window aka XID.
+	Display* display;
+	int screen;
+	unsigned long root; //The real type is Window aka XID.
 };
 extern struct window_x11_info window_x11;
 #endif
@@ -469,6 +470,7 @@ inline inputkb::~inputkb(){}
 
 
 //This refers to the mouse hardware.
+//TODO: clean up
 class inputmouse {
 public:
 	struct driver {
@@ -478,6 +480,7 @@ public:
 	};
 	
 private:
+	//TODO: do I want all of these? do they even make sense?
 	static const driver driver_rawinput;
 	static const driver driver_udev;
 	static const driver driver_gdk;
@@ -505,6 +508,8 @@ protected:
 	//https://developer.gnome.org/gdk3/stable/gdk3-Event-Structures.html#GdkEventMotion
 	
 public:
+	class button { public: enum { left, right, middle }; };//this is stupid, why do I need this child class
+	
 	//Not all of the drivers are 
 	void set_listeners(function<void(unsigned int mouse, signed int x, signed int y)> move_cb,
 	                   function<void(unsigned int mouse, signed int x, signed int y)> move_abs_cb,
@@ -538,7 +543,7 @@ public:
 	};
 	//virtual uint32_t features() = 0; // Features are constantly known at the start.
 	
-	//Calls the callbacks for all state. move_cb is called relative to (0,0).
+	//Calls the callbacks for all buttons.
 	virtual void refresh() = 0;
 	
 	//If f_auto is not set, this calls the callback for all state that changed since the last poll().
@@ -552,9 +557,61 @@ inline inputmouse::~inputmouse(){}
 
 //This refers to the mouse cursor.
 class inputcursor {
-	//http://www.x.org/docs/Xext/recordlib.pdf
+public:
+	struct driver {
+		const char * name;
+		inputcursor* (*create)(uintptr_t windowhandle);
+		uint32_t features;
+	};
 	
-	virtual ~inputcursor();
+private:
+	static const driver driver_xrecord; //http://www.x.org/docs/Xext/recordlib.pdf
+	static const driver driver_windowshook; //http://msdn.microsoft.com/en-us/library/windows/desktop/ms644990%28v=vs.85%29.aspx
+	static const driver driver_x11; //XQueryPointer
+	static const driver driver_wm; //WM_MOUSE
+	static const driver driver_none;
+	
+public:
+	static const driver* const drivers[];
+	
+protected:
+	function<void(unsigned int mouse, signed int x, signed int y)> move_cb;
+	function<void(unsigned int mouse, unsigned int button, bool down)> button_cb;
+	
+public:
+	class button { public: enum { left, right, middle }; };//this is stupid, why do I need this child class
+	
+	void set_listeners(function<void(unsigned int mouse, signed int x, signed int y)> move_cb,
+	                   function<void(unsigned int mouse, unsigned int button, bool down)> button_cb)
+	                   //TODO: mouse wheel?
+	{
+		this->move_cb = move_cb;
+		this->button_cb = button_cb;
+	}
+	
+	enum {
+		f_outside  = 0x0100,//Can show mouse position while the mouse is not on top of the owner window.
+		f_move     = 0x0080,//Can move the pointer to another position.
+		f_delta    = 0x0040,//Only fires events if the mouse state has changed. Improves processing time.
+		f_multi    = 0x0020,//Can differ between multiple mice.
+		f_inactive = 0x0010,//Can show mouse position while the owner window is not the foreground window.
+		f_auto     = 0x0008,//poll() is empty, and the callback is called by window_run_*().
+		f_direct   = 0x0004,//Does not go through a separate process. Improves latency.
+		f_remote   = 0x0002,//Compatible with X11 remoting, or equivalent. Implies !f_direct.
+		f_public   = 0x0001,//Does not require elevated privileges to use.
+	};
+	
+	//Calls the callbacks for all state.
+	virtual void refresh() = 0;
+	
+	//If f_auto is not set, this calls the callback for all state that changed since the last poll().
+	//The implementation is allowed to call the callbacks for unchanged state.
+	virtual void poll() { refresh(); }
+	
+	//Moves the cursor so that the next refresh() (assuming no user input) will return x,y.
+	virtual void move(unsigned int mouse, signed int x, signed int y) {}
+	
+	virtual ~inputcursor() = 0;
 };
 inline inputcursor::~inputcursor(){}
 

@@ -77,6 +77,7 @@ g_log_set_always_fatal((GLogLevelFlags)(G_LOG_LEVEL_CRITICAL|G_LOG_LEVEL_WARNING
 #ifdef WNDPROT_X11
 	window_x11.display=gdk_x11_get_default_xdisplay();
 	window_x11.screen=gdk_x11_get_default_screen();
+	window_x11.root=gdk_x11_get_default_root_xwindow();//alternatively XRootWindow(window_x11.display, window_x11.screen)
 #endif
 	errno=0;
 }

@@ -38,6 +38,11 @@
 #define INPUT_X11
 //#define INPUT_DIRECTINPUT
 
+#define INPUTCUR_XRECORD
+//#define INPUTCUR_WINDOWSHOOK
+#define INPUTCUR_X11
+//#define INPUTCUR_WIN32
+
 //#define VIDEO_D3D9
 //#define VIDEO_DDRAW
 #define VIDEO_OPENGL
@@ -83,6 +88,11 @@
 //#define INPUT_XINPUT2
 //#define INPUT_X11
 #define INPUT_DIRECTINPUT
+
+//#define INPUTCUR_XRECORD
+#define INPUTCUR_W32HOOK
+//#define INPUTCUR_X11
+#define INPUTCUR_WIN32
 
 #define VIDEO_D3D9
 #define VIDEO_DDRAW

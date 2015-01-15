@@ -1661,23 +1661,23 @@ void update_menu()
 int main(int argc, char * argv[])
 {
 	window_init(&argc, &argv);
-for (int i=4095;i<=4097;i++)
-{
-for (int k=0;k<64;k++)
-{
-char q[64];
-sprintf(q, "/home/alcaro/Desktop/minir/%i.bin", i);
-file g=file::create(q);
-file::map h=g.mmap(0,i);
-const uint8_t * data=(uint8_t*)h.ptr;
-for (int j=0;j<i;j++)
-{
-	if (data[j]!=0xFF) abort();
-}
-printf("%p ",(char*)h.ptr+g.len);
-}
-}
-puts("ok");exit(0);
+//for (int i=4095;i<=4097;i++)
+//{
+//for (int k=0;k<64;k++)
+//{
+//char q[64];
+//sprintf(q, "/home/alcaro/Desktop/minir/%i.bin", i);
+//file g=file::create(q);
+//file::map h=g.mmap(0,i);
+//const uint8_t * data=(uint8_t*)h.ptr;
+//for (int j=0;j<i;j++)
+//{
+//	if (data[j]!=0xFF) abort();
+//}
+//printf("%p ",(char*)h.ptr+g.len);
+//}
+//}
+//puts("ok");exit(0);
 //const char * path="tests/shade/cocktail-table.glsl";
 //const char * path="tests/shade/mcgreen.cg";
 //const char * path="tests/shade/mcgreen.glsl";
