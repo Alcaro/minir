@@ -4,10 +4,13 @@
 namespace {
 class inputcursor_w32hook : public inputcursor {
 public:
-	bool construct(uintptr_t windowhandle) { return false; }
-	void refresh() {}
-	void poll() {}
-	~inputcursor_w32hook(){}
+
+bool construct(uintptr_t windowhandle) { return false; }
+void refresh() {}
+void poll() {}
+void move(unsigned int mouse, signed int x, signed int y) {}
+~inputcursor_w32hook(){}
+
 };
 
 inputcursor* inputcursor_create_w32hook(uintptr_t windowhandle)

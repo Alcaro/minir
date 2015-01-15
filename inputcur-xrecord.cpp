@@ -4,10 +4,18 @@
 namespace {
 class inputcursor_xrecord : public inputcursor {
 public:
-	bool construct(uintptr_t windowhandle) { return false; }
-	void refresh() {}
-	void poll() {}
-	~inputcursor_xrecord(){}
+
+bool construct(uintptr_t windowhandle) { return false; }
+void refresh() {}
+void poll() {}
+
+void move(unsigned int mouse, signed int x, signed int y)
+{
+	XWarpPointer(window_x11.display, None, window_x11.root, 0,0, 0,0, x,y);
+}
+
+~inputcursor_xrecord(){}
+
 };
 inputcursor* inputcursor_create_xrecord(uintptr_t windowhandle)
 {

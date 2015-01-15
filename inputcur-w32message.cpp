@@ -4,10 +4,13 @@
 namespace {
 class inputcursor_w32msg : public inputcursor {
 public:
-	bool construct(uintptr_t windowhandle) { return false; }
-	void refresh() {}
-	void poll() {}
-	~inputcursor_w32msg(){}
+
+bool construct(uintptr_t windowhandle) { return false; }
+void refresh() {}
+void poll() {}
+void move(unsigned int mouse, signed int x, signed int y) {}
+~inputcursor_w32msg(){}
+
 };
 
 inputcursor* inputcursor_create_w32msg(uintptr_t windowhandle)
