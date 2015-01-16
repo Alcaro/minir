@@ -106,9 +106,10 @@ public:
 	//The callee will own the returned object and shall treat it as if it is the attached video driver.
 	virtual void enable_3d(function<video*(struct retro_hw_render_callback * desc)> creator) = 0;
 	
-	//data/datalen or filename can be NULL, but not both unless supports_no_game is true. It is allowed for both to be non-NULL.
-	//If load_rom_mem_supported is false, filename must be non-NULL, and data/datalen are unlikely to be used.
-	virtual bool load_rom(file* data) = 0;
+	//This function takes ownership of the given file.
+	//virtual bool load_rom(file* data) = 0;
+	virtual bool load_rom(const char * data, size_t datalen, const char * filename);
+	virtual bool load_rom_mem_supported();
 	
 	//The following are only valid after a game is loaded.
 	

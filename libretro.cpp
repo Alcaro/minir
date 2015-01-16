@@ -9,9 +9,7 @@
 #include <ctype.h>
 #include "libretro.h"
 
-//TODO: Save SRAM only if it's changed.
-
-#define this This
+namespace {
 
 struct libretro_raw {
 	void (*set_environment)(retro_environment_t);
@@ -73,62 +71,54 @@ static bool load_raw_iface(dylib* lib, struct libretro_raw * interface)
 	return true;
 }
 
-struct libretro_impl {
-	struct libretro i;
-	
-	dylib* lib;
-	char * libpath;
-	char * rompath;
-	struct libretro_raw raw;
-	
-	video* v2d;
-	video* v3d;
-	function<video*(struct retro_hw_render_callback * desc)> create3d;
-	
-	video* v;
-	struct audio * a;
-	struct libretroinput * in;
-	
-	void (*message_cb)(int severity, const char * message);
-	
-	videoformat videodepth;
-	
-	bool initialized;
-	
+class libretro_impl : public libretro {
+public:
+
+dylib* lib;
+char * libpath;
+char * rompath;
+struct libretro_raw raw;
+
+video* v2d;
+video* v3d;
+function<video*(struct retro_hw_render_callback * desc)> create3d;
+
+video* v;
+struct audio * a;
+struct libretroinput * in;
+
+void (*message_cb)(int severity, const char * message);
+
+uint32_t feat;
+uint32_t features() { return feat; }
+
+videoformat videodepth;
+
+bool initialized;
+
 #define audiobufsize 64
-	int16_t audiobuf[audiobufsize*2];
-	unsigned int audiobufpos;
-	
-	void * tmpptr[4];
-	
-	bool core_opt_changed;
-	bool core_opt_list_changed;
-	unsigned int core_opt_num;
-	struct libretro_core_option * core_opts;
-	unsigned int * core_opt_current_values;
-	
-	struct retro_memory_descriptor * memdesc;
-	unsigned int nummemdesc;
-};
+int16_t audiobuf[audiobufsize*2];
+unsigned int audiobufpos;
+
+void * tmpptr[4];
+
+bool core_opt_changed;
+bool core_opt_list_changed;
+unsigned int core_opt_num;
+struct libretro_core_option * core_opts;
+unsigned int * core_opt_current_values;
+
+struct retro_memory_descriptor * memdesc;
+unsigned int nummemdesc;
 
 #ifdef __GNUC__
-static __thread struct libretro_impl * g_this;
+static __thread libretro_impl* g_this;
 #endif
 #ifdef _MSC_VER
-static __declspec(thread) struct libretro_impl * g_this;
+static __declspec(thread) libretro_impl* g_this;
 #endif
 
-static bool void_true(struct libretro * this)
-{
-	return true;
-}
-
-static bool void_false(struct libretro * this)
-{
-	return false;
-}
-
-static void appendtmpptr(struct libretro_impl * this, void * newptr)
+/*private*/ void appendtmpptr(void * newptr)
 {
 	free(this->tmpptr[3]);
 	this->tmpptr[3]=this->tmpptr[2];
@@ -137,7 +127,7 @@ static void appendtmpptr(struct libretro_impl * this, void * newptr)
 	this->tmpptr[0]=newptr;
 }
 
-static char * convert_name(const char * name, const char * version)
+/*private*/ static char * convert_name(const char * name, const char * version)
 {
 	size_t len1=strlen(name);
 	size_t len2=strlen(version);
@@ -148,17 +138,16 @@ static char * convert_name(const char * name, const char * version)
 	return out;
 }
 
-static const char * name(struct libretro * this_)
+const char * name()
 {
-	struct libretro_impl * this=(struct libretro_impl*)this_;
 	struct retro_system_info info;
 	this->raw.get_system_info(&info);
 	char * out=convert_name(info.library_name, info.library_version);
-	appendtmpptr(this, out);
+	this->appendtmpptr(out);
 	return out;
 }
 
-static char ** convert_extensions(const char * extensions, unsigned int * count)
+/*private*/ static char ** convert_extensions(const char * extensions, unsigned int * count)
 {
 	size_t datalen=1;
 	size_t numptrs=2;//one for the first, one for the final NULL
@@ -193,22 +182,20 @@ static char ** convert_extensions(const char * extensions, unsigned int * count)
 	return ptrs;
 }
 
-static const char * no_extensions=NULL;
-static const char * const * supported_extensions(struct libretro * this_, unsigned int * count)
+const char * const * supported_extensions(unsigned int * count)
 {
-	struct libretro_impl * this=(struct libretro_impl*)this_;
+	static const char * no_extensions=NULL;//TODO: replace with a plain NULL
 	
 	struct retro_system_info info;
 	this->raw.get_system_info(&info);
 	if (!info.valid_extensions) return &no_extensions;
 	char ** ret=convert_extensions(info.valid_extensions, count);
-	appendtmpptr(this, ret);
+	this->appendtmpptr(ret);
 	return (const char * const *)ret;
 }
 
-static bool supports_extension(struct libretro * this_, const char * extension)
+bool supports_extension(const char * extension)
 {
-	struct libretro_impl * this=(struct libretro_impl*)this_;
 	int extlen=strlen(extension);
 	
 	struct retro_system_info info;
@@ -229,7 +216,7 @@ retry: ;
 	else return false;
 }
 
-static void initialize(struct libretro_impl * this)
+/*private*/ void initialize()
 {
 	if (!this->initialized)
 	{
@@ -238,33 +225,31 @@ static void initialize(struct libretro_impl * this)
 	}
 }
 
-static void attach_interfaces(struct libretro * this_, video* v, struct audio * a, struct libretroinput * i)
+void attach_interfaces(video* v, struct audio * a, struct libretroinput * i)
 {
-	struct libretro_impl * this=(struct libretro_impl*)this_;
 	this->v2d=v;
 	if (!this->v3d) this->v=v;
 	this->a=a;
 	this->in=i;
 }
 
-static void enable_3d(struct libretro * this_, function<video*(struct retro_hw_render_callback * desc)> creator)
+void enable_3d(function<video*(struct retro_hw_render_callback * desc)> creator)
 {
-	struct libretro_impl * this=(struct libretro_impl*)this_;
 	this->create3d=creator;
 }
 
-static uintptr_t v3d_get_current_framebuffer()
+/*private*/ static uintptr_t v3d_get_current_framebuffer()
 {
 	return g_this->v3d->draw_3d_get_current_framebuffer();
 }
 
-static retro_proc_address_t v3d_get_proc_address(const char * sym)
+/*private*/ static retro_proc_address_t v3d_get_proc_address(const char * sym)
 {
 	return g_this->v3d->draw_3d_get_proc_address(sym);
 }
 
 //TODO: remove this once rarch megapack updates and its s9x exports the mmaps, alternatively once I get unlazy enough to compile s9x myself
-static void add_snes_mmap(struct libretro_impl * this)
+/*private*/ void add_snes_mmap()
 {
 #ifdef _WIN32
 if(!this->memdesc)
@@ -288,22 +273,22 @@ this->nummemdesc=1;
 #endif
 }
 
-static bool load_rom(struct libretro * this_, const char * data, size_t datalen, const char * filename)
+bool supports_no_game() { return (this->feat & f_load_none); }
+
+bool load_rom(const char * data, size_t datalen, const char * filename)
 {
-	struct libretro_impl * this=(struct libretro_impl*)this_;
-	
 	g_this=this;
 	
 	free(this->rompath);
 	this->rompath=NULL;
 	
+	this->nummemdesc=0;
 	free(this->memdesc);
 	this->memdesc=NULL;
-	this->nummemdesc=0;
 	
-	initialize(this);
+	this->initialize();
 	
-	bool gameless=this->i.supports_no_game((struct libretro*)this);
+	bool gameless=this->supports_no_game();
 	
 	this->v3d=NULL;
 	this->v=this->v2d;
@@ -325,7 +310,7 @@ static bool load_rom(struct libretro * this_, const char * data, size_t datalen,
 		else file_read(filename, (void**)&game.data, &game.size);
 		bool ret=this->raw.load_game(&game);
 		free((char*)game.data);
-add_snes_mmap(this);
+this->add_snes_mmap();
 		return ret;
 	}
 	else if (data)
@@ -338,39 +323,30 @@ add_snes_mmap(this);
 		game.size=datalen;
 		game.meta=NULL;
 bool ret=this->raw.load_game(&game);
-add_snes_mmap(this);
+this->add_snes_mmap();
 return ret;
-	}
-	else if (gameless)
-	{
-		this->rompath=strdup(this->libpath);
-		return this->raw.load_game(NULL);
 	}
 	else return false;
 }
 
-static bool load_rom_mem_supported(struct libretro * this_)
+bool load_rom_mem_supported()
 {
-	struct libretro_impl * this=(struct libretro_impl*)this_;
-	
 	struct retro_system_info info;
 	this->raw.get_system_info(&info);
 	return !(info.need_fullpath);
 }
 
-static void reset(struct libretro * this_)
+void reset()
 {
-	struct libretro_impl * this=(struct libretro_impl*)this_;
 	g_this=this;
 	this->raw.reset();
 }
 
-static void get_video_settings(struct libretro * this_, unsigned int * width, unsigned int * height, videoformat * depth, double * fps)
+void get_video_settings(unsigned int * width, unsigned int * height, videoformat * depth, double * fps)
 {
-	struct libretro_impl * this=(struct libretro_impl*)this_;
 	if (!this->initialized)
 	{
-		if (this->i.supports_no_game(this_)) initialize(this);
+		if (this->supports_no_game()) this->initialize();
 		else abort();
 	}
 	struct retro_system_av_info info;
@@ -382,84 +358,74 @@ static void get_video_settings(struct libretro * this_, unsigned int * width, un
 	if (fps) *fps=info.timing.fps;
 }
 
-static double get_sample_rate(struct libretro * this_)
+double get_sample_rate()
 {
-	struct libretro_impl * this=(struct libretro_impl*)this_;
 	struct retro_system_av_info info;
 	this->raw.get_system_av_info(&info);
 	return info.timing.sample_rate;
 }
 
-static bool get_core_options_changed(struct libretro * this_)
+bool get_core_options_changed()
 {
-	struct libretro_impl * this=(struct libretro_impl*)this_;
 	bool ret=this->core_opt_list_changed;
 	this->core_opt_list_changed=false;
 	return ret;
 }
 
-static const struct libretro_core_option * get_core_options(struct libretro * this_, unsigned int * numopts)
+const struct libretro_core_option * get_core_options(unsigned int * numopts)
 {
-	struct libretro_impl * this=(struct libretro_impl*)this_;
 	if (numopts) *numopts=this->core_opt_num;
 	return this->core_opts;
 }
 
-static void set_core_option(struct libretro * this_, unsigned int option, unsigned int value)
+void set_core_option(unsigned int option, unsigned int value)
 {
-	struct libretro_impl * this=(struct libretro_impl*)this_;
 	this->core_opt_current_values[option]=value;
 	this->core_opt_changed=true;
 }
 
-static unsigned int get_core_option(struct libretro * this_, unsigned int option)
+unsigned int get_core_option(unsigned int option)
 {
-	struct libretro_impl * this=(struct libretro_impl*)this_;
 	return this->core_opt_current_values[option];
 }
 
-static const struct retro_memory_descriptor * get_memory_info(struct libretro * this_, unsigned int * nummemdesc)
+const struct retro_memory_descriptor * get_memory_info(unsigned int * nummemdesc)
 {
-	struct libretro_impl * this=(struct libretro_impl*)this_;
-	
 	*nummemdesc=this->nummemdesc;
 	return this->memdesc;
 }
 
-static void get_memory(struct libretro * this_, enum libretro_memtype which, size_t * size, void* * ptr)
+void get_memory(enum libretro_memtype which, size_t * size, void* * ptr)
 {
-	struct libretro_impl * this=(struct libretro_impl*)this_;
-	
 	if (size) *size=this->raw.get_memory_size(which);
 	if (ptr) *ptr=this->raw.get_memory_data(which);
 }
 
-static size_t state_size(struct libretro * this_)
+size_t state_size()
 {
-	struct libretro_impl * this=(struct libretro_impl*)this_;
+	g_this=this;
 	return this->raw.serialize_size();
 }
 
-static bool state_save(struct libretro * this_, void * state, size_t size)
+bool state_save(void * state, size_t size)
 {
-	struct libretro_impl * this=(struct libretro_impl*)this_;
+	g_this=this;
 	return this->raw.serialize(state, size);
 }
 
-static bool state_load(struct libretro * this_, const void * state, size_t size)
+bool state_load(const void * state, size_t size)
 {
-	struct libretro_impl * this=(struct libretro_impl*)this_;
+	g_this=this;
 	return this->raw.unserialize(state, size);
 }
 
-static void run(struct libretro * this_)
+void run()
 {
-	struct libretro_impl * this=(struct libretro_impl*)this_;
 	g_this=this;
 	this->raw.run();
 }
 
-static void free_core_opts(struct libretro_impl * this)
+/*private*/ void free_core_opts()
 {
 	for (unsigned int i=0;i<this->core_opt_num;i++)
 	{
@@ -475,15 +441,14 @@ static void free_core_opts(struct libretro_impl * this)
 	free(this->core_opt_current_values);
 }
 
-static void free_(struct libretro * this_)
+~libretro_impl()
 {
-	struct libretro_impl * this=(struct libretro_impl*)this_;
 	if (this->initialized)
 	{
 		this->raw.unload_game();
 		this->raw.deinit();
 	}
-	free_core_opts(this);
+	this->free_core_opts();
 	free(this->memdesc);
 	free(this->tmpptr[0]);
 	free(this->tmpptr[1]);
@@ -497,7 +462,7 @@ static void free_(struct libretro * this_)
 
 
 
-static void log_callback(enum retro_log_level level, const char * fmt, ...)
+/*private*/ static void log_callback(enum retro_log_level level, const char * fmt, ...)
 {
 	if (g_this->message_cb)
 	{
@@ -537,9 +502,8 @@ static void log_callback(enum retro_log_level level, const char * fmt, ...)
 //Nope xx   xxx            xxx xx xx   x     x  = 14
 //Gone    xx              x                     = 3
 //Detailed information on why the unsupported ones don't exist can be found in this function.
-static bool environment(unsigned cmd, void* data)
+/*private*/ bool environment(unsigned cmd, void* data)
 {
-	struct libretro_impl * this=g_this;
 	//1 SET_ROTATION, no known supported core uses that. Cores are expected to deal with failures, anyways.
 	//2 GET_OVERSCAN, I have no opinion. Use the default.
 	if (cmd==RETRO_ENVIRONMENT_GET_CAN_DUPE) //3
@@ -557,7 +521,7 @@ static bool environment(unsigned cmd, void* data)
 	    cmd==RETRO_ENVIRONMENT_GET_CONTENT_DIRECTORY) //30
 	{
 		char * ret=strdup(this->libpath);
-		appendtmpptr(this, ret);
+		this->appendtmpptr(ret);
 		char * retend=strrchr(ret, '/');
 		if (retend) *retend='\0';
 		(*(const char**)data)=ret;
@@ -606,7 +570,7 @@ static bool environment(unsigned cmd, void* data)
 	if (cmd==RETRO_ENVIRONMENT_SET_VARIABLES)//16
 	{
 		const struct retro_variable * variables=(const struct retro_variable*)data;
-		free_core_opts(this);
+		this->free_core_opts();
 		
 		const struct retro_variable * variables_count=variables;
 		while (variables_count->key) variables_count++;
@@ -674,7 +638,7 @@ static bool environment(unsigned cmd, void* data)
 	if (cmd==RETRO_ENVIRONMENT_SET_SUPPORT_NO_GAME) //18
 	{
 		if (!*(bool*)data) return true;//if this hits, someone's joking with us.
-		this->i.supports_no_game=void_true;
+		this->feat |= f_load_none;
 		return true;
 	}
 	//19 GET_LIBRETRO_PATH, see 9.
@@ -709,7 +673,7 @@ static bool environment(unsigned cmd, void* data)
 		const char * usepath=this->rompath;
 		if (!usepath)
 		{
-			if (this->i.supports_no_game((struct libretro*)this)) usepath=this->libpath;
+			if (this->feat & f_load_none) usepath=this->libpath;
 			if (!usepath)
 			{
 				(*(const char**)data)=NULL;
@@ -717,7 +681,7 @@ static bool environment(unsigned cmd, void* data)
 			}
 		}
 		char * ret=strdup(usepath);
-		appendtmpptr(this, ret);
+		this->appendtmpptr(ret);
 		char * retend=strrchr(ret, '/');
 		if (retend) *retend='\0';
 		(*(const char**)data)=ret;
@@ -790,14 +754,19 @@ static bool environment(unsigned cmd, void* data)
 	return false;
 }
 
-static void video_refresh(const void * data, unsigned width, unsigned height, size_t pitch)
+/*private*/ static bool environment_s(unsigned cmd, void* data)
+{
+	return g_this->environment(cmd, data);
+}
+
+/*private*/ static void video_refresh(const void * data, unsigned width, unsigned height, size_t pitch)
 {
 	if (data==RETRO_HW_FRAME_BUFFER_VALID) g_this->v->draw_3d(width, height);
 	else if (data) g_this->v->draw_2d(width, height, data, pitch);
 	else g_this->v->draw_repeat();
 }
 
-static void audio_sample(int16_t left, int16_t right)
+/*private*/ static void audio_sample(int16_t left, int16_t right)
 {
 	g_this->audiobuf[g_this->audiobufpos++]=left;
 	g_this->audiobuf[g_this->audiobufpos++]=right;
@@ -808,39 +777,23 @@ static void audio_sample(int16_t left, int16_t right)
 	}
 }
 
-static size_t audio_sample_batch(const int16_t * data, size_t frames)
+/*private*/ static size_t audio_sample_batch(const int16_t * data, size_t frames)
 {
 	g_this->a->render(g_this->a, frames, data);
 	return frames;//what is this one even
 }
 
-static void input_poll(void)
+/*private*/ static void input_poll(void)
 {
 }
 
-static int16_t input_state(unsigned port, unsigned device, unsigned index, unsigned id)
+/*private*/ static int16_t input_state(unsigned port, unsigned device, unsigned index, unsigned id)
 {
 	return g_this->in->query(g_this->in, port, device, index, id);
 }
 
-struct libretro libretro_iface = {
-	name, supported_extensions, supports_extension,
-	void_false,//supports_no_game
-	attach_interfaces, enable_3d,
-	load_rom, load_rom_mem_supported,
-	get_video_settings, get_sample_rate,
-	get_core_options_changed, get_core_options, set_core_option, get_core_option,
-	get_memory, get_memory_info, reset,
-	state_size, state_save, state_load,
-	run,
-	free_
-};
-
-struct libretro * libretro_create(const char * corepath, void (*message_cb)(int severity, const char * message), bool * existed)
+/*private*/ bool initialize(const char * corepath, void (*message_cb)(int severity, const char * message), bool * existed)
 {
-	struct libretro_impl * this=malloc(sizeof(struct libretro_impl));
-	memcpy(&this->i, &libretro_iface, sizeof(libretro_iface));
-	
 	g_this=this;
 	if (existed) *existed=false;
 	
@@ -858,6 +811,8 @@ struct libretro * libretro_create(const char * corepath, void (*message_cb)(int 
 	this->tmpptr[1]=NULL;
 	this->tmpptr[2]=NULL;
 	this->tmpptr[3]=NULL;
+	
+	this->feat=0;
 	
 	this->audiobufpos=0;
 	this->videodepth=fmt_xrgb1555;
@@ -879,7 +834,7 @@ struct libretro * libretro_create(const char * corepath, void (*message_cb)(int 
 	this->create3d=NULL;
 	this->v3d=NULL;
 	
-	this->raw.set_environment(environment);
+	this->raw.set_environment(environment_s);
 	this->raw.set_video_refresh(video_refresh);
 	this->raw.set_audio_sample(audio_sample);
 	this->raw.set_audio_sample_batch(audio_sample_batch);
@@ -894,6 +849,20 @@ cancel:
 	delete this->lib;
 	free(this);
 	return NULL;
+}
+
+};
+}
+
+libretro* libretro_create(const char * corepath, void (*message_cb)(int severity, const char * message), bool * existed)
+{
+	libretro_impl* ret=new libretro_impl();
+	if (!ret->initialize(corepath, message_cb, existed))
+	{
+		delete ret;
+		return NULL;
+	}
+	return ret;
 }
 
 
