@@ -41,6 +41,7 @@ public:
 	char* filename;
 	size_t len;
 	
+	virtual file* clone() { return file::create(this->filename); }//The returned object is guaranteed equivalent to the given one.
 	virtual void read(size_t start, void* target, size_t len) = 0;
 	void read(void* target, size_t len) { this->read(0, target, len); }
 	virtual void* mmap(size_t start, size_t len) = 0;
@@ -55,6 +56,14 @@ class file::mem : public file {
 	void* data;
 public:
 	mem(const char * filename, void* data, size_t len) : file(filename) { this->data=data; this->len=len; }
+	
+	file* clone()
+	{
+		void* newdat=malloc(this->len);
+		memcpy(newdat, this->data, this->len);
+		return new file::mem(this->filename, newdat, this->len);
+	}
+	
 	void read(size_t start, void* target, size_t len) { memcpy(target, (char*)data+start, len); }
 	void* map(size_t start, size_t len) { return (char*)data+start; }
 	void unmap(const void* data, size_t len) {}

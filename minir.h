@@ -95,9 +95,6 @@ public:
 	};
 	virtual uint32_t features() = 0;
 	
-	//Whether the core supports load_rom(NULL).
-	virtual bool supports_no_game() = 0;
-	
 	//The interface pointers must be valid during every call to run().
 	//It is safe to attach new interfaces without recreating the structure.
 	//It is safe to attach new interfaces if the previous ones are destroyed.
@@ -106,10 +103,7 @@ public:
 	//The callee will own the returned object and shall treat it as if it is the attached video driver.
 	virtual void enable_3d(function<video*(struct retro_hw_render_callback * desc)> creator) = 0;
 	
-	//This function takes ownership of the given file.
-	//virtual bool load_rom(file* data) = 0;
-	virtual bool load_rom(const char * data, size_t datalen, const char * filename) = 0;
-	virtual bool load_rom_mem_supported() = 0;
+	virtual bool load_rom(file* data) = 0;
 	
 	//The following are only valid after a game is loaded.
 	
