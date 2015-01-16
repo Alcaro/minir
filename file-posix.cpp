@@ -150,14 +150,14 @@ static void* file_alloc(int fd, size_t len, bool writable)
 static long pagesize() { return sysconf(_SC_PAGESIZE); }
 
 namespace {
-	class file_fs_rd : public file::impl {
+	class file_fs : public file {
 		int fd;
 	public:
-		file_fs_rd(int fd, size_t len) : fd(fd), impl(len) {}
+		file_fs(const char * filename, int fd, size_t len) : file(filename) { this->fd=fd; this->len=len; }
 		
 		void read(size_t start, void* target, size_t len) { pread(fd, target, len, start); }
 		
-		void* map(size_t start, size_t len)
+		void* mmap(size_t start, size_t len)
 		{
 			size_t offset = start % pagesize();
 			void* data=::mmap(NULL, len+offset, PROT_READ, MAP_SHARED, this->fd, start-offset);
@@ -170,11 +170,11 @@ namespace {
 			size_t offset = (uintptr_t)data % pagesize();
 			munmap((char*)data-offset, len+offset);
 		}
-		~file_fs_rd() { close(fd); }
+		~file_fs() { close(fd); }
 	};
 }
 
-file::impl* file::create_fs(const char * filename)
+file* file::create_fs(const char * filename)
 {
 	int fd=open(filename, O_RDONLY);
 	if (fd<0) return NULL;
@@ -182,7 +182,7 @@ file::impl* file::create_fs(const char * filename)
 	struct stat st;
 	if (fstat(fd, &st)<0) goto fail;
 	
-	return new file_fs_rd(fd, st.st_size);
+	return new file_fs(filename, fd, st.st_size);
 	
 fail:
 	close(fd);

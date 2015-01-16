@@ -97,7 +97,7 @@ void _int_mutex_unlock(enum _int_mutex id)
 	imutex[id]->unlock();
 }
 
-file::impl* file::create_raw(const char * filename)
+file* file::create(const char * filename)
 {
 	//TODO
 	return create_fs(filename);
