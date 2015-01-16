@@ -1,7 +1,10 @@
 #pragma once
 #include "global.h"
 
-class video;
+class video;//io.h
+class file; //file.h
+struct retro_memory_descriptor; //libretro.h
+struct retro_hw_render_callback;//libretro.h
 
 
 #ifdef NEED_ICON_PNG
@@ -64,74 +67,82 @@ struct libretro_core_option {
 	unsigned int numvalues;
 	const char * const * values;
 };
-
 enum libretro_memtype { // These IDs are the same as RETRO_MEMORY_*.
 	libretromem_sram,
 	libretromem_unused1,
 	libretromem_wram,
 	libretromem_vram
 };
-struct retro_memory_descriptor;//If you want to use this, include libretro.h.
-struct libretro {
+class libretro {
+public:
 	//Any returned pointer is, unless otherwise specified, valid only until the next call to a function here, and freed by this object.
 	//Input pointers are, unless otherwise specified, not expected valid after the function returns.
 	
-	const char * (*name)(struct libretro * This);
+	//The name of the core.
+	virtual const char * name() = 0;
 	
 	//Return value format is { "smc", "sfc", NULL }.
-	const char * const * (*supported_extensions)(struct libretro * This, unsigned int * count);
+	virtual const char * const * supported_extensions(unsigned int * count) = 0;
 	
 	//This one is also without the dot.
-	bool (*supports_extension)(struct libretro * This, const char * extension);
+	virtual bool supports_extension(const char * extension) = 0;
+	
+	enum {
+		f_load_filename= 0x0001,//Can load a ROM from a filename.
+		f_load_mem     = 0x0002,//Can load a ROM from a memory block.
+		f_load_virt_file=0x0004,//Can load a ROM from a file stream.
+		f_load_none    = 0x0008,//Doesn't require a ROM.
+	};
+	virtual uint32_t features() = 0;
 	
 	//Whether the core supports load_rom(NULL).
-	bool (*supports_no_game)(struct libretro * This);
+	virtual bool supports_no_game() = 0;
 	
 	//The interface pointers must be valid during every call to run().
 	//It is safe to attach new interfaces without recreating the structure.
 	//It is safe to attach new interfaces if the previous ones are destroyed.
-	void (*attach_interfaces)(struct libretro * This, video* v, struct audio * a, struct libretroinput * i);
+	virtual void attach_interfaces(video* v, struct audio * a, struct libretroinput * i) = 0;
 	
 	//The callee will own the returned object and shall treat it as if it is the attached video driver.
-	void (*enable_3d)(struct libretro * This, function<video*(struct retro_hw_render_callback * desc)> creator);
+	virtual void enable_3d(function<video*(struct retro_hw_render_callback * desc)> creator) = 0;
 	
 	//data/datalen or filename can be NULL, but not both unless supports_no_game is true. It is allowed for both to be non-NULL.
 	//If load_rom_mem_supported is false, filename must be non-NULL, and data/datalen are unlikely to be used.
-	bool (*load_rom)(struct libretro * This, const char * data, size_t datalen, const char * filename);
-	bool (*load_rom_mem_supported)(struct libretro * This);
+	virtual bool load_rom(file* data) = 0;
 	
 	//The following are only valid after a game is loaded.
 	
-	void (*get_video_settings)(struct libretro * This, unsigned int * width, unsigned int * height, videoformat * depth, double * fps);
-	double (*get_sample_rate)(struct libretro * This);
+	virtual void get_video_settings(unsigned int * width, unsigned int * height, videoformat * depth, double * fps);
+	virtual double get_sample_rate();
 	
 	//The core options will be reported as having changed on a freshly created core,
 	// even if there are no options. The flag is cleared by calling this function.
-	bool (*get_core_options_changed)(struct libretro * This);
+	virtual bool get_core_options_changed();
 	//The list is terminated by a { NULL, NULL, false, 0, NULL }.
 	//The return value is invalidated by run() or free(), whichever comes first.
-	const struct libretro_core_option * (*get_core_options)(struct libretro * This, unsigned int * numopts);
+	virtual const struct libretro_core_option * get_core_options(unsigned int * numopts);
 	//It is undefined behaviour to set a nonexistent option, or to set an option to a nonexistent value.
-	void (*set_core_option)(struct libretro * This, unsigned int option, unsigned int value);
-	unsigned int (*get_core_option)(struct libretro * This, unsigned int option);
+	virtual void set_core_option(unsigned int option, unsigned int value);
+	virtual unsigned int get_core_option(unsigned int option);
 	
 	//You can write to the returned pointer.
 	//Will return 0:NULL if the core doesn't know what the given memory type is.
 	//(If that happens, you can still read and write the indicated amount to the pointer.)
-	void (*get_memory)(struct libretro * This, enum libretro_memtype which, size_t * size, void* * ptr);
+	virtual void get_memory(enum libretro_memtype which, size_t * size, void* * ptr);
 	
-	const struct retro_memory_descriptor * (*get_memory_info)(struct libretro * This, unsigned int * nummemdesc);
+	virtual const struct retro_memory_descriptor * get_memory_info(unsigned int * nummemdesc);
 	
-	void (*reset)(struct libretro * This);
+	virtual void reset();
 	
-	size_t (*state_size)(struct libretro * This);
-	bool (*state_save)(struct libretro * This, void* state, size_t size);
-	bool (*state_load)(struct libretro * This, const void* state, size_t size);
+	virtual size_t state_size();
+	virtual bool state_save(void* state, size_t size);
+	virtual bool state_load(const void* state, size_t size);
 	
-	void (*run)(struct libretro * This);
+	virtual void run();
 	
-	void (*free)(struct libretro * This);
+	virtual ~libretro() = 0;
 };
+libretro::~libretro(){}
 
 //The message notification may be called before libretro_create returns. It may even be called if the
 // function returns NULL afterwards. It can be NULL, in which case the messages will be discarded.

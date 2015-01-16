@@ -97,7 +97,7 @@ static void set_parent(struct minircheats * this_, struct window * parent)
 	this->parent=parent;
 }
 
-static void set_core(struct minircheats * this_, struct libretro * core, size_t prev_limit)
+static void set_core(struct minircheats * this_, libretro* core, size_t prev_limit)
 {
 	struct minircheats_impl * this=(struct minircheats_impl*)this_;
 	while (this->details) details_free(this->details);
@@ -105,7 +105,7 @@ static void set_core(struct minircheats * this_, struct libretro * core, size_t 
 	{
 		unsigned int nummem;
 		const struct retro_memory_descriptor * memory;
-		memory=core->get_memory_info(core, &nummem);
+		memory=core->get_memory_info(&nummem);
 		if (memory)
 		{
 			this->model->set_memory(this->model, memory, nummem);
@@ -114,7 +114,7 @@ static void set_core(struct minircheats * this_, struct libretro * core, size_t 
 		{
 			void* wram;
 			size_t wramlen;
-			core->get_memory(core, libretromem_wram, &wramlen, &wram);
+			core->get_memory(libretromem_wram, &wramlen, &wram);
 			if (wram)
 			{
 				struct retro_memory_descriptor wramdesc;
