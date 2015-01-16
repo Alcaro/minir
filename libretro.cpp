@@ -460,7 +460,6 @@ void run()
 	free(this->libpath);
 	free(this->rompath);
 	delete this->lib;
-	free(this);
 }
 
 
@@ -846,12 +845,10 @@ void run()
 	
 	this->initialized=false;
 	
-	return (struct libretro*)this;
+	return true;
 	
 cancel:
-	delete this->lib;
-	free(this);
-	return NULL;
+	return false;
 }
 
 };
