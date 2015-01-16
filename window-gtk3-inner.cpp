@@ -486,7 +486,7 @@ widget_viewport* widget_viewport::resize(unsigned int width, unsigned int height
 	gtk_widget_set_size_request(GTK_WIDGET(widget), width, height);
 	//GtkWindow* window=GTK_WINDOW(gtk_widget_get_toplevel(GTK_WIDGET(widget)));
 	//gtk_window_resize(window, 1, 1);
-printf("S=%i,%i\n",width,height);
+//printf("S=%i,%i\n",width,height);
 	return this;
 }
 
@@ -495,6 +495,17 @@ uintptr_t widget_viewport::get_window_handle()
 	gtk_widget_realize(GTK_WIDGET(widget));
 	//this won't work on anything except X11, but should be trivial to create an equivalent for.
 	return gdk_x11_window_get_xid(gtk_widget_get_window(GTK_WIDGET(widget)));
+}
+
+void widget_viewport::get_position(int * x, int * y, unsigned int * width, unsigned int * height)
+{
+	gtk_widget_realize(GTK_WIDGET(widget));
+	GdkWindow* window=gtk_widget_get_window(GTK_WIDGET(widget));
+	gdk_window_get_origin(window, x, y);
+	if (width) *width=gdk_window_get_width(window);
+	if (height) *height=gdk_window_get_height(window);
+	//if (x) *height=gdk_window_get_height(window);
+	//if (y) *height=gdk_window_get_height(window);
 }
 
 static void viewport_set_hide_cursor_now(widget_viewport* obj, bool hide)

@@ -1,6 +1,7 @@
 #include "io.h"
 
 #ifdef INPUTCUR_XRECORD
+#include <X11/Xlib.h>
 namespace {
 class inputcursor_xrecord : public inputcursor {
 public:

@@ -469,7 +469,7 @@ public:
 inline inputkb::~inputkb(){}
 
 
-//In minir, mouse and cursor are two separate concepts. Mouse is the physical device; cursor is the item on the screen.
+//In minir, mouse and cursor are two separate concepts. Mouse is the physical device; cursor is the pointer on the screen.
 class inputmouse {
 public:
 	struct driver {
@@ -530,7 +530,7 @@ public:
 inline inputmouse::~inputmouse(){}
 
 
-//This refers to the mouse cursor.
+//TODO: merge inputmouse into this and have both cursor/mouse arguments to a bunch of functions?
 class inputcursor {
 public:
 	struct driver {
@@ -557,6 +557,7 @@ protected:
 public:
 	class button : public inputmouse::button {};//import the button enum from inputmouse
 	
+	//move_cb contains position relative to the desktop. move_grab_cb contains the distance since the last call.
 	void set_listeners(function<void(unsigned int cursor, signed int x, signed int y)> move_cb,
 	                   function<void(unsigned int cursor, signed int x, signed int y)> move_grab_cb,
 	                   function<void(unsigned int cursor, unsigned int button, bool down)> button_cb)
@@ -569,9 +570,10 @@ public:
 	
 	//Returns the features this driver supports. Numerically higher is better. Some flags contradict each other.
 	enum {
-		f_outside  = 0x0200,//Can show cursor position while it is not on top of the owner window.
-		f_move     = 0x0100,//Can move the cursor to another position.
-		f_grab     = 0x0080,//Can remove the cursor from the screen and send its movement to move_grab_cb. There may be ways for the user to get his mouse back.
+		f_outside  = 0x0400,//Can show cursor position while it is not on top of the owner window.
+		f_move     = 0x0200,//Can move the cursor to another position.
+		f_grab     = 0x0100,//Can remove the cursor from the screen and send its movement to move_grab_cb instead. There may be ways for the user to get his mouse back.
+		f_hide     = 0x0080,//Can remove the cursor from the screen. It's still there, it just won't show up. It will reappear if the mouse leaves the window.
 		f_delta    = 0x0040,//Only fires events if the cursor state has changed. Improves processing time.
 		f_multi    = 0x0020,//Can differ between multiple mice.
 		f_background=0x0010,//Can show cursor position while the owner window is not the foreground window.
@@ -591,7 +593,8 @@ public:
 	//Moves the cursor so that the next refresh() (assuming no user input) will return x,y.
 	virtual void move(unsigned int cursor, signed int x, signed int y) {}
 	
-	virtual void grab(unsigned int cursor, bool grab) {}
+	class mode { public: enum grabmode { none, hide, grab }; };
+	virtual void grab(unsigned int cursor, mode::grabmode mode) {}
 	
 	virtual ~inputcursor() = 0;
 };

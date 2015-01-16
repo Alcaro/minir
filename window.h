@@ -52,6 +52,11 @@ struct window {
 	                      void (*onresize)(struct window * subject, unsigned int newwidth, unsigned int newheight, void* userdata),
 	                      void* userdata);
 	
+	void (*get_pos)(struct window * This, int * x, int * y);
+	//Do not move to position (0,0) - it puts the window border outside the screen.
+	void (*set_pos)(struct window * This, int x, int y);
+	void (*set_onmove)(struct window * This, function<void(int x, int y)> onmove);
+	
 	void (*set_title)(struct window * This, const char * title);
 	
 	//The callback tells whether the close request should be honored; true for close, false for keep.
@@ -419,6 +424,8 @@ public:
 	//can't disable this
 	widget_viewport* resize(unsigned int width, unsigned int height);
 	uintptr_t get_window_handle();
+	//The position is relative to the desktop.
+	void get_position(int * x, int * y, unsigned int * width, unsigned int * height);
 	
 	//See documentation of canvas for these.
 	widget_viewport* set_hide_cursor(bool hide);

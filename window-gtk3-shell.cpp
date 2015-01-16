@@ -10,6 +10,8 @@
 
 #define this This
 
+static bool in_callback=false;
+
 struct windowmenu_gtk3;
 struct windowradio_gtk3 {
 	GtkRadioMenuItem* item;
@@ -59,6 +61,8 @@ struct window_gtk3 {
 	uint8_t delayfree;//0=normal, 1=can't free now, 2=free at next opportunity
 	
 	//char padding1[2];
+	
+	function<void(int newwidth, int newheight)> onmove;
 	
 	bool (*onclose)(struct window * subject, void* userdata);
 	void* oncloseuserdata;
@@ -126,6 +130,35 @@ static void set_resizable(struct window * this_, bool resizable,
 	gtk_window_set_resizable(this->wndw, resizable);
 	
 	if (this->status) statusbar_resize(this);
+}
+
+static void get_pos(struct window * this_, int * x, int * y)
+{
+	struct window_gtk3 * this=(struct window_gtk3*)this_;
+	gtk_window_get_position(this->wndw, x, y);
+}
+
+static void set_pos(struct window * this_, int x, int y)
+{
+	struct window_gtk3 * this=(struct window_gtk3*)this_;
+	in_callback=true;
+	gdk_window_move(gtk_widget_get_window(GTK_WIDGET(this->wndw)), x, y);
+	in_callback=false;
+}
+
+gboolean onmove_activate(GtkWidget* widget, GdkEvent* event, gpointer user_data)
+{
+	struct window_gtk3 * this=(struct window_gtk3*)user_data;
+	if (!in_callback) this->onmove(event->configure.x, event->configure.y);
+	return FALSE;
+}
+
+static void set_onmove(struct window * this_, function<void(int x, int y)> onmove)
+{
+	struct window_gtk3 * this=(struct window_gtk3*)this_;
+	this->onmove=onmove;
+	gtk_widget_add_events(GTK_WIDGET(this->wndw), GDK_STRUCTURE_MASK);
+	g_signal_connect(this->wndw, "configure-event", G_CALLBACK(onmove_activate), this);
 }
 
 static void set_title(struct window * this_, const char * title)
@@ -610,7 +643,11 @@ static gboolean onclose_gtk(GtkWidget* widget, GdkEvent* event, gpointer user_da
 	if (this->onclose)
 	{
 		this->delayfree=1;
-		if (this->onclose((struct window*)this, this->oncloseuserdata)==false) return TRUE;
+		if (this->onclose((struct window*)this, this->oncloseuserdata)==false)
+		{
+			this->delayfree=0;
+			return TRUE;
+		}
 		if (this->delayfree==2)
 		{
 			this->delayfree=0;
@@ -626,7 +663,7 @@ static gboolean onclose_gtk(GtkWidget* widget, GdkEvent* event, gpointer user_da
 }
 
 const struct window_gtk3 window_gtk3_base = {{
-	set_is_dialog, set_parent, set_modal, resize, set_resizable, set_title, set_onclose, set_menu,
+	set_is_dialog, set_parent, set_modal, resize, set_resizable, get_pos, set_pos, set_onmove, set_title, set_onclose, set_menu,
 	statusbar_create, statusbar_set, replace_contents,
 	set_visible, is_visible, focus, is_active, menu_active, free_, _get_handle, NULL
 }};
@@ -636,6 +673,7 @@ struct window * window_create(void * contents_)
 	memcpy(&this->i, &window_gtk3_base, sizeof(struct window_gtk3));
 	
 	this->wndw=GTK_WINDOW(gtk_window_new(GTK_WINDOW_TOPLEVEL));
+	gtk_window_set_gravity(this->wndw, GDK_GRAVITY_STATIC);
 	g_signal_connect(this->wndw, "delete-event", G_CALLBACK(onclose_gtk), this);//GtkWidget delete-event maybe
 	gtk_window_set_has_resize_grip(this->wndw, false);
 	gtk_window_set_resizable(this->wndw, false);
