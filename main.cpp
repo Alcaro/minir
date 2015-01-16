@@ -74,7 +74,7 @@ struct libretroinput * retroinp;
 struct window * wndw;
 struct windowmenu * menu;
 struct widget_viewport * draw;
-struct libretro * core;
+libretro* core;
 struct rewindstack * rewind;
 struct minircheats * cheats;
 
@@ -212,7 +212,7 @@ video* create3d(struct retro_hw_render_callback * desc)
 bool try_create_interface_audio(const char * interface)
 {
 	aud=audio_create(interface, draw->get_window_handle(),
-	                 (core ? (core->get_sample_rate(core)) : 8000), config.audio_latency);
+	                 (core ? core->get_sample_rate() : 8000), config.audio_latency);
 	if (aud)
 	{
 		if (interface!=config.driver_audio)
@@ -304,7 +304,7 @@ void reset_config()
 	videoformat videodepth=fmt_rgb565;
 	double videofps=60.0;
 	
-	if (core) core->get_video_settings(core, &videowidth, &videoheight, &videodepth, &videofps);
+	if (core) core->get_video_settings(&videowidth, &videoheight, &videodepth, &videofps);
 	
 printf("Chosen zoom: %ix%i * %i\n",videowidth,videoheight,config.video_scale);
 	draw->set_hide_cursor(config.cursor_hide);
@@ -325,12 +325,12 @@ printf("Chosen drivers: %s, %s, %s\n", config.driver_video, config.driver_audio,
 	}
 	else
 	{
-		if (core) rewind->reset(rewind, core->state_size(core)+sizeof(rewind_timer), config.rewind_mem*1024*1024);
+		if (core) rewind->reset(rewind, core->state_size()+sizeof(rewind_timer), config.rewind_mem*1024*1024);
 		rewind_timer=config.rewind_granularity;
 		rewind_held=false;
 	}
 	
-	if (core) core->attach_interfaces(core, vid, aud, retroinp);
+	if (core) core->attach_interfaces(vid, aud, retroinp);
 	
 	retroinp->set_input(retroinp, inp);
 	retroinp->joypad_set_inputs(retroinp, 0, input_joy+16*0, 16*4);
@@ -412,12 +412,12 @@ void unload_rom()
 	{
 		size_t sramsize;
 		void* sramptr;
-		core->get_memory(core, libretromem_sram, &sramsize, &sramptr);
+		core->get_memory(libretromem_sram, &sramsize, &sramptr);
 		if (sramsize) file_write(sram_path(), sramptr, sramsize);
 	}
 	if (romloaded==coreloaded)
 	{
-		if (core) core->free(core);
+		delete core;
 		core=NULL;
 		coreloaded=NULL;
 	}
@@ -430,11 +430,11 @@ void unload_rom()
 	if (wndw) wndw->set_title(wndw, "minir");
 }
 
-bool study_core(const char * path, struct libretro * core)
+bool study_core(const char * path, libretro* core)
 {
 //printf("study=%s\n",path); fflush(stdout);
 	bool freecore=(!core);
-	struct libretro * thiscore = core ? core : libretro_create(path, NULL, NULL);
+	libretro* thiscore = core ? core : libretro_create(path, NULL, NULL);
 	if (!thiscore) return false;
 	
 	struct configdata coreconfig;
@@ -445,19 +445,19 @@ bool study_core(const char * path, struct libretro * core)
 // printf("free%i=%p [%p]\n",i,coreconfig.support[i],coreconfig.support),
 //fflush(stdout);
 	free(coreconfig.support);
-	coreconfig.support=(char**)thiscore->supported_extensions(thiscore, NULL);
+	coreconfig.support=(char**)thiscore->supported_extensions(NULL);
 //printf("ext=%s\n",coreconfig.support[0]);
 //printf("ext=%s\n",coreconfig.support[1]);
 //printf("ext=%s\n",coreconfig.support[2]);
 	
-	free(coreconfig.corename); coreconfig.corename=(char*)thiscore->name(thiscore);
+	free(coreconfig.corename); coreconfig.corename=(char*)thiscore->name();
 	
 	configmgr->data_save(configmgr, &coreconfig);
 	coreconfig.support=NULL;
 	coreconfig.corename=NULL;
 	configmgr->data_free(configmgr, &coreconfig);
 	
-	if (freecore) thiscore->free(thiscore);
+	if (freecore) delete thiscore;
 	return true;
 }
 
@@ -493,7 +493,7 @@ bool load_core(const char * path, bool keep_rom)
 	unload_rom();
 	free(coreloaded);
 	coreloaded=NULL;
-	if (core) core->free(core);
+	delete core;
 	
 	core=libretro_create(path, message_cb, NULL);
 	if (!core)
@@ -505,11 +505,11 @@ bool load_core(const char * path, bool keep_rom)
 	coreloaded=strdup(path);
 	
 	study_core(path, core);
-	core->attach_interfaces(core, vid, aud, retroinp);
+	core->attach_interfaces(vid, aud, retroinp);
 	
 	delete vid; vid=NULL;
 	vid3d=NULL;
-	core->enable_3d(core, bind(create3d));
+	core->enable_3d(bind(create3d));
 	
 	if (kept_rom)
 	{
@@ -546,7 +546,7 @@ bool load_rom(const char * rom)
 		//I doubt there is any core that can load a dll, but why not try? Worst case, it just fails, as it would have anyways.
 	}
 	if (!core ||
-			(extension && !core->supports_extension(core, extension+1)))
+			(extension && !core->supports_extension(extension+1)))
 	{
 		struct configcorelist * newcores;
 		newcores=configmgr->get_core_for(configmgr, rom, NULL);
@@ -587,11 +587,11 @@ bool load_rom(const char * rom)
 	}
 	unload_rom();
 	
-	if (!core->load_rom(core, NULL, 0, rom))
+	if (!core->load_rom(NULL, 0, rom))
 	{
 		if (wndw) wndw->set_title(wndw, "minir");
 		//MBOX: "Couldn't load %s with %s", romloaded, core->name(core)
-		core->free(core);
+		delete core;
 		core=NULL;
 		free(coreloaded);
 		coreloaded=NULL;
@@ -619,7 +619,7 @@ bool load_rom(const char * rom)
 
 bool load_core_as_rom(const char * rom)
 {
-	if (!load_core(rom, false) || !core->load_rom(core, NULL, 0, NULL))
+	if (!load_core(rom, false) || !core->load_rom(NULL, 0, NULL))
 	{
 		wndw->set_title(wndw, "minir");
 		return false;
@@ -630,7 +630,7 @@ bool load_core_as_rom(const char * rom)
 	load_rom_finish();
 	
 	free(config.corename);
-	config.corename=strdup(core->name(core));
+	config.corename=strdup(core->name());
 	
 	return true;
 }
@@ -638,12 +638,12 @@ bool load_core_as_rom(const char * rom)
 void load_rom_finish()
 {
 	free(state_buf);
-	state_size=core->state_size(core);
+	state_size=core->state_size();
 	state_buf=malloc(state_size);
 	
 	size_t sramsize;
 	void* sramptr;
-	core->get_memory(core, libretromem_sram, &sramsize, &sramptr);
+	core->get_memory(libretromem_sram, &sramsize, &sramptr);
 	if (sramsize) file_read_to(sram_path(), sramptr, sramsize);
 	
 	if (config.savestate_auto)
@@ -720,10 +720,10 @@ bool handle_cli_args(const char * const * filenames, bool coresonly)
 		if (coresonly || (end && !strcmp(end, ext)))
 		{
 			bool existed;
-			struct libretro * thiscore=libretro_create(path, NULL, &existed);
+			libretro* thiscore=libretro_create(path, NULL, &existed);
 			if (thiscore)
 			{
-				if (thiscore->supports_no_game(thiscore))
+				if (thiscore->supports_no_game())
 				{
 					load_is_core=true;
 					if (!load) load=strdup(path);
@@ -733,7 +733,7 @@ bool handle_cli_args(const char * const * filenames, bool coresonly)
 				{
 					study_core(path, thiscore);
 				}
-				thiscore->free(thiscore);
+				delete thiscore;
 				numnewcores++;
 			}
 			else if (!existed)//if someone tells us to open the current core, we want to ignore it
@@ -845,7 +845,7 @@ void initialize(int argc, char * argv[])
 	videoformat videodepth=fmt_rgb565;
 	double videofps=60.0;
 	
-	if (core) core->get_video_settings(core, &videowidth, &videoheight, &videodepth, &videofps);
+	if (core) core->get_video_settings(&videowidth, &videoheight, &videodepth, &videofps);
 	
 	//draw->resize(videowidth*config.video_scale, videoheight*config.video_scale);
 	wndw->set_onclose(wndw, closethis, NULL);
@@ -886,7 +886,7 @@ bool save_state(int index)
 	const char * path=get_state_path(index);
 	
 	bool ret=true;
-	if (ret) ret=core->state_save(core, state_buf, state_size);
+	if (ret) ret=core->state_save(state_buf, state_size);
 	if (ret) ret=file_write(path, state_buf, state_size);
 	
 	if (ret) set_status_bar("State %i saved", index+1);
@@ -901,7 +901,7 @@ bool load_state(int index)
 	
 	bool ret=true;
 	if (ret) ret=file_read_to(path, state_buf, state_size);
-	if (ret) ret=core->state_load(core, state_buf, state_size);
+	if (ret) ret=core->state_load(state_buf, state_size);
 	
 	if (wndw)
 	{
@@ -1090,7 +1090,7 @@ void handle_rewind(bool * skip_frame, bool * count_skipped_frame)
 				
 				char* state=(char*)rewind->push_begin(rewind);
 				memcpy(state+0, &rewind_timer, sizeof(rewind_timer));
-				if (core->state_save(core, state+sizeof(rewind_timer), state_size))
+				if (core->state_save(state+sizeof(rewind_timer), state_size))
 				{
 					rewind->push_end(rewind);
 				}
@@ -1102,7 +1102,7 @@ void handle_rewind(bool * skip_frame, bool * count_skipped_frame)
 				if (state)
 				{
 					memcpy(&rewind_timer, state+0, sizeof(rewind_timer));
-					core->state_load(core, state+sizeof(rewind_timer), state_size);
+					core->state_load(state+sizeof(rewind_timer), state_size);
 				}
 				else
 				{
@@ -1237,7 +1237,7 @@ void do_hotkeys(bool * skip_frame, bool * count_skipped_frame)
 	}
 	if (speed_changed)
 	{
-		double rate=core->get_sample_rate(core);
+		double rate=core->get_sample_rate();
 		if (speed_change<0) rate/=-(speed_change-1);
 		if (speed_change>0) rate*=(speed_change+1);
 		aud->set_samplerate(aud, rate);
@@ -1302,7 +1302,7 @@ if(skip_frame&&!count_skipped_frame)i--;
 		{
 			if (!skip_frame)
 			{
-				core->run(core);
+				core->run();
 				if (now - lastchtupd >= 100*1000)
 				{
 					cheats->update(cheats, true);
@@ -1366,7 +1366,7 @@ void deinit()
 	retroinp->free(retroinp); retroinp=NULL;
 	wndw->free(wndw); wndw=NULL;
 	draw=NULL;//window contents are freed when the window is
-	if (core) core->free(core); core=NULL;
+	delete core; core=NULL;
 	if (cheats) cheats->free(cheats); cheats=NULL;
 }
 
@@ -1436,12 +1436,12 @@ bool is_yesno(const char * yes, const char * no, bool * yesfirst)
 
 void set_core_opt_normal(struct windowmenu * subject, unsigned int state, void* userdata)
 {
-	core->set_core_option(core, (uintptr_t)userdata, state);
+	core->set_core_option((uintptr_t)userdata, state);
 }
 
 void set_core_opt_bool(struct windowmenu * subject, bool checked, void* userdata)
 {
-	core->set_core_option(core, (uintptr_t)userdata, checked);
+	core->set_core_option((uintptr_t)userdata, checked);
 }
 
 void set_core_opt_bool_invert(struct windowmenu * subject, bool checked, void* userdata)
@@ -1452,13 +1452,13 @@ void set_core_opt_bool_invert(struct windowmenu * subject, bool checked, void* u
 void update_coreopt_menu(struct windowmenu * parent, unsigned int pos)
 {
 	static struct windowmenu * menu=NULL;
-	if (menu && core && !core->get_core_options_changed(core)) return;
+	if (menu && core && !core->get_core_options_changed()) return;
 	if (menu) parent->remove_child(parent, menu);
 	menu=windowmenu_create_submenu("_Core _Options", NULL);
 	
 	unsigned int numopts;
 	const struct libretro_core_option * opts=NULL;
-	if (core) opts=core->get_core_options(core, &numopts);
+	if (core) opts=core->get_core_options(&numopts);
 	if (!opts)
 	{
 		struct windowmenu * item=windowmenu_create_item("(no core options)", NULL, NULL);
@@ -1479,14 +1479,14 @@ void update_coreopt_menu(struct windowmenu * parent, unsigned int pos)
 			struct windowmenu * item;
 			item=windowmenu_create_check(opts[i].name_display, yesfirst ? set_core_opt_bool_invert : set_core_opt_bool, (void*)(uintptr_t)i);
 			menu->insert_child(menu, i, item);
-			item->set_state(item, (bool)core->get_core_option(core, i) ^ yesfirst);
+			item->set_state(item, (bool)core->get_core_option(i) ^ yesfirst);
 		}
 		else
 		{
 			struct windowmenu * radioitem=windowmenu_create_radio_l(numvalues, opts[i].values, set_core_opt_normal, (void*)(uintptr_t)i);
 			struct windowmenu * menuitem=windowmenu_create_submenu(opts[i].name_display, radioitem, NULL);
 			menu->insert_child(menu, i, menuitem);
-			radioitem->set_state(radioitem, core->get_core_option(core, i));
+			radioitem->set_state(radioitem, core->get_core_option(i));
 		}
 	}
 	parent->insert_child(parent, pos, menu);
@@ -1550,7 +1550,7 @@ struct windowmenu * update_corepicker_menu(struct windowmenu * parent)
 		{
 			//for gameless cores, claim the core itself is the only one who can do this
 			//also ignore change requests because there is nothing changable in a single-item radio item.
-			const char * name=core->name(core);
+			const char * name=core->name();
 			items=windowmenu_create_radio_l(1, &name, NULL, NULL);
 		}
 		menu->insert_child(menu, numchildren++, items);
@@ -1575,7 +1575,7 @@ void menu_system_rom(struct windowmenu * subject, void* userdata)
 
 void menu_system_reset(struct windowmenu * subject, void* userdata)
 {
-	core->reset(core);
+	core->reset();
 }
 
 void menu_system_settings(struct windowmenu * subject, void* userdata)

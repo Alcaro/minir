@@ -108,42 +108,42 @@ public:
 	
 	//This function takes ownership of the given file.
 	//virtual bool load_rom(file* data) = 0;
-	virtual bool load_rom(const char * data, size_t datalen, const char * filename);
-	virtual bool load_rom_mem_supported();
+	virtual bool load_rom(const char * data, size_t datalen, const char * filename) = 0;
+	virtual bool load_rom_mem_supported() = 0;
 	
 	//The following are only valid after a game is loaded.
 	
-	virtual void get_video_settings(unsigned int * width, unsigned int * height, videoformat * depth, double * fps);
-	virtual double get_sample_rate();
+	virtual void get_video_settings(unsigned int * width, unsigned int * height, videoformat * depth, double * fps) = 0;
+	virtual double get_sample_rate() = 0;
 	
 	//The core options will be reported as having changed on a freshly created core,
 	// even if there are no options. The flag is cleared by calling this function.
-	virtual bool get_core_options_changed();
+	virtual bool get_core_options_changed() = 0;
 	//The list is terminated by a { NULL, NULL, false, 0, NULL }.
 	//The return value is invalidated by run() or free(), whichever comes first.
-	virtual const struct libretro_core_option * get_core_options(unsigned int * numopts);
+	virtual const struct libretro_core_option * get_core_options(unsigned int * numopts) = 0;
 	//It is undefined behaviour to set a nonexistent option, or to set an option to a nonexistent value.
-	virtual void set_core_option(unsigned int option, unsigned int value);
-	virtual unsigned int get_core_option(unsigned int option);
+	virtual void set_core_option(unsigned int option, unsigned int value) = 0;
+	virtual unsigned int get_core_option(unsigned int option) = 0;
 	
 	//You can write to the returned pointer.
 	//Will return 0:NULL if the core doesn't know what the given memory type is.
 	//(If that happens, you can still read and write the indicated amount to the pointer.)
-	virtual void get_memory(enum libretro_memtype which, size_t * size, void* * ptr);
+	virtual void get_memory(enum libretro_memtype which, size_t * size, void* * ptr) = 0;
 	
-	virtual const struct retro_memory_descriptor * get_memory_info(unsigned int * nummemdesc);
+	virtual const struct retro_memory_descriptor * get_memory_info(unsigned int * nummemdesc) = 0;
 	
-	virtual void reset();
+	virtual void reset() = 0;
 	
-	virtual size_t state_size();
-	virtual bool state_save(void* state, size_t size);
-	virtual bool state_load(const void* state, size_t size);
+	virtual size_t state_size() = 0;
+	virtual bool state_save(void* state, size_t size) = 0;
+	virtual bool state_load(const void* state, size_t size) = 0;
 	
-	virtual void run();
+	virtual void run() = 0;
 	
 	virtual ~libretro() = 0;
 };
-libretro::~libretro(){}
+inline libretro::~libretro(){}
 
 //The message notification may be called before libretro_create returns. It may even be called if the
 // function returns NULL afterwards. It can be NULL, in which case the messages will be discarded.

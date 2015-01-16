@@ -71,6 +71,16 @@ static bool load_raw_iface(dylib* lib, struct libretro_raw * interface)
 	return true;
 }
 
+#ifdef __GNUC__
+#define THREAD_LOCAL __thread
+#endif
+#ifdef _MSC_VER
+#define THREAD_LOCAL __declspec(thread)
+#endif
+
+class libretro_impl;
+static THREAD_LOCAL libretro_impl* g_this;
+
 class libretro_impl : public libretro {
 public:
 
@@ -110,13 +120,6 @@ unsigned int * core_opt_current_values;
 
 struct retro_memory_descriptor * memdesc;
 unsigned int nummemdesc;
-
-#ifdef __GNUC__
-static __thread libretro_impl* g_this;
-#endif
-#ifdef _MSC_VER
-static __declspec(thread) libretro_impl* g_this;
-#endif
 
 /*private*/ void appendtmpptr(void * newptr)
 {
