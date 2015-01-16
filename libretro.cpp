@@ -86,7 +86,7 @@ public:
 
 dylib* lib;
 char * libpath;
-char * rompath;
+file* rom;
 struct libretro_raw raw;
 
 video* v2d;
@@ -276,14 +276,12 @@ this->nummemdesc=1;
 #endif
 }
 
-bool supports_no_game() { return (this->feat & f_load_none); }
-
-bool load_rom(const char * data, size_t datalen, const char * filename)
+bool load_rom(file* rom)
 {
 	g_this=this;
 	
-	free(this->rompath);
-	this->rompath=NULL;
+	delete this->rom;
+	this->rom=NULL;
 	
 	this->nummemdesc=0;
 	free(this->memdesc);
@@ -291,52 +289,31 @@ bool load_rom(const char * data, size_t datalen, const char * filename)
 	
 	this->initialize();
 	
-	bool gameless=this->supports_no_game();
-	
 	this->v3d=NULL;
 	this->v=this->v2d;
 	
-	if (filename)
+	if (rom)
 	{
-		this->rompath=strdup(filename);
+		this->rom=rom;
 		
 		struct retro_game_info game;
-		game.path=filename;
-		game.data=NULL;
-		game.size=0;
+		game.path=rom->filename;
+		game.data=rom->mmap();
+		game.size=rom->len;
 		game.meta=NULL;
-		if (data)
-		{
-			game.data=data;
-			game.size=datalen;
-		}
-		else file_read(filename, (void**)&game.data, &game.size);
 		bool ret=this->raw.load_game(&game);
-		free((char*)game.data);
-this->add_snes_mmap();
+		rom->unmap(game.data, rom->len);
 		return ret;
 	}
-	else if (data)
+	else if (this->feat & f_load_none)
 	{
-		this->rompath=NULL;
+		this->rom=NULL;
 		
-		struct retro_game_info game;
-		game.path=NULL;
-		game.data=data;
-		game.size=datalen;
-		game.meta=NULL;
-bool ret=this->raw.load_game(&game);
+bool ret=this->raw.load_game(NULL);
 this->add_snes_mmap();
 return ret;
 	}
 	else return false;
-}
-
-bool load_rom_mem_supported()
-{
-	struct retro_system_info info;
-	this->raw.get_system_info(&info);
-	return !(info.need_fullpath);
 }
 
 void reset()
@@ -347,11 +324,6 @@ void reset()
 
 void get_video_settings(unsigned int * width, unsigned int * height, videoformat * depth, double * fps)
 {
-	if (!this->initialized)
-	{
-		if (this->supports_no_game()) this->initialize();
-		else abort();
-	}
 	struct retro_system_av_info info;
 	memset(&info, 0, sizeof(info));
 	this->raw.get_system_av_info(&info);
@@ -458,7 +430,7 @@ void run()
 	free(this->tmpptr[2]);
 	free(this->tmpptr[3]);
 	free(this->libpath);
-	free(this->rompath);
+	delete this->rom;
 	delete this->lib;
 }
 
@@ -672,7 +644,7 @@ void run()
 	//30 GET_CONTENT_DIRECTORY, see 9.
 	if (cmd==RETRO_ENVIRONMENT_GET_SAVE_DIRECTORY) //31
 	{
-		const char * usepath=this->rompath;
+		const char * usepath=this->rom->filename;
 		if (!usepath)
 		{
 			if (this->feat & f_load_none) usepath=this->libpath;
@@ -822,7 +794,7 @@ void run()
 	this->message_cb=message_cb;
 	
 	this->libpath=strdup(corepath);
-	this->rompath=NULL;
+	this->rom=NULL;
 	
 	this->core_opt_changed=false;
 	this->core_opt_list_changed=true;

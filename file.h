@@ -65,7 +65,7 @@ public:
 	}
 	
 	void read(size_t start, void* target, size_t len) { memcpy(target, (char*)data+start, len); }
-	void* map(size_t start, size_t len) { return (char*)data+start; }
+	void* mmap(size_t start, size_t len) { return (char*)data+start; }
 	void unmap(const void* data, size_t len) {}
 	~mem() { free(data); }
 };

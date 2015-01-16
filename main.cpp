@@ -587,7 +587,7 @@ bool load_rom(const char * rom)
 	}
 	unload_rom();
 	
-	if (!core->load_rom(NULL, 0, rom))
+	if (!core->load_rom(file::create(rom)))
 	{
 		if (wndw) wndw->set_title(wndw, "minir");
 		//MBOX: "Couldn't load %s with %s", romloaded, core->name(core)
@@ -619,7 +619,7 @@ bool load_rom(const char * rom)
 
 bool load_core_as_rom(const char * rom)
 {
-	if (!load_core(rom, false) || !core->load_rom(NULL, 0, NULL))
+	if (!load_core(rom, false) || !core->load_rom(NULL))
 	{
 		wndw->set_title(wndw, "minir");
 		return false;
@@ -723,7 +723,7 @@ bool handle_cli_args(const char * const * filenames, bool coresonly)
 			libretro* thiscore=libretro_create(path, NULL, &existed);
 			if (thiscore)
 			{
-				if (thiscore->supports_no_game())
+				if (thiscore->features() & libretro::f_load_none)
 				{
 					load_is_core=true;
 					if (!load) load=strdup(path);

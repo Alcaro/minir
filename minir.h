@@ -103,6 +103,7 @@ public:
 	//The callee will own the returned object and shall treat it as if it is the attached video driver.
 	virtual void enable_3d(function<video*(struct retro_hw_render_callback * desc)> creator) = 0;
 	
+	//The object will take ownership of the given argument. If you too want it, use clone().
 	virtual bool load_rom(file* data) = 0;
 	
 	//The following are only valid after a game is loaded.

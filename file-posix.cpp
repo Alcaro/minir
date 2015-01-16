@@ -153,10 +153,10 @@ namespace {
 	class file_fs : public file {
 		int fd;
 	public:
-		//do not use the file pointer, dup() still lets them have the same
+		//do not use the file pointer, dup() doesn't clone that one
 		file_fs(const char * filename, int fd, size_t len) : file(filename) { this->fd=fd; this->len=len; }
 		
-		void clone() { return new file_fs(this->filename, dup(this->fd), this->len); }
+		file* clone() { return new file_fs(this->filename, dup(this->fd), this->len); }
 		
 		void read(size_t start, void* target, size_t len) { pread(fd, target, len, start); }
 		
