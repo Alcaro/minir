@@ -109,7 +109,7 @@ public:
 	multievent();
 	~multievent();
 	
-	//count is how many times to signal or wait. It is equivalent to calling it multiple times with count=1.
+	//count is how many times to signal or wait. Calling it multiple times is equivalent to calling it with the sum of the arguments.
 	void signal(unsigned int count=1);
 	void wait(unsigned int count=1);
 	//This is how many signals are waiting to be wait()ed for. Can be below zero if something is currently waiting for this event.
@@ -153,6 +153,8 @@ template<typename T> T* thread_once(T* * item, function<T*()> calculate)
 {
 	return (T*)thread_once_core((void**)item, *(function<void*()>*)&calculate);
 }
+//Equivalent to thread_once(location, function(){return new mutex}), but may be faster.
+mutex* thread_once_mutex(mutex* * location);
 
 class mutexlocker {
 	mutex * m;
