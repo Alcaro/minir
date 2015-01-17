@@ -42,7 +42,7 @@ struct window {
 	//It is undefined behaviour to have two modal windows visible simultaneously.
 	void (*set_modal)(struct window * This, bool modal);
 	
-	//newwidth and newheight are the content size, excluding menues/toolbars/etc.
+	//newwidth and newheight are the content size, excluding menus/toolbars/etc.
 	//If there is any widget whose size is unknown inside, then the sizes may only be used in resize(), and for relative measurements.
 	//It is allowed to call resize() on unresizable windows, but changing the size of
 	// any contents (changing a label text, for example) will resize it to minimum.

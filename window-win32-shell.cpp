@@ -530,7 +530,7 @@ static struct windowmenu * windowmenu_create_submenu_shared(uint8_t type, const 
 	MENUINFO menuinf;
 	menuinf.cbSize=sizeof(menuinf);
 	menuinf.fMask=MIM_STYLE|MIM_MENUDATA;
-	menuinf.dwStyle=MNS_NOTIFYBYPOS/*|MNS_MODELESS*/; //MODELESS makes the window border flash in stupid ways when switching between the menues.
+	menuinf.dwStyle=MNS_NOTIFYBYPOS/*|MNS_MODELESS*/; //MODELESS makes the window border flash in stupid ways when switching between the menus.
 	menuinf.dwMenuData=(DWORD_PTR)this;
 	SetMenuInfo(this->childmenu, &menuinf);
 	return (struct windowmenu*)this;
@@ -925,7 +925,7 @@ static LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM l
 	case WM_SYSCOMMAND:
 		{
 //printf("SC=%.4X\n",wParam&0xFFFF);
-			if ((wParam&0xFFF0)==SC_KEYMENU) break;//go away, we don't want automenues. Alt could be hit by accident.
+			if ((wParam&0xFFF0)==SC_KEYMENU) break;//go away, we don't want automenus. Alt could be hit by accident.
 			//we could eat WM_MOVE and WM_SIZE to nuke the stupid lockups, but that blocks moving the window entirely.
 			//We'll have to mess with threads.
 			goto _default;
