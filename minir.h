@@ -137,17 +137,17 @@ public:
 	virtual void run() = 0;
 	
 	virtual ~libretro() = 0;
+	
+	//The message notification may be called before libretro_create returns. It may even be called if the
+	// function returns NULL afterwards. It can be NULL, in which case the messages will be discarded.
+	//It is safe to free this item without loading a ROM.
+	//Since a libretro core is a singleton, only one libretro structure may exist for each core. For the purpose of the
+	// previous sentence, loading the dylib through other ways than this function counts as creating a libretro structure.
+	//If one existed already, 'existed' will be set to true. For success, and for other failures, it's false.
+	//TODO: userdata in message_cb
+	static libretro* create(const char * corepath, void (*message_cb)(int severity, const char * message), bool * existed);
 };
 inline libretro::~libretro(){}
-
-//The message notification may be called before libretro_create returns. It may even be called if the
-// function returns NULL afterwards. It can be NULL, in which case the messages will be discarded.
-//It is safe to free this item without loading a ROM.
-//Since a libretro core is a singleton, only one libretro structure may exist for each core. For the purpose of the
-// previous sentence, loading the dylib through other ways than this function counts as creating a libretro structure.
-//If one existed already, 'existed' will be set to true. For success, and for other failures, it's false.
-//TODO: userdata in message_cb
-struct libretro * libretro_create(const char * corepath, void (*message_cb)(int severity, const char * message), bool * existed);
 
 //Returns whatever libretro cores the system can find. The following locations are to be searched for all dylibs:
 //- The directory of the executable

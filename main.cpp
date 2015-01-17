@@ -434,7 +434,7 @@ bool study_core(const char * path, libretro* core)
 {
 //printf("study=%s\n",path); fflush(stdout);
 	bool freecore=(!core);
-	libretro* thiscore = core ? core : libretro_create(path, NULL, NULL);
+	libretro* thiscore = core ? core : libretro::create(path, NULL, NULL);
 	if (!thiscore) return false;
 	
 	struct configdata coreconfig;
@@ -495,7 +495,7 @@ bool load_core(const char * path, bool keep_rom)
 	coreloaded=NULL;
 	delete core;
 	
-	core=libretro_create(path, message_cb, NULL);
+	core=libretro::create(path, message_cb, NULL);
 	if (!core)
 	{
 		if (wndw) wndw->set_title(wndw, "minir");
@@ -720,7 +720,7 @@ bool handle_cli_args(const char * const * filenames, bool coresonly)
 		if (coresonly || (end && !strcmp(end, ext)))
 		{
 			bool existed;
-			libretro* thiscore=libretro_create(path, NULL, &existed);
+			libretro* thiscore=libretro::create(path, NULL, &existed);
 			if (thiscore)
 			{
 				if (thiscore->features() & libretro::f_load_none)

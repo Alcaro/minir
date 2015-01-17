@@ -826,7 +826,7 @@ cancel:
 };
 }
 
-libretro* libretro_create(const char * corepath, void (*message_cb)(int severity, const char * message), bool * existed)
+libretro* libretro::create(const char * corepath, void (*message_cb)(int severity, const char * message), bool * existed)
 {
 	libretro_impl* ret=new libretro_impl();
 	if (!ret->initialize(corepath, message_cb, existed))
