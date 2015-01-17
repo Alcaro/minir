@@ -157,22 +157,13 @@ template<typename T> T* thread_once(T* * item, function<T*()> calculate)
 mutex* thread_once_mutex(mutex* * location);
 
 class mutexlocker {
+	mutexlocker();
 	mutex * m;
 public:
-	mutexlocker(mutex * m)
-	{
-		this->m=m;
-		m->lock();
-	}
-	~mutexlocker()
-	{
-		this->m->unlock();
-	}
-	static mutex * create() { return new mutex; }
-private:
-	mutexlocker();
+	mutexlocker(mutex * m) { this->m=m; m->lock(); }
+	~mutexlocker() { this->m->unlock(); }
 };
-#define CRITICAL_FUNCTION() static mutex * mf_holder=NULL; mutexlocker mf_lock(thread_once(&mf_holder, bind(mutexlocker::create)))
+#define CRITICAL_FUNCTION() static mutex * MF_holder=NULL; mutexlocker MF_lock(thread_once_mutex(&MF_holder))
 
 //These are provided for subsystems which require no initialization beyond a mutex. Only acceptable for system components;
 // user code may not add itself here.
