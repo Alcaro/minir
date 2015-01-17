@@ -768,19 +768,6 @@ void run()
 
 /*private*/ bool initialize(const char * corepath, void (*message_cb)(int severity, const char * message), bool * existed)
 {
-	g_this=this;
-	if (existed) *existed=false;
-	
-	this->lib=dylib::create(corepath);
-	if (!this->lib) goto cancel;
-	if (!load_raw_iface(this->lib, &this->raw)) goto cancel;
-	if (this->raw.api_version()!=RETRO_API_VERSION) goto cancel;
-	if (!this->lib->owned())
-	{
-		if (existed) *existed=true;
-		goto cancel;
-	}
-	
 	this->tmpptr[0]=NULL;
 	this->tmpptr[1]=NULL;
 	this->tmpptr[2]=NULL;
@@ -808,14 +795,27 @@ void run()
 	this->create3d=NULL;
 	this->v3d=NULL;
 	
+	this->initialized=false;
+	
+	g_this=this;
+	if (existed) *existed=false;
+	
+	this->lib=dylib::create(corepath);
+	if (!this->lib) goto cancel;
+	if (!load_raw_iface(this->lib, &this->raw)) goto cancel;
+	if (this->raw.api_version()!=RETRO_API_VERSION) goto cancel;
+	if (!this->lib->owned())
+	{
+		if (existed) *existed=true;
+		goto cancel;
+	}
+	
 	this->raw.set_environment(environment_s);
 	this->raw.set_video_refresh(video_refresh);
 	this->raw.set_audio_sample(audio_sample);
 	this->raw.set_audio_sample_batch(audio_sample_batch);
 	this->raw.set_input_poll(input_poll);
 	this->raw.set_input_state(input_state);
-	
-	this->initialized=false;
 	
 	return true;
 	

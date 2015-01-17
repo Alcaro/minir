@@ -151,9 +151,9 @@ public:
 	//- The directory of the executable
 	//- All subdirectories of the directory the executable is in (but not subdirectories of those)
 	//- Any other directory the system feels like including, including system directories
-	//If the scanned directories can be expected to contain large amounts of non-libretro dylibs, all
-	// dylibs whose name does not contain "retro" or "core" should be filtered off. For example,
-	// returning the entire /usr/lib/ is not appropriate.
+	//If the scanned directories can be expected to contain large amounts of non-libretro dylibs, a
+	// filename-based filter will be applied to reject anything that does not look like a libretro
+	// core. A low number of false positives is fine, but returning the entire /usr/lib/ is not appropriate.
 	//The return value may contain duplicates, may contain non-libretro dylibs, and may even contain non-dylibs.
 	//The return value is invalidated by the next call to this function, or libretro_nearby_cores.
 	//
