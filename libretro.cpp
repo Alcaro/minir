@@ -115,7 +115,7 @@ void * tmpptr[4];
 bool core_opt_changed;
 bool core_opt_list_changed;
 unsigned int core_opt_num;
-struct libretro_core_option * core_opts;
+struct coreoption * core_opts;
 unsigned int * core_opt_current_values;
 
 struct retro_memory_descriptor * memdesc;
@@ -347,7 +347,7 @@ bool get_core_options_changed()
 	return ret;
 }
 
-const struct libretro_core_option * get_core_options(unsigned int * numopts)
+const struct coreoption * get_core_options(unsigned int * numopts)
 {
 	if (numopts) *numopts=this->core_opt_num;
 	return this->core_opts;
@@ -370,7 +370,7 @@ const struct retro_memory_descriptor * get_memory_info(unsigned int * nummemdesc
 	return this->memdesc;
 }
 
-void get_memory(enum libretro_memtype which, size_t * size, void* * ptr)
+void get_memory(memtype which, size_t * size, void* * ptr)
 {
 	if (size) *size=this->raw.get_memory_size(which);
 	if (ptr) *ptr=this->raw.get_memory_data(which);
@@ -553,7 +553,7 @@ void run()
 		this->core_opt_list_changed=true;
 		this->core_opt_changed=true;
 		this->core_opt_num=numvars;
-		this->core_opts=malloc(sizeof(struct libretro_core_option)*(numvars+1));
+		this->core_opts=malloc(sizeof(struct coreoption)*(numvars+1));
 		this->core_opt_current_values=malloc(sizeof(unsigned int)*numvars);
 		
 		for (unsigned int i=0;i<numvars;i++)

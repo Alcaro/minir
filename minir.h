@@ -57,24 +57,25 @@ struct rewindstack * rewindstack_create(size_t blocksize, size_t capacity);
 
 
 
-struct libretro_core_option {
-	const char * name_internal;
-	const char * name_display;
-	
-	//This one is hackishly calculated by checking whether it's checked if during retro_run.
-	bool reset_only;
-	
-	unsigned int numvalues;
-	const char * const * values;
-};
-enum libretro_memtype { // These IDs are the same as RETRO_MEMORY_*.
-	libretromem_sram,
-	libretromem_unused1,
-	libretromem_wram,
-	libretromem_vram
-};
 class libretro {
 public:
+	struct coreoption {
+		const char * name_internal;
+		const char * name_display;
+		
+		//This one is hackishly calculated by checking whether it's checked if during retro_run.
+		bool reset_only;
+		
+		unsigned int numvalues;
+		const char * const * values;
+	};
+	enum memtype { // These IDs are the same as RETRO_MEMORY_*.
+		mem_sram,
+		mem_unused1,
+		mem_wram,
+		mem_vram
+	};
+	
 	//Any returned pointer is, unless otherwise specified, valid only until the next call to a function here, and freed by this object.
 	//Input pointers are, unless otherwise specified, not expected valid after the function returns.
 	
@@ -116,7 +117,7 @@ public:
 	virtual bool get_core_options_changed() = 0;
 	//The list is terminated by a { NULL, NULL, false, 0, NULL }.
 	//The return value is invalidated by run() or free(), whichever comes first.
-	virtual const struct libretro_core_option * get_core_options(unsigned int * numopts) = 0;
+	virtual const struct coreoption * get_core_options(unsigned int * numopts) = 0;
 	//It is undefined behaviour to set a nonexistent option, or to set an option to a nonexistent value.
 	virtual void set_core_option(unsigned int option, unsigned int value) = 0;
 	virtual unsigned int get_core_option(unsigned int option) = 0;
@@ -124,7 +125,7 @@ public:
 	//You can write to the returned pointer.
 	//Will return 0:NULL if the core doesn't know what the given memory type is.
 	//(If that happens, you can still read and write the indicated amount to the pointer.)
-	virtual void get_memory(enum libretro_memtype which, size_t * size, void* * ptr) = 0;
+	virtual void get_memory(memtype which, size_t * size, void* * ptr) = 0;
 	
 	virtual const struct retro_memory_descriptor * get_memory_info(unsigned int * nummemdesc) = 0;
 	

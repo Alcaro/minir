@@ -114,7 +114,7 @@ static void set_core(struct minircheats * this_, libretro* core, size_t prev_lim
 		{
 			void* wram;
 			size_t wramlen;
-			core->get_memory(libretromem_wram, &wramlen, &wram);
+			core->get_memory(libretro::mem_wram, &wramlen, &wram);
 			if (wram)
 			{
 				struct retro_memory_descriptor wramdesc;

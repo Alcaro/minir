@@ -412,7 +412,7 @@ void unload_rom()
 	{
 		size_t sramsize;
 		void* sramptr;
-		core->get_memory(libretromem_sram, &sramsize, &sramptr);
+		core->get_memory(libretro::mem_sram, &sramsize, &sramptr);
 		if (sramsize) file_write(sram_path(), sramptr, sramsize);
 	}
 	if (romloaded==coreloaded)
@@ -643,7 +643,7 @@ void load_rom_finish()
 	
 	size_t sramsize;
 	void* sramptr;
-	core->get_memory(libretromem_sram, &sramsize, &sramptr);
+	core->get_memory(libretro::mem_sram, &sramsize, &sramptr);
 	if (sramsize) file_read_to(sram_path(), sramptr, sramsize);
 	
 	if (config.savestate_auto)
@@ -1261,7 +1261,7 @@ void do_hotkeys(bool * skip_frame, bool * count_skipped_frame)
 void mainloop()
 {
 //unsigned char* gameram;
-//core->get_memory(core,libretromem_wram,NULL,(void**)&gameram);
+//core->get_memory(core,libretro::mem_wram,NULL,(void**)&gameram);
 uint64_t lastchtupd=0;
 	while (!exit_called)
 	{
@@ -1457,7 +1457,7 @@ void update_coreopt_menu(struct windowmenu * parent, unsigned int pos)
 	menu=windowmenu_create_submenu("_Core _Options", NULL);
 	
 	unsigned int numopts;
-	const struct libretro_core_option * opts=NULL;
+	const struct libretro::coreoption * opts=NULL;
 	if (core) opts=core->get_core_options(&numopts);
 	if (!opts)
 	{

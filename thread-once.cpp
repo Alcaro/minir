@@ -9,11 +9,6 @@ template<typename T> T* thread_once_object(T* * location)
 	return *location;
 }
 
-mutex* thread_once_mutex(mutex* * location)
-{
-	return thread_once_object(location);
-}
-
 static event* contention_unlocker=NULL;
 #if 1 //if NULL==0 and points to a permanently reserved area of at least 3 bytes (the limit is 65536 on all modern OSes)
 #define tag_busy ((void*)1)
@@ -55,4 +50,9 @@ void* thread_once_core(void* * item, function<void*()> calculate)
 	}
 	//it's possible to hit neither of the above if the object was written between the initial read and the swap
 	return *item;
+}
+
+mutex* thread_once_mutex(mutex* * location)
+{
+	return thread_once_object(location);
 }

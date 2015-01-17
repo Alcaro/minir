@@ -132,7 +132,7 @@ uint32_t lock_incr(uint32_t * val) { return __atomic_fetch_add(val, 1, __ATOMIC_
 uint32_t lock_decr(uint32_t * val) { return __atomic_fetch_sub(val, 1, __ATOMIC_ACQ_REL); }
 uint32_t lock_read(uint32_t * val) { return __atomic_load_n(val, __ATOMIC_ACQUIRE); }
 
-inline void* lock_read(void* * val) { return __atomic_load_n(val, __ATOMIC_ACQUIRE); }
+void* lock_read(void* * val) { return __atomic_load_n(val, __ATOMIC_ACQUIRE); }
 void lock_write(void** val, void* newval) { return __atomic_store_n(val, newval, __ATOMIC_RELEASE); }
 //there is a modern version of this, but it adds another move instruction for whatever reason and otherwise gives the same binary.
 void* lock_write_eq(void** val, void* old, void* newval) { return __sync_val_compare_and_swap(val, old, newval); }
