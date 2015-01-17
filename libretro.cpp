@@ -933,7 +933,7 @@ static void core_setup_search()
 	dylibext=dylib_ext();
 }
 
-const char * const * libretro_default_cores()
+const char * const * libretro::default_cores()
 {
 	core_setup_search();
 	
@@ -960,7 +960,7 @@ const char * const * libretro_default_cores()
 	return (const char * const *)corepaths;
 }
 
-const char * const * libretro_nearby_cores(const char * rompath)
+const char * const * libretro::nearby_cores(const char * rompath)
 {
 	core_setup_search();
 	

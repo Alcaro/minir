@@ -555,14 +555,14 @@ bool load_rom(const char * rom)
 			if (!newcores[0].path)
 			{
 				free(newcores);
-				const char * const * cores=libretro_nearby_cores(rom);
+				const char * const * cores=libretro::nearby_cores(rom);
 				for (int i=0;cores[i];i++) study_core(cores[i], NULL);
 				newcores=configmgr->get_core_for(configmgr, rom, NULL);
 			}
 			if (!newcores[0].path)
 			{
 				free(newcores);
-				const char * const * cores=libretro_default_cores();
+				const char * const * cores=libretro::default_cores();
 				for (int i=0;cores[i];i++) study_core(cores[i], NULL);
 				newcores=configmgr->get_core_for(configmgr, rom, NULL);
 			}
@@ -664,7 +664,7 @@ void select_rom()
 	if (!*extensions && config.auto_locate_cores)
 	{
 		free(extensions);
-		const char * const * cores=libretro_default_cores();
+		const char * const * cores=libretro::default_cores();
 		for (int i=0;cores[i];i++) study_core(cores[i], NULL);
 		extensions=configmgr->get_supported_extensions(configmgr);
 	}

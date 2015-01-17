@@ -146,32 +146,32 @@ public:
 	//If one existed already, 'existed' will be set to true. For success, and for other failures, it's false.
 	//TODO: userdata in message_cb
 	static libretro* create(const char * corepath, void (*message_cb)(int severity, const char * message), bool * existed);
+	
+	//Returns whatever libretro cores the system can find. The following locations are to be searched for all dylibs:
+	//- The directory of the executable
+	//- All subdirectories of the directory the executable is in (but not subdirectories of those)
+	//- Any other directory the system feels like including, including system directories
+	//If the scanned directories can be expected to contain large amounts of non-libretro dylibs, all
+	// dylibs whose name does not contain "retro" or "core" should be filtered off. For example,
+	// returning the entire /usr/lib/ is not appropriate.
+	//The return value may contain duplicates, may contain non-libretro dylibs, and may even contain non-dylibs.
+	//The return value is invalidated by the next call to this function, or libretro_nearby_cores.
+	//
+	//For example, the following directory structure would work out of the box:
+	// emulators/
+	//   minir.exe
+	//   cores/
+	//     snes9x_libretro.dll
+	//     gambatte_libretro.dll
+	//   roms/
+	//     zeldaseasons.gbc
+	//     kirby3.smc
+	static const char * const * default_cores();
+	
+	//Equivalent to libretro_default_cores, but looks near the given path instead.
+	static const char * const * nearby_cores(const char * rompath);
 };
 inline libretro::~libretro(){}
-
-//Returns whatever libretro cores the system can find. The following locations are to be searched for all dylibs:
-//- The directory of the executable
-//- All subdirectories of the directory the executable is in (but not subdirectories of those)
-//- Any other directory the system feels like including, including system directories
-//If the scanned directories can be expected to contain large amounts of non-libretro dylibs, all
-// dylibs whose name does not contain "retro" or "core" should be filtered off. For example,
-// returning the entire /usr/lib/ is not appropriate.
-//The return value may contain duplicates, may contain non-libretro dylibs, and may even contain non-dylibs.
-//The return value is invalidated by the next call to this function, or libretro_nearby_cores.
-//
-//For example, the following directory structure would work out of the box:
-// emulators/
-//   minir.exe
-//   cores/
-//     snes9x_libretro.dll
-//     gambatte_libretro.dll
-//   roms/
-//     zeldaseasons.gbc
-//     kirby3.smc
-const char * const * libretro_default_cores();
-
-//Equivalent to libretro_default_cores, but looks near the given path instead.
-const char * const * libretro_nearby_cores(const char * rompath);
 
 
 
