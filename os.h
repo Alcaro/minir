@@ -146,7 +146,7 @@ void thread_split(unsigned int count, function<void(unsigned int id)> work);
 //Executes 'calculate' exactly once. The return value is stored in 'item'. If multiple threads call
 // this simultaneously, none returns until calculate() is done.
 //'item' must be initialized to NULL. calculate() must return a valid pointer to an object.
-// 'return new mutex();' is valid, as is returning the address of something static.
+// 'return new mutex;' is valid, as is returning the address of something static.
 //Returns *item.
 void* thread_once_core(void* * item, function<void*()> calculate);
 template<typename T> T* thread_once(T* * item, function<T*()> calculate)
