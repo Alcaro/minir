@@ -57,25 +57,8 @@ struct rewindstack * rewindstack_create(size_t blocksize, size_t capacity);
 
 
 
-class libretro {
+class libretro : nocopy {
 public:
-	struct coreoption {
-		const char * name_internal;
-		const char * name_display;
-		
-		//This one is hackishly calculated by checking whether it's checked if during retro_run.
-		bool reset_only;
-		
-		unsigned int numvalues;
-		const char * const * values;
-	};
-	enum memtype { // These IDs are the same as RETRO_MEMORY_*.
-		mem_sram,
-		mem_unused1,
-		mem_wram,
-		mem_vram
-	};
-	
 	//Any returned pointer is, unless otherwise specified, valid only until the next call to a function here, and freed by this object.
 	//Input pointers are, unless otherwise specified, not expected valid after the function returns.
 	
@@ -112,6 +95,16 @@ public:
 	virtual void get_video_settings(unsigned int * width, unsigned int * height, videoformat * depth, double * fps) = 0;
 	virtual double get_sample_rate() = 0;
 	
+	struct coreoption {
+		const char * name_internal;
+		const char * name_display;
+		
+		//This one is hackishly calculated by checking whether it's checked if during retro_run.
+		bool reset_only;
+		
+		unsigned int numvalues;
+		const char * const * values;
+	};
 	//The core options will be reported as having changed on a freshly created core,
 	// even if there are no options. The flag is cleared by calling this function.
 	virtual bool get_core_options_changed() = 0;
@@ -125,6 +118,12 @@ public:
 	//You can write to the returned pointer.
 	//Will return 0:NULL if the core doesn't know what the given memory type is.
 	//(If that happens, you can still read and write the indicated amount to the pointer.)
+	enum memtype { // These IDs are the same as RETRO_MEMORY_*.
+		mem_sram,
+		mem_unused1,
+		mem_wram,
+		mem_vram
+	};
 	virtual void get_memory(memtype which, size_t * size, void* * ptr) = 0;
 	
 	virtual const struct retro_memory_descriptor * get_memory_info(unsigned int * nummemdesc) = 0;
@@ -173,6 +172,31 @@ public:
 	static const char * const * nearby_cores(const char * rompath);
 };
 inline libretro::~libretro(){}
+
+
+
+//Turns old SNES/etc games into something mouse-controlled.
+class libretro_mousejoy : nocopy {
+public:
+	libretro_mousejoy* create();
+	
+	//Resources used: mem_wram, video_settings, video output, joypad[WRITE]
+	//TODO: rewrite libretro input, needs to be push based
+	virtual void attach(libretro* obj) = 0;
+	
+	//Disabling this makes it release all input, allowing other input sources to do their job. Starts in the disabled state.
+	virtual void enable(bool enable) = 0;
+	
+	//x and y are in pixels from the top left corner. Negative values are fine.
+	//Buttons are a bitfield, input.h::inputmouse::button.
+	virtual void update(int x, int y, uint32_t buttons) = 0;
+	
+	//TODO: save state
+	//TODO: configure which joy button each mouse button points to
+	
+	virtual ~libretro_mousejoy() = 0;
+};
+inline libretro_mousejoy::~libretro_mousejoy(){}
 
 
 
