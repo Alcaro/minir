@@ -255,6 +255,21 @@ static void set_resizable(struct window * this_, bool resizable,
 	}
 }
 
+static void get_pos(struct window * this_, int * x, int * y)
+{
+	//TODO
+}
+
+static void set_pos(struct window * this_, int x, int y)
+{
+	
+}
+
+static void set_onmove(struct window * this_, function<void(int x, int y)> onmove)
+{
+	
+}
+
 static void set_title(struct window * this_, const char * title)
 {
 	struct window_win32 * this=(struct window_win32*)this_;
@@ -807,7 +822,7 @@ static void reflow_force(struct window_win32 * this)
 }
 
 const struct window_win32 window_win32_base = {{
-	set_is_dialog, set_parent, set_modal, resize, set_resizable, set_title, set_onclose,
+	set_is_dialog, set_parent, set_modal, resize, set_resizable, get_pos, set_pos, set_onmove, set_title, set_onclose,
 	set_menu, statusbar_create, statusbar_set,
 	replace_contents, set_visible, is_visible, focus, is_active, menu_active, free_, _get_handle, _reflow
 }};

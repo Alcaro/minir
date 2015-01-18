@@ -133,7 +133,7 @@ void _window_init_native()
 //{
 //	SYSTEM_INFO inf;
 //	GetSystemInfo(&inf);
-//	return inf.dwPageSize;//dwAllocationGranularity?
+//	return inf.dwPageSize;
 //}
 //static size_t allocgran()
 //{
@@ -143,10 +143,17 @@ void _window_init_native()
 //}
 
 namespace {
-	class file_fs_rd : public file::impl {
+	class file_fs : public file {
 	public:
 		HANDLE handle;
-		file_fs_rd(HANDLE handle, size_t len) : file::impl(len), handle(handle) {}
+		file_fs(const char * filename, HANDLE handle, size_t len) : file(filename, len), handle(handle) {}
+		
+		file* clone()
+		{
+			HANDLE newhandle;
+			DuplicateHandle(GetCurrentProcess(), this->handle, GetCurrentProcess(), &newhandle, 0, FALSE, DUPLICATE_SAME_ACCESS);
+			return new file_fs(this->filename, newhandle, this->len);
+		}
 		
 		void read(size_t start, void* target, size_t len)
 		{
@@ -165,7 +172,7 @@ namespace {
 			}
 		}
 		
-		void* map(size_t start, size_t len)
+		void* mmap(size_t start, size_t len)
 		{
 			HANDLE mem=CreateFileMapping(handle, NULL, PAGE_READONLY, 0, 0, NULL);
 			void* ptr=MapViewOfFile(mem, FILE_MAP_READ, (SIZE_MAX>0xFFFFFFFF ? start>>32 : 0), start&0xFFFFFFFF, len);
@@ -174,17 +181,17 @@ namespace {
 		}
 		
 		void unmap(const void* data, size_t len) { UnmapViewOfFile((void*)data); }
-		~file_fs_rd() { CloseHandle(handle); }
+		~file_fs() { CloseHandle(handle); }
 	};
 }
 
-file::impl* file::create_fs(const char * filename)
+file* file::create_fs(const char * filename)
 {
 	HANDLE file=CreateFile(filename, GENERIC_READ, FILE_SHARE_READ, NULL, OPEN_EXISTING,  FILE_ATTRIBUTE_NORMAL, NULL);
 	if (file == INVALID_HANDLE_VALUE) return NULL;
 	LARGE_INTEGER size;
 	GetFileSizeEx(file, &size);
-	return new file_fs_rd(file, size.QuadPart);
+	return new file_fs(filename, file, size.QuadPart);
 }
 
 //namespace {

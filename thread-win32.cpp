@@ -45,20 +45,21 @@ unsigned int thread_ideal_count()
 
 
 
-mutex::mutex()
+mutex* mutex::create()
 {
-	this->data=malloc(sizeof(CRITICAL_SECTION));
-	InitializeCriticalSection((CRITICAL_SECTION*)this->data);
+	CRITICAL_SECTION* cs=malloc(sizeof(CRITICAL_SECTION));
+	InitializeCriticalSection(cs);
+	return (mutex*)cs;
 }
 
-void mutex::lock() { EnterCriticalSection((CRITICAL_SECTION*)this->data); }
-bool mutex::try_lock() { return TryEnterCriticalSection((CRITICAL_SECTION*)this->data); }
-void mutex::unlock() { LeaveCriticalSection((CRITICAL_SECTION*)this->data); }
+void mutex::lock() { EnterCriticalSection((CRITICAL_SECTION*)this); }
+bool mutex::try_lock() { return TryEnterCriticalSection((CRITICAL_SECTION*)this); }
+void mutex::unlock() { LeaveCriticalSection((CRITICAL_SECTION*)this); }
 
-mutex::~mutex()
+void mutex::release()
 {
-	DeleteCriticalSection((CRITICAL_SECTION*)this->data);
-	free(this->data);
+	DeleteCriticalSection((CRITICAL_SECTION*)this);
+	free(this);
 }
 
 

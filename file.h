@@ -30,6 +30,7 @@ private:
 	file(){}
 protected:
 	file(const char * filename) : filename(strdup(filename)) {}
+	file(const char * filename, size_t(len)) : filename(strdup(filename)), len(len) {}
 	
 	//This one will create the file from the filesystem.
 	//create() can simply return create_fs(filename), or can additionally support stuff like gvfs.
@@ -38,18 +39,21 @@ protected:
 	class mem;
 public:
 	
+	static file* create(const char * filename);
+	
 	char* filename;
 	size_t len;
 	
-	virtual file* clone() { return file::create(this->filename); }//The returned object is guaranteed equivalent to the given one.
+	//The returned object is guaranteed equivalent to the given one, assuming the file is not changed or removed in the meanwhile.
+	virtual file* clone() { return file::create(this->filename); }
+	
 	virtual void read(size_t start, void* target, size_t len) = 0;
 	void read(void* target, size_t len) { this->read(0, target, len); }
 	virtual void* mmap(size_t start, size_t len) = 0;
-	void* mmap() { this->mmap(0, this->len); }
+	void* mmap() { return this->mmap(0, this->len); }
 	virtual void unmap(const void* data, size_t len) = 0;
-	virtual ~file() { free(filename); }
 	
-	static file* create(const char * filename);
+	virtual ~file() { free(filename); }
 };
 
 class file::mem : public file {

@@ -129,7 +129,6 @@ void texture_free(const struct tex_t * texture)
 		if (!read_pass("shader", &subname)) return false;
 		char * subname_abs=path_join(NULL, subname);
 		this->pass_bind[i].filename=subname_abs;
-		size_t ignore;
 		this->passes[i].source=read_text(subname_abs);
 		if (!this->passes[i].source) return false;
 		

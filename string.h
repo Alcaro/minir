@@ -118,7 +118,7 @@ private:
 		while (*bytes)
 		{
 			nbyte_ret+=utf8cplen(utf8readcp(bytes, &state));
-			*codepoints++;
+			(*codepoints)++;
 		}
 		*nbyte_cleaned=nbyte_ret;
 		return state;
@@ -304,11 +304,12 @@ public:
 	string(string&& other) { set_to_str_consume(other); }
 #endif
 	~string() { free(utf); }
-	string& operator=(const char * bytes) { free(this->utf); set_to_bytes(bytes); }
+	string& operator=(const char * bytes) { free(this->utf); set_to_bytes(bytes); return *this; }
 	string& operator=(string other) // copying as the argument can sometimes avoid copying entirely
 	{
 		free(this->utf);
 		set_to_str_consume(other);
+		return *this;
 	}
 	
 	string& operator+=(const char * bytes)
@@ -346,6 +347,7 @@ public:
 		
 		this->nbyte += newbytes;
 		if (this->len_codepoints != 0xFFFF) this->len_codepoints++;
+		return *this;
 	}
 	
 	string operator+(const char * other) const { string ret(*this); ret+=other; return ret; }

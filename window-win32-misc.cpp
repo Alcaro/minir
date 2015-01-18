@@ -78,7 +78,7 @@ void _int_mutex_unlock(enum _int_mutex id)
 	LeaveCriticalSection(&imutex[id]);
 }
 
-file::impl* file::create_raw(const char * filename)
+file* file::create(const char * filename)
 {
 	//sorry, Windows - no fancy features for you, you suck
 	return create_fs(filename);

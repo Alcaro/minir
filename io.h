@@ -541,9 +541,9 @@ public:
 	
 private:
 	static const driver driver_xrecord; //http://www.x.org/docs/Xext/recordlib.pdf
-	static const driver driver_windowshook; //http://msdn.microsoft.com/en-us/library/windows/desktop/ms644990%28v=vs.85%29.aspx
+	static const driver driver_w32hook; //http://msdn.microsoft.com/en-us/library/windows/desktop/ms644990%28v=vs.85%29.aspx
 	static const driver driver_x11;
-	static const driver driver_wm; //WM_MOUSE
+	static const driver driver_w32msg; //WM_MOUSE
 	static const driver driver_none;
 	
 public:
