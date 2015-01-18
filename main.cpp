@@ -521,7 +521,7 @@ bool load_core(const char * path, bool keep_rom)
 
 bool select_cores(const char * wanted_extension)
 {
-	const char * extension[2]={ dylib_ext(), NULL };
+	const char * extension[2]={ dylib::ext(), NULL };
 	const char * const * cores=window_file_picker(wndw, "Select libretro cores", extension, "libretro cores", true, true);
 	if (cores) handle_cli_args(cores, true);
 	return (bool)cores;
@@ -540,7 +540,7 @@ void set_window_title()
 bool load_rom(const char * rom)
 {
 	const char * extension=strrchr(rom, '.');
-	if (extension && !strcasecmp(extension, dylib_ext()))
+	if (extension && !strcasecmp(extension, dylib::ext()))
 	{
 		if (load_core_as_rom(rom)) return true;
 		//I doubt there is any core that can load a dll, but why not try? Worst case, it just fails, as it would have anyways.
@@ -712,7 +712,7 @@ bool handle_cli_args(const char * const * filenames, bool coresonly)
 	
 	char * load=NULL;
 	bool load_is_core=false;
-	const char * ext=dylib_ext();
+	const char * ext=dylib::ext();
 	for (int i=0;filenames[i];i++)
 	{
 		char * path=window_get_absolute_path(window_get_cwd(), filenames[i], true);

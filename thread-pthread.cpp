@@ -37,31 +37,32 @@ unsigned int thread_ideal_count()
 }
 
 
-mutex::mutex()
+mutex* mutex::create()
 {
-	this->data=malloc(sizeof(pthread_mutex_t));
-	pthread_mutex_init((pthread_mutex_t*)this->data, NULL);
-}
-
-mutex::~mutex()
-{
-	pthread_mutex_destroy((pthread_mutex_t*)this->data);
-	free(this->data);
+	pthread_mutex_t* ret=malloc(sizeof(pthread_mutex_t));
+	pthread_mutex_init(ret, NULL);
+	return (mutex*)ret;
 }
 
 void mutex::lock()
 {
-	pthread_mutex_lock((pthread_mutex_t*)this->data);
+	pthread_mutex_lock((pthread_mutex_t*)this);
 }
 
 bool mutex::try_lock()
 {
-	return (pthread_mutex_trylock((pthread_mutex_t*)this->data)==0);
+	return (pthread_mutex_trylock((pthread_mutex_t*)this)==0);
 }
 
 void mutex::unlock()
 {
-	pthread_mutex_unlock((pthread_mutex_t*)this->data); 
+	pthread_mutex_unlock((pthread_mutex_t*)this); 
+}
+
+void mutex::release()
+{
+	pthread_mutex_destroy((pthread_mutex_t*)this);
+	free(this);
 }
 
 

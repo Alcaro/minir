@@ -1,12 +1,6 @@
 #pragma once
 #include "global.h"
 
-//C-style API that uses native dylib handles directly.
-typedef struct ndylib_* ndylib;
-ndylib* dylib_create(const char * filename, bool * owned=NULL);//Handles may be non-unique. First to load is owner.
-void* dylib_sym_ptr(ndylib* lib, const char * name);
-funcptr dylib_sym_func(ndylib* lib, const char * name);
-void dylib_free(ndylib* lib);
 #ifdef DYLIB_POSIX
 #define DYLIB_EXT ".so"
 #define DYLIB_MAKE_NAME(name) "lib" name DYLIB_EXT
@@ -15,36 +9,22 @@ void dylib_free(ndylib* lib);
 #define DYLIB_EXT ".dll"
 #define DYLIB_MAKE_NAME(name) name DYLIB_EXT
 #endif
-static const char * dylib_ext() { return DYLIB_EXT; }
 
-
-
+//Nasty stuff going on here... it's impossible to construct this object.
+//The object only needs a void* - but instead of a member, it's in 'this'!
+//It's probably undefined, but the compiler won't be able to prove that, so it has to do what I want.
 class dylib : private nocopy {
+	dylib(){}
 public:
-	static dylib* create(const char * filename)
-	{
-		dylib* ret=new dylib;
-		ret->lib = dylib_create(filename, &ret->owned_);
-		if (!ret->lib)
-		{
-			delete ret;
-			ret=NULL;
-		}
-		return ret;
-	}
+	static dylib* create(const char * filename, bool * owned=NULL);
+	static const char * ext() { return DYLIB_EXT; }
+	void* sym_ptr(const char * name);
+	funcptr sym_func(const char * name);
 	
-	static const char * ext() { return dylib_ext(); }
-	
-	bool owned() { return owned_; }
-	
-	void* sym_ptr(const char * name) { return dylib_sym_ptr(this->lib, name); }
-	funcptr sym_func(const char * name) { return dylib_sym_func(this->lib, name); }
-	
-	~dylib() { if (this->lib) dylib_free(this->lib); }
-	
+	//per http://chadaustin.me/cppinterface.html - redirect operator delete to a function, this doesn't come from the normal allocator.
+	static void operator delete(void* p) { if (p) ((dylib*)p)->release(); }
 private:
-	ndylib* lib;
-	bool owned_;
+	void release();//this is the real destructor
 };
 
 
@@ -67,16 +47,52 @@ unsigned int thread_ideal_count();
 //However, it it allowed to hold multiple locks simultaneously.
 //lock() is not guaranteed to yield the CPU if it can't grab the lock. It may be implemented as a busy loop.
 //Remember to create all relevant mutexes before creating a thread.
-class mutex {
+class mutex : private nocopy {
+	mutex(){}
 public:
-	mutex();
-	~mutex();
-	
+	static mutex* create();
 	void lock();
 	bool try_lock();
 	void unlock();
+	
+	static void operator delete(void* p) { if (p) ((mutex*)p)->release(); }
 private:
-	void* data;
+	void release();
+};
+
+//Executes 'calculate' exactly once. The return value is stored in 'item'. If multiple threads call
+// this simultaneously, none returns until calculate() is done.
+//'item' must be initialized to NULL. calculate() must return a valid pointer to an object.
+// 'return new mutex;' is valid, as is returning the address of something static.
+//Returns *item.
+void* thread_once_core(void* * item, function<void*()> calculate);
+template<typename T> T* thread_once(T* * item, function<T*()> calculate)
+{
+	return (T*)thread_once_core((void**)item, *(function<void*()>*)&calculate);
+}
+//Equivalent to thread_once(location, function(){return new mutex}), but may be faster.
+mutex* thread_once_mutex(mutex* * location);
+
+class mutexlocker {
+	mutexlocker();
+	mutex* m;
+public:
+	mutexlocker(mutex* m) { this->m=m; this->m->lock(); }
+	~mutexlocker() { this->m->unlock(); }
+};
+#define CRITICAL_FUNCTION() static mutex* MF_holder=NULL; mutexlocker MF_lock(thread_once_nmutex(&MF_holder))
+
+//Static mutex. Initialized on first use.
+class smutex {
+public:
+	smutex() : mut(NULL) {}
+	~smutex() { delete mut; }
+	
+	void lock() { thread_once_mutex(&this->mut)->lock(); }
+	bool try_lock() { return thread_once_mutex(&this->mut)->try_lock(); }
+	void unlock() { this->mut->unlock(); }
+private:
+	mutex* mut;
 };
 
 //This one lets one thread wake another.
@@ -142,28 +158,6 @@ void thread_sleep(unsigned int usec);
 //Unlike thread_create, thread_split is expected to be called often, for short-running tasks. The threads may be reused.
 //It is safe to use the values 0 and 1. However, you should avoid going above thread_ideal_count().
 void thread_split(unsigned int count, function<void(unsigned int id)> work);
-
-//Executes 'calculate' exactly once. The return value is stored in 'item'. If multiple threads call
-// this simultaneously, none returns until calculate() is done.
-//'item' must be initialized to NULL. calculate() must return a valid pointer to an object.
-// 'return new mutex;' is valid, as is returning the address of something static.
-//Returns *item.
-void* thread_once_core(void* * item, function<void*()> calculate);
-template<typename T> T* thread_once(T* * item, function<T*()> calculate)
-{
-	return (T*)thread_once_core((void**)item, *(function<void*()>*)&calculate);
-}
-//Equivalent to thread_once(location, function(){return new mutex}), but may be faster.
-mutex* thread_once_mutex(mutex* * location);
-
-class mutexlocker {
-	mutexlocker();
-	mutex * m;
-public:
-	mutexlocker(mutex * m) { this->m=m; m->lock(); }
-	~mutexlocker() { this->m->unlock(); }
-};
-#define CRITICAL_FUNCTION() static mutex * MF_holder=NULL; mutexlocker MF_lock(thread_once_mutex(&MF_holder))
 
 //These are provided for subsystems which require no initialization beyond a mutex. Only acceptable for system components;
 // user code may not add itself here.

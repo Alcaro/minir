@@ -282,7 +282,7 @@ public://since this entire file is private, making it public inside here does no
 		this->src_height=0;
 		this->dest_width=0;
 		this->dest_height=0;
-		this->lock=new mutex();
+		this->lock=mutex::create();
 		this->wake_child=new event();
 		this->wake_parent=new event();
 		

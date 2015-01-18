@@ -54,7 +54,7 @@ void thread_split(unsigned int count, function<void(unsigned int id)> work)
 	{
 		this=malloc(sizeof(struct threadpool));
 		pool=this;
-		this->lock=new mutex();
+		this->lock=mutex::create();
 		this->wake=new multievent();
 		this->started=new multievent();
 		this->numthreads=0;

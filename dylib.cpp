@@ -13,18 +13,18 @@
 #define bind bind_func
 #endif
 
-ndylib* dylib_create(const char * filename, bool * owned)
+dylib* dylib::create(const char * filename, bool * owned)
 {
 	_int_mutex_lock(_imutex_dylib);
-	ndylib* ret=NULL;
+	dylib* ret=NULL;
 #ifdef DYLIB_POSIX
 	if (owned)
 	{
-		ret=(ndylib*)dlopen(filename, RTLD_LAZY|RTLD_NOLOAD);
+		ret=(dylib*)dlopen(filename, RTLD_LAZY|RTLD_NOLOAD);
 		*owned=(!ret);
 		if (ret) return ret;
 	}
-	if (!ret) ret=(ndylib*)dlopen(filename, RTLD_LAZY);
+	if (!ret) ret=(dylib*)dlopen(filename, RTLD_LAZY);
 #endif
 #ifdef DYLIB_WIN32
 	if (owned)
@@ -43,7 +43,7 @@ ndylib* dylib_create(const char * filename, bool * owned)
 		SetDllDirectory(filename_copy);
 		free(filename_copy);
 		
-		ret=(ndylib*)LoadLibrary(filename);
+		ret=(dylib*)LoadLibrary(filename);
 		SetDllDirectory(NULL);
 	}
 #endif
@@ -51,34 +51,34 @@ ndylib* dylib_create(const char * filename, bool * owned)
 	return ret;
 }
 
-void* dylib_sym_ptr(ndylib* lib, const char * name)
+void* dylib::sym_ptr(const char * name)
 {
 #ifdef DYLIB_POSIX
-	return dlsym((void*)lib, name);
+	return dlsym((void*)this, name);
 #endif
 #ifdef DYLIB_WIN32
-	return (void*)GetProcAddress((HMODULE)lib, name);
+	return (void*)GetProcAddress((HMODULE)this, name);
 #endif
 }
 
-funcptr dylib_sym_func(ndylib* lib, const char * name)
+funcptr dylib::sym_func(const char * name)
 {
 #ifdef DYLIB_POSIX
 	funcptr ret;
-	*(void**)(&ret)=dlsym((void*)lib, name);
+	*(void**)(&ret)=dlsym((void*)this, name);
 	return ret;
 #endif
 #ifdef DYLIB_WIN32
-	return (funcptr)GetProcAddress((HMODULE)lib, name);
+	return (funcptr)GetProcAddress((HMODULE)this, name);
 #endif
 }
 
-void dylib_free(ndylib* lib)
+void dylib::release()
 {
 #ifdef DYLIB_POSIX
-	dlclose((void*)lib);
+	dlclose((void*)this);
 #endif
 #ifdef DYLIB_WIN32
-	FreeLibrary((HMODULE)lib);
+	FreeLibrary((HMODULE)this);
 #endif
 }

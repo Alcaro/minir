@@ -800,11 +800,12 @@ void run()
 	g_this=this;
 	if (existed) *existed=false;
 	
-	this->lib=dylib::create(corepath);
+	bool owned;
+	this->lib=dylib::create(corepath, &owned);
 	if (!this->lib) goto cancel;
 	if (!load_raw_iface(this->lib, &this->raw)) goto cancel;
 	if (this->raw.api_version()!=RETRO_API_VERSION) goto cancel;
-	if (!this->lib->owned())
+	if (!owned)
 	{
 		if (existed) *existed=true;
 		goto cancel;
@@ -930,7 +931,7 @@ static void core_setup_search()
 	corebuflen=4;
 	corepaths=malloc(sizeof(char*)*corebuflen);
 	
-	dylibext=dylib_ext();
+	dylibext=dylib::ext();
 }
 
 const char * const * libretro::default_cores()

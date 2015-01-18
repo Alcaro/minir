@@ -63,7 +63,7 @@ g_log_set_always_fatal((GLogLevelFlags)(G_LOG_LEVEL_CRITICAL|G_LOG_LEVEL_WARNING
 	XInitThreads();
 #endif
 	gtk_init(argc, argv);
-	for (unsigned int i=0;i<_imutex_count;i++) imutex[i]=new mutex;
+	for (unsigned int i=0;i<_imutex_count;i++) imutex[i]=mutex::create();
 	_window_init_native();
 	_window_init_inner();
 	_window_init_misc();

@@ -1,11 +1,20 @@
 #include "os.h"
 
-template<typename T> T* thread_once_object(T* * location)
+static event* thread_once_event(event* * location)
 {
 	//this is different from thread_once - the equivalent of calculate() can be called twice. If this happens, we undo one of them.
 	if (*location) return *location;//nonatomic - if something weird happens, all that happens is that another item is created and deleted.
-	T* ev=new T;
+	event* ev=new event;
 	if (lock_write_eq((void**)location, NULL, ev)!=NULL) delete ev;
+	return *location;
+}
+
+mutex* thread_once_mutex(mutex* * location)
+{
+	//this is different from thread_once - the equivalent of calculate() can be called twice. If this happens, we undo one of them.
+	if (*location) return *location;//nonatomic - if something weird happens, all that happens is that another item is created and deleted.
+	mutex* mut=mutex::create();
+	if (lock_write_eq((void**)location, NULL, mut)!=NULL) delete mut;
 	return *location;
 }
 
@@ -35,7 +44,7 @@ void* thread_once_core(void* * item, function<void*()> calculate)
 		// because the other threads know that they're only allowed to replace it with tag_contended.
 		if (lock_write_eq(item, tag_busy, result)==tag_contended)
 		{
-			thread_once_object(&contention_unlocker);
+			thread_once_event(&contention_unlocker);
 			lock_write(item, result);
 			contention_unlocker->signal();
 		}
@@ -44,15 +53,10 @@ void* thread_once_core(void* * item, function<void*()> calculate)
 	{
 		//don't bother optimizing this, contention only happens a few times during program lifetime
 		lock_write_eq(item, tag_busy, tag_contended);
-		thread_once_object(&contention_unlocker);
+		thread_once_event(&contention_unlocker);
 		while (lock_read(item)==tag_busy) contention_unlocker->wait();
 		contention_unlocker->signal();
 	}
 	//it's possible to hit neither of the above if the object was written between the initial read and the swap
 	return *item;
-}
-
-mutex* thread_once_mutex(mutex* * location)
-{
-	return thread_once_object(location);
 }
