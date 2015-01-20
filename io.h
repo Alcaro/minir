@@ -541,9 +541,10 @@ public:
 	
 private:
 	static const driver driver_xrecord; //http://www.x.org/docs/Xext/recordlib.pdf
-	static const driver driver_w32hook; //http://msdn.microsoft.com/en-us/library/windows/desktop/ms644990%28v=vs.85%29.aspx
+	static const driver driver_rawinput;
+	static const driver driver_w32hook; //http://msdn.microsoft.com/en-us/library/windows/desktop/ms644990%28v=vs.85%29.aspx - not recommended
 	static const driver driver_x11;
-	static const driver driver_w32msg; //WM_MOUSE
+	static const driver driver_w32msg; //WM_MOUSE - hard to do with minir's architecture (especially since I'd be glad to have WM_NCMOUSEMOVE too)
 	static const driver driver_none;
 	
 public:

@@ -217,21 +217,9 @@ inputkb_rawinput::~inputkb_rawinput()
 
 inputkb_rawinput::inputkb_rawinput(uintptr_t windowhandle)
 {
-	WNDCLASS wc;
-	wc.style=0;
-	wc.lpfnWndProc=window_proc;
-	wc.cbClsExtra=0;
-	wc.cbWndExtra=0;
-	wc.hInstance=GetModuleHandle(NULL);
-	wc.hIcon=LoadIcon(GetModuleHandle(NULL), MAKEINTRESOURCE(1));
-	wc.hCursor=LoadCursor(NULL, IDC_ARROW);
-	wc.hbrBackground=GetSysColorBrush(COLOR_3DFACE);
-	wc.lpszMenuName=NULL;
-	wc.lpszClassName="RawInputClass";
-	RegisterClass(&wc);//this could fail if it's already regged, but in that case, the previous registration remains so who cares.
-	
-	this->hwnd=CreateWindow("RawInputClass", "RawInputClass", WS_POPUP, 0, 0, 64, 64, HWND_MESSAGE, NULL, GetModuleHandle(NULL), NULL);
+	this->hwnd=CreateWindow("minir", "minir", WS_POPUP, 0, 0, 64, 64, HWND_MESSAGE, NULL, GetModuleHandle(NULL), NULL);
 	SetWindowLongPtr(this->hwnd, GWLP_USERDATA, (LONG_PTR)this);
+	SetWindowLongPtr(this->hwnd, GWLP_WNDPROC, (LONG_PTR)window_proc);
 	
 	this->numkb=0;
 	this->kbhandle=NULL;

@@ -57,6 +57,60 @@ struct rewindstack * rewindstack_create(size_t blocksize, size_t capacity);
 
 
 
+class minirdevice : nocopy {
+	//- input-handling devices will be sorted into multiple groups
+	// - source group (keyboard/mouse/etc)
+	//  - can create input events, but can't do anything else
+	//  - can execute spontaneously - events are buffered until 
+	// - filter group (keyjoy, mousejoy, hotkeys?)
+	//  - can send more input, but can not discard existing input
+	//  - how do I thread them? mousejoy wants to see keyjoy output
+	//  - do all filters see requested events from all others?
+	//  - do I put hotkeys here?
+	//  - can send requests for all kinds of stuff
+	//   - pause
+	//   - save savestate
+	//   - load savestate
+	//   - do I put them all in the same function and switch() them?
+	// - exclusive filter (netplay, video playback (it discards all other input), mousejoy during the setup step)
+	//  - can only have one
+	//  - can consume input events and send out new ones
+	//  - can also reject savestates
+	//  - can execute additional frames
+	//   - can specify whether a frame is final
+	// - sink group (video recording, core itself)
+	//  - all see the same input
+	//  - only core can emit events
+	//  - can be threaded - some of them are expensive
+	//  - video record will want to modify savestates to append an input log
+	//- groups can be empty, except sink group because a core is mandatory
+	//- each device, including core, needs to tell what it wants and produces (can libretro do that, or do I hardcode something?)
+	//- there will be a device manager to keep track of them all
+	//- no function<>, this is too complex for that
+	// - virtual objects will be used
+	// - the exclusive filter must pass the events on to next device
+	// - others don't need to do that
+	
+	//- output handling must do different things
+	// - the core is the only source
+	// - audio resampler must be somewhere
+	// - video3d flattener must be somewhere
+	// - filter: real-time rewind must reverse the audio
+	// - multiple sinks
+	//  - thread them
+	//  - can specify max frames to buffer
+	//   - 0 - a/vsync, next frame must not start before this is done
+	//   - 1 or more - handler will buffer it
+	//    - must specify a max lag or we run out of ram
+	//  - frame number?
+	//   - netplay replay
+	//   - netplay preliminary
+	//   - savestate
+};
+
+
+
+
 class libretro : nocopy {
 public:
 	//Any returned pointer is, unless otherwise specified, valid only until the next call to a function here, and freed by this object.

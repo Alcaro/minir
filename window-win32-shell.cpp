@@ -32,13 +32,13 @@ void _window_init_shell()
 {
 	WNDCLASS wc;
 	wc.style=0;
-	wc.lpfnWndProc=WindowProc;
+	wc.lpfnWndProc=DefWindowProc;
 	wc.cbClsExtra=0;
 	wc.cbWndExtra=0;
 	wc.hInstance=GetModuleHandle(NULL);
 	wc.hIcon=LoadIcon(GetModuleHandle(NULL), MAKEINTRESOURCE(1));
 	wc.hCursor=LoadCursor(NULL, IDC_ARROW);
-	wc.hbrBackground=(HBRUSH)(COLOR_3DFACE + 1);
+	wc.hbrBackground=GetSysColorBrush(COLOR_3DFACE);
 	wc.lpszMenuName=NULL;
 	wc.lpszClassName="minir";
 	RegisterClass(&wc);
@@ -844,6 +844,7 @@ struct window * window_create(void * contents)
 	this->hwnd=CreateWindow("minir", /*isxp?xpmsg:*/"", WS_NONRESIZ, CW_USEDEFAULT, CW_USEDEFAULT,
 	                        this->contents->width+6, this->contents->height+28, NULL, NULL, GetModuleHandle(NULL), NULL);
 	SetWindowLongPtr(this->hwnd, GWLP_USERDATA, (LONG_PTR)this);
+	SetWindowLongPtr(this->hwnd, GWLP_WNDPROC, (LONG_PTR)WindowProc);
 	this->numchildwin=this->contents->init((struct window*)this, (uintptr_t)this->hwnd);
 	
 	this->status=NULL;

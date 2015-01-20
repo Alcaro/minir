@@ -18,13 +18,16 @@ const inputcursor::driver* const inputcursor::drivers[]={
 #ifdef INPUTCUR_XRECORD
 	&driver_xrecord,
 #endif
-#ifdef INPUTCUR_WINDOWSHOOK
+#ifdef INPUTCUR_RAWINPUT
+	&driver_rawinput,
+#endif
+#ifdef INPUTCUR_WIN32HOOK
 	&driver_w32hook,
 #endif
 #ifdef INPUTCUR_X11
 	&driver_x11,
 #endif
-#ifdef INPUTCUR_WM
+#ifdef INPUTCUR_WIN32
 	&driver_w32msg,
 #endif
 	&driver_none,
