@@ -44,10 +44,6 @@ major:
   - don't do it yet
  - tie core options to input sources, for layer toggle in snes9x
 
-minor:
-- (win32) dropping a file into the window segfaults - but only with debugger disabled
- - does this still exist?
-
 incomprehensible:
 - figure out the Mupen64 issues
 - why is Windows OpenGL 48fps?

@@ -118,6 +118,7 @@ static void set_core(struct minircheats * this_, libretro* core, size_t prev_lim
 			if (wram)
 			{
 				struct retro_memory_descriptor wramdesc;
+				memset(&wramdesc, 0, sizeof(wramdesc));
 				wramdesc.ptr=wram;
 				wramdesc.len=wramlen;
 				this->model->set_memory(this->model, &wramdesc, 1);
