@@ -1658,13 +1658,13 @@ void update_menu()
 	}
 }
 
-void hh1(unsigned int cursor, signed int x, signed int y){printf("X mva %i %i %i\n",cursor,x,y);}
-void hh2(unsigned int cursor, signed int x, signed int y){printf("X mvr %i %i %i\n",cursor,x,y);}
-void hh3(unsigned int cursor, unsigned int button, bool down){printf("X btn %i %i %i\n",cursor,button,down);}
-void hh(){
-inputcursor*q=inputcursor::drivers[0]->create(draw->get_window_handle());
-q->set_listeners(bind(hh1),bind(hh2),bind(hh3));
-}
+//void hh1(unsigned int cursor, signed int x, signed int y){printf("X mva %i %i %i\n",cursor,x,y);}
+//void hh2(unsigned int cursor, signed int x, signed int y){printf("X mvr %i %i %i\n",cursor,x,y);}
+//void hh3(unsigned int cursor, unsigned int button, bool down){printf("X btn %i %i %i\n",cursor,button,down);}
+//void hh(){
+//inputcursor*q=inputcursor::drivers[0]->create(draw->get_window_handle());
+//q->set_listeners(bind(hh1),bind(hh2),bind(hh3));
+//}
 int main(int argc, char * argv[])
 {
 	window_init(&argc, &argv);
@@ -1694,7 +1694,7 @@ int main(int argc, char * argv[])
 	initialize(argc, argv);
 //vid->set_shader(g);
 	
-hh();
+//hh();
 if
 (config.firstrun)
 window_message_box(
