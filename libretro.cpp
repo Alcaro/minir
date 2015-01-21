@@ -302,16 +302,14 @@ bool load_rom(file* rom)
 		game.size=rom->len;
 		game.meta=NULL;
 		bool ret=this->raw.load_game(&game);
+this->add_snes_mmap();
 		rom->unmap(game.data, rom->len);
 		return ret;
 	}
 	else if (this->feat & f_load_none)
 	{
 		this->rom=NULL;
-		
-bool ret=this->raw.load_game(NULL);
-this->add_snes_mmap();
-return ret;
+		return this->raw.load_game(NULL);
 	}
 	else return false;
 }
