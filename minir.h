@@ -61,7 +61,7 @@ class minirdevice : nocopy {
 	//- input-handling devices will be sorted into multiple groups
 	// - source group (keyboard/mouse/etc)
 	//  - can create input events, but can't do anything else
-	//  - can execute spontaneously - events are buffered until 
+	//  - can execute spontaneously - events are buffered until the manager object is told to send next frame
 	// - filter group (keyjoy, mousejoy, hotkeys?)
 	//  - can send more input, but can not discard existing input
 	//  - how do I thread them? mousejoy wants to see keyjoy output
@@ -83,6 +83,9 @@ class minirdevice : nocopy {
 	//  - only core can emit events
 	//  - can be threaded - some of them are expensive
 	//  - video record will want to modify savestates to append an input log
+	//   - this makes savestates variable size
+	//    - rewind does not support that - needs fixing
+	//     - but that can wait
 	//- groups can be empty, except sink group because a core is mandatory
 	//- each device, including core, needs to tell what it wants and produces (can libretro do that, or do I hardcode something?)
 	//- there will be a device manager to keep track of them all
@@ -94,17 +97,22 @@ class minirdevice : nocopy {
 	//- output handling must do different things
 	// - the core is the only source
 	// - audio resampler must be somewhere
+	//  - should DRC show up to only some sinks?
 	// - video3d flattener must be somewhere
-	// - filter: real-time rewind must reverse the audio
+	// - filters:
+	//  - real-time rewind must reverse the audio
+	//  - some things may want to scribble over the video frames
 	// - multiple sinks
 	//  - thread them
 	//  - can specify max frames to buffer
 	//   - 0 - a/vsync, next frame must not start before this is done
 	//   - 1 or more - handler will buffer it
 	//    - must specify a max lag or we run out of ram
-	//  - frame number?
-	//   - netplay replay
+	//  - frame number? frame type?
 	//   - netplay preliminary
+	//   - netplay final
+	//    - netplay preliminary can be final, must buffer them
+	//     - video 
 	//   - savestate
 };
 
