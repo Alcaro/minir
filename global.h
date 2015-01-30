@@ -68,6 +68,34 @@ anyptr try_calloc(size_t size, size_t count);
 #define calloc calloc_check
 
 
+
+//too reliant on cutting-edge compilers
+////some SFINAE shenanigans to call T::create if it exists, otherwise new() - took an eternity to google up
+////don't use this template yourself, use generic_create/destroy instead
+//template<typename T> class generic_create_core {
+//	template<int G> class int_eater {};
+//public:
+//	template<typename T2> static T* create(T2*, int_eater<sizeof(&T2::create)>*) { return T::create(); }
+//	static T* create(T*, ...) { return new T(); }
+//	
+//	template<typename T2> static void destroy(T* obj, T2*, int_eater<sizeof(&T2::release)>*) { obj->release(); }
+//	static void destroy(T* obj, T*, ...) { delete obj; }
+//};
+//template<typename T> T* generic_create() { return generic_create_core<T>::create((T*)NULL, NULL); }
+//template<typename T> void generic_delete(T* obj) { generic_create_core<T>::destroy(obj, (T*)NULL, NULL); }
+
+template<typename T> T* generic_create() { return T::create(); }
+template<typename T> T* generic_new() { return new T; }
+template<typename T> void generic_delete(T* obj) { delete obj; }
+template<typename T> void generic_release(T* obj) { obj->release(); }
+
+template<typename T> void* generic_create_void() { return (void*)generic_create<T>(); }
+template<typename T> void* generic_new_void() { return (void*)generic_new<T>(); }
+template<typename T> void generic_delete_void(void* obj) { generic_delete((T*)obj); }
+template<typename T> void generic_release_void(void* obj) { generic_release((T*)obj); }
+
+
+
 class nocopy {
 protected:
 	nocopy() {}

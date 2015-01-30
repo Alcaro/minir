@@ -66,7 +66,7 @@ void thread_split(unsigned int count, function<void(unsigned int id)> work)
 	multievent* done=new multievent();
 	
 	this->work=work;
-	this->id=1;
+	this->id=0;
 	this->done=done;
 	
 	while (lock_read(&this->numidle) < count-1)

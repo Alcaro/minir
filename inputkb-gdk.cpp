@@ -21,7 +21,8 @@ public:
 	
 public:
 	
-	static const uint32_t features = f_multi|f_delta|f_auto|f_public;
+	static const uint32_t feat = f_multi|f_delta|f_auto|f_public;
+	uint32_t features() { return feat; }
 	
 	//void refresh(); // we cannot poll the device
 	//void poll(); // we do this through the gtk+ main loop
@@ -198,5 +199,5 @@ static inputkb* create(uintptr_t windowhandle)
 
 }
 
-const inputkb::driver inputkb::driver_gdk={ "GDK", inputkb_gdk::create, inputkb_gdk::features };
+const inputkb::driver inputkb::driver_gdk={ "GDK", inputkb_gdk::create, inputkb_gdk::feat };
 #endif

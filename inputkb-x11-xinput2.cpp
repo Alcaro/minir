@@ -88,7 +88,8 @@ class inputkb_xinput2 : public inputkb {
 #endif
 	
 public:
-	static const uint32_t features = f_multi|f_public|f_pollable|f_remote;
+	static const uint32_t feat = f_multi|f_public|f_pollable|f_remote;
+	uint32_t features() { return feat; }
 	
 	inputkb_xinput2(uintptr_t windowhandle)
 	{
@@ -269,5 +270,5 @@ static inputkb* inputkb_create_xinput2(uintptr_t windowhandle)
 
 }
 
-const inputkb::driver inputkb::driver_xinput2={ "XInput2", inputkb_create_xinput2, inputkb_xinput2::features };
+const inputkb::driver inputkb::driver_xinput2={ "XInput2", inputkb_create_xinput2, inputkb_xinput2::feat };
 #endif

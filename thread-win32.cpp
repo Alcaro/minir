@@ -100,11 +100,25 @@ signed int multievent::count()
 multievent::~multievent() { CloseHandle((HANDLE)this->data); }
 
 
-uint32_t lock_incr(uint32_t * val) { return InterlockedIncrement((LONG*)val)-1; }
-uint32_t lock_decr(uint32_t * val) { return InterlockedDecrement((LONG*)val)+1; }
+uintptr_t thread_get_id()
+{
+	//disassembly:
+	//call   *0x406118
+	//jmp    0x76c11427 <KERNEL32!GetCurrentThreadId+7>
+	//jmp    *0x76c1085c
+	//mov    %fs:0x10,%eax
+	//mov    0x24(%eax),%eax
+	//ret
+	return GetCurrentThreadId();
+}
+
+
+uint32_t lock_incr(uint32_t * val) { return InterlockedIncrement((LONG*)val); }
+uint32_t lock_decr(uint32_t * val) { return InterlockedDecrement((LONG*)val); }
 uint32_t lock_read(uint32_t * val) { return InterlockedCompareExchange((LONG*)val, 0, 0); }
 
-void* lock_read(void* * val) { return InterlockedCompareExchangePointer(val, 0, 0); }
-void lock_write(void** val, void* value) { (void)InterlockedExchangePointer(val, value); }
-void* lock_write_eq(void** val, void* old, void* newval) { return InterlockedCompareExchangePointer(val, old, newval); }
+void* lock_read_i(void* * val) { return InterlockedCompareExchangePointer(val, 0, 0); }
+void lock_write_i(void** val, void* value) { (void)InterlockedExchangePointer(val, value); }
+void* lock_write_eq_i(void** val, void* old, void* newval) { return InterlockedCompareExchangePointer(val, newval, old); }
+void* lock_xchg_i(void** val, void* value) { return InterlockedExchangePointer(val, value); }
 #endif

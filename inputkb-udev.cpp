@@ -71,7 +71,8 @@ public:
 	inputkb_udev() {}
 	bool construct(uintptr_t windowhandle);
 	
-	static const uint32_t features = f_multi|f_delta|(GLIB_N ? 0 : f_auto)|f_direct|f_background|f_pollable;
+	static const uint32_t feat = f_multi|f_delta|(GLIB_N ? 0 : f_auto)|f_direct|f_background|f_pollable;
+	uint32_t features() { return feat; }
 	
 	void refresh();
 #ifndef GLIB
@@ -353,5 +354,5 @@ static inputkb* inputkb_create_udev(uintptr_t windowhandle)
 
 }
 
-const inputkb::driver inputkb::driver_udev={ "udev", inputkb_create_udev, inputkb_udev::features };
+const inputkb::driver inputkb::driver_udev={ "udev", inputkb_create_udev, inputkb_udev::feat };
 #endif

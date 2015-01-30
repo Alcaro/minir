@@ -1,5 +1,6 @@
 #pragma once
 #include "global.h"
+#include "os.h" // lock_incr, decr
 
 class video;//io.h
 class file; //file.h
@@ -57,63 +58,268 @@ struct rewindstack * rewindstack_create(size_t blocksize, size_t capacity);
 
 
 
-class minirdevice : nocopy {
-	//- input-handling devices will be sorted into multiple groups
-	// - source group (keyboard/mouse/etc)
-	//  - can create input events, but can't do anything else
-	//  - can execute spontaneously - events are buffered until the manager object is told to send next frame
-	// - filter group (keyjoy, mousejoy, hotkeys?)
-	//  - can send more input, but can not discard existing input
-	//  - how do I thread them? mousejoy wants to see keyjoy output
-	//  - do all filters see requested events from all others?
-	//  - do I put hotkeys here?
-	//  - can send requests for all kinds of stuff
-	//   - pause
-	//   - save savestate
-	//   - load savestate
-	//   - do I put them all in the same function and switch() them?
-	// - exclusive filter (netplay, video playback (it discards all other input), mousejoy during the setup step)
-	//  - can only have one
-	//  - can consume input events and send out new ones
-	//  - can also reject savestates
-	//  - can execute additional frames
-	//   - can specify whether a frame is final
-	// - sink group (video recording, core itself)
-	//  - all see the same input
-	//  - only core can emit events
-	//  - can be threaded - some of them are expensive
-	//  - video record will want to modify savestates to append an input log
-	//   - this makes savestates variable size
-	//    - rewind does not support that - needs fixing
-	//     - but that can wait
-	//- groups can be empty, except sink group because a core is mandatory
-	//- each device, including core, needs to tell what it wants and produces (can libretro do that, or do I hardcode something?)
-	//- there will be a device manager to keep track of them all
-	//- no function<>, this is too complex for that
-	// - virtual objects will be used
-	// - the exclusive filter must pass the events on to next device
-	// - others don't need to do that
+class devmgr : nocopy {
+public:
+	class impl;
 	
-	//- output handling must do different things
-	// - the core is the only source
-	// - audio resampler must be somewhere
-	//  - should DRC show up to only some sinks?
-	// - video3d flattener must be somewhere
-	// - filters:
-	//  - real-time rewind must reverse the audio
-	//  - some things may want to scribble over the video frames
-	// - multiple sinks
-	//  - thread them
-	//  - can specify max frames to buffer
-	//   - 0 - a/vsync, next frame must not start before this is done
-	//   - 1 or more - handler will buffer it
-	//    - must specify a max lag or we run out of ram
-	//  - frame number? frame type?
-	//   - netplay preliminary
-	//   - netplay final
-	//    - netplay preliminary can be final, must buffer them
-	//     - video 
-	//   - savestate
+	class device;
+	enum {
+		e_frame   = 0x0001,
+		e_savestate=0x0002,
+		
+		e_video   = 0x0004,
+		e_audio   = 0x0008,
+		
+		e_keyboard= 0x0010,
+		e_mouse   = 0x0020,
+		e_gamepad = 0x0040,
+	};
+	
+	class event : nocopy {
+		friend class devmgr::impl;
+		event* next;
+		device* source;
+		uint8_t holdcount;
+		
+		event();//not implemented
+		
+	public:
+		bool secondary;
+		
+		enum {
+			ty_null,
+			
+			ty_frame,
+			ty_state_save,
+			ty_state_load,
+			
+			ty_video,
+			ty_audio,
+			
+			ty_keyboard,
+			ty_mousemove,
+			ty_mousebutton,
+			ty_gamepad,
+			
+			ty_button,
+		};
+		uint8_t type;
+		
+		class null;
+		
+		class frame;
+		class state_save;
+		class state_load;
+		
+		class video;
+		class audio;
+		
+		class keyboard;
+		class mousemove;
+		class mousebutton;
+		class gamepad;
+		
+		class button;
+		
+		//The primary device is allowed to save an event for later, and dispatch it at some point in the future.
+		//To do this, call hold(). The event will remain open for dispatching until release().
+		//Alternatively, a device may want to keep an event and process it later. For example, video dumping is expensive.
+		//Savestate and frame events may not be held.
+		void hold() { this->holdcount++; }
+		void release() { this->holdcount--; if (!this->holdcount) delete this; }
+		
+		//TODO: figure out how this interacts with threading
+		
+		event(uint8_t type) : next(NULL), source(NULL), holdcount(1), type(type) { printf("+"); }
+		
+		virtual ~event() { printf("-"); }
+	};
+	
+	class device : nocopy {
+		friend class devmgr::impl;
+	public:
+		enum {
+			//The primary device sees all events, and can choose to discard them.
+			//To ensure it doesn't forget anything, it is mandatory for it to handle all events, both primary and secondary.
+			//All other devices choose which events they want to handle. Most devices will only need a few; some may not need anything at all.
+			//There can only be one primary device, so if a device does not require exclusive control over the core, a device should be secondary.
+			f_primary = 0x0001,
+			
+			//The core gets all events last. Like the primary device, there can only be one.
+			f_core = 0x0002,
+		};
+		virtual uint32_t features() = 0;
+		
+	private:
+		devmgr* parent;
+		
+	protected:
+		//Most primary events come from the I/O drivers. They're direct instructions from the user.
+		//Secondary events come from other devices, like the keyboard->joypad translator. They are dispatched in response to primary events.
+		//Any event may be dispatched as a response to a primary event, with the exception that frame events may not be dispatched as response to this.
+		//Secondary events may not emit response events, with the exception that the primary device and the core may react to the secondary frame event.
+		//This is to guarantee that there can be devices who see the same events as the core.
+		void register_events(uint32_t primary, uint32_t secondary) { parent->dev_register_events(this, primary, secondary); }
+		
+		//The descriptor looks like KB1::Z. The given ID will be given to the event handler. Each device has its own ID namespace.
+		//This is built on top of ev_keyboard/etc, but is far easier to use.
+		//If 'hold' is true, the event will be dispatched after the primary frame event if the button is held, or ignored otherwise.
+		//If false, it will be called every time the state changes.
+		void register_button(const char * desc, uintptr_t id, bool hold) { parent->dev_register_button(this, desc, id, hold); }
+		
+		//Asks whether a button is held.
+		bool query_button(uintptr_t id) { return parent->dev_test_button(this, id); }
+		
+		//An event is not dispatched to its sender. Events are guaranteed to be processed in the order they're dispatched.
+		//While few devices would listen to the same events they emit, the primary device is likely to both listen to and emit secondary frame events.
+		void dispatch(event* ev) { parent->ev_append(ev, this); }
+		
+		//This allows events to be dispatched from a foreign thread.
+		//After this returns, the next entry to frame() is guaranteed to process the event.
+		//Events are processed between the primary and secondary frame events. Anything else is unspecified.
+		//The event must be a primary input event. It should be called from an event dispatched by window_run().
+		void dispatch_thread(event* ev) { parent->ev_append_thread(ev, this); }
+		
+		//The primary device must call this to send the event to the other devices, unless it wants to block the event.
+		//The primary device must not block a frame event. However, it is allowed to create its own.
+		void forward(event* ev) { if (ev->type!=event::ty_frame) parent->ev_dispatch_sec(ev); }
+		
+	public:
+		virtual void init() = 0;
+		
+		virtual void ev_frame(event::frame* ev) {}
+		virtual void ev_state_save(event::state_save* ev) {}
+		virtual void ev_state_load(event::state_load* ev) {}
+		
+		virtual void ev_video(event::video* ev) {}
+		virtual void ev_audio(event::audio* ev) {}
+		
+		virtual void ev_keyboard(event::keyboard* ev) {}
+		virtual void ev_mousemove(event::mousemove* ev) {}
+		virtual void ev_mousebutton(event::mousebutton* ev) {}
+		virtual void ev_gamepad(event::gamepad* ev) {}
+		
+		virtual void ev_button(event::button* ev) {}
+		
+		virtual ~device() { parent->dev_unregister(this); }
+	};
+	
+	//See class device for more information about these.
+	class event::null : public event { public: null() : event(ty_null) {} }; // Used internally by the device manager. Devices never see those.
+	class event::frame : public event { public: frame() : event(ty_frame) {} };
+	class event::state_save : public event {
+	public:
+		state_save() : event(ty_state_save) {}
+		//Any device may declare that it wants an extra piece of data inserted into savestates. This is done through this function.
+		//The data is copied and may be deleted once this returns.
+		//The name should match the name of the device. The core will use a blank string as name.
+		void insert(const char * name, const uint8_t * data, size_t len);
+	};
+	class event::state_load : public event {
+	public:
+		state_load() : event(ty_state_load) {}
+		//The returned data is owned by the event object and is deleted once that happens.
+		const uint8_t* query(const char * name, size_t* len);
+	};
+	class event::video : public event {
+	public:
+		video() : event(ty_video) {}
+		unsigned int width;
+		unsigned int height;
+		const void* data;
+		size_t pitch;
+		
+		~video() { free((void*)data); }
+	};
+	class event::audio : public event {
+	public:
+		audio() : event(ty_audio) {}
+		//TODO: libretro v2 will require that this gets changed, but for now, this is sufficient.
+		//However, no remotely plausible change will force me to change the overlying architecture.
+		const int16_t * data;
+		size_t frames;
+		
+		~audio() { free((int16_t*)data); }
+	};
+	class event::keyboard : public event {
+	public:
+		keyboard() : event(ty_keyboard) {}
+		unsigned int deviceid;//generally 0
+		unsigned int scancode;//0..1023
+		unsigned int libretrocode;//0..RETROK_LAST
+		bool down;
+	};
+	//TODO: Fill in the mouse events.
+	class event::mousemove : public event {};
+	class event::mousebutton : public event {};
+	class event::gamepad : public event {
+	public:
+		gamepad() : event(ty_gamepad) {}
+		//TODO: libretro v2 will change this too.
+		unsigned int device;
+		unsigned int button;//RETRO_DEVICE_ID_JOYPAD_*
+		bool down;
+	};
+	class event::button : public event {
+	public:
+		button() : event(ty_button) {}
+		//You can't dispatch a button event manually, nor can you hold it.
+		uintptr_t id;
+		bool down;
+	};
+	
+protected:
+	friend class event;
+	virtual void ev_append(event* ev, device* source) = 0;
+	virtual void ev_append_thread(event* ev, device* source) = 0;
+	virtual void ev_dispatch_sec(event* ev) = 0;
+	
+	virtual void dev_register_events(device* target, uint32_t primary, uint32_t secondary) = 0;
+	virtual void dev_register_button(device* target, const char * desc, uintptr_t id, bool hold) = 0;
+	virtual bool dev_test_button(device* target, uintptr_t id) = 0;
+	virtual void dev_unregister(device* dev) = 0;
+	
+public:
+	//The created savestate is owned by the caller. Send it to free().
+	virtual uint8_t * state_save(size_t* size) = 0;
+	virtual bool state_load(const uint8_t * data, size_t size) = 0;
+	
+	virtual void frame() = 0;
+	
+	virtual bool add_device(device* dev) = 0;
+	
+	static devmgr* create();
+	virtual ~devmgr() {}
+	
+	class inputmapper {
+		class impl;
+	protected:
+		function<void(size_t id, bool down)> callback;
+	public:
+		void set_cb(function<void(size_t id, bool down)> callback) { this->callback=callback; }
+		
+		virtual void register_button(const char * desc, size_t id) = 0;
+		
+		enum dev_t {
+			dev_kb,
+			dev_mouse,
+			dev_gamepad,
+		};
+		enum { mb_left, mb_right, mb_middle, mb_x4, mb_x5 };
+		//type is an entry in the dev_ enum.
+		//device is which item of this type is relevant. If you have two keyboards, pressing A on both
+		// would give different values here.
+		//button is the 'common' ID for that device.
+		// For keyboard, it's a RETROK_*. For mouse, it's the mb_* enum. For gamepads, [TODO]
+		//scancode is a hardware-dependent unique ID for that key. If a keyboard has two As, they will
+		// have different scancodes. If a key that doesn't map to any RETROK (Mute, for example), the common
+		// ID will be some NULL value (RETROK_NONE, for example), and scancode will be something valid.
+		//down is the new state of the button. Duplicate events are fine and will be ignored.
+		virtual void event(dev_t type, unsigned int device, unsigned int button, unsigned int scancode, bool down) = 0;
+		
+		static inputmapper* create();
+		virtual ~inputmapper(){}
+	};
 };
 
 
@@ -237,28 +443,14 @@ inline libretro::~libretro(){}
 
 
 
-//Turns old SNES/etc games into something mouse-controlled.
-class libretro_mousejoy : nocopy {
-public:
-	libretro_mousejoy* create();
-	
-	//Resources used: mem_wram, video_settings, video output, joypad[WRITE]
-	//TODO: rewrite libretro input, needs to be push based
-	virtual void attach(libretro* obj) = 0;
-	
-	//Disabling this makes it release all input, allowing other input sources to do their job. Starts in the disabled state.
-	virtual void enable(bool enable) = 0;
-	
-	//x and y are in pixels from the top left corner. Negative values are fine.
-	//Buttons are a bitfield, input.h::inputmouse::button.
-	virtual void update(int x, int y, uint32_t buttons) = 0;
-	
-	//TODO: save state
-	//TODO: configure which joy button each mouse button points to
-	
-	virtual ~libretro_mousejoy() = 0;
-};
-inline libretro_mousejoy::~libretro_mousejoy(){}
+/*
+ * Turns old SNES/etc games into something mouse-controlled.
+ * This is C89, because it's intended to be shared with RetroArch.
+ */
+//TODO: do this
+//needs two different structures - one for control, one for autodetection
+//control takes core WRAM, a binary blob of instructions, and instructions on where to move; it tells which buttons to press
+//autodetect takes core WRAM, video output, and some savestates; it creates a blob which the controller can use
 
 
 
@@ -379,10 +571,6 @@ struct minirconfig {
 struct minirconfig * config_create(const char * path);
 
 
-
-struct minir {
-	
-};
 
 //All functions on this object yield undefined behaviour if datsize is not within 1..4.
 //For easier transferability to other projects, this object does not call any other part of minir,

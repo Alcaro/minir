@@ -47,7 +47,6 @@
 //}
 
 //#include<sys/resource.h>
-static mutex* imutex[_imutex_count];
 
 #ifdef WNDPROT_X11
 struct window_x11_info window_x11;
@@ -63,7 +62,6 @@ g_log_set_always_fatal((GLogLevelFlags)(G_LOG_LEVEL_CRITICAL|G_LOG_LEVEL_WARNING
 	XInitThreads();
 #endif
 	gtk_init(argc, argv);
-	for (unsigned int i=0;i<_imutex_count;i++) imutex[i]=mutex::create();
 	_window_init_native();
 	_window_init_inner();
 	_window_init_misc();
@@ -80,21 +78,6 @@ g_log_set_always_fatal((GLogLevelFlags)(G_LOG_LEVEL_CRITICAL|G_LOG_LEVEL_WARNING
 	window_x11.root=gdk_x11_get_default_root_xwindow();//alternatively XRootWindow(window_x11.display, window_x11.screen)
 #endif
 	errno=0;
-}
-
-void _int_mutex_lock(enum _int_mutex id)
-{
-	imutex[id]->lock();
-}
-
-bool _int_mutex_try_lock(enum _int_mutex id)
-{
-	return imutex[id]->try_lock();
-}
-
-void _int_mutex_unlock(enum _int_mutex id)
-{
-	imutex[id]->unlock();
 }
 
 file* file::create(const char * filename)
@@ -269,6 +252,11 @@ char * window_get_native_path(const char * path)
 uint64_t window_get_time()
 {
 	return g_get_monotonic_time();
+}
+
+void thread_sleep(unsigned int usec)
+{
+	g_usleep(usec);
 }
 
 

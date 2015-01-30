@@ -68,10 +68,11 @@ char * _window_native_get_absolute_path(const char * basepath, const char * path
 
 static const char * cwd_init;
 static const char * cwd_bogus;
+static smutex cwd_mutex;
 
 static void window_cwd_enter(const char * dir)
 {
-	_int_mutex_lock(_imutex_cwd);
+	cwd_mutex.lock();
 	char * cwd_bogus_check=getcwd(NULL, 0);
 	if (strcmp(cwd_bogus, cwd_bogus_check)!=0) abort();//if this fires, someone changed the directory without us knowing - not allowed. cwd belongs to the frontend.
 	free(cwd_bogus_check);
@@ -81,7 +82,7 @@ static void window_cwd_enter(const char * dir)
 static void window_cwd_leave()
 {
 	chdir(cwd_bogus);
-	_int_mutex_unlock(_imutex_cwd);
+	cwd_mutex.unlock();
 }
 
 const char * window_get_cwd()

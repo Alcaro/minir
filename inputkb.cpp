@@ -6,6 +6,7 @@
 
 namespace {
 class inputkb_none : public inputkb {
+	uint32_t features() { return 0; }
 	~inputkb_none(){}
 };
 inputkb* inputkb_create_none(uintptr_t windowhandle) { return new inputkb_none(); }

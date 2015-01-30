@@ -26,7 +26,7 @@ extern struct window_x11_info window_x11;
 //separate backend
 //thread moves are optional
 
-struct retro_hw_render_callback;
+struct retro_hw_render_callback;//libretro.h
 
 //The first function called on this object must be initialize(), except if it should chain, in which case set_chain() must come before that.
 //Any thread is allowed to call the above two (but not simultaneously).
@@ -424,15 +424,15 @@ public:
 	static const driver* const drivers[];
 	
 protected:
-	function<void(unsigned int keyboard, int scancode, unsigned int libretrocode, bool down)> key_cb;
+	function<void(unsigned int keyboard, unsigned int scancode, unsigned int libretrocode, bool down)> key_cb;
 	
 public:
 	//It is safe to set this callback multiple times; the latest one applies. It is also safe to not set it at all, though that makes the structure quite useless.
-	//scancode is in the range -1..1023, and libretrocode is in the range 0..RETROK_LAST-1. keyboard is in 0..31.
+	//scancode is in the range 0..1023, and libretrocode is in the range 0..RETROK_LAST-1. keyboard is in 0..31.
 	//A libretrocode is the same across multiple different drivers (see libretro.h RETROK_ for values); scancodes are not.
-	//If scancode is -1 or libretrocode is 0, it means that the key does not have any assigned value. (Undefined scancodes are extremely rare, though.)
+	//If libretrocode is 0 (RETROK_UNKNOWN), it means that the key does not have any assigned value. Undefined scancodes are not allowed.
 	//It may repeat the current state. It may say 'not pressed' for keys that are impossible to hit on the current hardware.
-	void set_kb_cb(function<void(unsigned int keyboard, int scancode, unsigned int libretrocode, bool down)> key_cb) { this->key_cb = key_cb; }
+	void set_kb_cb(function<void(unsigned int keyboard, unsigned int scancode, unsigned int libretrocode, bool down)> key_cb) { this->key_cb = key_cb; }
 	
 	//Returns the features this driver supports. Numerically higher is better. Some flags contradict each other.
 	enum {
@@ -445,7 +445,7 @@ public:
 		f_remote   = 0x0002,//Compatible with X11 remoting, or equivalent. Implies !f_direct.
 		f_public   = 0x0001,//Does not require elevated privileges to use. While this is quite important, insufficient privileges make it fail creation, and so it should have little if any effect on creation order.
 	};
-	//virtual uint32_t features() = 0; // Features are constantly known at the start.
+	virtual uint32_t features() = 0;
 	
 	//Returns the number of keyboards.
 	//virtual unsigned int numkb() { return 1; }

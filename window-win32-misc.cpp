@@ -42,8 +42,6 @@
 
 //static LARGE_INTEGER timer_freq;
 
-static CRITICAL_SECTION imutex[_imutex_count];
-
 void window_init(int * argc, char * * argv[])
 {
 	for (unsigned int i=0;(*argv)[0][i];i++)
@@ -51,31 +49,11 @@ void window_init(int * argc, char * * argv[])
 		if ((*argv)[0][i]=='\\') (*argv)[0][i]='/';
 	}
 	
-	for (unsigned int i=0;i<_imutex_count;i++)
-	{
-		InitializeCriticalSection(&imutex[i]);
-	}
-	
 	_window_init_native();
 	_window_init_shell();
 	_window_init_inner();
 	
 	//QueryPerformanceFrequency(&timer_freq);
-}
-
-void _int_mutex_lock(enum _int_mutex id)
-{
-	EnterCriticalSection(&imutex[id]);
-}
-
-bool _int_mutex_try_lock(enum _int_mutex id)
-{
-	return TryEnterCriticalSection(&imutex[id]);
-}
-
-void _int_mutex_unlock(enum _int_mutex id)
-{
-	LeaveCriticalSection(&imutex[id]);
 }
 
 file* file::create(const char * filename)
@@ -207,6 +185,11 @@ uint64_t window_get_time()
 	//LARGE_INTEGER timer_now;
 	//QueryPerformanceCounter(&timer_now);
 	//return timer_now.QuadPart/timer_freq.QuadPart;
+}
+
+void thread_sleep(unsigned int usec)
+{
+	Sleep(usec/1000);
 }
 
 

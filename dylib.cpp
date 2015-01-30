@@ -13,9 +13,11 @@
 #define bind bind_func
 #endif
 
+static smutex dylib_lock;
+
 dylib* dylib::create(const char * filename, bool * owned)
 {
-	_int_mutex_lock(_imutex_dylib);
+	dylib_lock.lock();
 	dylib* ret=NULL;
 #ifdef DYLIB_POSIX
 	if (owned)
@@ -47,7 +49,7 @@ dylib* dylib::create(const char * filename, bool * owned)
 		SetDllDirectory(NULL);
 	}
 #endif
-	_int_mutex_unlock(_imutex_dylib);
+	dylib_lock.unlock();
 	return ret;
 }
 

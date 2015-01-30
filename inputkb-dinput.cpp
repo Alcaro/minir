@@ -31,7 +31,8 @@ class inputkb_dinput : public inputkb {
 	HMODULE hDInput;
 	LPDIRECTINPUTDEVICE8 keyboard;
 public:
-	static const uint32_t features = f_public|f_pollable;
+	static const uint32_t feat = f_public|f_pollable;
+	uint32_t features() { return feat; }
 	
 	bool construct(uintptr_t windowhandle)
 	{
@@ -94,5 +95,5 @@ static inputkb* inputkb_create_dinput(uintptr_t windowhandle)
 
 }
 
-const inputkb::driver inputkb::driver_directinput={ "DirectInput", inputkb_create_dinput, inputkb_dinput::features };
+const inputkb::driver inputkb::driver_directinput={ "DirectInput", inputkb_create_dinput, inputkb_dinput::feat };
 #endif

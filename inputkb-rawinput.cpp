@@ -70,7 +70,8 @@ public:
 	void handle_event(RAWINPUT* input);
 	
 public:
-	static const uint32_t features = f_multi|f_delta|f_auto|f_direct|f_public|f_background;
+	static const uint32_t feat = f_multi|f_delta|f_auto|f_direct|f_public|f_background;
+	uint32_t features() { return feat; }
 	
 	inputkb_rawinput(uintptr_t windowhandle);
 	~inputkb_rawinput();
@@ -167,7 +168,8 @@ void inputkb_rawinput::handle_event(RAWINPUT* input)
 				if (vkey==VK_CLEAR) vkey=VK_NUMPAD5;
 			}
 			
-			//TODO: figure out if happy dude key can be sent here while ignoring fake keys from SysRq/Pause/Ins/Del/etc.
+			//TODO: figure out if happy dude key can be sent here while ignoring fake keys from SysRq/Pause/Ins/Del/etc
+			//happy dude key is one of the weird ones that sends press and release on release only
 			this->key_cb(deviceid, scan, inputkb::translate_vkey(vkey), !(flags&RI_KEY_BREAK));
 		}
 		
@@ -248,5 +250,5 @@ static inputkb* inputkb_create_rawinput(uintptr_t windowhandle)
 
 }
 
-const inputkb::driver inputkb::driver_rawinput={ "RawInput", inputkb_create_rawinput, inputkb_rawinput::features };
+const inputkb::driver inputkb::driver_rawinput={ "RawInput", inputkb_create_rawinput, inputkb_rawinput::feat };
 #endif
