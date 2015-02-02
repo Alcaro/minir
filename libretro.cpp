@@ -89,13 +89,10 @@ char * libpath;
 file* rom;
 struct libretro_raw raw;
 
-video* v2d;
 video* v3d;
 function<video*(struct retro_hw_render_callback * desc)> create3d;
 
-video* v;
-struct audio * a;
-struct libretroinput * in;
+uint16_t gamepad[8];
 
 void (*message_cb)(int severity, const char * message);
 
@@ -228,14 +225,6 @@ retry: ;
 	}
 }
 
-void attach_interfaces(video* v, struct audio * a, struct libretroinput * i)
-{
-	this->v2d=v;
-	if (!this->v3d) this->v=v;
-	this->a=a;
-	this->in=i;
-}
-
 void enable_3d(function<video*(struct retro_hw_render_callback * desc)> creator)
 {
 	this->create3d=creator;
@@ -290,7 +279,6 @@ bool load_rom(file* rom)
 	this->initialize();
 	
 	this->v3d=NULL;
-	this->v=this->v2d;
 	
 	if (rom)
 	{
@@ -519,7 +507,6 @@ void run()
 		struct retro_hw_render_callback * render=(struct retro_hw_render_callback*)data;
 		this->v3d=this->create3d(render);
 		if (!this->v3d) return false;
-		this->v=this->v3d;
 		render->get_current_framebuffer=v3d_get_current_framebuffer;
 		render->get_proc_address=v3d_get_proc_address;
 		return true;
@@ -733,9 +720,8 @@ void run()
 
 /*private*/ static void video_refresh(const void * data, unsigned width, unsigned height, size_t pitch)
 {
-	if (data==RETRO_HW_FRAME_BUFFER_VALID) g_this->v->draw_3d(width, height);
-	else if (data) g_this->v->draw_2d(width, height, data, pitch);
-	else g_this->v->draw_repeat();
+	if (data==RETRO_HW_FRAME_BUFFER_VALID) g_this->v3d->draw_3d(width, height);
+	else g_this->vid2d(width, height, data, pitch);
 }
 
 /*private*/ static void audio_sample(int16_t left, int16_t right)
@@ -744,14 +730,14 @@ void run()
 	g_this->audiobuf[g_this->audiobufpos++]=right;
 	if (g_this->audiobufpos==audiobufsize*2)
 	{
-		g_this->a->render(g_this->a, audiobufsize, g_this->audiobuf);
+		g_this->audio(g_this->audiobuf, audiobufsize);
 		g_this->audiobufpos=0;
 	}
 }
 
 /*private*/ static size_t audio_sample_batch(const int16_t * data, size_t frames)
 {
-	g_this->a->render(g_this->a, frames, data);
+	g_this->audio(data, frames);
 	return frames;//what is this one even
 }
 
@@ -761,7 +747,14 @@ void run()
 
 /*private*/ static int16_t input_state(unsigned port, unsigned device, unsigned index, unsigned id)
 {
-	return g_this->in->query(g_this->in, port, device, index, id);
+	if (device==RETRO_DEVICE_JOYPAD) return (bool)(g_this->gamepad[port] & (1<<id));
+	else return 0;
+}
+
+void input_gamepad(unsigned int device, unsigned int button, bool down)
+{
+	this->gamepad[device]&=~(1<<button);
+	if (down) this->gamepad[device]|=(1<<button);
 }
 
 /*private*/ bool initialize(const char * corepath, void (*message_cb)(int severity, const char * message), bool * existed)
@@ -792,6 +785,8 @@ void run()
 	
 	this->create3d=NULL;
 	this->v3d=NULL;
+	
+	memset(this->gamepad, 0, sizeof(this->gamepad));
 	
 	this->initialized=false;
 	

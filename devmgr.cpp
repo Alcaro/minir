@@ -143,7 +143,7 @@ void ev_dispatch_sec(event* ev)
 
 void dev_register_events(device* target, uint32_t primary, uint32_t secondary)
 {
-	size_t i=1;
+	size_t i=0;
 	while (true)
 	{
 		if (this->devices[i].obj == target)
@@ -237,12 +237,12 @@ bool add_device(device* dev)
 	dev->parent=this;
 	size_t i;
 	
-	uint32_t features=dev->features();
-	if (features & device::f_primary)
+	device::devtype type=dev->type();
+	if (type==device::t_primary)
 	{
 		i=1;
 	}
-	else if (features & device::f_core)
+	else if (type==device::t_core)
 	{
 		i=0;
 	}

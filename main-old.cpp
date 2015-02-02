@@ -289,6 +289,28 @@ void create_interfaces(unsigned int videowidth, unsigned int videoheight, videof
 	create_interface_input(draw->get_window_handle());
 }
 
+void wrap_vid2d(unsigned int width, unsigned int height, const void* data, size_t pitch)
+{
+	vid->draw_2d(width, height, data, pitch);
+}
+void wrap_vid2d_where(unsigned int width, unsigned int height, void* * data, size_t* pitch) {}//TODO, or not because this file is a dying mess.
+void wrap_audio(const int16_t* data, size_t frames)
+{
+	aud->render(aud, frames, data);
+}
+void set_interfaces()
+{
+	core->set_video(bind(wrap_vid2d_where), bind(wrap_vid2d));
+	core->set_audio(bind(wrap_audio));
+}
+void run_input()
+{
+	for (int i=0;i<16;i++)
+	{
+		core->input_gamepad(0, i, retroinp->query(retroinp, 0, 1/*RETRO_DEVICE_JOYPAD*/, 0, i));
+	}
+}
+
 void reset_config()
 {
 	//calling this before creating the window is so config.video_scale can get loaded properly, which helps initial placement
@@ -330,7 +352,7 @@ printf("Chosen drivers: %s, %s, %s\n", config.driver_video, config.driver_audio,
 		rewind_held=false;
 	}
 	
-	if (core) core->attach_interfaces(vid, aud, retroinp);
+	if (core) set_interfaces();
 	
 	retroinp->set_input(retroinp, inp);
 	retroinp->joypad_set_inputs(retroinp, 0, input_joy+16*0, 16*4);
@@ -505,7 +527,7 @@ bool load_core(const char * path, bool keep_rom)
 	coreloaded=strdup(path);
 	
 	study_core(path, core);
-	core->attach_interfaces(vid, aud, retroinp);
+	set_interfaces();
 	
 	delete vid; vid=NULL;
 	vid3d=NULL;
@@ -1302,6 +1324,7 @@ if(skip_frame&&!count_skipped_frame)i--;
 		{
 			if (!skip_frame)
 			{
+				run_input();
 				core->run();
 				if (now - lastchtupd >= 100*1000)
 				{

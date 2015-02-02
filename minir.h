@@ -1,6 +1,7 @@
 #pragma once
 #include "global.h"
 #include "os.h" // lock_incr, decr
+#include "string.h" // stringlist
 
 class video;//io.h
 class file; //file.h
@@ -130,25 +131,29 @@ public:
 		
 		//TODO: figure out how this interacts with threading
 		
-		event(uint8_t type) : next(NULL), source(NULL), holdcount(1), type(type) { printf("+"); }
+		event(uint8_t type) : next(NULL), source(NULL), holdcount(1), type(type) {}
 		
-		virtual ~event() { printf("-"); }
+		virtual ~event() {}
 	};
 	
 	class device : nocopy {
 		friend class devmgr::impl;
 	public:
-		enum {
+		enum devtype {
+			//The secondary device is the default type. It doesn't have any special privileges nor obligations.
+			//It should be used for everything that doesn't need exclusive control over the core.
+			t_secondary,
+			
 			//The primary device sees all events, and can choose to discard them.
 			//To ensure it doesn't forget anything, it is mandatory for it to handle all events, both primary and secondary.
-			//All other devices choose which events they want to handle. Most devices will only need a few; some may not need anything at all.
-			//There can only be one primary device, so if a device does not require exclusive control over the core, a device should be secondary.
-			f_primary = 0x0001,
+			//There can only be one primary device.
+			t_primary,
 			
 			//The core gets all events last. Like the primary device, there can only be one.
-			f_core = 0x0002,
+			//Exception: It gets savestate events after the primary device does.
+			t_core
 		};
-		virtual uint32_t features() = 0;
+		virtual devtype type() { return t_secondary; }
 		
 	private:
 		devmgr* parent;
@@ -219,10 +224,15 @@ public:
 	public:
 		state_load() : event(ty_state_load) {}
 		//The returned data is owned by the event object and is deleted once that happens.
+		//TODO: The core must be able to reject an offered savestate.
 		const uint8_t* query(const char * name, size_t* len);
 	};
 	class event::video : public event {
 	public:
+		//TODO: find a way to avoid
+		//- copying this from core-owned memory to front-owned (requires libretro change, but easy for me)
+		//- copying this from front-owned to device-owned video memory (requires changing stuff around here)
+		//video data can be 90KB even for tiny stuff like GBC, and later consoles only go bigger; avoiding that copy is desirable
 		video() : event(ty_video) {}
 		unsigned int width;
 		unsigned int height;
@@ -235,7 +245,7 @@ public:
 	public:
 		audio() : event(ty_audio) {}
 		//TODO: libretro v2 will require that this gets changed, but for now, this is sufficient.
-		//However, no remotely plausible change will force me to change the overlying architecture.
+		//There is no remotely plausible change that could force me to change the overlying architecture.
 		const int16_t * data;
 		size_t frames;
 		
@@ -344,15 +354,39 @@ public:
 		f_load_mem     = 0x0002,//Can load a ROM from a memory block.
 		f_load_virt_file=0x0004,//Can load a ROM from a file stream.
 		f_load_none    = 0x0008,//Doesn't require a ROM.
+		f_3d           = 0x0010,//Wants to use a 3D drawing interface. Use get_3d() for more information.
 	};
 	virtual uint32_t features() = 0;
 	
-	//The interface pointers must be valid during every call to run().
-	//It is safe to attach new interfaces without recreating the structure.
-	//It is safe to attach new interfaces if the previous ones are destroyed.
-	virtual void attach_interfaces(video* v, struct audio * a, struct libretroinput * i) = 0;
+protected:
+	function<void(unsigned int width, unsigned int height, void* * data, size_t* pitch)> vid2d_where;
+	function<void(unsigned int width, unsigned int height, const void* data, size_t pitch)> vid2d;
 	
-	//The callee will own the returned object and shall treat it as if it is the attached video driver.
+	function<void(const int16_t* data, size_t frames)> audio;
+	
+public:
+	void set_video(function<void(unsigned int width, unsigned int height, void* * data, size_t* pitch)> vid2d_where,
+	               function<void(unsigned int width, unsigned int height, const void* data, size_t pitch)> vid2d)
+	{
+		this->vid2d_where=vid2d_where;
+		this->vid2d=vid2d;
+	}
+	
+	void set_audio(function<void(const int16_t* data, size_t frames)> audio)
+	{
+		this->audio=audio;
+	}
+	
+	//device is generally 0, sometimes other low integers
+	//button is RETRO_DEVICE_ID_JOYPAD_*
+	virtual void input_gamepad(unsigned int device, unsigned int button, bool down) = 0;
+	
+	//TODO
+	//virtual void input_kb() = 0;
+	//TODO: mouse/etc
+	
+	//TODO: Rewrite
+	//The caller will own the returned object and shall treat it as if it is the attached video driver.
 	virtual void enable_3d(function<video*(struct retro_hw_render_callback * desc)> creator) = 0;
 	
 	//The object will take ownership of the given argument. If you too want it, use clone().
