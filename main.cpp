@@ -50,7 +50,7 @@ public:
 	void init()
 	{
 		register_events((this->core->features()&inputkb::f_auto ? 0 : devmgr::e_frame), 0);//this can ask for no events - this is fine
-		this->core->set_kb_cb(bind_this(key_cb));
+		this->core->set_kb_cb(bind_this(&dev_kb::key_cb));
 		this->core->refresh();
 	}
 	
@@ -107,8 +107,8 @@ public:
 	{
 		this->core=core;
 		
-		this->core->set_video(bind_this(c_vid2d_where), bind_this(c_vid2d));
-		this->core->set_audio(bind_this(c_audio));
+		this->core->set_video(bind_this(&dev_core::c_vid2d_where), bind_this(&dev_core::c_vid2d));
+		this->core->set_audio(bind_this(&dev_core::c_audio));
 	}
 	
 	devtype type() { return t_core; }
