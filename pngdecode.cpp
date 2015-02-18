@@ -3,7 +3,7 @@
 #include <stdint.h>
 #include <string.h>
 
-#ifdef DEFL_MINIZ
+#ifndef HAVE_ZLIB
 # define MINIZ_HEADER_FILE_ONLY
 # include "miniz.c"
 static void tinfl_deinit(tinfl_decompressor* r) {}

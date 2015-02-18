@@ -129,5 +129,4 @@
 #define NEED_MANUAL_LAYOUT
 #endif
 
-#define DEFL_MINIZ
-
+//#define HAVE_ZLIB
