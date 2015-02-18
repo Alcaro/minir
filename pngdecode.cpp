@@ -48,12 +48,12 @@ static void tinfl_deinit(tinfl_decompressor* r)
 }
 #endif
 
-uint32_t read8r(uint8_t* source) { return *source; }
-uint32_t read24r(uint8_t* source)
+uint32_t read8r(const uint8_t* source) { return *source; }
+uint32_t read24r(const uint8_t* source)
 {
 	return ((source[0]<<16) | (source[1]<<8) | (source[2]<<0));
 }
-uint32_t read32r(uint8_t* source)
+uint32_t read32r(const uint8_t* source)
 {
 	return ((source[0]<<24) | (source[1]<<16) | (source[2]<<8) | (source[3]<<0));
 }
