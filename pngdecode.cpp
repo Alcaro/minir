@@ -47,11 +47,18 @@ static void tinfl_deinit(tinfl_decompressor* r)
 
 #include "image.h"
 
-#define read8r(source) (*(source))
+uint32_t read8r(uint8_t* source) { return *source; }
+uint32_t read24r(uint8_t* source)
+{
+	return ((source[0]<<16) | (source[1]<<8) | (source[2]<<0));
+}
+uint32_t read32r(uint8_t* source)
+{
+	return ((source[0]<<24) | (source[1]<<16) | (source[2]<<8) | (source[3]<<0));
+}
+
 #define read8(target) do { target=read8r(chunkdata); chunkdata++; } while(0)
-#define read24r(source) (((source)[0]<<16)|((source)[1]<<8)|((source)[2]<<0))
 #define read24(target) do { target=read24r(chunkdata); chunkdata+=3; } while(0)
-#define read32r(source) (((source)[0]<<24)|((source)[1]<<16)|((source)[2]<<8)|((source)[3]<<0))
 #define read32(target) do { target=read32r(chunkdata); chunkdata+=4; } while(0)
 
 bool png_decode(const void * pngdata, size_t pnglen, struct image * img, videoformat format)
