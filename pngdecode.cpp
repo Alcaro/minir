@@ -1,3 +1,4 @@
+#include "image.h"
 #include <stdlib.h>
 #include <stdint.h>
 #include <string.h>
@@ -14,13 +15,15 @@ typedef tinfl_decompressor z_stream;
 typedef tinfl_status int;
 
 static uint32_t mz_crc32(uint32_t crc, const uint8_t* buf, size_t len) { return crc32(crc, buf, len); }
-ZEXTERN uLong ZEXPORT crc32   OF((uLong crc, const Bytef *buf, uInt len));
 
-#define TINFL_FLAG_PARSE_ZLIB_HEADER             1
-#define TINFL_FLAG_HAS_MORE_INPUT                2
-#define TINFL_FLAG_USING_NON_WRAPPING_OUTPUT_BUF 4
-#define TINFL_FLAG_COMPUTE_ADLER32               8
-#define TINFL_STATUS_DONE                        Z_STREAM_END
+enum {
+	TINFL_FLAG_PARSE_ZLIB_HEADER = 1,
+	TINFL_FLAG_HAS_MORE_INPUT = 2,
+	TINFL_FLAG_USING_NON_WRAPPING_OUTPUT_BUF = 4,
+	TINFL_FLAG_COMPUTE_ADLER32 = 8,
+	
+	TINFL_STATUS_DONE  = Z_STREAM_END
+};
 
 static void tinfl_init(tinfl_decompressor* r)
 {
@@ -44,8 +47,6 @@ static void tinfl_deinit(tinfl_decompressor* r)
 	inflateEnd(r);
 }
 #endif
-
-#include "image.h"
 
 uint32_t read8r(uint8_t* source) { return *source; }
 uint32_t read24r(uint8_t* source)
