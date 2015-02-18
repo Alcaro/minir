@@ -128,3 +128,6 @@
 #ifdef WINDOW_WIN32
 #define NEED_MANUAL_LAYOUT
 #endif
+
+#define DEFL_MINIZ
+
