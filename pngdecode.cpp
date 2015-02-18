@@ -2,8 +2,43 @@
 #include <stdint.h>
 #include <string.h>
 
+#ifdef DEFL_MINIZ
 #define MINIZ_HEADER_FILE_ONLY
 #include "miniz.c"
+#define tinfl_deinit(r) /* null */
+#else
+#include <zlib.h>
+//just #define the miniz names to zlib...
+#define tinfl_decompressor                       z_stream
+#define mz_crc32                                 crc32
+#define tinfl_status                             int
+#define mz_uint8                                 uint8_t
+
+#define TINFL_FLAG_PARSE_ZLIB_HEADER             1
+#define TINFL_FLAG_HAS_MORE_INPUT                2
+#define TINFL_FLAG_USING_NON_WRAPPING_OUTPUT_BUF 4
+#define TINFL_FLAG_COMPUTE_ADLER32               8
+#define TINFL_STATUS_DONE                        Z_STREAM_END
+
+static void tinfl_init(tinfl_decompressor* r)
+{
+	memset(r, 0, sizeof(*r));
+	inflateInit(r);
+}
+
+#define tinfl_deinit inflateEnd
+
+static tinfl_status tinfl_decompress(tinfl_decompressor* r, const uint8_t * pIn_buf_next, size_t* pIn_buf_size,
+                                     uint8_t * pOut_buf_start, uint8_t * pOut_buf_next, size_t* pOut_buf_size,
+                                     uint32_t decomp_flags)
+{
+	r->next_in = (Bytef*)pIn_buf_next;
+	r->avail_in = *pIn_buf_size;
+	r->next_out = pOut_buf_next;
+	r->avail_out = *pOut_buf_size;
+	return inflate(r, (decomp_flags & TINFL_FLAG_HAS_MORE_INPUT) ? Z_NO_FLUSH : Z_SYNC_FLUSH);
+}
+#endif
 
 #include "image.h"
 
@@ -133,7 +168,7 @@ goto bad;
 				tinfl_status status=tinfl_decompress(&inflator, (const mz_uint8 *)chunkdata, &chunklencopy, pixels, pixelsat, &byteshere,
 															TINFL_FLAG_HAS_MORE_INPUT | TINFL_FLAG_USING_NON_WRAPPING_OUTPUT_BUF | TINFL_FLAG_PARSE_ZLIB_HEADER);
 				pixelsat+=byteshere;
-				if (status<TINFL_STATUS_DONE) goto bad;
+				if (status<0) goto bad;
 			}
 			break;
 			case 0x49454e44: //IEND
@@ -145,8 +180,7 @@ goto bad;
 				tinfl_status status=tinfl_decompress(&inflator, (const mz_uint8 *)NULL, &zero, pixels, pixelsat, &finalbytes,
 				                                     TINFL_FLAG_USING_NON_WRAPPING_OUTPUT_BUF | TINFL_FLAG_PARSE_ZLIB_HEADER);
 				pixelsat+=finalbytes;
-				if (status<TINFL_STATUS_DONE) goto bad;
-				if (status>TINFL_STATUS_DONE) goto bad;
+				if (status!=TINFL_STATUS_DONE) goto bad;
 				if (pixelsat!=pixelsend) goto bad;//too little data (can't be too much because we didn't give it that buffer size)
 				uint8_t * out=(uint8_t*)malloc(videofmt_byte_per_pixel(format)*width*height);
 				
@@ -357,6 +391,7 @@ goto bad;
 				img->pixels=out;
 				img->pitch=videofmt_byte_per_pixel(format)*width;
 				img->format=format;
+				tinfl_deinit(&inflator);
 				free(pixels);
 				return true;
 			}
@@ -368,6 +403,7 @@ goto bad;
 	}
 	
 bad:
+	tinfl_deinit(&inflator);
 	free(pixels);
 	memset(img, 0, sizeof(struct image));
 	return false;
