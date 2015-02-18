@@ -428,22 +428,27 @@ protected:
 	
 public:
 	//It is safe to set this callback multiple times; the latest one applies. It is also safe to not set it at all, though that makes the structure quite useless.
-	//scancode is in the range 0..1023, and libretrocode is in the range 0..RETROK_LAST-1. keyboard is in 0..31.
-	//A libretrocode is the same across multiple different drivers (see libretro.h RETROK_ for values); scancodes are not.
-	//If libretrocode is 0 (RETROK_UNKNOWN), it means that the key does not have any assigned value. Undefined scancodes are not allowed.
-	//It may repeat the current state. It may say 'not pressed' for keys that are impossible to hit on the current hardware.
+	//If the driver can differ between multiple keyboards, 'keyboard' is unique for each keyboard, and
+	// no greater than the number of connected keyboards. If it sees a merged view, 'keyboard' is 0.
+	//scancode is in the range 0..1023. Scancodes may vary across drivers, but not across multiple keyboards.
+	//The scancode always exists; if a driver truly lacks them, it should use the libretrocode instead.
+	//libretrocode is in the RETROK_* enum (0..RETROK_LAST-1). However, it can be RETROK_UNKNOWN if the user hit an undefined key.
+	//Recipents should be prepared for RETROK_LAST increasing up to 1024, and for previously unused values to be assigned a meaning.
+	//The driver may repeat the current state. It may say 'not pressed' for keys that are impossible to hit on the current hardware.
+	//Keep in mind that the callback may be called from window_run_*(), which may be on another thread than what created the object.
 	void set_kb_cb(function<void(unsigned int keyboard, unsigned int scancode, unsigned int libretrocode, bool down)> key_cb) { this->key_cb = key_cb; }
 	
 	//Returns the features this driver supports. Numerically higher is better. Some flags contradict each other.
 	enum {
-		f_multi    = 0x0080,//Can differ between multiple keyboards.
+		f_multi    = 0x0100,//Can differ between multiple keyboards.
+		f_multiconst=0x0080,//Given unchanging hardware, the same keyboard will always have the same ID, even across reboots. The alternative is giving ID 1 to the first device that sends an event. [TODO: Check which of them does this.]
 		f_delta    = 0x0040,//Does not call the callback for unchanged state. Improves processing time. Key repeat events may still happen.
 		f_auto     = 0x0020,//poll() is empty, and the callback is called by window_run_*(). Implies f_delta.
 		f_direct   = 0x0010,//Does not go through a separate process. Improves latency.
 		f_background=0x0008,//Can view input events while the window is not focused. Implies f_auto.
 		f_pollable = 0x0004,//refresh() is implemented.
 		f_remote   = 0x0002,//Compatible with X11 remoting, or equivalent. Implies !f_direct.
-		f_public   = 0x0001,//Does not require elevated privileges to use. While this is quite important, insufficient privileges make it fail creation, and so it should have little if any effect on creation order.
+		f_public   = 0x0001,//Does not require elevated privileges to use. While this makes the device a lot more useful, insufficient privileges make it fail creation, and so it should have little if any effect on creation order.
 	};
 	virtual uint32_t features() = 0;
 	
@@ -465,6 +470,9 @@ public:
 	//void inputkb_translate_init();
 	static unsigned translate_scan(unsigned int scancode);
 	static unsigned translate_vkey(unsigned int vkey);
+	
+	//Returns an array containing the names of all keys. ret[RETROK_BACKSPACE] is "Backspace"; nonexistent elements are NULL.
+	static const char * const * keynames();
 };
 inline inputkb::~inputkb(){}
 

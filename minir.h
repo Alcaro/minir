@@ -3,10 +3,11 @@
 #include "os.h" // lock_incr, decr
 #include "string.h" // stringlist
 
-class video;//io.h
-class file; //file.h
-struct retro_memory_descriptor; //libretro.h
-struct retro_hw_render_callback;//libretro.h
+class video;//io.h   (libretro::enable_3d)
+class file; //file.h (libretro::load_rom)
+struct retro_memory_descriptor; //libretro.h (libretro::get_memory_info, minircheats_model::set_memory)
+struct retro_hw_render_callback;//libretro.h (libretro::enable_3d)
+struct windowmenu;//window.h (devmgr::device::get_menu)
 
 
 #ifdef NEED_ICON_PNG
@@ -64,6 +65,36 @@ public:
 	class impl;
 	
 	class device;
+	
+	struct devinfo {
+		enum {
+			f_primary = 0x0001,//This will become a primary device.
+			f_mandatory=0x0002,//The device must be enabled. Used only for the most fundamental devices, like mapper and inputkb.
+		};
+		
+		const char * name;
+		
+		uint32_t features;
+		//char padding[4];
+		
+		device* (*create)();
+		
+		//TODO: figure out what type to use here
+		//it must be a pane for a tabbed interface, like bsnes-qt
+		//widget_base could work, but it doesn't have a name
+		//I could create a widget_tabpane_child, but I can't return that until it exists
+		//for now, I'll leave it anonymous
+		class ___;
+		
+		//The config panel is created whether the device is actually used. It is stateless and can be removed at any time.
+		___* (*create_config)();
+		
+		//This creates a menu which can control the device.
+		struct windowmenu * (*create_menu)();
+		
+		//TODO: the menu and config need to know of the device they control, possibly by adding a listener to their config data
+	};
+	
 	enum {
 		e_frame   = 0x0001,
 		e_savestate=0x0002,
@@ -145,7 +176,8 @@ public:
 			t_secondary,
 			
 			//The primary device sees all events, and can choose to discard them.
-			//To ensure it doesn't forget anything, it is mandatory for it to handle all events, both primary and secondary.
+			//It must handle all events; ones it doesn't approve of are discarded.
+			//It can't see button events, but button events are always generated from another primary event, and that one can be blocked.
 			//There can only be one primary device.
 			t_primary,
 			
@@ -265,7 +297,7 @@ public:
 	class event::gamepad : public event {
 	public:
 		gamepad() : event(ty_gamepad) {}
-		//TODO: libretro v2 will change this too.
+		//TODO: libretro v2 will change this too. If I'm lucky, it'll change to exactly this.
 		unsigned int device;
 		unsigned int button;//RETRO_DEVICE_ID_JOYPAD_*
 		bool down;
@@ -302,15 +334,22 @@ public:
 	virtual ~devmgr() {}
 	
 	class inputmapper {
-		class impl;
 	protected:
 		function<void(size_t id, bool down)> callback;
 	public:
 		void set_cb(function<void(size_t id, bool down)> callback) { this->callback=callback; }
 		
-		virtual void register_button(const char * desc, size_t id) = 0;
+		//Each input descriptor has an unique ID, known as its slot. 0 is valid.
+		//It's fine to set a descriptor slot that's already used; this will remove the old one.
+		//It's also fine to set a descriptor to NULL. This is the default for holes, and will never fire.
+		//If the descriptor is invalid, the slot will be set to NULL, and false will be returned.
+		virtual bool register_button(size_t id, const char * desc) = 0;
+		//If you don't want to decide which slot to use, this one will pick an unused slot and tell which it used.
+		//If the descriptor is invalid, 0 will be returned, and no slot will change. It can not pick slot 0.
+		virtual size_t register_button(const char * desc) = 0;
 		
 		enum dev_t {
+			dev_unknown,
 			dev_kb,
 			dev_mouse,
 			dev_gamepad,
@@ -318,14 +357,17 @@ public:
 		enum { mb_left, mb_right, mb_middle, mb_x4, mb_x5 };
 		//type is an entry in the dev_ enum.
 		//device is which item of this type is relevant. If you have two keyboards, pressing A on both
-		// would give different values here.
+		// should give different values here. If they're distinguishable, use 1 and higher; if not, use 0.
 		//button is the 'common' ID for that device.
 		// For keyboard, it's a RETROK_*. For mouse, it's the mb_* enum. For gamepads, [TODO]
 		//scancode is a hardware-dependent unique ID for that key. If a keyboard has two As, they will
 		// have different scancodes. If a key that doesn't map to any RETROK (Mute, for example), the common
-		// ID will be some NULL value (RETROK_NONE, for example), and scancode will be something valid.
+		// ID will be 0, and scancode will be something valid. 
 		//down is the new state of the button. Duplicate events are fine and will be ignored.
 		virtual void event(dev_t type, unsigned int device, unsigned int button, unsigned int scancode, bool down) = 0;
+		
+		//Releases all buttons held on the indicated device type. Can be dev_unknown to reset everything. The callback is not called.
+		virtual void reset(dev_t type) = 0;
 		
 		static inputmapper* create();
 		virtual ~inputmapper(){}
@@ -611,7 +653,6 @@ struct minirconfig * config_create(const char * path);
 // so you'll have to do a fair bit of stuff by yourself.
 enum cheat_compfunc { cht_lt, cht_gt, cht_lte, cht_gte, cht_eq, cht_neq };
 enum cheat_chngtype { cht_const, cht_inconly, cht_deconly, cht_once };
-struct retro_memory_descriptor;
 struct cheat {
 	char * addr;//For cheat_set and code_create, this is only read, and may be a casted const char *.
 	            //For cheat_get and code_parse, this is a caller-allocated buffer of size 32 or larger, and will be written.

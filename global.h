@@ -193,24 +193,18 @@ static inline void shutupgcc(int x){}
 #endif
 
 
-static inline uint32_t bitround(uint32_t in)
+//msvc:
+//typedef unsigned long uint32_t;
+//typedef unsigned __int64 uint64_t;
+//typedef unsigned int size_t;
+template<typename T> static inline T bitround(T in)
 {
 	in--;
 	in|=in>>1;
 	in|=in>>2;
 	in|=in>>4;
 	in|=in>>16;
-	in++;
-	return in;
-}
-static inline uint64_t bitround(uint64_t in)
-{
-	in--;
-	in|=in>>1;
-	in|=in>>2;
-	in|=in>>4;
-	in|=in>>16;
-	in|=in>>32;
+	if (sizeof(T)>4) in|=in>>16>>16;
 	in++;
 	return in;
 }

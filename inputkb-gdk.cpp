@@ -114,7 +114,7 @@ gboolean key_action(GtkWidget* widget, GdkEvent* event)
 	gdk_event_get_keycode(event, &keycode);
 	
 //printf("%i: %.2X %.2X\n", kb, keycode, inputkb_translate_scan(keycode));
-	this->key_cb(kb, keycode, inputkb::translate_scan(keycode), (event->type==GDK_KEY_PRESS));
+	this->key_cb(kb+1, keycode, inputkb::translate_scan(keycode), (event->type==GDK_KEY_PRESS));
 	return FALSE;
 }
 

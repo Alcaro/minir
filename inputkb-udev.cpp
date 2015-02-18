@@ -181,7 +181,7 @@ void inputkb_udev::fd_activity(int fd)
 			int scan=linuxcode_to_scan(fd, ev.code);
 			if (scan<0) goto another;
 //printf("evc=%.2X sc=%.2X\n",ev.code,scan);
-			this->key_cb(this->fd[id].id, scan, inputkb::translate_scan(scan), (ev.value!=0));//ev.value==2 means repeated
+			this->key_cb(this->fd[id].id+1, scan, inputkb::translate_scan(scan), (ev.value!=0));//ev.value==2 means repeated
 			goto another;
 		}
 	}

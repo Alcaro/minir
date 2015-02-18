@@ -43,19 +43,19 @@ void ev_append_thread(event* ev, device* source)
 	}
 }
 
-void ev_release_thread(event* ev, device* source)
-{
-	ev->source=source;
-	
-	event* oldval=lock_read(&this->ev_head_thread);
-	while (true)
-	{
-		ev->next=oldval;
-		event* newval=lock_write_eq(&this->ev_head_thread, oldval, ev);
-		if (newval==oldval) break;
-		else oldval=newval;
-	}
-}
+//void ev_release_thread(event* ev, device* source)
+//{
+//	ev->source=source;
+//	
+//	event* oldval=lock_read(&this->ev_head_thread);
+//	while (true)
+//	{
+//		ev->next=oldval;
+//		event* newval=lock_write_eq(&this->ev_head_thread, oldval, ev);
+//		if (newval==oldval) break;
+//		else oldval=newval;
+//	}
+//}
 
 /*private*/ void ev_do_dispatch(event* ev, device* dev)
 {

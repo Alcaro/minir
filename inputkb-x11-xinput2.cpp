@@ -163,7 +163,7 @@ public:
 							this->deviceids[kb_id]=deviceid;
 							this->numvaliddevices++;
 						}
-						if (kb_id<this->numvaliddevices) key_cb(kb_id, key, inputkb::translate_scan(key), down);
+						if (kb_id<this->numvaliddevices) key_cb(kb_id+1, key, inputkb::translate_scan(key), down);
 					}
 					break;
 				}

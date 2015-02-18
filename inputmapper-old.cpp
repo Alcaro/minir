@@ -7,37 +7,15 @@
 #include "libretro.h"
 //static void dump_buttons(const unsigned int * buttons){for(int i=0;buttons[i];i++)printf("%.8X,",buttons[i]);puts("00000000");}
 
-namespace {
-
-#define MINIZ_HEADER_FILE_ONLY
-#include "miniz.c"
-
 #define this This
 
-//See rescompile.c for the actual key names.
-static const unsigned char keynames_comp[]={
-#define KEYNAMES_COMP
-#include "obj/generated.cpp"
-#undef KEYNAMES_COMP
-};
-static char keynames_decomp[KEYNAMES_DECOMP_LEN];
-static const char * keynames[NUM_COMP_KEYNAMES];
+namespace {
 
-static void create_keynames()
-{
-	if (keynames[RETROK_BACKSPACE]) return;
-	tinfl_decompress_mem_to_mem(keynames_decomp, KEYNAMES_DECOMP_LEN, keynames_comp, sizeof(keynames_comp), 0);
-	char * tmp=keynames_decomp;
-	for (unsigned int i=0;i<NUM_COMP_KEYNAMES;i++)
-	{
-		keynames[i]=*tmp ? tmp : NULL;
-		tmp+=strlen(tmp)+1;
-	}
-}
+static const char * const * keynames;
 
 static unsigned int str_to_id(const char * str, int str_len)
 {
-	for (int i=0;i<NUM_COMP_KEYNAMES;i++)
+	for (int i=0;i<RETROK_LAST;i++)
 	{
 		if (keynames[i] && !strncmp(str, keynames[i], str_len) && !keynames[i][str_len]) return i;
 	}
@@ -73,7 +51,6 @@ static uint32_t * parse_descriptor(const char * descriptor, const char ** descri
 		if (descriptor[0]!=':' || descriptor[1]!=':') return NULL;
 		descriptor+=2;
 		
-		keyboardid--;
 		if (keyboardid<0 || keyboardid>31)  return NULL;
 		
 		rules=malloc(sizeof(uint32_t));
@@ -210,7 +187,7 @@ static char * create_descriptor(uint32_t * buttons)
 			char * out=malloc(6+11+nummod*12+1);
 			
 			int keyboard=(base>>11)&31;
-			char * outat=out+sprintf(out, "KB%i:", keyboard+1);
+			char * outat=out+sprintf(out, "KB%i:", keyboard);
 			char * setcolon=outat;
 			
 			uint32_t * terminator=buttons+nummod+1;
@@ -610,7 +587,7 @@ struct inputmapper * inputmapper_create()
 	this->buttonrules=NULL;
 	this->shiftstates_for=NULL;
 	
-	create_keynames();
+	keynames=inputkb::keynames();
 	
 	return (struct inputmapper*)this;
 }

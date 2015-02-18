@@ -24,7 +24,7 @@ OUTNAME = minir.exe
 TESTSRC = memory.cpp
 TESTSEPSRC = test-*.cpp window-*.cpp
 
-OBJS = $(patsubst %.cpp,obj/%$(OBJSUFFIX).obj,$(wildcard *.cpp)) $(EXTRAOBJ) obj/miniz$(OBJSUFFIX).obj obj/minir.res obj/dxguid.obj
+OBJS = $(patsubst %.cpp,obj/%$(OBJSUFFIX).obj,$(wildcard *.cpp)) $(EXTRAOBJ) obj/miniz$(OBJSUFFIX).obj obj/minir.res obj/dxguid$(OBJSUFFIX).obj
 TESTOBJS = $(patsubst %.cpp,obj/%.obj,$(wildcard $(TESTSRC))) $(patsubst %.cpp,obj/%-test.obj,$(wildcard $(TESTSEPSRC))) $(EXTRAOBJ)
 
 TRUE_CFLAGS = $(CFLAGS) /nologo /Imsvc
@@ -37,9 +37,6 @@ test: $(TESTOBJS)
 	$(LD) $+ $(TRUE_LFLAGS) /Fo$@
 
 #On Windows, cleaning up the object directory is expected to be done with 'del /q obj\*' in a batch script.
-clean:
-	rm obj/* || true
-
 obj:
 	mkdir obj
 
@@ -58,7 +55,7 @@ obj/minir.res: ico/*
 	rc /nologo ico/minir.rc
 	move ico\minir.res obj
 
-obj/dxguid.obj: msvc/dxguid.c | obj
+obj/dxguid$(OBJSUFFIX).obj: msvc/dxguid.c | obj
 	$(CC) $(TRUE_CFLAGS) /c /Tp $< /Fo$@
 
 obj/generated.cpp: obj/rescompile.exe minir.cfg.tmpl

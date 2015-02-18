@@ -371,7 +371,7 @@ void search_dosearch(struct minircheats_impl * this)
 	}
 	
 	this->model->search_do_search(this->model, (enum cheat_compfunc)this->wndsrch_comptype->get_state(), comptoprev, compto_val);
-	thread_split(this->model->thread_get_count(this->model), bind(search_split, this));
+	thread_split(this->model->thread_get_count(this->model), bind_this(search_split));
 	this->model->thread_finish_work(this->model);
 	
 	this->hassearched=true;

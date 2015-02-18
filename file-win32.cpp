@@ -179,7 +179,7 @@ namespace {
 		void* mmap(size_t start, size_t len)
 		{
 			HANDLE mem=CreateFileMapping(handle, NULL, PAGE_READONLY, 0, 0, NULL);
-			void* ptr=MapViewOfFile(mem, FILE_MAP_READ, (SIZE_MAX>0xFFFFFFFF ? start>>32 : 0), start&0xFFFFFFFF, len);
+			void* ptr=MapViewOfFile(mem, FILE_MAP_READ, start>>16>>16, start&0xFFFFFFFF, len);
 			CloseHandle(mem);
 			return ptr;
 		}

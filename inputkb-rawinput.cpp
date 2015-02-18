@@ -170,7 +170,7 @@ void inputkb_rawinput::handle_event(RAWINPUT* input)
 			
 			//TODO: figure out if happy dude key can be sent here while ignoring fake keys from SysRq/Pause/Ins/Del/etc
 			//happy dude key is one of the weird ones that sends press and release on release only
-			this->key_cb(deviceid, scan, inputkb::translate_vkey(vkey), !(flags&RI_KEY_BREAK));
+			this->key_cb(deviceid+1, scan, inputkb::translate_vkey(vkey), !(flags&RI_KEY_BREAK));
 		}
 		
 #ifdef DEBUG

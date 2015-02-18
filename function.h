@@ -27,12 +27,10 @@
 
 #define UTIL_CALLBACK_HPP_INSIDE
 
-#define bind1(func) (GetFreeCallbackFactory(func).Bind<func>())
-#define bind2(func, ptr) (GetCallbackFactory(func, ptr).Bind<func>(ptr))
-#define bind_count(_1, _2, N, ...) N
-#define bind_func(...) bind_count(__VA_ARGS__, bind2(__VA_ARGS__), bind1(__VA_ARGS__))
-#define bind bind_func
-#define bind_this(func) bind_func(func, this) // can't merge this into 
+#define bind_free(func) (GetFreeCallbackFactory(func).Bind<func>())
+#define bind_ptr(func, ptr) (GetCallbackFactory(func, ptr).Bind<func>(ptr))
+#define bind bind_free
+#define bind_this(func) bind_ptr(func, this)
 
 template<typename FuncSignature> class function;
 
