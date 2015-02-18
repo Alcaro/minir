@@ -3,16 +3,18 @@
 #include <string.h>
 
 #ifdef DEFL_MINIZ
-#define MINIZ_HEADER_FILE_ONLY
-#include "miniz.c"
-#define tinfl_deinit(r) /* null */
+# define MINIZ_HEADER_FILE_ONLY
+# include "miniz.c"
+static void tinfl_deinit(tinfl_decompressor* r) {}
+
 #else
-#include <zlib.h>
-//just #define the miniz names to zlib...
-#define tinfl_decompressor                       z_stream
-#define mz_crc32                                 crc32
-#define tinfl_status                             int
-#define mz_uint8                                 uint8_t
+
+# include <zlib.h>
+typedef tinfl_decompressor z_stream;
+typedef tinfl_status int;
+
+static uint32_t mz_crc32(uint32_t crc, const uint8_t* buf, size_t len) { return crc32(crc, buf, len); }
+ZEXTERN uLong ZEXPORT crc32   OF((uLong crc, const Bytef *buf, uInt len));
 
 #define TINFL_FLAG_PARSE_ZLIB_HEADER             1
 #define TINFL_FLAG_HAS_MORE_INPUT                2
@@ -26,8 +28,6 @@ static void tinfl_init(tinfl_decompressor* r)
 	inflateInit(r);
 }
 
-#define tinfl_deinit inflateEnd
-
 static tinfl_status tinfl_decompress(tinfl_decompressor* r, const uint8_t * pIn_buf_next, size_t* pIn_buf_size,
                                      uint8_t * pOut_buf_start, uint8_t * pOut_buf_next, size_t* pOut_buf_size,
                                      uint32_t decomp_flags)
@@ -37,6 +37,11 @@ static tinfl_status tinfl_decompress(tinfl_decompressor* r, const uint8_t * pIn_
 	r->next_out = pOut_buf_next;
 	r->avail_out = *pOut_buf_size;
 	return inflate(r, (decomp_flags & TINFL_FLAG_HAS_MORE_INPUT) ? Z_NO_FLUSH : Z_SYNC_FLUSH);
+}
+
+static void tinfl_deinit(tinfl_decompressor* r)
+{
+	inflateEnd(r);
 }
 #endif
 
@@ -165,7 +170,7 @@ goto bad;
 				if (pixels==NULL || (colortype==3 && palettelen==0)) goto bad;
 				size_t chunklencopy=chunklen;
 				size_t byteshere=(pixelsend-pixelsat)+1;
-				tinfl_status status=tinfl_decompress(&inflator, (const mz_uint8 *)chunkdata, &chunklencopy, pixels, pixelsat, &byteshere,
+				tinfl_status status=tinfl_decompress(&inflator, (const uint8_t*)chunkdata, &chunklencopy, pixels, pixelsat, &byteshere,
 															TINFL_FLAG_HAS_MORE_INPUT | TINFL_FLAG_USING_NON_WRAPPING_OUTPUT_BUF | TINFL_FLAG_PARSE_ZLIB_HEADER);
 				pixelsat+=byteshere;
 				if (status<0) goto bad;
@@ -177,7 +182,7 @@ goto bad;
 				if (chunklen) goto bad;
 				size_t zero=0;
 				size_t finalbytes=(pixelsend-pixelsat);
-				tinfl_status status=tinfl_decompress(&inflator, (const mz_uint8 *)NULL, &zero, pixels, pixelsat, &finalbytes,
+				tinfl_status status=tinfl_decompress(&inflator, (const uint8_t*)NULL, &zero, pixels, pixelsat, &finalbytes,
 				                                     TINFL_FLAG_USING_NON_WRAPPING_OUTPUT_BUF | TINFL_FLAG_PARSE_ZLIB_HEADER);
 				pixelsat+=finalbytes;
 				if (status!=TINFL_STATUS_DONE) goto bad;
