@@ -76,24 +76,8 @@ public:
 		
 		uint32_t features;
 		//char padding[4];
-		
-		device* (*create)();
-		
-		//TODO: figure out what type to use here
-		//it must be a pane for a tabbed interface, like bsnes-qt
-		//widget_base could work, but it doesn't have a name
-		//I could create a widget_tabpane_child, but I can't return that until it exists
-		//for now, I'll leave it anonymous
-		class ___;
-		
-		//The config panel is created whether the device is actually used. It is stateless and can be removed at any time.
-		___* (*create_config)();
-		
-		//This creates a menu which can control the device.
-		struct windowmenu * (*create_menu)();
-		
-		//TODO: the menu and config need to know of the device they control, possibly by adding a listener to their config data
 	};
+	static const devinfo* const devices[];
 	
 	enum {
 		e_frame   = 0x0001,
@@ -182,10 +166,18 @@ public:
 			t_primary,
 			
 			//The core gets all events last. Like the primary device, there can only be one.
-			//Exception: It gets savestate events after the primary device does.
+			//Exception: It gets savestate events after the primary device does, but before the secondaries.
 			t_core
 		};
 		virtual devtype type() { return t_secondary; }
+		
+		//This returns a menu which can control the device. Its lifetime is strictly bound to the device; it must be destructed before the device is.
+		//TODO: some items just want a single button, not an entire submenu (e.g. screenshot); account for this
+		virtual struct windowmenu * get_menu() { return NULL; }
+		
+		//Returns the configuration options used by a device. It will be added to the tab panel.
+		virtual class widget_base * get_cfgpanel() { return NULL; }
+		virtual const char * get_cfgname() { return NULL; }
 		
 	private:
 		devmgr* parent;
@@ -208,7 +200,8 @@ public:
 		bool query_button(uintptr_t id) { return parent->dev_test_button(this, id); }
 		
 		//An event is not dispatched to its sender. Events are guaranteed to be processed in the order they're dispatched.
-		//While few devices would listen to the same events they emit, the primary device is likely to both listen to and emit secondary frame events.
+		//While few devices would listen to the same events they emit, the primary device is likely to
+		// both listen to and emit secondary frame events, so the same guarantees are given to all devices.
 		void dispatch(event* ev) { parent->ev_append(ev, this); }
 		
 		//This allows events to be dispatched from a foreign thread.
@@ -221,8 +214,9 @@ public:
 		//The primary device must not block a frame event. However, it is allowed to create its own.
 		void forward(event* ev) { if (ev->type!=event::ty_frame) parent->ev_dispatch_sec(ev); }
 		
-	public:
-		virtual void init() = 0;
+	private:
+		virtual void attach() = 0;
+		virtual void detach() {}
 		
 		virtual void ev_frame(event::frame* ev) {}
 		virtual void ev_state_save(event::state_save* ev) {}
@@ -238,7 +232,8 @@ public:
 		
 		virtual void ev_button(event::button* ev) {}
 		
-		virtual ~device() { parent->dev_unregister(this); }
+	protected:
+		virtual ~device() { if (parent) parent->dev_unregister(this); }
 	};
 	
 	//See class device for more information about these.
@@ -345,8 +340,17 @@ public:
 		//If the descriptor is invalid, the slot will be set to NULL, and false will be returned.
 		virtual bool register_button(size_t id, const char * desc) = 0;
 		//If you don't want to decide which slot to use, this one will pick an unused slot and tell which it used.
-		//If the descriptor is invalid, 0 will be returned, and no slot will change. It can not pick slot 0.
-		virtual size_t register_button(const char * desc) = 0;
+		//If the descriptor is invalid, (size_t)-1 will be returned, and no slot will change.
+		size_t register_button(const char * desc)
+		{
+			size_t slot=register_group(1);
+			if (register_button(slot, desc)) return slot;
+			else return (size_t)-1;
+		}
+		//Returns the lowest slot ID where the given number of descriptors can be sequentially added.
+		//If called for len=4 and it returns 2, it means that slots 2, 3, 4 and 5 are currently unused.
+		//It doesn't actually reserve anything, or otherwise change the state of the object; it just tells the current state.
+		virtual size_t register_group(size_t len) = 0;
 		
 		enum dev_t {
 			dev_unknown,
@@ -367,6 +371,7 @@ public:
 		virtual void event(dev_t type, unsigned int device, unsigned int button, unsigned int scancode, bool down) = 0;
 		
 		//Releases all buttons held on the indicated device type. Can be dev_unknown to reset everything. The callback is not called.
+		//This is likely paired with a refresh() on the relevant inputkb/etc, which will call the callback; set it to NULL.
 		virtual void reset(dev_t type) = 0;
 		
 		static inputmapper* create();

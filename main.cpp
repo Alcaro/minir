@@ -18,21 +18,11 @@ int old_main(int argc, char * argv[]);
 
 namespace {
 
+//TODO: move those out
 class dev_kb : public devmgr::device {
 	dev_kb(){}
 	
 	inputkb* core;
-	
-	/*private*/ void key_cb(unsigned int keyboard, unsigned int scancode, unsigned int libretrocode, bool down)
-	{
-		devmgr::event::keyboard* ev=new devmgr::event::keyboard();
-		ev->secondary=false;
-		ev->deviceid=keyboard;
-		ev->scancode=scancode;
-		ev->libretrocode=libretrocode;
-		ev->down=down;
-		dispatch(ev);
-	}
 	
 public:
 	dev_kb(inputkb* core) { this->core=core; }
@@ -44,10 +34,10 @@ public:
 		delete this->core;
 		
 		this->core=core;
-		init();
+		attach();
 	}
 	
-	void init()
+	void attach()
 	{
 		register_events((this->core->features()&inputkb::f_auto ? 0 : devmgr::e_frame), 0);//this can ask for no events - this is fine
 		this->core->set_kb_cb(bind_this(&dev_kb::key_cb));
@@ -56,11 +46,57 @@ public:
 	
 	void ev_frame(devmgr::event::frame* ev)
 	{
-		if (this->core) this->core->poll();
+		this->core->poll();
 	}
 	
 	~dev_kb() { delete this->core; }
+	
+private:
+	/*private*/ void key_cb(unsigned int keyboard, unsigned int scancode, unsigned int libretrocode, bool down)
+	{
+		devmgr::event::keyboard* ev=new devmgr::event::keyboard();
+		ev->secondary=false;
+		ev->deviceid=keyboard;
+		ev->scancode=scancode;
+		ev->libretrocode=libretrocode;
+		ev->down=down;
+		dispatch_thread(ev); // this is sometimes called on the device manager thread, but not always, and 
+	}
 };
+
+
+class dev_video : public devmgr::device {
+	dev_video(){}
+	
+	video* core;
+	
+public:
+	dev_video(video* core) { this->core=core; }
+	
+	uint32_t features() { return 0; }
+	
+	/*private*/ void set_core(video* core)
+	{
+		delete this->core;
+		
+		this->core=core;
+		attach();
+	}
+	
+	void attach()
+	{
+		register_events(devmgr::e_video, 0);
+	}
+	
+	void ev_video(devmgr::event::video* ev)
+	{
+		if (ev->data) this->core->draw_2d(ev->width, ev->height, ev->data, ev->pitch);
+		else this->core->draw_repeat();
+	}
+	
+	~dev_video() { delete this->core; }
+};
+
 
 class dev_core : public devmgr::device {
 	dev_core(){}
@@ -93,8 +129,6 @@ class dev_core : public devmgr::device {
 		}
 		
 		dispatch(ev);
-		if (ev->data) printf("%.8X\n",*(uint32_t*)ev->data);
-		else printf("--------\n");
 	}
 	
 	void c_audio(const int16_t* data, size_t frames)
@@ -113,15 +147,13 @@ public:
 	
 	devtype type() { return t_core; }
 	
-	void init()
+	void attach()
 	{
-		puts("W");
-		register_events(0, devmgr::e_frame | devmgr::e_savestate | devmgr::e_keyboard | devmgr::e_mouse | devmgr::e_gamepad);
+		register_events(devmgr::e_keyboard, devmgr::e_frame | devmgr::e_savestate | devmgr::e_keyboard | devmgr::e_mouse | devmgr::e_gamepad);
 	}
 	
 	virtual void ev_frame(devmgr::event::frame* ev)
 	{
-		puts("A");
 		core->run();
 	}
 	
@@ -153,37 +185,33 @@ int main_wrap(int argc, char * argv[])
 	window_init(&argc, &argv);
 return old_main(argc, argv);
 	
-	class g : public devmgr::device {
-	public:
-		void init() { register_events(devmgr::e_frame, devmgr::e_frame); }
-		//void ev_frame(devmgr::event::frame* ev) { printf("FRAME%i\n",ev->secondary); }
-	};
-	class gp : public devmgr::device {
-	public:
-		devtype type() { return t_primary; }
-		void init() { register_events(devmgr::e_frame|devmgr::e_keyboard, devmgr::e_frame); }
-		//void ev_frame(devmgr::event::frame* ev) { printf("PFRAME%i\n",ev->secondary); }
-		void ev_keyboard(devmgr::event::keyboard* ev) { printf("KB%i\n",ev->scancode); }
-	};
-	
-	devmgr* contents=devmgr::create();
-	contents->add_device(new g);
-	contents->add_device(new gp);
-	contents->add_device(new g);
-	
-	dev_kb* kb=new dev_kb(inputkb::drivers[0]->create(0));
-	contents->add_device(kb);
-	
 	libretro* core=libretro::create("C:/Users/Alcaro/Desktop/minir/roms/gambatte_libretro.dll", NULL, NULL);
 	core->load_rom(file::create("C:/Users/Alcaro/Desktop/minir/roms/zeldaseasons.gbc"));
-	dev_core* coremgr=new dev_core(core);
-	contents->add_device(coremgr);
 	
-	while (true)
+	unsigned int videowidth=320;
+	unsigned int videoheight=240;
+	videoformat videodepth=fmt_rgb565;
+	double videofps=60.0;
+	core->get_video_settings(&videowidth, &videoheight, &videodepth, &videofps);
+	
+	widget_viewport* view;
+	struct window * wnd=window_create(view=widget_create_viewport(videowidth, videoheight));
+	wnd->set_visible(wnd, true);
+	
+	video* vid=video::drivers[0]->create2d(view->get_window_handle());
+	vid->initialize();
+	vid->set_source(videowidth, videoheight, videodepth);
+	vid->set_vsync(60);
+	
+	devmgr* contents=devmgr::create();
+	contents->add_device(new dev_kb(inputkb::drivers[0]->create(view->get_window_handle())));
+	contents->add_device(new dev_video(vid));
+	contents->add_device(new dev_core(core));
+	
+	while (wnd->is_visible(wnd))
 	{
 		window_run_iter();
 		contents->frame();
-		thread_sleep(20*1000);
 	}
 	
 	return 0;

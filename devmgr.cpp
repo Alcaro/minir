@@ -177,6 +177,8 @@ void dev_unregister(device* dev)
 			this->devices[i].obj=NULL;
 			this->devices[i].events[0]=0;
 			this->devices[i].events[1]=0;
+			dev->detach();
+			dev->parent=NULL;
 			//TODO: unregister button events
 			break;
 		}
@@ -265,7 +267,7 @@ bool add_device(device* dev)
 	this->devices[i].obj=dev;
 	this->devices[i].events[0]=0;
 	this->devices[i].events[1]=0;
-	dev->init();
+	dev->attach();
 	return true;
 }
 

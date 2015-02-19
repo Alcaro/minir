@@ -21,14 +21,14 @@ class devmgr_inputmapper_impl : public devmgr::inputmapper {
 	//
 	//00000000 00000000 00000000 00000000 (RETROK_NONE on any keyboard) is impossible and may be used as terminator
 	
+	size_t register_group(size_t len)
+	{
+		return 0;
+	}
+	
 	bool register_button(size_t id, const char * desc)
 	{
 		return false;
-	}
-	
-	size_t register_button(const char * desc)
-	{
-		return 0;
 	}
 	
 	//enum dev_t {
