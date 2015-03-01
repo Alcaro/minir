@@ -185,8 +185,14 @@ int main_wrap(int argc, char * argv[])
 	window_init(&argc, &argv);
 return old_main(argc, argv);
 	
-	libretro* core=libretro::create("C:/Users/Alcaro/Desktop/minir/roms/gambatte_libretro.dll", NULL, NULL);
-	core->load_rom(file::create("C:/Users/Alcaro/Desktop/minir/roms/zeldaseasons.gbc"));
+#ifdef __linux__
+#define HOME "/home/alcaro"
+#else
+#define HOME "C:/Users/Alcaro"
+#endif
+	
+	libretro* core=libretro::create(HOME"/Desktop/minir/roms/gambatte_libretro" DYLIB_EXT, NULL, NULL);
+	core->load_rom(file::create(HOME"/Desktop/minir/roms/zeldaseasons.gbc"));
 	
 	unsigned int videowidth=320;
 	unsigned int videoheight=240;
@@ -196,17 +202,23 @@ return old_main(argc, argv);
 	
 	widget_viewport* view;
 	struct window * wnd=window_create(view=widget_create_viewport(videowidth, videoheight));
-	wnd->set_visible(wnd, true);
 	
 	video* vid=video::drivers[0]->create2d(view->get_window_handle());
 	vid->initialize();
 	vid->set_source(videowidth, videoheight, videodepth);
 	vid->set_vsync(60);
+	vid->set_dest_size(videowidth, videoheight);
 	
 	devmgr* contents=devmgr::create();
+#ifdef __linux__
+	contents->add_device(new dev_kb(inputkb::drivers[1]->create(view->get_window_handle())));
+#else
 	contents->add_device(new dev_kb(inputkb::drivers[0]->create(view->get_window_handle())));
+#endif
 	contents->add_device(new dev_video(vid));
 	contents->add_device(new dev_core(core));
+	
+	wnd->set_visible(wnd, true);
 	
 	while (wnd->is_visible(wnd))
 	{

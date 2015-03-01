@@ -35,6 +35,11 @@ private:
 
 
 
+//If the program is run under a debugger, this triggers a breakpoint. If not, ignored.
+void debug_break();
+
+
+
 //Any data associated with this thread is freed once the thread procedure returns.
 //It is safe to malloc() something in one thread and free() it in another.
 //It is not safe to call window_run_*() from within another thread than the one entering main().
@@ -143,7 +148,7 @@ public:
 	mutexlocker(mutex* m) { this->m=m; this->m->lock(); }
 	~mutexlocker() { this->m->unlock(); }
 };
-#define CRITICAL_FUNCTION() static mutex* CF_holder=NULL; mutexlocker CF_lock(thread_once_nmutex(&MF_holder))
+#define CRITICAL_FUNCTION() static smutex CF_holder; mutexlocker CF_lock(&CF_holder)
 
 //Static mutex. Initialized on first use.
 class smutex {
@@ -154,6 +159,8 @@ public:
 	void lock() { thread_once_create(&this->mut)->lock(); }
 	bool try_lock() { return thread_once_create(&this->mut)->try_lock(); }
 	void unlock() { this->mut->unlock(); }
+	
+	mutex* operator&() { return thread_once_create(&this->mut); }
 private:
 	mutex* mut;
 };

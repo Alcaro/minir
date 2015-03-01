@@ -541,6 +541,8 @@ public:
 			{
 				this->context=glx.CreateNewContext(this->display, configs[0], GLX_RGBA_TYPE, NULL, True);
 			}
+			
+			XFree(configs);
 		}
 		else
 		{
@@ -636,6 +638,9 @@ public:
 		//just pick one at random to shut up the warnings
 		this->in2_fmt=GL_RGB;
 		this->in2_type=GL_UNSIGNED_SHORT_5_6_5;
+		
+		this->in_texwidth=64;//random value, something sane will be inserted in set_source
+		this->in_texheight=64;//64 is because glTexImage2D docs demand that - 1x1 takes less mem, but standards complaint is more important.
 		
 		end();
 		return true;

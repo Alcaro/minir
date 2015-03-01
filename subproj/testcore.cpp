@@ -1,11 +1,11 @@
 #if 0
 rm ../roms/minir_testcore_libretro.so
-g++ -I.. testcore.cpp -g -shared -fPIC -fvisibility=hidden -lm -o ../roms/minir_testcore_libretro.so
+g++ testcore.cpp -g -shared -fPIC -fvisibility=hidden -lm -o ../roms/minir_testcore_libretro.so
 exit
 
 windows:
 del ..\roms\minir_testcore_libretro.dll
-g++ -I.. testcore.cpp -Os -s -shared -lm -o ../roms/minir_testcore_libretro.dll
+g++ testcore.cpp -Os -s -shared -lm -o ../roms/minir_testcore_libretro.dll
 #endif
 
 // 1. Video output
@@ -72,7 +72,7 @@ int groupsizes[]={5,2,1,1};
 #define p_tel (p_grn|p_blu)
 #define p_wht (p_red|p_grn|p_blu)
 
-#include "libretro.h"
+#include "../libretro.h"
 
 #include <string.h>
 #include <stdlib.h>
@@ -309,12 +309,30 @@ EXPORT void retro_set_audio_sample_batch(retro_audio_sample_batch_t cb) { audio_
 EXPORT void retro_set_input_poll(retro_input_poll_t cb) { poller_cb = cb; }
 EXPORT void retro_set_input_state(retro_input_state_t cb) { input_state_cb = cb; }
 
+//void frametime(retro_usec_t usec)
+//{
+//printf(
+//"frametime=%i\n",
+//(int)
+//usec);
+//}
+//retro_frame_time_callback
+//frametime_g={
+//frametime,
+//166668
+//};
+//retro_perf_callback
+//perf;
+
 EXPORT void retro_set_environment(retro_environment_t cb)
 {
 	environ_cb=cb;
 	
 	bool True=true;
 	environ_cb(RETRO_ENVIRONMENT_SET_SUPPORT_NO_GAME, &True);
+	
+	//environ_cb(RETRO_ENVIRONMENT_SET_FRAME_TIME_CALLBACK, &frametime_g);
+	//environ_cb(RETRO_ENVIRONMENT_GET_PERF_INTERFACE, &perf);
 }
 
 EXPORT void retro_init(void) {}
@@ -345,8 +363,26 @@ EXPORT void retro_reset(void)
 	state.testsub=init_sub;
 }
 
+//retro_time_t
+//tprev
+//=0;
 EXPORT void retro_run(void)
 {
+//retro_time_t
+//tthis
+//=
+//perf
+//.
+//get_time_usec
+//();
+//printf(
+//"perf:%i\n",
+//(int)
+//(tthis-tprev));
+//tprev
+//=
+//tthis
+//;
 	poller_cb();
 	bool canchange=((inpstate[0]&0x00F0)==0);
 	inpstate[0]=0x0000;
