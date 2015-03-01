@@ -3,6 +3,8 @@
 #ifndef HAVE_ASPRINTF
 #include <stdarg.h>
 #include <stdio.h>
+#include <string.h>
+
 void asprintf(char * * ptr, const char * fmt, ...)
 {
 	va_list args;
@@ -22,7 +24,7 @@ void asprintf(char * * ptr, const char * fmt, ...)
 	}
 	else
 	{
-		*ptr=strdup(data);
+		*ptr=strdup(tmpdata);
 	}
 }
 #endif
