@@ -19,7 +19,7 @@
 #define D3DPRESENT_DONOTWAIT 0x00000001L
 #endif
 
-STATIC_ASSERT_GSCOPE_CAN_EVALUATE(((IDirect3D9Ex*)NULL)->lpVtbl->RegisterSoftwareDevice, fix_your_d3d9_header);
+static_assert(sizeof(((IDirect3D9Ex*)NULL)->lpVtbl->RegisterSoftwareDevice));
 //IF THIS ONE FIRES:
 //The DirectX SDK, at least versions November 2008 and August 2009 (others untested),
 // lacks an entry in the vtable for IDirect3D9Ex (it's present in IDirect3D9).
@@ -373,7 +373,7 @@ cancel:
 #undef video
 static video* video_create_d3d9(uintptr_t windowhandle)
 {
-	return video_create_compat(cvideo_create_d3d9(windowhandle, 32, 32, fmt_xrgb1555, 60));
+	return video_create_compat(cvideo_create_d3d9(windowhandle, 64, 32, fmt_xrgb1555, 60));
 }
 const video::driver video::driver_d3d9 = {"Direct3D", video_create_d3d9, NULL, video::f_vsync};
 #endif

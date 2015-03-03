@@ -87,7 +87,7 @@
 
 //For compatibility with RetroArch, this file has the following restrictions, in addition to the global rules:
 //- Do not call any function from minir.h; force the user of the object to do that. The only allowed
-// parts of minir.h are STATIC_ASSERT, struct minircheats_model and friends, and UNION_BEGIN and friends.
+// parts of minir.h are static_assert, struct minircheats_model and friends, and UNION_BEGIN and friends.
 //- Do not dynamically change the interface; use a switch. If that becomes a too big pain, stick a
 // function pointer in minircheats_model_impl.
 //- No C++ incompatibilities, except using 'this' as variable name. This includes C++11. malloc return values must be casted.
@@ -115,7 +115,7 @@
 
 static size_t add_bits_down(size_t n)
 {
-	STATIC_ASSERT(sizeof(size_t)==4 || sizeof(size_t)==8, fix_this_function);
+	static_assert(sizeof(size_t)==4 || sizeof(size_t)==8);
 	n|=(n>> 1);
 	n|=(n>> 2);
 	n|=(n>> 4);
@@ -168,7 +168,7 @@ static uint8_t popcount64(uint64_t v)
 
 static uint8_t popcountS(size_t i)
 {
-	STATIC_ASSERT(sizeof(size_t)==4 || sizeof(size_t)==8, fix_this_function);
+	static_assert(sizeof(size_t)==4 || sizeof(size_t)==8);
 	if (sizeof(size_t)==4) return popcount32(i);
 	if (sizeof(size_t)==8) return popcount64(i);
 	return 0;//unreachable
@@ -970,7 +970,7 @@ static void thread_do_search(struct minircheats_model_impl * this, unsigned int 
 						if (comptoprev)
 						{
 							__m128i* ptrprevS=(__m128i*)ptrprev;
-							STATIC_ASSERT(SIZET_BITS==32 || SIZET_BITS==64, fix_this_function);
+							static_assert(SIZET_BITS==32 || SIZET_BITS==64);
 							
 							__m128i a1=_mm_loadu_si128(ptrS++);
 							__m128i a2=_mm_loadu_si128(ptrS++);
@@ -1007,7 +1007,7 @@ static void thread_do_search(struct minircheats_model_impl * this, unsigned int 
 						}
 						else
 						{
-							STATIC_ASSERT(SIZET_BITS==32 || SIZET_BITS==64, fix_this_function);
+							static_assert(SIZET_BITS==32 || SIZET_BITS==64);
 							__m128i b=_mm_set1_epi8(compto);
 							b=_mm_xor_si128(b, signflip);
 							
@@ -1053,7 +1053,7 @@ static void thread_do_search(struct minircheats_model_impl * this, unsigned int 
 #define rep16(x) (~(size_t)0/65535*(x))
 #define rep8(x) rep16((x)*0x0101)
 							
-							STATIC_ASSERT(sizeof(size_t)<=8, fix_this_function);
+							static_assert(sizeof(size_t)<=8);
 							
 							size_t val1=*(ptrS++);
 							size_t val2=(comptoprev ? *(ptrprevS++) : compto_byterep);

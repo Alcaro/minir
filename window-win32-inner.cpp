@@ -745,8 +745,8 @@ struct widget_viewport::impl {
 unsigned int widget_viewport::init(struct window * parent, uintptr_t parenthandle)
 {
 	m->parent=parent;
-	m->hwnd=CreateWindow("minir_viewport", "", WS_CHILD|WS_VISIBLE, 0, 0, 16, 16,
-	                     (HWND)parenthandle, NULL, GetModuleHandle(NULL), NULL);
+	m->hwnd=CreateWindow("minir_viewport", "", WS_CHILD|WS_VISIBLE, 0, 0, 16, 16, // TODO: figure out why this isn't resized properly
+	                     (HWND)parenthandle, NULL, GetModuleHandle(NULL), NULL);  // probably a missed reflow
 	SetWindowLongPtr(m->hwnd, GWLP_USERDATA, (LONG_PTR)this);
 	return 1;
 }

@@ -271,7 +271,7 @@ public:
 	class event::audio : public event {
 	public:
 		audio() : event(ty_audio) {}
-		//TODO: libretro v2 will require that this gets changed, but for now, this is sufficient.
+		//TODO: libretro v2 will require that this gets changed (likely rewritten from scrath), but for now, this is sufficient.
 		//There is no remotely plausible change that could force me to change the overlying architecture.
 		const int16_t * data;
 		size_t frames;
@@ -334,11 +334,23 @@ public:
 	public:
 		void set_cb(function<void(size_t id, bool down)> callback) { this->callback=callback; }
 		
+		//void request_next(function<void(const char * desc)> callback) { this->req_callback=callback; }
+		
 		//Each input descriptor has an unique ID, known as its slot. 0 is valid.
 		//It's fine to set a descriptor slot that's already used; this will remove the old one.
-		//It's also fine to set a descriptor to NULL. This is the default for holes, and will never fire.
+		//It's also fine to set a descriptor to NULL. This is the default for any slot which is not set, and will never fire.
 		//If the descriptor is invalid, the slot will be set to NULL, and false will be returned.
+		
+		//The implementation may limit the maximum number of modifiers on any descriptor. At least 15 modifiers
+		// must be supported, but more is allowed. If it goes above that, the descriptor is rejected.
 		virtual bool register_button(size_t id, const char * desc) = 0;
+		//Returns the lowest slot ID where the given number of descriptors can be sequentially added.
+		//If called for len=4 and it returns 2, it means that slots 2, 3, 4 and 5 are currently unused.
+		//It doesn't actually reserve anything, or otherwise change the state of the object; it just tells the current state.
+		
+		//The implementation may set an upper bound on the maximum valid slot. All values up to 4095 must work,
+		// but going up to SIZE_MAX is not guaranteed. If this is hit, behaviour is undefined.
+		virtual size_t register_group(size_t len) = 0;
 		//If you don't want to decide which slot to use, this one will pick an unused slot and tell which it used.
 		//If the descriptor is invalid, (size_t)-1 will be returned, and no slot will change.
 		size_t register_button(const char * desc)
@@ -347,10 +359,6 @@ public:
 			if (register_button(slot, desc)) return slot;
 			else return (size_t)-1;
 		}
-		//Returns the lowest slot ID where the given number of descriptors can be sequentially added.
-		//If called for len=4 and it returns 2, it means that slots 2, 3, 4 and 5 are currently unused.
-		//It doesn't actually reserve anything, or otherwise change the state of the object; it just tells the current state.
-		virtual size_t register_group(size_t len) = 0;
 		
 		enum dev_t {
 			dev_unknown,
@@ -363,15 +371,18 @@ public:
 		//device is which item of this type is relevant. If you have two keyboards, pressing A on both
 		// should give different values here. If they're distinguishable, use 1 and higher; if not, use 0.
 		//button is the 'common' ID for that device.
-		// For keyboard, it's a RETROK_*. For mouse, it's the mb_* enum. For gamepads, [TODO]
+		// For keyboard, it's a RETROK_* (not present here, include libretro.h). For mouse, it's the mb_* enum. For gamepads, [TODO]
 		//scancode is a hardware-dependent unique ID for that key. If a keyboard has two As, they will
-		// have different scancodes. If a key that doesn't map to any RETROK (Mute, for example), the common
-		// ID will be 0, and scancode will be something valid. 
+		// have different scancodes. If a key that doesn't map to any RETROK (Mute, for example), the
+		// common ID will be 0, and scancode will be something valid. Scancodes are still present for non-keyboards.
 		//down is the new state of the button. Duplicate events are fine and will be ignored.
 		virtual void event(dev_t type, unsigned int device, unsigned int button, unsigned int scancode, bool down) = 0;
 		
+		//Returns the state of a button.
+		virtual bool query(dev_t type, unsigned int device, unsigned int button, unsigned int scancode) = 0;
+		
 		//Releases all buttons held on the indicated device type. Can be dev_unknown to reset everything. The callback is not called.
-		//This is likely paired with a refresh() on the relevant inputkb/etc, which will call the callback; set it to NULL.
+		//This is likely paired with a refresh() on the relevant inputkb/etc, which will call event() and thereby the callback; set it to NULL.
 		virtual void reset(dev_t type) = 0;
 		
 		static inputmapper* create();

@@ -183,7 +183,7 @@ public:
 int main_wrap(int argc, char * argv[])
 {
 	window_init(&argc, &argv);
-return old_main(argc, argv);
+//return old_main(argc, argv);
 	
 #ifdef __linux__
 #define HOME "/home/alcaro"
@@ -191,8 +191,8 @@ return old_main(argc, argv);
 #define HOME "C:/Users/Alcaro"
 #endif
 	
-	libretro* core=libretro::create(HOME"/Desktop/minir/roms/gambatte_libretro" DYLIB_EXT, NULL, NULL);
-	core->load_rom(file::create(HOME"/Desktop/minir/roms/zeldaseasons.gbc"));
+	libretro* core=libretro::create(HOME "/Desktop/minir/roms/gambatte_libretro" DYLIB_EXT, NULL, NULL);
+	core->load_rom(file::create(HOME "/Desktop/minir/roms/zeldaseasons.gbc"));
 	
 	unsigned int videowidth=320;
 	unsigned int videoheight=240;

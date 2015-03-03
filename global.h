@@ -32,15 +32,26 @@ typedef void(*funcptr)();
 //#define STRUCT_END
 //#endif
 
-#ifdef __cplusplus
- #define STATIC_ASSERT(cond, name) extern char name[(cond)?1:-1]; (void)name
- #define STATIC_ASSERT_GSCOPE(cond, name) extern char name[(cond)?1:-1]
+#define JOIN_(x, y) x ## y
+#define JOIN(x, y) JOIN_(x, y)
+
+//requirements:
+//- assert(false) throws at compile time
+//- multiple assert(true) works
+//- does not require unique names for each assertion (optional: can support named assertions)
+//- zero traces left in the object files, except if debug info is enabled
+//- zero warnings under any compiler
+//- same syntax works both inside and outside functions
+//- works on all compilers
+//optional:
+//- works if compiled as C
+#ifdef __GNUC__
+#define MAYBE_UNUSED __attribute__((__unused__)) // shut up, stupid warnings
 #else
- #define STATIC_ASSERT(cond, name) (void)(sizeof(struct { int:-!(cond); }))
- #define STATIC_ASSERT_GSCOPE(cond, name) extern char name[(cond)?1:-1]
+#define MAYBE_UNUSED
 #endif
-#define STATIC_ASSERT_CAN_EVALUATE(cond, name) STATIC_ASSERT(sizeof(cond), name)
-#define STATIC_ASSERT_GSCOPE_CAN_EVALUATE(cond, name) STATIC_ASSERT_GSCOPE(sizeof(cond), name)
+#define static_assert_named(name, expr) extern int static_assertion_failed[(expr) ? 1 : -1] MAYBE_UNUSED
+#define static_assert(expr) static_assert_named(static_assertion_failed, (expr))
 
 
 #ifdef __cplusplus
@@ -69,7 +80,7 @@ anyptr try_calloc(size_t size, size_t count);
 
 
 
-//too reliant on cutting-edge compilers
+//too reliant on non-ancient compilers
 ////some SFINAE shenanigans to call T::create if it exists, otherwise new() - took an eternity to google up
 ////don't use this template yourself, use generic_create/destroy instead
 //template<typename T> class generic_create_core {

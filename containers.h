@@ -4,7 +4,8 @@
 #include <string.h> // strdup
 
 #include <new>
-template<typename key_t, typename val_t, typename key_t_pub = key_t> class assocarr : nocopy {
+//size: three pointers, plus (two pointers plus one key_t plus one val_t) per entry
+template<typename key_t, typename val_t, typename key_t_pub = key_t> class hashmap : nocopy {
 protected:
 	typedef size_t keyhash_t;
 	
@@ -159,14 +160,43 @@ public:
 		}
 	}
 	
-	assocarr()
+	void remove_if(function<bool(key_t_pub key, val_t& value)> condition)
+	{
+		for (unsigned int i=0;i<this->buckets;i++)
+		{
+			struct node_t * * noderef=&this->nodes[i];
+			while (*noderef)
+			{
+				bool remove=condition((*noderef)->key, (*noderef)->value);
+				
+				struct node_t * node=*noderef;
+				noderef=&node->next;
+				if (remove)
+				{
+					node->key.~key_t();
+					node->value.~val_t();
+					free(node);
+					this->entries--;
+				}
+			}
+		}
+		
+		if (this->buckets>4 && this->entries < this->buckets/2)
+		{
+			size_t newbuckets=this->buckets;
+			while (newbuckets>4 && this->entries < newbuckets/2) newbuckets/=2;
+			resize(newbuckets);
+		}
+	}
+	
+	hashmap()
 	{
 		this->buckets=0;
 		this->nodes=NULL;
 		reset();
 	}
 	
-	~assocarr()
+	~hashmap()
 	{
 		for (unsigned int i=0;i<this->buckets;i++)
 		{
@@ -205,22 +235,58 @@ public:
 		return ret;
 	}
 };
-template<typename T> class stringmap : public assocarr<simple_string, T, const char *> {};
+template<typename T> class stringmap : public hashmap<simple_string, T, const char *> {};
 
-template<typename T> class simple_ptr {
-	uintptr_t ptr;
+template<typename T, bool shuffle> class hashable_int {
+	T ptr;
 	simple_ptr();
 public:
-	simple_ptr(T other) { ptr=(uintptr_t)other; }
-	simple_ptr(const simple_ptr& other) { ptr=other.ptr; }
-	bool operator==(const simple_ptr& other) const { return (ptr==other.ptr); }
-	operator T() const { return (T)ptr; }
-	uintptr_t hash() const { return ptr; }
+	hashable_int(T other) { ptr=other; }
+	hashable_int(const hashable_int& other) { ptr=other.ptr; }
+	bool operator==(const hashable_int& other) const { return (ptr==other.ptr); }
+	operator T() const { return ptr; }
+	uintptr_t hash() const
+	{
+		if (!shuffle) return (uintptr_t)ptr;
+		static_assert(!shuffle || sizeof(T)==4 || sizeof(T)==8);
+		//each of those hash functions is reversible
+		//it would be desirable to generate hash algorithms for all other values too, but zimbry chose to not publish his
+		// source codes nor results for other sizes, and I don't understand the relevant math well enough to recreate it
+		//it's not really important, anyways; this isn't OpenSSL
+		if (sizeof(T)==4)
+		{
+			//https://code.google.com/p/smhasher/wiki/MurmurHash3
+			uint32_t val=(uint32_t)ptr;
+			val ^= val >> 16;
+			val *= 0x85ebca6b;
+			val ^= val >> 13;
+			val *= 0xc2b2ae35;
+			val ^= val >> 16;
+			return val;
+		}
+		if (sizeof(T)==8)
+		{
+			//http://zimbry.blogspot.se/2011/09/better-bit-mixing-improving-on.html
+			//using Mix13 because it gives the lowest mean error on low incoming entropy
+			uint64_t val=(uint64_t)ptr;
+			val ^= val >> 30;
+			val *= 0xbf58476d1ce4e5b9;
+			val ^= val >> 27;
+			val *= 0x94d049bb133111eb;
+			val ^= val >> 31;
+			return val;
+		}
+	}
 };
-template<typename T1, typename T2> class ptrmap : public assocarr<simple_ptr<T1>, T2, T1> {};
+//these two support the same types, but act differently
+//intmap shuffles the keys before using them, as integers sometimes have high predictability, and the hashmap doesn't like that
+//ptrmap doesn't, because pointers are far less predictable
+template<typename T1, typename T2> class ptrmap : public hashmap<hashable_int<T1, false>, T2, T1> {};
+template<typename T1, typename T2> class intmap : public hashmap<hashable_int<T1, true>, T2, T1> {};
 
 
 
+//size: two pointers, plus one T per item
 template<typename T> class array {
 	T * items;
 	size_t count;

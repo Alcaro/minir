@@ -880,6 +880,12 @@ static LRESULT CALLBACK WindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM l
 				
 				mmi->ptMinTrackSize.x=padx+this->contents->width;
 				mmi->ptMinTrackSize.y=pady+this->contents->height;
+				
+				if (!this->resizable)
+				{
+					mmi->ptMaxTrackSize.x=mmi->ptMinTrackSize.x;
+					mmi->ptMaxTrackSize.y=mmi->ptMinTrackSize.y;
+				}
 			}
 		}
 		break;
