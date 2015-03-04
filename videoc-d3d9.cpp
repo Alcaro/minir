@@ -90,8 +90,8 @@ static bool recreate(struct video_d3d9 * this, unsigned int screenwidth, unsigne
 	
 	D3DPRESENT_PARAMETERS parameters;
 	memset(&parameters, 0, sizeof(parameters));
-	parameters.BackBufferWidth=0;
-	parameters.BackBufferHeight=0;
+	parameters.BackBufferWidth=screenwidth;
+	parameters.BackBufferHeight=screenheight;
 	//parameters.BackBufferFormat=this->texformat;
 	parameters.BackBufferFormat=D3DFMT_UNKNOWN;
 	parameters.BackBufferCount=2;//this value is confirmed by experiments; it is the lowest value that doesn't force vsync on.

@@ -183,7 +183,7 @@ public:
 int main_wrap(int argc, char * argv[])
 {
 	window_init(&argc, &argv);
-//return old_main(argc, argv);
+return old_main(argc, argv);
 	
 #ifdef __linux__
 #define HOME "/home/alcaro"

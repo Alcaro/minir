@@ -1,10 +1,11 @@
 #include "minir.h"
 #include "containers.h"
+#include <ctype.h>
 
 namespace {
 class u32_u16_multimap {
 	//the value is either:
-	//- if (uintptr_t)val&1: this key contains exactly one slot: (uintptr_t)val >> 16
+	//- if (uintptr_t)val&1: this key contains exactly one slot: (uintptr_t)val >> 16 (low word is 0xFFFF)
 	//- else: pointer to a list of slots for this one; length is in val[-1]
 	intmap<uint32_t, uint16_t*> data;
 	
@@ -90,8 +91,10 @@ public:
 			vals[-1]--;
 			if (vals[-1]==1)
 			{
-				*valptr = encode(vals[1]);
-				free(vals);
+				//*valptr = encode(vals[1]);
+				//free(vals);
+				*valptr = encode(vals[1-i]);
+				free(vals-1);
 			}
 			//TODO: reallocate? Probably not worth it, those objects are <16 in all sane contexts.
 		}
@@ -122,11 +125,24 @@ public:
 			return val;
 		}
 	}
+	
+private:
+	//this doesn't need to take a 'this', but bind() hates private statics for whatever reason
+	void delete_destruct(uint32_t key, uint16_t*& value)
+	{
+		if ((uintptr_t)value & 1) {}
+		else free(value);
+	}
+public:
+	~u32_u16_multimap()
+	{
+		data.each(bind_this(&u32_u16_multimap::delete_destruct));
+	}
 };
 
 #ifdef SELFTEST
 //cls & g++ -DSELFTEST -DNOMAIN nomain.cpp inputmapper.cpp memory.cpp -g & gdb a.exe
-//this does not test that intmap works properly, only that this multimap does
+//this will test only this multimap; it assumes that the intmap is already functional
 static void assert(bool cond)
 {
 	if (!cond) abort();
@@ -192,6 +208,22 @@ static void test()
 	ptr = obj.get(1, num);
 	assert(num == 0);
 	
+	obj.add(1, 123);
+	obj.add(1, 1234);
+	obj.remove(1, 123);
+	ptr = obj.get(1, num);
+	assert(num == 1);
+	assert(ptr[0]==1234);
+	obj.remove(1, 1234);
+	
+	obj.add(1, 123);
+	obj.add(1, 1234);
+	obj.remove(1, 1234);
+	ptr = obj.get(1, num);
+	assert(num == 1);
+	assert(ptr[0]==123);
+	obj.remove(1, 123);
+	
 	obj.add(2, 1);
 	obj.add(2, 12);
 	obj.add(2, 123);
@@ -216,11 +248,8 @@ static void test()
 	ptr = obj.get(2, num);
 	assert(num == 4);
 	assert(ptr[0]+ptr[1]+ptr[2]+ptr[3] == 1+12+123+1234);
-	obj.remove(2, 1);
-	obj.remove(2, 12);
-	obj.remove(2, 123);
-	obj.remove(2, 1234);
-	obj.remove(2, 12345);
+	
+	//leave it populated - leak check
 }
 #endif
 
@@ -246,16 +275,47 @@ class devmgr_inputmapper_impl : public devmgr::inputmapper {
 	//
 	//none of those descriptors may leave this file
 	
-	struct keydata {
-		static const size_t inlinesize = sizeof(uint32_t*)/sizeof(uint32_t);
-		
+	class keydata {
+	public:
 		uint32_t trigger; // 0 if the slot is unused
 		
-		uint32_t nummod;
+		uint16_t nummod;
+		//char padding[2];
+		
+	private:
+		static const size_t inlinesize = sizeof(uint32_t*)/sizeof(uint32_t);
+		
 		union {
 			uint32_t mod_inline[inlinesize];
-			uint32_t* mod;
+			uint32_t* mod_ptr;
 		};
+		
+	public:
+		keydata() { nummod = 0; }
+		
+		uint32_t* resize(uint16_t count)
+		{
+			if (nummod > inlinesize) free(mod_ptr);
+			
+			nummod = count;
+			if (nummod > inlinesize)
+			{
+				mod_ptr = malloc(sizeof(uint32_t)*count);
+				return mod_ptr;
+			}
+			else return mod_inline;
+		}
+		
+		const uint32_t* mod()
+		{
+			if (nummod <= inlinesize) return mod_inline;
+			else return mod_ptr;
+		}
+		
+		~keydata()
+		{
+			if (nummod > inlinesize) free(mod_ptr);
+		}
 	};
 	
 	array<keydata> mappings;//the key is a slot ID
@@ -280,11 +340,26 @@ class devmgr_inputmapper_impl : public devmgr::inputmapper {
 		}
 	}
 	
+	/*private*/ bool parse_descriptor_kb(keydata& key, const char * desc)
+	{
+return false;
+	}
+	
+	/*private*/ bool parse_descriptor(keydata& key, const char * desc)
+	{
+		if (desc[0]=='K' && desc[1]=='B' && !isalpha(desc[2])) return parse_descriptor_kb(key, desc);
+		return false;
+	}
+	
 	bool register_button(size_t id, const char * desc)
 	{
 		keydata& key = mappings[id];
-		if (!desc) goto fail;
-goto fail;
+		keylist.remove(key.trigger, id);
+		if (!desc) goto fail; // not really fail, but the results are the same.
+		
+		if (!parse_descriptor(key, desc)) goto fail;
+		keylist.add(key.trigger, id);
+		return true;
 		
 	fail:
 		key.trigger=0;
