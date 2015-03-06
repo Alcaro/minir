@@ -59,6 +59,7 @@ static void initialize_to_parent(struct configdata * this)
 static void join_config(struct configdata * parent, struct configdata * child)
 {
 	if (!child) return;
+#undef JOIN
 #define JOIN(groupname, scopegroupname, deleteold, clone) \
 		for (unsigned int i=0;i<count(parent->groupname);i++) \
 		{ \

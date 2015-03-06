@@ -21,6 +21,9 @@
 #define FILEPATH_POSIX
 //#define FILEPATH_WINDOWS
 
+#define OS_POSIX
+//#define OS_WINDOWS
+
 //#define LINEBREAK_CRLF
 
 //How to load dynamic libraries. Pick exactly one.
@@ -72,6 +75,9 @@
 //Which system to use for file paths.
 //#define FILEPATH_POSIX
 #define FILEPATH_WINDOWS
+
+//#define OS_POSIX
+#define OS_WINDOWS
 
 #define LINEBREAK_CRLF
 

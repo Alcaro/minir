@@ -133,6 +133,7 @@ uintptr_t thread_get_id()
 	//jmpq   *0x200b22(%rip)        # 0x601028 <pthread_self@got.plt>
 	//mov    %fs:0x10,%rax
 	//retq
+	//(it's some big mess the first time, apparently the dependency is dynamically loaded)
 	return pthread_self();
 }
 

@@ -373,7 +373,7 @@ cancel:
 #undef video
 static video* video_create_d3d9(uintptr_t windowhandle)
 {
-	return video_create_compat(cvideo_create_d3d9(windowhandle, 64, 32, fmt_xrgb1555, 60));
+	return video_create_compat(cvideo_create_d3d9(windowhandle, 32, 32, fmt_xrgb1555, 60));
 }
 const video::driver video::driver_d3d9 = {"Direct3D", video_create_d3d9, NULL, video::f_vsync};
 #endif

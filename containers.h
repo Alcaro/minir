@@ -239,7 +239,7 @@ template<typename T> class stringmap : public hashmap<simple_string, T, const ch
 
 template<typename T, bool shuffle> class hashable_int {
 	T ptr;
-	simple_ptr();
+	hashable_int();
 public:
 	hashable_int(T other) { ptr=other; }
 	hashable_int(const hashable_int& other) { ptr=other.ptr; }

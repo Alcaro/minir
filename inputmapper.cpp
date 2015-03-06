@@ -62,7 +62,7 @@ public:
 			valptr = (uint16_t*)realloc(valptr-1, sizeof(uint16_t)*(1+numprev+1)) + 1;
 			valptr[-1]++;
 			valptr[numprev]=val;
-			//TODO: allocate more agressively? Probably not, nobody will map more than three-or-so things to the same key.
+			//TODO: allocate more agressively? Probably not, nobody sane will map more than three-or-so things to the same key.
 		}
 	}
 	
@@ -306,7 +306,7 @@ class devmgr_inputmapper_impl : public devmgr::inputmapper {
 			else return mod_inline;
 		}
 		
-		const uint32_t* mod()
+		const uint32_t* mods()
 		{
 			if (nummod <= inlinesize) return mod_inline;
 			else return mod_ptr;
@@ -319,15 +319,15 @@ class devmgr_inputmapper_impl : public devmgr::inputmapper {
 	};
 	
 	array<keydata> mappings;//the key is a slot ID
-	u32_u16_multimap keylist;//the key is a descriptor for the trigger key
-	uint16_t firstempty;
+	u32_u16_multimap keylist;//the key is a descriptor for the trigger key; it returns a slot ID
+	uint16_t firstempty;//a slot such that all previous slots are used
 	
 	size_t register_group(size_t len)
 	{
 		while (true)
 		{
 			size_t n=0;
-			while (mappings[firstempty+n].trigger == 0)
+			while (true)
 			{
 				if (mappings[firstempty+n].trigger != 0)
 				{
