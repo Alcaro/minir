@@ -561,6 +561,8 @@ static void free_(struct inputmapper * this_)
 
 char * inputmapper_normalize(const char * descriptor)
 {
+	keynames=inputkb::keynames();
+	
 	uint32_t ** keys=parse_chain_descriptor(descriptor);
 	if (!keys) return NULL;
 	char * newdesc=create_chain_descriptor(keys);

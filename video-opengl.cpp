@@ -169,10 +169,10 @@ bool InitGlobalGLFunctions()
 void DeinitGlobalGLFunctions()
 {
 #ifdef WNDPROT_WINDOWS
-	FreeLibrary(wgl.lib);
+	if (wgl.lib) FreeLibrary(wgl.lib);
 #endif
 #ifdef WNDPROT_X11
-	dlclose(glx.lib);
+	if (glx.lib) dlclose(glx.lib);
 #endif
 }
 
