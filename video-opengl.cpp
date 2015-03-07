@@ -2,6 +2,7 @@
 
 //#define GL_GLEXT_PROTOTYPES
 #include "io.h"
+#include "os.h"
 #ifdef VIDEO_OPENGL
 
 //http://www.opengl-tutorial.org/beginners-tutorials/tutorial-1-opening-a-window/
@@ -1147,6 +1148,7 @@ public:
 		const char * source_s;
 		const char * type_s;
 		const char * severity_s;
+		enum { sev_unk=255, sev_not=0, sev_warn=1, sev_err=2 } severity_l;
 		
 		switch (source)
 		{
@@ -1175,15 +1177,17 @@ public:
 		
 		switch (severity)
 		{
-			case GL_DEBUG_SEVERITY_HIGH:   severity_s="Error"; break;
-			case GL_DEBUG_SEVERITY_MEDIUM: severity_s="Warning"; break;
-			case GL_DEBUG_SEVERITY_LOW:    severity_s="Notice"; break;
-			default:                       severity_s="Unknown"; break;
+			case GL_DEBUG_SEVERITY_HIGH:   severity_s="Error"; severity_l=sev_err; break;
+			case GL_DEBUG_SEVERITY_MEDIUM: severity_s="Warning"; severity_l=sev_warn; break;
+			case GL_DEBUG_SEVERITY_LOW:    severity_s="Notice"; severity_l=sev_not; break;
+			default:                       severity_s="Unknown"; severity_l=sev_unk; break;
 		}
 		
 		//this could be sent to a better location, but the video driver isn't supposed to
 		// generate messages in the first place, so there's nothing good to do.
 		printf("[GL debug: %s from %s about %s: %s]\n", severity_s, source_s, type_s, message);
+		
+		if (severity_l >= sev_warn) debug_break();
 	}
 #endif
 };
