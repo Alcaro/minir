@@ -210,6 +210,7 @@ public:
 				item=next;
 			}
 		}
+		free(this->nodes);
 	}
 };
 
@@ -384,4 +385,9 @@ public:
 		for (size_t i=0;i<this->count;i++) this->items[i].~T();
 		free(this->items);
 	}
+};
+
+
+template<typename T> class slimintarray {
+	
 };

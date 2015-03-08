@@ -3,101 +3,172 @@
 #include <ctype.h>
 
 namespace {
-class u32_u16_multimap {
+class multiu16 {
+	enum { numu16 = sizeof(uint16_t*) / sizeof(uint16_t) };
+	
+	void assertions() {
+		static_assert(numu16 > 1);//there must be sufficient space for at least two ints in a pointer
+		static_assert(numu16 * sizeof(uint16_t) == sizeof(uint16_t*));//the size of a pointer must be a multiple of the size of an int
+		static_assert((numu16 & (numu16-1)) == 0);//this multiple must be a power of two
+		static_assert(numu16<<1 < (uint16_t)-1);//the int must be large enough to store how many ints fit in a pointer, plus the tag bit
+	};
+	
 	//the value is either:
-	//- if (uintptr_t)val&1: this key contains exactly one slot: (uintptr_t)val >> 16 (low word is 0xFFFF)
-	//- else: pointer to a list of slots for this one; length is in val[-1]
-	intmap<uint32_t, uint16_t*> data;
+	//if the lowest bit of ptr_raw is set:
+	// the number of items is (ptr>>1) & numu16
+	// the others are in inlines_raw[], at position inlines()
+	//else:
+	// the number of items is in ptr[0]
+	// the items are in ptr[1..count]
+	union {
+		uint16_t* ptr_raw;
+		uint16_t inlines_raw[numu16];
+	};
 	
-	static uint16_t* ptr_skip_low_u16(uint16_t* ptr)
+	static int tag_offset()
 	{
-		const size_t numu16 = sizeof(uint16_t*) / sizeof(uint16_t);
-		static_assert(numu16 > 1);
-		
 		union {
+			uint16_t* ptr;
 			uint16_t uint[numu16];
-			void* ptr;
 		} u;
-		u.ptr = (void*)(uintptr_t)0xFFFF;
+		u.ptr = (uint16_t*)(uintptr_t)0xFFFF;
 		
-		if (u.uint[0]==0xFFFF) return ptr+1; // little endian
-		else if (u.uint[numu16-1]==0xFF) return ptr; // big endian
-		else return NULL; // middle endian - let's blow up (middle endian is dead, anyways)
+		if (u.uint[0]==0xFFFF) return 0; // little endian
+		else if (u.uint[numu16-1]==0xFF) return numu16-1; // big endian
+		else return -1; // middle endian - let's blow up (middle endian is dead, anyways)
 	}
 	
-	uint16_t* encode(uint16_t val)
+	uint16_t& tag()
 	{
-		return (uint16_t*)(uintptr_t)(val<<16 | 0xFFFF);
+		return inlines_raw[tag_offset()];
 	}
+	
+	bool is_inline()
+	{
+		return tag()&1;
+	}
+	
+	uint16_t* inlines()
+	{
+		if (tag_offset()==0) return inlines_raw+1;
+		else return inlines_raw;
+	}
+	
+public:
+	uint16_t* ptr()
+	{
+		if (is_inline()) return inlines();
+		else return ptr_raw+1;
+	}
+	
+	uint16_t count()
+	{
+		if (is_inline()) return tag()>>1;
+		else return ptr_raw[0];
+	}
+	
+private:
+	//If increased, does not initialize the new entries. If decreased, drops the top.
+	void set_count(uint16_t newcount)
+	{
+		uint16_t oldcount=count();
+		uint16_t* oldptr=ptr();
+		
+		if (oldcount < numu16 && newcount < numu16)
+		{
+			tag() = newcount<<1 | 1;
+		}
+		if (oldcount >= numu16 && newcount < numu16)
+		{
+			uint16_t* freethis = ptr_raw;
+			memcpy(inlines(), oldptr, sizeof(uint16_t)*newcount);
+			tag() = newcount<<1 | 1;
+			free(freethis);
+		}
+		if (oldcount < numu16 && newcount >= numu16)
+		{
+			uint16_t* newptr = malloc(sizeof(uint16_t)*(1+newcount));
+			newptr[0] = newcount;
+			memcpy(newptr+1, oldptr, sizeof(uint16_t)*oldcount);
+			ptr_raw = newptr;
+		}
+		if (oldcount >= numu16 && newcount >= numu16)
+		{
+			ptr_raw = realloc(ptr_raw, sizeof(uint16_t)*(1+newcount));
+			ptr_raw[0] = newcount;
+		}
+	}
+	
+public:
+	multiu16()
+	{
+		tag() = 0<<1 | 1;
+	}
+	
+	void add(uint16_t val)
+	{
+		uint16_t* entries = ptr();
+		uint16_t num = count();
+		
+		for (uint16_t i=0;i<num;i++)
+		{
+			if (entries[i]==val) return;
+		}
+		
+		add_uniq(val);
+	}
+	
+	//Use this if the value is known to not exist in the set already.
+	void add_uniq(uint16_t val)
+	{
+		uint16_t num = count();
+		set_count(num+1);
+		ptr()[num] = val;
+	}
+	
+	void remove(uint16_t val)
+	{
+		uint16_t* entries = ptr();
+		uint16_t num = count();
+		
+		for (uint16_t i=0;i<num;i++)
+		{
+			if (entries[i]==val)
+			{
+				entries[i] = entries[num-1];
+				set_count(num-1);
+				break;
+			}
+		}
+	}
+	
+	uint16_t* get(uint16_t& len)
+	{
+		len=count();
+		return ptr();
+	}
+	
+	~multiu16()
+	{
+		if (!is_inline()) free(ptr_raw);
+	}
+};
+
+class u32_u16_multimap {
+	intmap<uint32_t, multiu16> data;
 	
 public:
 	void add(uint32_t key, uint16_t val)
 	{
-		uint16_t*& valptr=data.get(key);
-		if (!valptr)
-		{
-			valptr=encode(val);
-			return;
-		}
-		if ((uintptr_t)valptr & 1)
-		{
-			if (valptr == encode(val)) return;
-			
-			//it's possible to shove multiple u16s into the extra bits of a 64bit
-			// pointer, but that adds so much complexity there's no real point
-			
-			uint16_t prevval=((uintptr_t)valptr >> 16);
-			valptr = (uint16_t*)malloc(sizeof(uint16_t)*3) + 1;
-			valptr[-1]=2;
-			valptr[0]=prevval;
-			valptr[1]=val;
-		}
-		else
-		{
-			uint16_t numprev=valptr[-1];
-			for (uint16_t i=0;i<numprev;i++)
-			{
-				if (valptr[i]==val) return;
-			}
-			valptr = (uint16_t*)realloc(valptr-1, sizeof(uint16_t)*(1+numprev+1)) + 1;
-			valptr[-1]++;
-			valptr[numprev]=val;
-			//TODO: allocate more agressively? Probably not, nobody sane will map more than three-or-so things to the same key.
-		}
+		data.get(key).add(val);
 	}
 	
 	void remove(uint32_t key, uint16_t val)
 	{
-		uint16_t** valptr=data.get_ptr(key);
-		if (!valptr) return;
-		if ((uintptr_t)*valptr & 1)
-		{
-			if (*valptr == encode(val)) data.remove(key);
-			return;
-		}
-		else
-		{
-			uint16_t* vals=*valptr;
-			uint16_t count=vals[-1];
-			uint16_t i=0;
-			while (true)
-			{
-				if (i==count) return;//not present
-				if (vals[i]==val) break;
-				i++;
-			}
-			
-			vals[i]=vals[count-1];
-			vals[-1]--;
-			if (vals[-1]==1)
-			{
-				//*valptr = encode(vals[1]);
-				//free(vals);
-				*valptr = encode(vals[1-i]);
-				free(vals-1);
-			}
-			//TODO: reallocate? Probably not worth it, those objects are <16 in all sane contexts.
-		}
+		multiu16* core = data.get_ptr(key);
+		if (!core) return;
+		if (core->count() == 1) data.remove(key);
+		else core->remove(val);
 	}
 	
 	//Returns a pointer to all keys. 'len' is the buffer length.
@@ -106,42 +177,27 @@ public:
 	//If there is nothing at the specified key, the return value may or may not be NULL.
 	uint16_t* get(uint32_t key, uint16_t& len)
 	{
-		uint16_t** valptr=data.get_ptr(key);
-		if (!valptr)
+		multiu16* core = data.get_ptr(key);
+		if (core)
 		{
-			len=0;
-			return NULL;
-		}
-		
-		uint16_t* val = *valptr;
-		if ((uintptr_t)val & 1)
-		{
-			len=1;
-			return ptr_skip_low_u16((uint16_t*)valptr);
+			return core->get(len);
 		}
 		else
 		{
-			len=val[-1];
-			return val;
+			len = 0;
+			return NULL;
 		}
-	}
-	
-private:
-	//this doesn't need to take a 'this', but bind() hates private statics for whatever reason
-	void delete_destruct(uint32_t key, uint16_t*& value)
-	{
-		if ((uintptr_t)value & 1) {}
-		else free(value);
-	}
-public:
-	~u32_u16_multimap()
-	{
-		data.each(bind_this(&u32_u16_multimap::delete_destruct));
 	}
 };
 
 #ifdef SELFTEST
+//#ifdef OS_POSIX
+//#include <valgrind/memcheck.h>
+//#else
+//#define VALGRIND_DO_LEAK_CHECK
+//#endif
 //cls & g++ -DSELFTEST -DNOMAIN nomain.cpp inputmapper.cpp memory.cpp -g & gdb a.exe
+//g++ -DSELFTEST -DNOMAIN nomain.cpp inputmapper.cpp memory.cpp -g && gdb ./a.out
 //this will test only this multimap; it assumes that the intmap is already functional
 static void assert(bool cond)
 {
@@ -250,6 +306,7 @@ static void test()
 	assert(ptr[0]+ptr[1]+ptr[2]+ptr[3] == 1+12+123+1234);
 	
 	//leave it populated - leak check
+	//VALGRIND_DO_LEAK_CHECK;
 }
 #endif
 
@@ -319,8 +376,10 @@ class devmgr_inputmapper_impl : public devmgr::inputmapper {
 	};
 	
 	array<keydata> mappings;//the key is a slot ID
+	uint16_t firstempty;//any slot such that all previous slots are used
 	u32_u16_multimap keylist;//the key is a descriptor for the trigger key; it returns a slot ID
-	uint16_t firstempty;//a slot such that all previous slots are used
+	
+	u32_u16_multimap modsfor;//the key is a descriptor for the trigger key; it returns a slot ID
 	
 	size_t register_group(size_t len)
 	{

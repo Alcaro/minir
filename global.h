@@ -36,15 +36,19 @@ typedef void(*funcptr)();
 #define JOIN(x, y) JOIN_(x, y)
 
 //requirements:
-//- assert(false) throws at compile time
-//- multiple assert(true) works
-//- does not require unique names for each assertion (optional: can support named assertions)
+//- static_assert(false) throws at compile time
+//- multiple static_assert(true) works
+//- does not require unique names for each assertion
 //- zero traces left in the object files, except if debug info is enabled
 //- zero warnings under any compiler
+//- static_assert(2+2 < 5); works inside a function
+//- static_assert(2+2 < 5); works at the global scope
+//- (FAILED) static_assert(2+2 < 5); works as a class member
 //- same syntax works both inside and outside functions
 //- works on all compilers
 //optional:
 //- works if compiled as C
+//- can name assertions, if desired
 #ifdef __GNUC__
 #define MAYBE_UNUSED __attribute__((__unused__)) // shut up, stupid warnings
 #else
