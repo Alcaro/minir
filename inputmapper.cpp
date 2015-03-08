@@ -3,42 +3,6 @@
 #include <ctype.h>
 
 namespace {
-class u32_u16_multimap {
-	intmap<uint32_t, multiint<uint16_t> > data;
-	
-public:
-	void add(uint32_t key, uint16_t val)
-	{
-		data.get(key).add(val);
-	}
-	
-	void remove(uint32_t key, uint16_t val)
-	{
-		multiint<uint16_t>* core = data.get_ptr(key);
-		if (!core) return;
-		if (core->count() == 1) data.remove(key);
-		else core->remove(val);
-	}
-	
-	//Returns a pointer to all keys. 'len' is the buffer length.
-	//The returned pointer is valid until the next add() or remove().
-	//The order is unspecified and can change at any moment.
-	//If there is nothing at the specified key, the return value may or may not be NULL.
-	uint16_t* get(uint32_t key, uint16_t& len)
-	{
-		multiint<uint16_t>* core = data.get_ptr(key);
-		if (core)
-		{
-			return core->get(len);
-		}
-		else
-		{
-			len = 0;
-			return NULL;
-		}
-	}
-};
-
 class devmgr_inputmapper_impl : public devmgr::inputmapper {
 	//function<void(size_t id, bool down)> callback; // held in the parent class
 	
@@ -106,9 +70,44 @@ class devmgr_inputmapper_impl : public devmgr::inputmapper {
 	
 	array<keydata> mappings;//the key is a slot ID
 	uint16_t firstempty;//any slot such that all previous slots are used
-	u32_u16_multimap keylist;//the key is a descriptor for the trigger key; it returns a slot ID
 	
-	u32_u16_multimap modsfor;//the key is a descriptor for the trigger key; it returns a slot ID
+	class u32_u16_multimap {
+		intmap<uint32_t, multiint<uint16_t> > data;
+		
+	public:
+		void add(uint32_t key, uint16_t val)
+		{
+			data.get(key).add(val);
+		}
+		
+		void remove(uint32_t key, uint16_t val)
+		{
+			multiint<uint16_t>* core = data.get_ptr(key);
+			if (!core) return;
+			if (core->count() == 1) data.remove(key);
+			else core->remove(val);
+		}
+		
+		//Returns a pointer to all keys. 'len' is the buffer length.
+		//The returned pointer is valid until the next add() or remove().
+		//The order is unspecified and can change at any moment.
+		//If there is nothing at the specified key, the return value may or may not be NULL.
+		uint16_t* get(uint32_t key, uint16_t& len)
+		{
+			multiint<uint16_t>* core = data.get_ptr(key);
+			if (core)
+			{
+				return core->get(len);
+			}
+			else
+			{
+				len = 0;
+				return NULL;
+			}
+		}
+	};
+	u32_u16_multimap keylist;//the key is a descriptor for the trigger key; it returns a bunch of slot IDs
+	u32_u16_multimap modsfor;//the key is a descriptor for the trigger key; it returns a bunch of slot IDs
 	
 	size_t register_group(size_t len)
 	{
