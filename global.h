@@ -44,18 +44,18 @@ typedef void(*funcptr)();
 //- static_assert(2+2 < 5); works inside a function
 //- static_assert(2+2 < 5); works at the global scope
 //- (FAILED) static_assert(2+2 < 5); works as a class member
+//- static_assert(2+2 < 5); works in a template class
 //- same syntax works both inside and outside functions
 //- works on all compilers
 //optional:
-//- works if compiled as C
+//- (FAILED) works if compiled as C
 //- can name assertions, if desired
-#ifdef __GNUC__
-#define MAYBE_UNUSED __attribute__((__unused__)) // shut up, stupid warnings
-#else
-#define MAYBE_UNUSED
-#endif
-#define static_assert_named(name, expr) extern int static_assertion_failed[(expr) ? 1 : -1] MAYBE_UNUSED
-#define static_assert(expr) static_assert_named(static_assertion_failed, (expr))
+
+template<bool x> struct static_assert_t;
+template<> struct static_assert_t<true>{struct STATIC_ASSERTION_FAILED{};};
+template<> struct static_assert_t<false>{};
+#define static_assert(expr) typedef typename static_assert_t<(bool)(expr)>::STATIC_ASSERTION_FAILED JOIN(static_assertion_, __COUNTER__);
+
 
 
 #ifdef __cplusplus

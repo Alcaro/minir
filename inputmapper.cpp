@@ -3,42 +3,42 @@
 #include <ctype.h>
 
 namespace {
-class multiu16 {
-	enum { numu16 = sizeof(uint16_t*) / sizeof(uint16_t) };
+template<typename T> class multinum {
+	enum { numinline = sizeof(T*) / sizeof(T) };
 	
 	void assertions() {
-		static_assert(numu16 > 1);//there must be sufficient space for at least two ints in a pointer
-		static_assert(numu16 * sizeof(uint16_t) == sizeof(uint16_t*));//the size of a pointer must be a multiple of the size of an int
-		static_assert((numu16 & (numu16-1)) == 0);//this multiple must be a power of two
-		static_assert(numu16<<1 < (uint16_t)-1);//the int must be large enough to store how many ints fit in a pointer, plus the tag bit
+		static_assert(numinline > 1);//there must be sufficient space for at least two ints in a pointer
+		static_assert(numinline * sizeof(T) == sizeof(T*));//the size of a pointer must be a multiple of the size of an int
+		static_assert((numinline & (numinline-1)) == 0);//this multiple must be a power of two
+		static_assert(numinline<<1 < (T)-1);//the int must be large enough to store how many ints fit in a pointer, plus the tag bit
 	};
 	
 	//the value is either:
 	//if the lowest bit of ptr_raw is set:
-	// the number of items is (ptr>>1) & numu16
+	// the number of items is (ptr>>1) & numinline
 	// the others are in inlines_raw[], at position inlines()
 	//else:
 	// the number of items is in ptr[0]
 	// the items are in ptr[1..count]
 	union {
-		uint16_t* ptr_raw;
-		uint16_t inlines_raw[numu16];
+		T* ptr_raw;
+		T inlines_raw[numinline];
 	};
 	
 	static int tag_offset()
 	{
 		union {
-			uint16_t* ptr;
-			uint16_t uint[numu16];
+			T* ptr;
+			T uint[numinline];
 		} u;
-		u.ptr = (uint16_t*)(uintptr_t)0xFFFF;
+		u.ptr = (T*)(uintptr_t)0xFFFF;
 		
 		if (u.uint[0]==0xFFFF) return 0; // little endian
-		else if (u.uint[numu16-1]==0xFF) return numu16-1; // big endian
+		else if (u.uint[numinline-1]==0xFF) return numinline-1; // big endian
 		else return -1; // middle endian - let's blow up (middle endian is dead, anyways)
 	}
 	
-	uint16_t& tag()
+	T& tag()
 	{
 		return inlines_raw[tag_offset()];
 	}
@@ -48,20 +48,20 @@ class multiu16 {
 		return tag()&1;
 	}
 	
-	uint16_t* inlines()
+	T* inlines()
 	{
 		if (tag_offset()==0) return inlines_raw+1;
 		else return inlines_raw;
 	}
 	
 public:
-	uint16_t* ptr()
+	T* ptr()
 	{
 		if (is_inline()) return inlines();
 		else return ptr_raw+1;
 	}
 	
-	uint16_t count()
+	T count()
 	{
 		if (is_inline()) return tag()>>1;
 		else return ptr_raw[0];
@@ -69,48 +69,48 @@ public:
 	
 private:
 	//If increased, does not initialize the new entries. If decreased, drops the top.
-	void set_count(uint16_t newcount)
+	void set_count(T newcount)
 	{
-		uint16_t oldcount=count();
-		uint16_t* oldptr=ptr();
+		T oldcount=count();
+		T* oldptr=ptr();
 		
-		if (oldcount < numu16 && newcount < numu16)
+		if (oldcount < numinline && newcount < numinline)
 		{
 			tag() = newcount<<1 | 1;
 		}
-		if (oldcount >= numu16 && newcount < numu16)
+		if (oldcount >= numinline && newcount < numinline)
 		{
-			uint16_t* freethis = ptr_raw;
-			memcpy(inlines(), oldptr, sizeof(uint16_t)*newcount);
+			T* freethis = ptr_raw;
+			memcpy(inlines(), oldptr, sizeof(T)*newcount);
 			tag() = newcount<<1 | 1;
 			free(freethis);
 		}
-		if (oldcount < numu16 && newcount >= numu16)
+		if (oldcount < numinline && newcount >= numinline)
 		{
-			uint16_t* newptr = malloc(sizeof(uint16_t)*(1+newcount));
+			T* newptr = malloc(sizeof(T)*(1+newcount));
 			newptr[0] = newcount;
-			memcpy(newptr+1, oldptr, sizeof(uint16_t)*oldcount);
+			memcpy(newptr+1, oldptr, sizeof(T)*oldcount);
 			ptr_raw = newptr;
 		}
-		if (oldcount >= numu16 && newcount >= numu16)
+		if (oldcount >= numinline && newcount >= numinline)
 		{
-			ptr_raw = realloc(ptr_raw, sizeof(uint16_t)*(1+newcount));
+			ptr_raw = realloc(ptr_raw, sizeof(T)*(1+newcount));
 			ptr_raw[0] = newcount;
 		}
 	}
 	
 public:
-	multiu16()
+	multinum()
 	{
 		tag() = 0<<1 | 1;
 	}
 	
-	void add(uint16_t val)
+	void add(T val)
 	{
-		uint16_t* entries = ptr();
-		uint16_t num = count();
+		T* entries = ptr();
+		T num = count();
 		
-		for (uint16_t i=0;i<num;i++)
+		for (T i=0;i<num;i++)
 		{
 			if (entries[i]==val) return;
 		}
@@ -119,19 +119,19 @@ public:
 	}
 	
 	//Use this if the value is known to not exist in the set already.
-	void add_uniq(uint16_t val)
+	void add_uniq(T val)
 	{
-		uint16_t num = count();
+		T num = count();
 		set_count(num+1);
 		ptr()[num] = val;
 	}
 	
-	void remove(uint16_t val)
+	void remove(T val)
 	{
-		uint16_t* entries = ptr();
-		uint16_t num = count();
+		T* entries = ptr();
+		T num = count();
 		
-		for (uint16_t i=0;i<num;i++)
+		for (T i=0;i<num;i++)
 		{
 			if (entries[i]==val)
 			{
@@ -142,20 +142,20 @@ public:
 		}
 	}
 	
-	uint16_t* get(uint16_t& len)
+	T* get(T& len)
 	{
 		len=count();
 		return ptr();
 	}
 	
-	~multiu16()
+	~multinum()
 	{
 		if (!is_inline()) free(ptr_raw);
 	}
 };
 
 class u32_u16_multimap {
-	intmap<uint32_t, multiu16> data;
+	intmap<uint32_t, multinum<uint16_t> > data;
 	
 public:
 	void add(uint32_t key, uint16_t val)
@@ -165,7 +165,7 @@ public:
 	
 	void remove(uint32_t key, uint16_t val)
 	{
-		multiu16* core = data.get_ptr(key);
+		multinum<uint16_t>* core = data.get_ptr(key);
 		if (!core) return;
 		if (core->count() == 1) data.remove(key);
 		else core->remove(val);
@@ -177,7 +177,7 @@ public:
 	//If there is nothing at the specified key, the return value may or may not be NULL.
 	uint16_t* get(uint32_t key, uint16_t& len)
 	{
-		multiu16* core = data.get_ptr(key);
+		multinum<uint16_t>* core = data.get_ptr(key);
 		if (core)
 		{
 			return core->get(len);
