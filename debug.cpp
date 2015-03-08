@@ -10,7 +10,7 @@ void debug_break()
 	if (IsDebuggerPresent()) DebugBreak();
 }
 
-void debug_fatal()
+void debug_abort()
 {
 	DebugBreak();
 	FatalExit(1);
@@ -48,7 +48,7 @@ void debug_break()
 	if (!has_debugger()) raise(SIGTRAP);
 }
 
-void debug_fatal()
+void debug_abort()
 {
 	raise(SIGTRAP);
 	abort();

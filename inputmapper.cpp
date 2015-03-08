@@ -4,7 +4,7 @@
 
 namespace {
 class u32_u16_multimap {
-	intmap<uint32_t, multinum<uint16_t> > data;
+	intmap<uint32_t, multiint<uint16_t> > data;
 	
 public:
 	void add(uint32_t key, uint16_t val)
@@ -14,7 +14,7 @@ public:
 	
 	void remove(uint32_t key, uint16_t val)
 	{
-		multinum<uint16_t>* core = data.get_ptr(key);
+		multiint<uint16_t>* core = data.get_ptr(key);
 		if (!core) return;
 		if (core->count() == 1) data.remove(key);
 		else core->remove(val);
@@ -26,7 +26,7 @@ public:
 	//If there is nothing at the specified key, the return value may or may not be NULL.
 	uint16_t* get(uint32_t key, uint16_t& len)
 	{
-		multinum<uint16_t>* core = data.get_ptr(key);
+		multiint<uint16_t>* core = data.get_ptr(key);
 		if (core)
 		{
 			return core->get(len);
@@ -38,126 +38,6 @@ public:
 		}
 	}
 };
-
-#ifdef SELFTEST
-//#ifdef OS_POSIX
-//#include <valgrind/memcheck.h>
-//#else
-//#define VALGRIND_DO_LEAK_CHECK
-//#endif
-//cls & g++ -DSELFTEST -DNOMAIN nomain.cpp inputmapper.cpp memory.cpp -g & gdb a.exe
-//g++ -DSELFTEST -DNOMAIN nomain.cpp inputmapper.cpp memory.cpp -g && gdb ./a.out
-//this will test only this multimap; it assumes that the intmap is already functional
-static void assert(bool cond)
-{
-	if (!cond) abort();
-}
-static void test() __attribute__((constructor));
-static void test()
-{
-	u32_u16_multimap obj;
-	uint16_t* ptr;
-	uint16_t num;
-	
-	ptr = obj.get(0x12345678, num);
-	assert(num == 0);
-	
-	obj.add(1, 0x123);
-	
-	ptr = obj.get(0, num);
-	assert(num==0);
-	ptr = obj.get(1, num);
-	assert(num == 1);
-	assert(ptr[0] == 0x123);
-	
-	obj.add(1, 0x123);
-	ptr = obj.get(1, num);
-	assert(num == 1);
-	assert(ptr[0] == 0x123);
-	
-	obj.add(1, 123);
-	ptr = obj.get(1, num);
-	assert(num == 2);
-	assert(ptr[0]+ptr[1] == 0x123+123);
-	
-	obj.add(1, 1234);
-	ptr = obj.get(1, num);
-	assert(num == 3);
-	assert(ptr[0]+ptr[1]+ptr[2] == 0x123+123+1234);
-	
-	obj.add(0, 123);
-	ptr = obj.get(0, num);
-	assert(num == 1);
-	assert(ptr[0] == 123);
-	
-	ptr = obj.get(1, num);
-	assert(num == 3);
-	assert(ptr[0]+ptr[1]+ptr[2] == 0x123+123+1234);
-	
-	obj.remove(1, 123);
-	ptr = obj.get(1, num);
-	assert(num == 2);
-	assert(ptr[0]+ptr[1] == 0x123+1234);
-	
-	obj.remove(1, 123);
-	ptr = obj.get(1, num);
-	assert(num == 2);
-	assert(ptr[0]+ptr[1] == 0x123+1234);
-	
-	obj.remove(1, 0x123);
-	ptr = obj.get(1, num);
-	assert(num == 1);
-	assert(ptr[0] == 1234);
-	
-	obj.remove(1, 1234);
-	ptr = obj.get(1, num);
-	assert(num == 0);
-	
-	obj.add(1, 123);
-	obj.add(1, 1234);
-	obj.remove(1, 123);
-	ptr = obj.get(1, num);
-	assert(num == 1);
-	assert(ptr[0]==1234);
-	obj.remove(1, 1234);
-	
-	obj.add(1, 123);
-	obj.add(1, 1234);
-	obj.remove(1, 1234);
-	ptr = obj.get(1, num);
-	assert(num == 1);
-	assert(ptr[0]==123);
-	obj.remove(1, 123);
-	
-	obj.add(2, 1);
-	obj.add(2, 12);
-	obj.add(2, 123);
-	obj.add(2, 1234);
-	obj.add(2, 12345);
-	obj.remove(2, 123);
-	ptr = obj.get(2, num);
-	assert(num == 4);
-	assert(ptr[0]+ptr[1]+ptr[2]+ptr[3] == 1+12+1234+12345);
-	obj.remove(2, 1);
-	obj.remove(2, 12);
-	obj.remove(2, 123);
-	obj.remove(2, 1234);
-	obj.remove(2, 12345);
-	
-	obj.add(2, 1);
-	obj.add(2, 12);
-	obj.add(2, 123);
-	obj.add(2, 1234);
-	obj.add(2, 12345);
-	obj.remove(2, 12345);
-	ptr = obj.get(2, num);
-	assert(num == 4);
-	assert(ptr[0]+ptr[1]+ptr[2]+ptr[3] == 1+12+123+1234);
-	
-	//leave it populated - leak check
-	//VALGRIND_DO_LEAK_CHECK;
-}
-#endif
 
 class devmgr_inputmapper_impl : public devmgr::inputmapper {
 	//function<void(size_t id, bool down)> callback; // held in the parent class

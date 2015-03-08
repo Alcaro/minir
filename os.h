@@ -38,7 +38,7 @@ private:
 //If the program is run under a debugger, this triggers a breakpoint. If not, ignored.
 void debug_break();
 //If the program is run under a debugger, this triggers a breakpoint. The program is then terminated.
-void debug_fatal();
+void debug_abort();
 
 
 

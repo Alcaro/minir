@@ -387,7 +387,7 @@ public:
 	}
 };
 
-template<typename T> class multinum {
+template<typename T> class multiint {
 	enum { numinline = sizeof(T*) / sizeof(T) };
 	
 	void assertions() {
@@ -484,7 +484,7 @@ private:
 	}
 	
 public:
-	multinum()
+	multiint()
 	{
 		tag() = 0<<1 | 1;
 	}
@@ -532,7 +532,7 @@ public:
 		return ptr();
 	}
 	
-	~multinum()
+	~multiint()
 	{
 		if (!is_inline()) free(ptr_raw);
 	}
