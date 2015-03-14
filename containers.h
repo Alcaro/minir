@@ -387,15 +387,13 @@ public:
 	}
 };
 
-template<typename T> class multiint {
+template<typename T> class multiint_inline {
 	enum { numinline = sizeof(T*) / sizeof(T) };
 	
-	void assertions() {
-		static_assert(numinline > 1);//there must be sufficient space for at least two ints in a pointer
-		static_assert(numinline * sizeof(T) == sizeof(T*));//the size of a pointer must be a multiple of the size of an int
-		static_assert((numinline & (numinline-1)) == 0);//this multiple must be a power of two
-		static_assert(numinline<<1 < (T)-1);//the int must be large enough to store how many ints fit in a pointer, plus the tag bit
-	};
+	static_assert(numinline > 1);//there must be sufficient space for at least two ints in a pointer
+	static_assert(numinline * sizeof(T) == sizeof(T*));//the size of a pointer must be a multiple of the size of an int
+	static_assert((numinline & (numinline-1)) == 0);//this multiple must be a power of two
+	static_assert(numinline<<1 < (T)-1);//the int must be large enough to store how many ints fit in a pointer, plus the tag bit
 	
 	//the value is either:
 	//if the lowest bit of ptr_raw is set:
@@ -484,7 +482,7 @@ private:
 	}
 	
 public:
-	multiint()
+	multiint_inline()
 	{
 		tag() = 0<<1 | 1;
 	}
@@ -532,8 +530,76 @@ public:
 		return ptr();
 	}
 	
-	~multiint()
+	~multiint_inline()
 	{
 		if (!is_inline()) free(ptr_raw);
 	}
 };
+
+template<typename T> class multiint_outline {
+	T numitems;
+	T* items;
+	
+public:
+	T* ptr()
+	{
+		return items;
+	}
+	
+	T count()
+	{
+		return numitems;
+	}
+	
+	multiint_outline()
+	{
+		numitems=0;
+		items=NULL;
+	}
+	
+	void add(T val)
+	{
+		for (T i=0;i<numitems;i++)
+		{
+			if (items[i]==val) return;
+		}
+		
+		add_uniq(val);
+	}
+	
+	//Use this if the value is known to not exist in the set already.
+	void add_uniq(T val)
+	{
+		items = realloc(items, sizeof(T)*(numitems+1));
+		items[numitems] = val;
+		numitems++;
+	}
+	
+	void remove(T val)
+	{
+		for (T i=0;i<numitems;i++)
+		{
+			if (items[i]==val)
+			{
+				items[i] = items[numitems-1];
+				numitems--;
+				break;
+			}
+		}
+	}
+	
+	T* get(T& len)
+	{
+		len = numitems;
+		return items;
+	}
+	
+	~multiint_outline()
+	{
+		free(items);
+	}
+};
+
+template<typename T, bool useinline> class multiint_select : public multiint_inline<T> {};
+template<typename T> class multiint_select<T, false> : public multiint_outline<T> {};
+template<typename T> class multiint : public multiint_select<T, (sizeof(T*) > 2*sizeof(T))> {};

@@ -36,29 +36,38 @@ typedef void(*funcptr)();
 #define JOIN(x, y) JOIN_(x, y)
 
 //requirements:
-//- static_assert(false) throws at compile time
+//- static_assert(false) throws something at compile time
 //- multiple static_assert(true) works
 //- does not require unique names for each assertion
 //- zero traces left in the object files, except if debug info is enabled
 //- zero warnings under any compiler
-//- static_assert(2+2 < 5); works inside a function
 //- static_assert(2+2 < 5); works at the global scope
 //- static_assert(2+2 < 5); works as a class member
-//- static_assert(2+2 < 5); works in a template class
-//- same syntax works both inside and outside functions
+//- static_assert(2+2 < 5); works inside a function
+//- static_assert(2+2 < 5); works in all of the above when templates are involved
 //- works on all compilers
 //optional:
 //- (FAILED) works if compiled as C
 //- can name assertions, if desired
 #ifdef __GNUC__
 #define MAYBE_UNUSED __attribute__((__unused__)) // shut up, stupid warnings
+#define TYPENAME_IF_NEEDED typename
 #else
 #define MAYBE_UNUSED
+#define TYPENAME_IF_NEEDED
 #endif
 template<bool x> struct static_assert_t;
-template<> struct static_assert_t<true>{struct STATIC_ASSERTION_FAILED{};};
-template<> struct static_assert_t<false>{};
-#define static_assert(expr) typedef typename static_assert_t<(bool)(expr)>::STATIC_ASSERTION_FAILED JOIN(static_assertion_, __COUNTER__) MAYBE_UNUSED;
+template<> struct static_assert_t<true> { struct STATIC_ASSERTION_FAILED {}; };
+template<> struct static_assert_t<false> {};
+//#define static_assert(expr) \\
+//	typedef TYPENAME_IF_NEEDED static_assert_t<(bool)(expr)>::STATIC_ASSERTION_FAILED \\
+//	JOIN(static_assertion_, __COUNTER__) MAYBE_UNUSED;
+#define static_assert(expr) \
+	enum { \
+		JOIN(static_assertion_, __COUNTER__) = \
+		sizeof(TYPENAME_IF_NEEDED static_assert_t<(bool)(expr)>::STATIC_ASSERTION_FAILED) \
+	} MAYBE_UNUSED;
+
 
 
 
