@@ -487,6 +487,16 @@ public:
 		tag() = 0<<1 | 1;
 	}
 	
+	multiint_inline(const multiint_inline<T>& prev)
+	{
+		memcpy(this, &prev, sizeof(*this));
+		if (!is_inline())
+		{
+			ptr_raw = malloc(sizeof(T)*(1+prev.count()));
+			memcpy(ptr_raw, prev.ptr_raw, sizeof(T)*(1+prev.count()));
+		}
+	}
+	
 	void add(T val)
 	{
 		T* entries = ptr();
@@ -555,6 +565,13 @@ public:
 	{
 		numitems=0;
 		items=NULL;
+	}
+	
+	multiint_outline(const multiint_outline<T>& prev)
+	{
+		numitems = prev.numitems;
+		items = malloc(sizeof(T)*numitems);
+		memcpy(items, prev.items, sizeof(T)*numitems);
 	}
 	
 	void add(T val)
