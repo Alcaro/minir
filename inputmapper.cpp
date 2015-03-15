@@ -9,7 +9,7 @@ class devmgr_inputmapper_impl : public devmgr::inputmapper {
 	//each button maps to two uint32, known as 'descriptor', which uniquely describes it
 	//format:
 	//trigger: ttttxxxx xxxxxxxx xxxxxxxx xxxxxxxx
-	//extra:   yyyyyyyy yyyyyyyy yyyyyyyy yyyyyyyy
+	//level:   yyyyyyyy yyyyyyyy yyyyyyyy yyyyyyyy
 	//tttt=type
 	// 0000=keyboard
 	// others=TODO
@@ -48,17 +48,104 @@ class devmgr_inputmapper_impl : public devmgr::inputmapper {
 	//
 	//none of those descriptors may leave this file
 	
-	class keydata {
-	public:
-		uint32_t trigger; // 0 if the slot is unused
-		uint32_t extra; // used by some event sources
+	struct keydata {
+		uint32_t trigger;//0 if the slot is unused
+		uint32_t level;//used by some event sources
 		multiint<uint32_t> mods;//must be held for this to fire
+		keydata* next;//if multiple key combos are mapped to the same slot, this is non-NULL
 	};
 	
 	array<keydata> mappings;//the key is a slot ID
 	uint16_t firstempty;//any slot such that all previous slots are used
 	
 	intmap<uint32_t, multiint<uint32_t> > keylist;//returns which keys are modifiers for this key
+	
+	/*private*/ keydata parse_descriptor_kb(const char * desc)
+	{
+return keydata();
+	}
+	
+	/*private*/ keydata parse_descriptor_single(const char * desc)
+	{
+		if (desc[0]=='K' && desc[1]=='B' && !isalpha(desc[2])) return parse_descriptor_kb(desc);
+		return keydata();
+	}
+	
+	/*private*/ keydata parse_descriptor(const char * desc)
+	{
+		const char * next = strchr(desc, ',');
+		if (next)
+		{
+			keydata first = parse_descriptor_single(desc);
+			keydata second = parse_descriptor_single(next+1);
+			if (first.trigger && second.trigger)
+			{
+				first.next = malloc(sizeof(keydata));
+				*first.next = second;
+				return first;
+			}
+			else if (first.trigger) return first;
+			else return second;
+		}
+		
+		return parse_descriptor_single(desc);
+	}
+	
+	/*private*/ template<typename K, typename V, typename K2, typename V2>
+	void multimap_remove(intmap<K, multiint<V> >& map, K2 key, V2 val)
+	{
+		multiint<K>* items = map.get_ptr(key);
+		if (!items) return;
+		items->remove(val);
+		if (items->count() == 0) map.remove(key);
+	}
+	
+	/*private*/ void keydata_delete(size_t id)
+	{
+		keydata* key = &mappings[id];
+		multimap_remove(keylist, key->trigger, id);
+		if (key->next)
+		{
+			key = key->next;
+			while (key)
+			{
+				keydata* next = key->next;
+				multimap_remove(keylist, key->trigger, id);
+				key->~keydata();
+				free(key);
+				key = next;
+			}
+		}
+	}
+	
+	/*private*/ void keydata_add(const keydata& key, uint16_t id)
+	{
+		mappings[id] = key;
+		
+		const keydata* iter = &key;
+		while (iter)
+		{
+			keylist.get(iter->trigger).add(id);
+			iter = iter->next;
+		}
+	}
+	
+	bool register_button(size_t id, const char * desc)
+	{
+		keydata_delete(id);
+		if (desc)
+		{
+			keydata newkey = parse_descriptor(desc);
+			if (!newkey.trigger) goto fail;
+			keydata_add(newkey, id);
+			return true;
+		}
+		//fall through to fail - it's not a failure, but the results are the same.
+		
+	fail:
+		firstempty = id;
+		return false;
+	}
 	
 	size_t register_group(size_t len)
 	{
@@ -76,41 +163,6 @@ class devmgr_inputmapper_impl : public devmgr::inputmapper {
 				if (n == len) return firstempty;
 			}
 		}
-	}
-	
-	/*private*/ bool parse_descriptor_kb(keydata& key, const char * desc)
-	{
-return false;
-	}
-	
-	/*private*/ bool parse_descriptor(keydata& key, const char * desc)
-	{
-		if (desc[0]=='K' && desc[1]=='B' && !isalpha(desc[2])) return parse_descriptor_kb(key, desc);
-		return false;
-	}
-	
-	/*private*/ template<typename K, typename V, typename K2, typename V2> void multimap_remove(intmap<K, multiint<V> >& map, K2 key, V2 val)
-	{
-		multiint<K>* items = map.get_ptr(key);
-		if (!items) return;
-		items->remove(val);
-		if (items->count() == 0) map.remove(key);
-	}
-	
-	bool register_button(size_t id, const char * desc)
-	{
-		keydata& key = mappings[id];
-		//multimap_remove(keylist, key.trigger, id);
-		if (!desc) goto fail;//this isn't really a failure, but the results are the same.
-		
-		if (!parse_descriptor(key, desc)) goto fail;
-		//keylist.get(key.trigger).add(id);
-		return true;
-		
-	fail:
-		key.trigger=0;
-		firstempty=id;
-		return false;
 	}
 	
 	//enum dev_t {
