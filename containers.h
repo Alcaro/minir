@@ -332,7 +332,7 @@ public:
 	operator T*() { return items; }
 	operator const T*() const { return items; }
 	
-	T join()
+	T join() const
 	{
 		T out=items[0];
 		for (size_t n=1;n<count;n++)
@@ -342,7 +342,7 @@ public:
 		return out;
 	}
 	
-	T join(T between)
+	T join(T between) const
 	{
 		T out=items[0];
 		for (size_t n=1;n<count;n++)
@@ -353,7 +353,7 @@ public:
 		return out;
 	}
 	
-	T join(char between)
+	T join(char between) const
 	{
 		T out=items[0];
 		for (size_t n=1;n<count;n++)
@@ -443,7 +443,13 @@ public:
 		else return ptr_raw+1;
 	}
 	
-	T count()
+	const T* ptr() const
+	{
+		if (is_inline()) return inlines();
+		else return ptr_raw+1;
+	}
+	
+	T count() const
 	{
 		if (is_inline()) return tag()>>1;
 		else return ptr_raw[0];
@@ -535,6 +541,12 @@ public:
 	}
 	
 	T* get(T& len)
+	{
+		len=count();
+		return ptr();
+	}
+	
+	const T* get(T& len) const
 	{
 		len=count();
 		return ptr();
