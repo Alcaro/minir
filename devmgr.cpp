@@ -18,7 +18,15 @@ event* ev_head_thread;
 struct devicedat * devices;
 size_t numdevices;
 
-inputmapper* buttons;
+
+struct buttondat {
+	device* dev;
+	int id;
+	bool hold;
+	//char padding[3];
+};
+inputmapper* mapper;
+array<buttondat> buttons;
 
 
 void ev_append(event* ev, device* source)
@@ -135,9 +143,12 @@ void ev_dispatch_sec(event* ev)
 	this->ev_tail=NULL;
 }
 
-/*private*/ void ev_button(size_t id, bool down)
+/*private*/ void ev_button(int id, bool down)
 {
-	
+	event::button ev;
+	ev.id = buttons[id].id;
+	ev.down = down;
+	buttons[id].dev->ev_button(&ev);
 }
 
 
@@ -156,13 +167,16 @@ void dev_register_events(device* target, uint32_t primary, uint32_t secondary)
 	}
 }
 
-void dev_register_button(device* target, const char * desc, uintptr_t id, bool hold)
+bool dev_register_button(device* target, const char * desc, int id, bool hold)
 {
-	//TODO
-	//(this->devices is irrelevant)
+	int newid = mapper->register_button(desc);
+	if (newid < 0) return false;
+	buttons[newid].dev = target;
+	buttons[newid].id = id;
+	return true;
 }
 
-bool dev_test_button(device* target, uintptr_t id)
+bool dev_test_button(device* target, int id)
 {
 	return false;
 }
@@ -179,6 +193,15 @@ void dev_unregister(device* dev)
 			this->devices[i].events[1]=0;
 			dev->detach();
 			dev->parent=NULL;
+			
+			for (size_t j=0;j<buttons.len();j++)
+			{
+				if (buttons[j].dev == dev)
+				{
+					buttons[j].dev = NULL;
+					mapper->register_button(j, NULL);
+				}
+			}
 			//TODO: unregister button events
 			break;
 		}
@@ -277,11 +300,13 @@ impl()
 	this->numdevices=2;
 	this->devices=malloc(sizeof(struct devicedat)*this->numdevices);
 	memset(this->devices, 0, sizeof(struct devicedat)*this->numdevices);
-	//this->buttons=inputmapper::create();
-	//this->buttons->set_cb(bind_this(ev_button));
+	
 	this->ev_head=NULL;
 	this->ev_tail=NULL;
 	this->ev_head_thread=NULL;
+	
+	this->mapper=inputmapper::create();
+	this->mapper->set_cb(bind_this(&impl::ev_button));
 }
 
 ~impl()

@@ -27,8 +27,6 @@ class dev_kb : public devmgr::device {
 public:
 	dev_kb(inputkb* core) { this->core=core; }
 	
-	uint32_t features() { return 0; }
-	
 	/*private*/ void set_core(inputkb* core)
 	{
 		delete this->core;
@@ -72,8 +70,6 @@ class dev_video : public devmgr::device {
 	
 public:
 	dev_video(video* core) { this->core=core; }
-	
-	uint32_t features() { return 0; }
 	
 	/*private*/ void set_core(video* core)
 	{
@@ -149,36 +145,58 @@ public:
 	
 	void attach()
 	{
-		register_events(devmgr::e_keyboard, devmgr::e_frame | devmgr::e_savestate | devmgr::e_keyboard | devmgr::e_mouse | devmgr::e_gamepad);
+		register_events(0, devmgr::e_frame | devmgr::e_savestate | devmgr::e_keyboard | devmgr::e_mouse | devmgr::e_gamepad);
+		
 	}
 	
-	virtual void ev_frame(devmgr::event::frame* ev)
+	void ev_frame(devmgr::event::frame* ev)
 	{
 		core->run();
 	}
 	
-	virtual void ev_state_save(devmgr::event::state_save* ev)
+	void ev_state_save(devmgr::event::state_save* ev)
 	{
 		//TODO
 	}
 	
-	virtual void ev_state_load(devmgr::event::state_load* ev)
+	void ev_state_load(devmgr::event::state_load* ev)
 	{
 		//TODO
 	}
 	
 	//TODO
-	virtual void ev_keyboard(devmgr::event::keyboard* ev) {}
-	virtual void ev_mousemove(devmgr::event::mousemove* ev) {}
-	virtual void ev_mousebutton(devmgr::event::mousebutton* ev) {}
+	void ev_keyboard(devmgr::event::keyboard* ev) {}
+	void ev_mousemove(devmgr::event::mousemove* ev) {}
+	void ev_mousebutton(devmgr::event::mousebutton* ev) {}
 	
-	virtual void ev_gamepad(devmgr::event::gamepad* ev)
+	void ev_gamepad(devmgr::event::gamepad* ev)
 	{
 		core->input_gamepad(ev->device, ev->button, ev->down);
 	}
 	
 	~dev_core() { delete this->core; }
 };
+
+
+class dev_inputmap : public devmgr::device {
+public:
+	void attach()
+	{
+		register_button("KB1::Z", 0, false);
+		register_button("KB1::X", 1, false);
+		register_button("KB1::A", 2, false);
+		register_button("KB1::S", 3, true);
+		register_button("KB1::Z+X", 4, false);
+		register_button("KB1::Z+X", 5, true);
+		register_button("KB1::Z, KB1::X", 6, true);
+	}
+	
+	void ev_button(devmgr::event::button* ev)
+	{
+		printf("%i\n", ev->id);
+	}
+};
+
 
 int main_wrap(int argc, char * argv[])
 {
@@ -217,6 +235,7 @@ return old_main(argc, argv);
 #endif
 	contents->add_device(new dev_video(vid));
 	contents->add_device(new dev_core(core));
+	contents->add_device(new dev_inputmap());
 	
 	wnd->set_visible(wnd, true);
 	

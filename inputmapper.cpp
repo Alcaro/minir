@@ -4,7 +4,7 @@
 
 namespace {
 class devmgr_inputmapper_impl : public devmgr::inputmapper {
-	//function<void(size_t id, bool down)> callback; // held in the parent class
+	//function<void(int id, bool down)> callback; // held in the parent class
 	
 	//each button maps to two uint32, known as 'descriptor', which uniquely describes it
 	//format:
@@ -100,7 +100,7 @@ return keydata();
 		if (items->count() == 0) map.remove(key);
 	}
 	
-	/*private*/ void keydata_delete(size_t id)
+	/*private*/ void keydata_delete(uint16_t id)
 	{
 		keydata* key = &mappings[id];
 		multimap_remove(keylist, key->trigger, id);
@@ -130,8 +130,9 @@ return keydata();
 		}
 	}
 	
-	bool register_button(size_t id, const char * desc)
+	bool register_button(int id, const char * desc)
 	{
+printf("%i=%s\n",id,desc);
 		keydata_delete(id);
 		if (desc)
 		{
@@ -147,11 +148,11 @@ return keydata();
 		return false;
 	}
 	
-	size_t register_group(size_t len)
+	int register_group(int len)
 	{
 		while (true)
 		{
-			size_t n=0;
+			int n=0;
 			while (true)
 			{
 				if (mappings[firstempty+n].trigger != 0)
