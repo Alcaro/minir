@@ -45,7 +45,7 @@ static bool has_debugger()
 
 void debug_break()
 {
-	if (!has_debugger()) raise(SIGTRAP);
+	if (has_debugger()) raise(SIGTRAP);
 }
 
 void debug_abort()
