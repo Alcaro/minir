@@ -194,10 +194,11 @@ public:
 		//This is built on top of ev_keyboard/etc, but is far easier to use.
 		//If 'hold' is true, the event will be dispatched after the primary frame event if the button is held, or ignored otherwise.
 		//If false, it will be called every time the state changes.
-		bool register_button(const char * desc, int id, bool hold) { return parent->dev_register_button(this, desc, id, hold); }
+		//Any ID is allowed; each device has its own ID namespace.
+		bool register_button(const char * desc, unsigned int id, bool hold) { return parent->dev_register_button(this, desc, id, hold); }
 		
 		//Asks whether a button is held.
-		bool query_button(int id) { return parent->dev_test_button(this, id); }
+		bool query_button(unsigned int id) { return parent->dev_test_button(this, id); }
 		
 		//An event is not dispatched to its sender. Events are guaranteed to be processed in the order they're dispatched.
 		//While few devices would listen to the same events they emit, the primary device is likely to
@@ -312,8 +313,8 @@ protected:
 	virtual void ev_dispatch_sec(event* ev) = 0;
 	
 	virtual void dev_register_events(device* target, uint32_t primary, uint32_t secondary) = 0;
-	virtual bool dev_register_button(device* target, const char * desc, int id, bool hold) = 0;
-	virtual bool dev_test_button(device* target, int id) = 0;
+	virtual bool dev_register_button(device* target, const char * desc, unsigned int id, bool hold) = 0;
+	virtual bool dev_test_button(device* target, unsigned int id) = 0;
 	virtual void dev_unregister(device* dev) = 0;
 	
 public:
@@ -330,9 +331,9 @@ public:
 	
 	class inputmapper {
 	protected:
-		function<void(int id, bool down)> callback;
+		function<void(unsigned int id, bool down)> callback;
 	public:
-		void set_cb(function<void(int id, bool down)> callback) { this->callback=callback; }
+		void set_cb(function<void(unsigned int id, bool down)> callback) { this->callback=callback; }
 		
 		//void request_next(function<void(const char * desc)> callback) { this->req_callback=callback; }
 		
@@ -343,14 +344,14 @@ public:
 		
 		//The implementation may limit the maximum number of modifiers on any descriptor. At least 15 modifiers
 		// must be supported, but more is allowed. If it goes above that, the descriptor is rejected.
-		virtual bool register_button(int id, const char * desc) = 0;
+		virtual bool register_button(unsigned int id, const char * desc) = 0;
 		//Returns the lowest slot ID where the given number of descriptors can be sequentially added.
 		//If called for len=4 and it returns 2, it means that slots 2, 3, 4 and 5 are currently unused.
 		//It doesn't actually reserve anything, or otherwise change the state of the object; it just tells the current state.
 		
-		//The implementation may set an upper bound on the maximum valid slot. All values up to 4095 must work,
-		// but going up to SIZE_MAX is not guaranteed. If this is hit, behaviour is undefined.
-		virtual int register_group(int len) = 0;
+		//The implementation may set an upper bound on the maximum valid slot. All values up to 4095 must work;
+		// going above that is undefined behaviour.
+		virtual unsigned int register_group(unsigned int len) = 0;
 		//If you don't want to decide which slot to use, this one will pick an unused slot and tell which it used.
 		//If the descriptor is invalid, -1 will be returned, and no slot will change.
 		int register_button(const char * desc)

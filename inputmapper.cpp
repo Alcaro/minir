@@ -130,7 +130,7 @@ return keydata();
 		}
 	}
 	
-	bool register_button(int id, const char * desc)
+	bool register_button(unsigned int id, const char * desc)
 	{
 printf("%i=%s\n",id,desc);
 		keydata_delete(id);
@@ -148,7 +148,7 @@ printf("%i=%s\n",id,desc);
 		return false;
 	}
 	
-	int register_group(int len)
+	unsigned int register_group(unsigned int len)
 	{
 		while (true)
 		{

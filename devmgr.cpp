@@ -21,7 +21,7 @@ size_t numdevices;
 
 struct buttondat {
 	device* dev;
-	int id;
+	unsigned int id;
 	bool hold;
 	//char padding[3];
 };
@@ -143,7 +143,7 @@ void ev_dispatch_sec(event* ev)
 	this->ev_tail=NULL;
 }
 
-/*private*/ void ev_button(int id, bool down)
+/*private*/ void ev_button(unsigned int id, bool down)
 {
 	event::button ev;
 	ev.id = buttons[id].id;
@@ -167,7 +167,7 @@ void dev_register_events(device* target, uint32_t primary, uint32_t secondary)
 	}
 }
 
-bool dev_register_button(device* target, const char * desc, int id, bool hold)
+bool dev_register_button(device* target, const char * desc, unsigned int id, bool hold)
 {
 	int newid = mapper->register_button(desc);
 	if (newid < 0) return false;
@@ -176,8 +176,9 @@ bool dev_register_button(device* target, const char * desc, int id, bool hold)
 	return true;
 }
 
-bool dev_test_button(device* target, int id)
+bool dev_test_button(device* target, unsigned int id)
 {
+	//TODO
 	return false;
 }
 
