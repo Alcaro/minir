@@ -1,6 +1,8 @@
 #pragma once
 #include "global.h"
 
+//videoformat is in global.h because it's commonly passed around
+
 struct image {
 	unsigned int width;
 	unsigned int height;
@@ -48,7 +50,7 @@ void image_convert_resize(const struct image * src, struct image * dst);
 //pngcomments are { "key", "value", "key", "value", NULL }, or a toplevel NULL
 bool png_encode(const struct image * img, const char * * pngcomments,  void* * pngdata, size_t * pnglen);
 
-//Valid formats: 888, (8)888, 8888
+//Valid formats: 888, 8/888, 8888
 //If there is transparency, 8888 is mandatory.
 bool png_decode(const void * pngdata, size_t pnglen, struct image * img, videoformat format);
 

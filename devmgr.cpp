@@ -28,19 +28,18 @@ struct buttondat {
 inputmapper* mapper;
 array<buttondat> buttons;
 
+uint8_t buttonblock;
 
-void ev_append(event* ev, device* source)
+
+void ev_append(event* ev)
 {
-	ev->source=source;
 	if (this->ev_tail) this->ev_tail->next=ev;
 	else this->ev_head=ev;
 	this->ev_tail=ev;
 }
 
-void ev_append_thread(event* ev, device* source)
+void ev_append_async(event* ev)
 {
-	ev->source=source;
-	
 	event* oldval=lock_read(&this->ev_head_thread);
 	while (true)
 	{
@@ -50,20 +49,6 @@ void ev_append_thread(event* ev, device* source)
 		else oldval=newval;
 	}
 }
-
-//void ev_release_thread(event* ev, device* source)
-//{
-//	ev->source=source;
-//	
-//	event* oldval=lock_read(&this->ev_head_thread);
-//	while (true)
-//	{
-//		ev->next=oldval;
-//		event* newval=lock_write_eq(&this->ev_head_thread, oldval, ev);
-//		if (newval==oldval) break;
-//		else oldval=newval;
-//	}
-//}
 
 /*private*/ void ev_do_dispatch(event* ev, device* dev)
 {
@@ -83,13 +68,13 @@ void ev_append_thread(event* ev, device* source)
 	HANDLE_EVENT(mousemove);
 	HANDLE_EVENT(mousebutton);
 	HANDLE_EVENT(gamepad);
-	HANDLE_EVENT(button);
+	//ignore button events, they're handled specially
 #undef HANDLE_EVENT
 	}
 }
 
 //Returns whether the event was dispatched.
-/*private*/ bool ev_dispatch_to(event* ev, size_t index)
+/*private*/ void ev_dispatch_to(event* ev, size_t index)
 {
 	static const uint16_t subscriber_bits[]={
 		0,
@@ -98,30 +83,31 @@ void ev_append_thread(event* ev, device* source)
 		e_keyboard, e_mouse, e_mouse, e_gamepad,
 	};
 	
-	if (ev->source == this->devices[index].obj) return false;
-	
-	if (subscriber_bits[ev->type] & this->devices[index].events[ev->secondary])
+	if (ev->source != this->devices[index].obj &&
+	    subscriber_bits[ev->type] & this->devices[index].events[ev->secondary])
 	{
 		//no need to null check obj; null objs ask for no events, so they won't get here
 		ev_do_dispatch(ev, this->devices[index].obj);
-		return true;
 	}
-	return false;
 }
 
-void ev_dispatch_sec(event* ev)
+/*private*/ void ev_dispatch(event* ev)
 {
+	if (ev->blockstate != event::bs_resent) ev_dispatch_to(ev, 1);
+	
+	if (ev->type == event::ty_keyboard) // TODO: mousemove, mousebutton, gamepad
+	{
+		event::keyboard* key = (event::keyboard*)ev;
+		buttonblock = key->blockstate;
+		mapper->event(inputmapper::dev_kb, key->deviceid, key->libretrocode, key->scancode, key->down);
+	}
+	
+	if (ev->blockstate == event::bs_blocked) return;
 	for (size_t i=2;i<this->numdevices;i++)
 	{
 		ev_dispatch_to(ev, i);
 	}
 	ev_dispatch_to(ev, 0);
-}
-
-/*private*/ void ev_dispatch(event* ev)
-{
-	bool sent=ev_dispatch_to(ev, 1);
-	if (!sent) ev_dispatch_sec(ev);
 }
 
 /*private*/ void ev_dispatch_chain(event* ev)
@@ -203,7 +189,6 @@ void dev_unregister(device* dev)
 					mapper->register_button(j, NULL);
 				}
 			}
-			//TODO: unregister button events
 			break;
 		}
 		i++;
@@ -225,37 +210,28 @@ bool state_load(const uint8_t * data, size_t size)
 void frame()
 {
 	//Event dispatch order:
-	//The primary frame must be the first event all devices get. Events created by that are delayed until this event is processed by everything.
-	//The secondary frame must be the last event all devices get, except core output. 
-	//1. The primary frame is sent to all devices. This must be the first event they get.
-	//2. All events created by that, as well as the thread-submitted events, are processed.
+	//1. The primary frame is sent to all devices. This is the first event they get.
+	//2. All events created by that, as well as the asynchronously submitted events, are processed.
 	//3. The secondary frame is sent to the primary device.
-	//4. Events created by that are sent before  However, events it creates are processed before the secondary frame is sent to the other devices.
-	//
-	//event dispatch order:
-	//- primary frame to primary device
-	//- primary frame to secondary devices
-	//- threaded event queue (dispatched backwards because it's easier - I could flip it, but why should I?)
-	//- event queue
-	//- secondary frame to primary device
-	//- event queue again
-	//- secondary frame to secondary devices, including core
-	//- event queue again (core output)
+	//4. Events created by that are processed.
+	//5. The secondary frame event is dispatched to the other devices, including the core.
+	//6. Core output is dispatched.
+	
 	event::frame ev;
-	//ev.hold();
 	
 	ev.secondary=false;
-	ev_dispatch_to(&ev, 1);
-	ev_dispatch_sec(&ev);
-	ev_dispatch_chain(lock_xchg(&this->ev_head_thread, NULL));
-	ev_dispatch_all();
+	ev_dispatch(&ev); // #1
+	ev_dispatch_chain(lock_xchg(&this->ev_head_thread, NULL)); // #2
+	ev_dispatch_all(); // #2
 	
 	ev.secondary=true;
-	ev_dispatch_to(&ev, 1);
-	ev_dispatch_all();
-	ev_dispatch_sec(&ev);
+	ev.blockstate = event::bs_blocked;//this is a bit ugly, but I'd rather not split the function.
+	ev_dispatch(&ev); // #3
+	ev_dispatch_all(); // #4
+	ev.blockstate = event::bs_resent;
+	ev_dispatch(&ev); // #5
 	
-	ev_dispatch_all();
+	ev_dispatch_all(); // #6
 }
 
 bool add_device(device* dev)

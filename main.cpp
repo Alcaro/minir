@@ -53,12 +53,12 @@ private:
 	/*private*/ void key_cb(unsigned int keyboard, unsigned int scancode, unsigned int libretrocode, bool down)
 	{
 		devmgr::event::keyboard* ev=new devmgr::event::keyboard();
-		ev->secondary=false;
-		ev->deviceid=keyboard;
-		ev->scancode=scancode;
-		ev->libretrocode=libretrocode;
-		ev->down=down;
-		dispatch_thread(ev); // this is sometimes called on the device manager thread, but not always, and 
+		ev->secondary = false;
+		ev->deviceid = keyboard;
+		ev->scancode = scancode;
+		ev->libretrocode = libretrocode;
+		ev->down = down;
+		dispatch_async(ev); // this is sometimes called on the device manager thread, but not always, and it works no matter which thread it is on
 	}
 };
 
@@ -178,22 +178,30 @@ public:
 };
 
 
+const char * asdf[]={
+	"KB1::Z",
+	"KB1::X",
+	"KB1::A",
+	":KB1::S",
+	"KB1::Z+X",
+	":KB1::Z+X",
+	":KB1::Z, KB1::X",
+	NULL
+};
 class dev_inputmap : public devmgr::device {
 public:
 	void attach()
 	{
-		register_button("KB1::Z", 0, false);
-		register_button("KB1::X", 1, false);
-		register_button("KB1::A", 2, false);
-		register_button("KB1::S", 3, true);
-		register_button("KB1::Z+X", 4, false);
-		register_button("KB1::Z+X", 5, true);
-		register_button("KB1::Z, KB1::X", 6, true);
+for(int i=0;asdf[i];i++)
+{
+if (asdf[i][0]!=':') register_button(asdf[i], i, false);
+else                 register_button(asdf[i]+1, i, true);
+}
 	}
 	
 	void ev_button(devmgr::event::button* ev)
 	{
-		printf("%i\n", ev->id);
+		printf("%s\n", asdf[ev->id]);
 	}
 };
 
@@ -201,7 +209,7 @@ public:
 int main_wrap(int argc, char * argv[])
 {
 	window_init(&argc, &argv);
-#if !defined(NEW_MAIN) || !defined(RELEASE)
+#if !defined(NEW_MAIN) || defined(RELEASE)
 return old_main(argc, argv);
 #endif
 	

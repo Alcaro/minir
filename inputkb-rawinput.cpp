@@ -134,6 +134,9 @@ void inputkb_rawinput::handle_event(RAWINPUT* input)
 //printf("%.4X %.4X %.4X\n",scan,flags,vkey);
 		//mostly copypasta from http://molecularmusings.wordpress.com/2011/09/05/properly-handling-keyboard-input/
 		//ignore vkey=0xFF scan=0x45, we get one with vkey=VK_PAUSE scan=0x1D at the same time which we do handle.
+		
+		//TODO: happy dude key sends vkey=0xFF scan=0x1A and nothing else - this scancode is also used by my [ key
+		//(okay, it's something else on my Swedish keyboard layout, but it's the same key.)
 		if (vkey!=0xFF)
 		{
 			if (vkey==VK_SHIFT) vkey=MapVirtualKey(scan, MAPVK_VSC_TO_VK_EX);
@@ -168,8 +171,6 @@ void inputkb_rawinput::handle_event(RAWINPUT* input)
 				if (vkey==VK_CLEAR) vkey=VK_NUMPAD5;
 			}
 			
-			//TODO: figure out if happy dude key can be sent here while ignoring fake keys from SysRq/Pause/Ins/Del/etc
-			//happy dude key is one of the weird ones that sends press and release on release only
 			this->key_cb(deviceid+1, scan, inputkb::translate_vkey(vkey), !(flags&RI_KEY_BREAK));
 		}
 		

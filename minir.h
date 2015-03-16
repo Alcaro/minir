@@ -61,8 +61,8 @@ struct rewindstack * rewindstack_create(size_t blocksize, size_t capacity);
 
 
 class devmgr : nocopy {
-public:
 	class impl;
+public:
 	
 	class device;
 	
@@ -92,10 +92,20 @@ public:
 	};
 	
 	class event : nocopy {
+		friend class devmgr;
 		friend class devmgr::impl;
 		event* next;
 		device* source;
 		uint8_t holdcount;
+		
+		enum {
+			bs_normal,
+			bs_blocked,//do not dispatch to secondaries/core
+			bs_resent, //do not dispatch to primary
+		};
+		uint8_t blockstate;
+		
+		//char padding[1];
 		
 		event();//not implemented
 		
@@ -146,7 +156,7 @@ public:
 		
 		//TODO: figure out how this interacts with threading
 		
-		event(uint8_t type) : next(NULL), source(NULL), holdcount(1), type(type) {}
+		event(uint8_t type) : next(NULL), source(NULL), holdcount(1), blockstate(bs_normal), type(type) {}
 		
 		virtual ~event() {}
 	};
@@ -160,7 +170,6 @@ public:
 			t_secondary,
 			
 			//The primary device sees all events, and can choose to discard them.
-			//It must handle all events; ones it doesn't approve of are discarded.
 			//It can't see button events, but button events are always generated from another primary event, and that one can be blocked.
 			//There can only be one primary device.
 			t_primary,
@@ -192,7 +201,7 @@ public:
 		
 		//The descriptor looks like KB1::Z. The given ID will be given to the event handler. Each device has its own ID namespace.
 		//This is built on top of ev_keyboard/etc, but is far easier to use.
-		//If 'hold' is true, the event will be dispatched after the primary frame event if the button is held, or ignored otherwise.
+		//If 'hold' is true, the event will be dispatched between the two frame events if the button is held, or ignored otherwise.
 		//If false, it will be called every time the state changes.
 		//Any ID is allowed; each device has its own ID namespace.
 		bool register_button(const char * desc, unsigned int id, bool hold) { return parent->dev_register_button(this, desc, id, hold); }
@@ -203,17 +212,21 @@ public:
 		//An event is not dispatched to its sender. Events are guaranteed to be processed in the order they're dispatched.
 		//While few devices would listen to the same events they emit, the primary device is likely to
 		// both listen to and emit secondary frame events, so the same guarantees are given to all devices.
-		void dispatch(event* ev) { parent->ev_append(ev, this); }
+		void dispatch(event* ev) { parent->ev_set_source(ev, this); parent->ev_append(ev); }
 		
 		//This allows events to be dispatched from a foreign thread.
 		//After this returns, the next entry to frame() is guaranteed to process the event.
 		//Events are processed between the primary and secondary frame events. Anything else is unspecified.
-		//The event must be a primary input event. It should be called from an event dispatched by window_run().
-		void dispatch_thread(event* ev) { parent->ev_append_thread(ev, this); }
+		//The event must be a primary input event. It should be called from an event dispatched by window_run(),
+		// but is allowed to be dispatched in response to something else (for example, a device is allowed to
+		// listen to both window_run and primary frame and dispatch the same events from both).
+		void dispatch_async(event* ev) { parent->ev_set_source(ev, this); parent->ev_append_async(ev); }
 		
-		//The primary device must call this to send the event to the other devices, unless it wants to block the event.
-		//The primary device must not block a frame event. However, it is allowed to create its own.
-		void forward(event* ev) { if (ev->type!=event::ty_frame) parent->ev_dispatch_sec(ev); }
+		//Blocks the current event. The event may be held and dispatch()ed later.
+		//May only be called during an event handler, and only on that event.
+		//May only be called if you're the primary device.
+		//If you block an input event, button events connected to that input will not fire, even if you're the primary device.
+		void reject(event* ev) { ev->blockstate = event::bs_blocked; }
 		
 	private:
 		virtual void attach() = 0;
@@ -253,6 +266,7 @@ public:
 		state_load() : event(ty_state_load) {}
 		//The returned data is owned by the event object and is deleted once that happens.
 		//TODO: The core must be able to reject an offered savestate.
+		//Does the primary get/dispatch state events, then core dispatches secondary if it accepts the primary?
 		const uint8_t* query(const char * name, size_t* len);
 	};
 	class event::video : public event {
@@ -282,7 +296,7 @@ public:
 	class event::keyboard : public event {
 	public:
 		keyboard() : event(ty_keyboard) {}
-		unsigned int deviceid;//generally 0
+		unsigned int deviceid;//usually 1
 		unsigned int scancode;//0..1023
 		unsigned int libretrocode;//0..RETROK_LAST
 		bool down;
@@ -302,15 +316,17 @@ public:
 	public:
 		button() : event(ty_button) {}
 		//You can't dispatch a button event manually, nor can you hold it.
-		int id;
+		unsigned int id;
 		bool down;
 	};
 	
 protected:
 	friend class event;
-	virtual void ev_append(event* ev, device* source) = 0;
-	virtual void ev_append_thread(event* ev, device* source) = 0;
-	virtual void ev_dispatch_sec(event* ev) = 0;
+	virtual void ev_append(event* ev) = 0;
+	virtual void ev_append_async(event* ev) = 0;
+	//virtual void ev_dispatch_sec(event* ev) = 0;
+	
+	void ev_set_source(event* ev, device* source) { ev->source = source; } // this one is here so it can be inlined
 	
 	virtual void dev_register_events(device* target, uint32_t primary, uint32_t secondary) = 0;
 	virtual bool dev_register_button(device* target, const char * desc, unsigned int id, bool hold) = 0;
@@ -330,6 +346,7 @@ public:
 	virtual ~devmgr() {}
 	
 	class inputmapper {
+		class impl;
 	protected:
 		function<void(unsigned int id, bool down)> callback;
 	public:
@@ -349,8 +366,8 @@ public:
 		//If called for len=4 and it returns 2, it means that slots 2, 3, 4 and 5 are currently unused.
 		//It doesn't actually reserve anything, or otherwise change the state of the object; it just tells the current state.
 		
-		//The implementation may set an upper bound on the maximum valid slot. All values up to 4095 must work;
-		// going above that is undefined behaviour.
+		//The implementation may set an upper bound on the maximum valid slot. All values up to 4095 must work,
+		// but going up to SIZE_MAX is not guaranteed. If this is hit, behaviour is undefined.
 		virtual unsigned int register_group(unsigned int len) = 0;
 		//If you don't want to decide which slot to use, this one will pick an unused slot and tell which it used.
 		//If the descriptor is invalid, -1 will be returned, and no slot will change.

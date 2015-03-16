@@ -814,6 +814,7 @@ if (numstringmaps==0) numstringmaps++;
 	fclose(in);
 }
 
+//Do not use. Several symbols are special cases for input descriptors.
 	//"Space",      "!",           "\"",         "#",           "$",          NULL,          "&",          "'",
 	//"(",          ")",           "*",          "+",           ",",          "-",           ".",          "/",
 	//"0",          "1",           "2",          "3",           "4",          "5",           "6",          "7",

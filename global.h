@@ -59,8 +59,8 @@ typedef void(*funcptr)();
 template<bool x> struct static_assert_t;
 template<> struct static_assert_t<true> { struct STATIC_ASSERTION_FAILED {}; };
 template<> struct static_assert_t<false> {};
-//#define static_assert(expr) \\
-//	typedef TYPENAME_IF_NEEDED static_assert_t<(bool)(expr)>::STATIC_ASSERTION_FAILED \\
+//#define static_assert(expr)
+//	typedef TYPENAME_IF_NEEDED static_assert_t<(bool)(expr)>::STATIC_ASSERTION_FAILED
 //	JOIN(static_assertion_, __COUNTER__) MAYBE_UNUSED;
 #define static_assert(expr) \
 	enum { \

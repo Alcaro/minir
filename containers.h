@@ -4,7 +4,7 @@
 #include <string.h> // strdup
 
 #include <new>
-//size: three pointers, plus (two pointers plus one key_t plus one val_t) per entry
+//size: three pointers, plus [two pointers plus one key_t plus one val_t] per entry
 template<typename key_t, typename val_t, typename key_t_pub = key_t> class hashmap : nocopy {
 protected:
 	typedef size_t keyhash_t;
@@ -285,6 +285,8 @@ public:
 template<typename T1, typename T2> class ptrmap : public hashmap<hashable_int<T1, false>, T2, T1> {};
 template<typename T1, typename T2> class intmap : public hashmap<hashable_int<T1, true>, T2, T1> {};
 
+template<typename T> class intset : public hashmap<hashable_int<T, false>, void, T> {};
+
 
 
 //size: two pointers, plus one T per item
@@ -325,12 +327,9 @@ template<typename T> class array {
 	}
 	
 public:
-	
 	T& operator[](size_t n) { resize_grow(n+1); return items[n]; }
 	const T& operator[](size_t n) const { return items[n]; }
 	size_t len() const { return count; }
-	operator T*() { return items; }
-	operator const T*() const { return items; }
 	
 	T join() const
 	{
@@ -552,6 +551,14 @@ public:
 		return ptr();
 	}
 	
+	//TODO
+	////Guaranteed to remain ordered until the next add().
+	//multiint_inline<T>& sort()
+	//{
+	//	
+	//	return *this;
+	//}
+	
 	~multiint_inline()
 	{
 		if (!is_inline()) free(ptr_raw);
@@ -622,6 +629,12 @@ public:
 		len = numitems;
 		return items;
 	}
+	
+	//multiint_outline<T>& sort()
+	//{
+	//	
+	//	return *this;
+	//}
 	
 	~multiint_outline()
 	{

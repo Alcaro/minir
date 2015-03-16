@@ -471,7 +471,8 @@ public:
 	static unsigned translate_scan(unsigned int scancode);
 	static unsigned translate_vkey(unsigned int vkey);
 	
-	//Returns an array containing the names of all keys. ret[RETROK_BACKSPACE] is "Backspace"; nonexistent elements are NULL.
+	//Returns an array containing the names of all keys, in retro_key order. ret[RETROK_BACKSPACE] is "Backspace"; nonexistent elements are NULL.
+	//Guaranteed to contain only alphanumeric characters, and guaranteed to not start with a lowercase letter.
 	static const char * const * keynames();
 };
 inline inputkb::~inputkb(){}
