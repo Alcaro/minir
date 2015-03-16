@@ -201,7 +201,9 @@ public:
 int main_wrap(int argc, char * argv[])
 {
 	window_init(&argc, &argv);
+#if !defined(NEW_MAIN) || !defined(RELEASE)
 return old_main(argc, argv);
+#endif
 	
 #ifdef __linux__
 #define HOME "/home/alcaro"

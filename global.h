@@ -96,6 +96,10 @@ anyptr try_calloc(size_t size, size_t count);
 #define calloc calloc_check
 
 
+//if I cast it to void, that means I do not care, so shut the hell up about warn_unused_result.
+template<typename T> static inline void ignore(T t) {}
+
+
 
 //too reliant on non-ancient compilers
 ////some SFINAE shenanigans to call T::create if it exists, otherwise new() - took an eternity to google up
@@ -215,9 +219,7 @@ public:
 #ifndef HAVE_ASPRINTF
 void asprintf(char * * ptr, const char * fmt, ...);
 #else
-//if I cast it to void, that means I do not care, so shut the hell up about warn_unused_result.
-static inline void shutupgcc(int x){}
-#define asprintf(...) shutupgcc(asprintf(__VA_ARGS__))
+#define asprintf(...) ignore(asprintf(__VA_ARGS__))
 #endif
 
 

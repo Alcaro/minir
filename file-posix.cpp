@@ -76,12 +76,12 @@ static void window_cwd_enter(const char * dir)
 	char * cwd_bogus_check=getcwd(NULL, 0);
 	if (strcmp(cwd_bogus, cwd_bogus_check)!=0) abort();//if this fires, someone changed the directory without us knowing - not allowed. cwd belongs to the frontend.
 	free(cwd_bogus_check);
-	chdir(dir);
+	ignore(chdir(dir));
 }
 
 static void window_cwd_leave()
 {
-	chdir(cwd_bogus);
+	ignore(chdir(cwd_bogus));
 	cwd_mutex.unlock();
 }
 
@@ -159,7 +159,7 @@ namespace {
 		
 		file* clone() { return new file_fs(this->filename, dup(this->fd), this->len); }
 		
-		void read(size_t start, void* target, size_t len) { pread(fd, target, len, start); }
+		void read(size_t start, void* target, size_t len) { ignore(pread(fd, target, len, start)); }
 		
 		void* mmap(size_t start, size_t len)
 		{
