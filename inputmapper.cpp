@@ -324,8 +324,8 @@ unsigned int register_group(unsigned int len)
 void event(dev_t type, unsigned int device, unsigned int button, unsigned int scancode, bool down)
 {
 	uint32_t trigger = compile_trigger(type, device, button, scancode);
-	send_event(trigger);
-	send_event(trigger_to_global(trigger));
+	send_event(trigger, down);
+	send_event(trigger_to_global(trigger), down);
 }
 
 bool query(dev_t type, unsigned int device, unsigned int button, unsigned int scancode)

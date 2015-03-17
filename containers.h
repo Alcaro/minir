@@ -424,7 +424,12 @@ template<typename T> class multiint_inline {
 		return inlines_raw[tag_offset()];
 	}
 	
-	bool is_inline()
+	T tag() const
+	{
+		return inlines_raw[tag_offset()];
+	}
+	
+	bool is_inline() const
 	{
 		return tag()&1;
 	}
