@@ -415,7 +415,7 @@ template<typename T> class multiint_inline {
 		u.ptr = (T*)(uintptr_t)0xFFFF;
 		
 		if (u.uint[0]==0xFFFF) return 0; // little endian
-		else if (u.uint[numinline-1]==0xFF) return numinline-1; // big endian
+		else if (u.uint[numinline-1]==0xFFFF) return numinline-1; // big endian
 		else return -1; // middle endian - let's blow up (middle endian is dead, anyways)
 	}
 	
