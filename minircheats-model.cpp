@@ -5,10 +5,12 @@
 #include <string.h>
 #include <stdio.h>
 #include <ctype.h>
+#include <inttypes.h>
 #include "libretro.h"
 
-//For compatibilty with RetroArch, this file may not use
-//- printf with 'z' size specifier - use the 'z' macro
+//For compatibilty with Windows before 7, this file may not use
+//- printf with 'z' size specifier - use PRIuPTR (yes, it's ugly)
+//   ('z' is (s)size_t while PRIuPTR is (u)intptr_t, but they have the same size on everything since MS-DOS)
 
 #define this This
 
@@ -105,13 +107,6 @@
 //- Two threads may access two adjacent uint32s in any way without causing incorrect results. Bad performance is okay.
 //The host system is allowed to use any endianness, including weird ones.
 
-//http://msdn.microsoft.com/en-us/library/vstudio/tcxf1dw6.aspx says %zX is not supported. It works fine on 7, but RetroArch likes XP.
-//Let's define it to whatever they do support.
-#ifdef _WIN32
-#define z "I"
-#else
-#define z "z"
-#endif
 
 static size_t add_bits_down(size_t n)
 {
@@ -1298,7 +1293,7 @@ static void search_get_row(struct minircheats_model * this_, size_t row, char * 
 	if (addr)
 	{
 		size_t p_addr=addr_phys_to_guest(this, memblk, mempos);
-		sprintf(addr, "%s%.*" z "X", this->addrspaces[mem->addrspace].name, this->addrspaces[mem->addrspace].addrlen, p_addr);
+		sprintf(addr, "%s%.*" PRIXPTR, this->addrspaces[mem->addrspace].name, this->addrspaces[mem->addrspace].addrlen, p_addr);
 	}
 	if (val)     *val  =  readmemext(mem->ptr +mempos, this->search_datsize, mem->bigendian, this->search_signed);
 	if (prevval) *prevval=readmemext(mem->prev+mempos, this->search_datsize, mem->bigendian, this->search_signed);
@@ -1463,7 +1458,7 @@ static void cheat_get(struct minircheats_model * this_, unsigned int pos, struct
 	struct minircheats_model_impl * this=(struct minircheats_model_impl*)this_;
 	struct cheat_impl * icheat=&this->cheats[pos];
 	
-	sprintf(thecheat->addr, "%s%.*" z "X",
+	sprintf(thecheat->addr, "%s%.*" PRIXPTR,
 	        this->addrspaces[this->mem[icheat->memid].addrspace].name,
 	        this->addrspaces[this->mem[icheat->memid].addrspace].addrlen,
 	        addr_phys_to_guest(this, icheat->memid, icheat->offset));
