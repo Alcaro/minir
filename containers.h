@@ -301,6 +301,23 @@ template<typename T> class array {
 	T * items;
 	size_t count;
 	
+	void clone(const array<T>& other)
+	{
+		this->count=other.count;
+		this->items=malloc(sizeof(T)*bitround(this->count));
+		for (size_t i=0;i<this->count;i++) new(&this->items[i]) T(other.items[i]);
+	}
+	
+	void swap(array<T>& other)
+	{
+		T* newitems = other.items;
+		size_t newcount = other.count;
+		other.items = newitems;
+		other.count = count;
+		items = newitems;
+		count = newcount;
+	}
+	
 	void resize_grow(size_t count)
 	{
 		if (this->count >= count) return;
@@ -381,9 +398,12 @@ public:
 	
 	array(const array<T>& other)
 	{
-		this->count=other.count;
-		this->items=malloc(sizeof(T)*bitround(this->count));
-		for (size_t i=0;i<this->count;i++) new(&this->items[i]) T(other.items[i]);
+		clone(other);
+	}
+	
+	array<T> operator=(array<T> other)
+	{
+		swap(other);
 	}
 	
 	~array()
@@ -447,6 +467,7 @@ template<typename T> class multiint_inline {
 		else return inlines_raw;
 	}
 	
+	
 	void clone(const multiint_inline<T>& other)
 	{
 		memcpy(this, &other, sizeof(*this));
@@ -463,6 +484,7 @@ template<typename T> class multiint_inline {
 		other.ptr = ptr;
 		ptr = newptr;
 	}
+	
 	
 	//If increased, does not initialize the new entries. If decreased, drops the top.
 	void set_count(T newcount)
