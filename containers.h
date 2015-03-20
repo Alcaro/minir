@@ -447,26 +447,23 @@ template<typename T> class multiint_inline {
 		else return inlines_raw;
 	}
 	
-public:
-	T* ptr()
+	void clone(const multiint_inline<T>& other)
 	{
-		if (is_inline()) return inlines();
-		else return ptr_raw+1;
+		memcpy(this, &other, sizeof(*this));
+		if (!is_inline())
+		{
+			ptr_raw = malloc(sizeof(T)*(1+other.count()));
+			memcpy(ptr_raw, other.ptr_raw, sizeof(T)*(1+other.count()));
+		}
 	}
 	
-	const T* ptr() const
+	void swap(multiint_inline<T>& other)
 	{
-		if (is_inline()) return inlines();
-		else return ptr_raw+1;
+		T* newptr = other.ptr;
+		other.ptr = ptr;
+		ptr = newptr;
 	}
 	
-	T count() const
-	{
-		if (is_inline()) return tag()>>1;
-		else return ptr_raw[0];
-	}
-	
-private:
 	//If increased, does not initialize the new entries. If decreased, drops the top.
 	void set_count(T newcount)
 	{
@@ -506,12 +503,35 @@ public:
 	
 	multiint_inline(const multiint_inline<T>& prev)
 	{
-		memcpy(this, &prev, sizeof(*this));
-		if (!is_inline())
-		{
-			ptr_raw = malloc(sizeof(T)*(1+prev.count()));
-			memcpy(ptr_raw, prev.ptr_raw, sizeof(T)*(1+prev.count()));
-		}
+		clone(prev);
+	}
+	
+	multiint_inline<T>& operator=(multiint_inline<T> other)
+	{
+		swap(other);
+	}
+	
+	~multiint_inline()
+	{
+		if (!is_inline()) free(ptr_raw);
+	}
+	
+	T* ptr()
+	{
+		if (is_inline()) return inlines();
+		else return ptr_raw+1;
+	}
+	
+	const T* ptr() const
+	{
+		if (is_inline()) return inlines();
+		else return ptr_raw+1;
+	}
+	
+	T count() const
+	{
+		if (is_inline()) return tag()>>1;
+		else return ptr_raw[0];
 	}
 	
 	void add(T val)
@@ -570,28 +590,33 @@ public:
 	//	
 	//	return *this;
 	//}
-	
-	~multiint_inline()
-	{
-		if (!is_inline()) free(ptr_raw);
-	}
 };
 
 template<typename T> class multiint_outline {
 	T numitems;
 	T* items;
 	
+	void clone(const multiint_outline<T>& other)
+	{
+		numitems = other.numitems;
+		if (numitems)
+		{
+			items = malloc(sizeof(T)*numitems);
+			memcpy(items,other.items, sizeof(T)*numitems);
+		}
+		else items = NULL;
+	}
+	
+	void swap(multiint_outline<T>& other)
+	{
+		numitems = other.numitems;
+		//don't bother fixing other.numitems, it's not used in the destructor
+		T* newitems = other.items;
+		other.items = items;
+		items = newitems;
+	}
+	
 public:
-	T* ptr()
-	{
-		return items;
-	}
-	
-	T count()
-	{
-		return numitems;
-	}
-	
 	multiint_outline()
 	{
 		numitems=0;
@@ -600,9 +625,27 @@ public:
 	
 	multiint_outline(const multiint_outline<T>& prev)
 	{
-		numitems = prev.numitems;
-		items = malloc(sizeof(T)*numitems);
-		memcpy(items, prev.items, sizeof(T)*numitems);
+		clone(prev);
+	}
+	
+	multiint_outline<T>& operator=(multiint_outline<T> other)
+	{
+		swap(other);
+	}
+	
+	~multiint_outline()
+	{
+		free(items);
+	}
+	
+	T* ptr()
+	{
+		return items;
+	}
+	
+	T count()
+	{
+		return numitems;
 	}
 	
 	void add(T val)
@@ -647,11 +690,6 @@ public:
 	//	
 	//	return *this;
 	//}
-	
-	~multiint_outline()
-	{
-		free(items);
-	}
 };
 
 template<typename T, bool useinline> class multiint_select : public multiint_inline<T> {};
