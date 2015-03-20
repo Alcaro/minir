@@ -134,10 +134,10 @@ class nocopy {
 protected:
 	nocopy() {}
 	~nocopy() {}
-#ifdef HAVE_MOVE_SEMANTICS
-	nocopy(nocopy&&) = default;
-	const nocopy& operator=(nocopy&&) = default;
-#endif
+//#ifdef HAVE_MOVE_SEMANTICS
+//	nocopy(nocopy&&) = default;
+//	const nocopy& operator=(nocopy&&) = default;
+//#endif
 private:
 	nocopy(const nocopy&);
 	const nocopy& operator=(const nocopy&);
