@@ -402,6 +402,7 @@ devmgr_inputmapper_impl()
 {
 	keynames = inputkb::keynames();
 	keymod_valid = false;
+	firstempty = 0;
 }
 
 };
