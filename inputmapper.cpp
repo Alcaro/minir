@@ -316,10 +316,8 @@ unsigned int register_group(unsigned int len)
 	uint32_t count = 0;
 	uint32_t len;
 	uint32_t* items = set->get(len);
-printf("test %i items\n",len);
 	for (uint32_t i=0;i<len;i++)
 	{
-printf("%.8X: %i\n",items[i],keyheld.get_or(items[i], 255));
 		if (keyheld.get_or(items[i], false)) count++; // do not just add, some elements have values outside [0,1]
 	}
 	return count;
@@ -335,9 +333,6 @@ printf("%.8X: %i\n",items[i],keyheld.get_or(items[i], 255));
 			if (slot->trigger != trigger) break;
 			
 			multiint<uint32_t>* modsforthis = &slot->mods;
-printf("tr=%.8X mods=%i:",trigger,modsforthis->count());
-for(unsigned int i=0;i<modsforthis->count();i++)printf(" %.8X",modsforthis->ptr()[i]);
-puts("");
 			multiint<uint32_t>* modsfor = keymod.get_ptr(trigger);
 			
 			//we want to know if every element in modsforthis is held, but no other in modsfor
@@ -374,7 +369,6 @@ void event(dev_t type, unsigned int device, unsigned int button, unsigned int sc
 	uint32_t trigger = compile_trigger(type, device, button, scancode);
 	uint32_t gtrigger = trigger_to_global(trigger);
 	uint8_t& state = keyheld.get(trigger);
-printf("TR%.8X: %i->%i\n",trigger,state,down);
 	if (state && down) return;
 	if (!state && !down) return;
 	state = down;
