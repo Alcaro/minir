@@ -4,7 +4,9 @@
 #define _GNU_SOURCE //strdup, realpath, asprintf
 #endif
 #define _strdup strdup //and windows is being windows as usual
-#define __STDC_LIMIT_MACROS
+#define __STDC_LIMIT_MACROS //how many of these stupid things exist
+#define __STDC_FORMAT_MACROS//if I include a header, it's because I want to use its contents
+#define __STDC_CONSTANT_MACROS
 #include <stdint.h>
 #include <stddef.h>
 #include <stdio.h>

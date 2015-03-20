@@ -71,7 +71,7 @@ intmap<uint32_t, multiint<uint16_t> > keylist;//returns which slots are triggere
 bool keymod_valid;
 intmap<uint32_t, multiint<uint32_t> > keymod;//returns which descriptors are modifiers for this one
 
-//intset<uint32_t> keyheld;
+intmap<uint32_t, uint8_t> keyheld;
 
 const char * const * keynames;
 
@@ -172,7 +172,7 @@ const char * const * keynames;
 		if (first.trigger && second.trigger)
 		{
 			first.next = malloc(sizeof(keydata));
-			*first.next = second;
+			new(first.next) keydata(second);
 			return first;
 		}
 		else if (first.trigger) return first;
@@ -309,29 +309,88 @@ unsigned int register_group(unsigned int len)
 	return 0;
 }
 
+/*private*/ uint32_t num_held_in_set(multiint<uint32_t>* set)
+{
+	if (!set) return 0;
+	
+	uint32_t count = 0;
+	uint32_t len;
+	uint32_t* items = set->get(len);
+printf("test %i items\n",len);
+	for (uint32_t i=0;i<len;i++)
+	{
+printf("%.8X: %i\n",items[i],keyheld.get_or(items[i], 255));
+		if (keyheld.get_or(items[i], false)) count++; // do not just add, some elements have values outside [0,1]
+	}
+	return count;
+}
+
+/*private*/ bool slot_active(uint32_t trigger, keydata* slot)
+{
+	keymod_regen();
+	
+	while (slot)
+	{
+		do {
+			if (slot->trigger != trigger) break;
+			
+			multiint<uint32_t>* modsforthis = &slot->mods;
+printf("tr=%.8X mods=%i:",trigger,modsforthis->count());
+for(unsigned int i=0;i<modsforthis->count();i++)printf(" %.8X",modsforthis->ptr()[i]);
+puts("");
+			multiint<uint32_t>* modsfor = keymod.get_ptr(trigger);
+			
+			//we want to know if every element in modsforthis is held, but no other in modsfor
+			//since every element in modsforthis is in modsfor, we can check that the number of elements
+			// held in modsfor equals the number of elements in modsforthis
+			
+			if (modsforthis->count() == num_held_in_set(modsforthis) &&
+			    modsforthis->count() == num_held_in_set(modsfor))
+			{
+				return true;
+			}
+		} while(false);
+		
+		slot = slot->next;
+	}
+	return false;
+}
+
 /*private*/ void send_event(uint32_t trigger, bool down)
 {
 	uint16_t numslots;
 	uint16_t* slots = keylist.get(trigger).get(numslots);
 	for (uint16_t i=0;i<numslots;i++)
 	{
-		//TODO: check mods
-		//TODO: block events that repeat already-known state
-		callback(slots[i], down);
+		if (slot_active(trigger, &mappings[slots[i]]))
+		{
+			callback(slots[i], down);
+		}
 	}
 }
 
 void event(dev_t type, unsigned int device, unsigned int button, unsigned int scancode, bool down)
 {
 	uint32_t trigger = compile_trigger(type, device, button, scancode);
+	uint32_t gtrigger = trigger_to_global(trigger);
+	uint8_t& state = keyheld.get(trigger);
+printf("TR%.8X: %i->%i\n",trigger,state,down);
+	if (state && down) return;
+	if (!state && !down) return;
+	state = down;
 	send_event(trigger, down);
-	send_event(trigger_to_global(trigger), down);
+	
+	if (trigger != gtrigger)
+	{
+		keyheld.get(gtrigger) += (down ? 1 : -1);
+		send_event(gtrigger, down);
+	}
 }
 
 bool query(dev_t type, unsigned int device, unsigned int button, unsigned int scancode)
 {
-	
-	return false;
+	uint32_t trigger = compile_trigger(type, device, button, scancode);
+	return keyheld.get_or(trigger, 0);
 }
 
 void reset(dev_t type)

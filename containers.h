@@ -40,7 +40,7 @@ protected:
 		this->buckets=newbuckets;
 	}
 	
-	struct node_t * * find_ref(const key_t& key)
+	struct node_t * * find_ref(const key_t& key) const
 	{
 		keyhash_t thehash=key.hash();
 		struct node_t * * node=&this->nodes[thehash%this->buckets];
@@ -52,7 +52,7 @@ protected:
 		}
 	}
 	
-	struct node_t * find(const key_t& key)
+	struct node_t * find(const key_t& key) const
 	{
 		struct node_t * * node=find_ref(key);
 		if (node) return *node;
@@ -74,9 +74,9 @@ protected:
 	}
 	
 public:
-	unsigned int size() { return this->entries; }
+	size_t size() const { return this->entries; }
 	
-	bool has(const key_t& key) { return find(key); }
+	bool has(const key_t& key) const { return find(key); }
 	
 	val_t& get(const key_t& key)
 	{
@@ -86,6 +86,13 @@ public:
 			node=create(key);
 			new(&node->value) val_t();
 		}
+		return node->value;
+	}
+	
+	val_t get_or(const key_t& key, val_t other) const
+	{
+		struct node_t * node=find(key);
+		if (!node) return other;
 		return node->value;
 	}
 	
