@@ -43,6 +43,40 @@ extern "C" {
 #endif
 #endif
 
+#ifndef RETRO_CALLCONV
+#  if defined(__GNUC__) && defined(__i386__) && !defined(__x86_64__)
+#    define RETRO_CALLCONV __attribute__((cdecl))
+#  elif defined(_MSC_VER) && defined(_M_X86) && !defined(_M_X64)
+#    define RETRO_CALLCONV __cdecl
+#  else
+#    define RETRO_CALLCONV /* all other platforms only have one calling convention each */
+#  endif
+#endif
+
+#ifndef RETRO_API
+#  if defined(_WIN32) || defined(__CYGWIN__) || defined(__MINGW32__)
+#    ifdef RETRO_IMPORT_SYMBOLS
+#      ifdef __GNUC__
+#        define RETRO_API RETRO_CALLCONV __attribute__((dllimport))
+#      else
+#        define RETRO_API RETRO_CALLCONV __declspec(dllimport)
+#      endif
+#    else
+#      ifdef __GNUC__
+#        define RETRO_API RETRO_CALLCONV __attribute__((dllexport))
+#      else
+#        define RETRO_API RETRO_CALLCONV __declspec(dllexport)
+#      endif
+#    endif
+#  else
+#      if defined(__GNUC__) && __GNUC__ >= 4
+#        define RETRO_API RETRO_CALLCONV __attribute__((visibility("default")))
+#      else
+#        define RETRO_API RETRO_CALLCONV
+#      endif
+#  endif
+#endif
+
 /* Used for checking API/ABI mismatches that can break libretro 
  * implementations.
  * It is not incremented for compatible changes to the API.
@@ -1826,30 +1860,6 @@ typedef void (*retro_input_poll_t)(void);
  */
 typedef int16_t (*retro_input_state_t)(unsigned port, unsigned device, 
       unsigned index, unsigned id);
-
-#ifndef RETRO_API
-#  if defined(_WIN32) || defined(__CYGWIN__) || defined(__MINGW32__)
-#    ifdef RETRO_IMPORT_SYMBOLS
-#      ifdef __GNUC__
-#        define RETRO_API __attribute__((dllimport))
-#      else
-#        define RETRO_API __declspec(dllimport)
-#      endif
-#    else
-#      ifdef __GNUC__
-#        define RETRO_API __attribute__((dllexport))
-#      else
-#        define RETRO_API __declspec(dllexport)
-#      endif
-#    endif
-#  else
-#      if defined(__GNUC__) && __GNUC__ >= 4
-#        define RETRO_API __attribute__((visibility("default")))
-#      else
-#        define RETRO_API
-#      endif
-#  endif
-#endif
 
 /* Sets callbacks. retro_set_environment() is guaranteed to be called 
  * before retro_init().
