@@ -27,9 +27,9 @@ OUTNAME = minir$(EXESUFFIX)
 
 OBJS = $(patsubst %.cpp,obj/%$(OBJSUFFIX).o,$(wildcard *.cpp)) $(EXTRAOBJ) obj/miniz$(OBJSUFFIX).o
 
-TRUE_CFLAGS = $(CFLAGS) $(CONF_CFLAGS) -fno-exceptions -std=c99
-TRUE_CXXFLAGS = $(CXXFLAGS) $(CONF_CXXFLAGS) -fno-exceptions -fno-rtti -std=c++98
-TRUE_LFLAGS = $(LFLAGS) $(CONF_LFLAGS)
+TRUE_CFLAGS = $(CFLAGS) $(CONF_CFLAGS) -fvisibility=hidden -fno-exceptions -std=c99
+TRUE_CXXFLAGS = $(CXXFLAGS) $(CONF_CXXFLAGS) -fvisibility=hidden -fno-exceptions -fno-rtti -std=c++98
+TRUE_LFLAGS = $(LFLAGS) -fvisibility=hidden $(CONF_LFLAGS)
 
 
 #On Windows, cleaning up the object directory is expected to be done with 'del /q obj\*' in a batch script.
