@@ -10,17 +10,25 @@ public:
 //function<void(int id, bool down)> callback; // held in the parent class
 
 //each button maps to two uint32, known as 'descriptor', which uniquely describes it
-//format:
-//trigger: ttttxxxx xxxxxxxx xxxxxxxx xxxxxxxx
-//level:   yyyyyyyy yyyyyyyy yyyyyyyy yyyyyyyy
+//format: ttttnnnn nnnnnnnn nnnnnnll llllllll
 //tttt=type
-// 0000=unknown, never happens
+// 0000=unknown, never happens and may be used for special purposes
 // 0001=keyboard
 // 0010=mouse
-// 0011=joypad
+// 0011=gamepad
 // others=TODO
-//x=meaning varies between different device types
-//y=meaning varies between different device types
+//n=uint18; must be exactly this to fire
+//l=uint10; must be at >= this to fire (masked off to 0 when used as key to the intmaps)
+//[TODO: actually do as promised with the Ls]
+//none of those descriptors may leave this file
+//
+//each type has their own rules for how events are mapped to descriptors
+//keyboard:
+// n = 00kk kkkscccc cccccc
+// k=keyboard ID, 1-31, or 0 for any; if more than 31, loops back to 16
+// s=is scancode flag
+// c=if s is set, scancode, otherwise libretro code
+//others: TODO
 //
 //TODO: various input sources are not buttons, the following exist and may require changing this one:
 //analog/discrete
@@ -41,145 +49,209 @@ public:
 // unpositioned discrete (mouse wheel)
 //  make it fire press events, but never release and never be held? Fire release instantly?
 //  wheels can be analog too; none are in practice, but MS docs say they can be
-//
-//for keyboard:
-//0000---- -------- kkkkksnn nnnnnnnn
-//-------- -------- -------- --------
-//-=unused, always 0
-//k=keyboard ID, 1-31, or 0 for any; if more than 31, loops back to 16
-//s=is scancode flag
-//n=if s is set, scancode, otherwise libretro code
-//
-//00000000 00000000 00000000 00000000 (RETROK_NONE on any keyboard) can never fire and may be used as special case
-//
-//none of those descriptors may leave this file
+//maybe I should make some of the events bypass this structure entirely?
+
+typedef uint32_t keydesc_t;
+typedef uint16_t keylevel_t;
+typedef uint16_t keyslot_t;
+
+typedef keydesc_t n_keydesc_t;
+typedef keyslot_t n_keyslot_t;
 
 struct keydata {
-	uint32_t trigger;//0 if the slot is unused
-	uint32_t level;//used by some event sources
-	multiint<uint32_t> mods;//must be held for this to fire
+	multiint<keydesc_t> keys;//must be held for this to fire
+	keydesc_t primary;
+	keyslot_t level;//used by some event sources; 0 if the slot is unused
+	bool active;//whether this one is set (only valid for entries in 'mappings', not child items)
+	//char padding[1];
 	keydata* next;//if multiple key combos are mapped to the same slot, this is non-NULL
 	
-	keydata() : trigger(0), level(0), next(NULL) {}
+	keydata() : primary(0), level(0), active(false), next(NULL) {}
 };
 
-array<keydata> mappings;//the key is a slot ID
-uint16_t firstempty;//any slot such that all previous slots are used
+class kb {
+	kb(){} // cannot instantiate this one
+	
+	private: static keydesc_t compile_key(unsigned int button, unsigned int scancode)
+	{
+		if (button) return (0<<10 | button<<0);
+		else return (1<<10 | scancode<<0);
+	}
+	
+	private: static keydesc_t compile(unsigned int device, unsigned int key)
+	{
+		//the device is known to be in the correct range already
+		return dev_kb<<28 | (device<<11|key)<<10;
+	}
+	
+	public: static keydesc_t compile(unsigned int device, unsigned int button, unsigned int scancode)
+	{
+		if (device > 31) device = (device&15)|16;
+		return compile(device, compile_key(button, scancode));
+	}
+	
+	public: static keydesc_t global(keydesc_t desc)
+	{
+		return desc&~(31 << 21);
+	}
+	
+	
+	private: static unsigned int parse_keyname(const char * name, const char * * nameend)
+	{
+		size_t len;
+		for (len=0;isalnum(name[len]);len++) {}
+		if (nameend) *nameend = name+len;
+		
+		if (name[0]=='x')
+		{
+			//validate the input - we require only uppercase hex, with 0x banned
+			for (size_t test=1;test<len;test++)
+			{
+				if (!isxdigit(name[test]) || islower(name[test])) return 0;
+			}
+			unsigned int keyid = strtoul(name+1, NULL, 16);
+			if (keyid >= 0x400) return 0;
+			return compile_key(0, keyid);
+		}
+		else
+		{
+			const char * const * keynames = inputkb::keynames();
+			for (unsigned int i=0;i<RETROK_LAST;i++)
+			{
+				if (keynames[i] && !strncmp(name, keynames[i], len) && !keynames[i][len])
+				{
+					return compile_key(i, 0);
+				}
+			}
+			return 0;
+		}
+	}
+	
+	public: static keydata parse(const char * desc)
+	{
+		unsigned int kbid;
+		if (isdigit(*desc))
+		{
+			kbid = strtoul(desc, (char**)&desc, 10);
+			if (kbid<=0 || kbid>=32) return keydata();
+		}
+		else kbid = 0;
+		
+		if (desc[0]!=':' || desc[1]!=':') return keydata();
+		desc += 2;
+		
+		keydata ret;
+		while (true)
+		{
+			keydesc_t keyid = parse_keyname(desc, &desc);
+			if (keyid==0) return keydata();
+			keydesc_t key = compile(kbid, keyid);
+			
+			if (*desc=='+')
+			{
+				ret.keys.add(key);
+				desc++;
+			}
+			else if (*desc=='\0' || *desc==',')
+			{
+				ret.keys.add(key);
+				ret.keys.sort();
+				ret.primary = key;
+				ret.level = 1;
+				return ret;
+			}
+			else return keydata();
+		}
+	}
+};
 
-intmap<uint32_t, multiint<uint16_t> > keylist;//returns which slots are triggered by this descriptor
+
+class bydev {
+	bydev(){} // cannot instantiate this one
+	
+	public: static keydesc_t compile(dev_t type, unsigned int device, unsigned int button, unsigned int scancode)
+	{
+		switch (type)
+		{
+			case dev_unknown: return 0;
+			case dev_kb: return kb::compile(device, button, scancode);
+			case dev_mouse: return 0;
+			case dev_gamepad: return 0;
+			default: return 0;
+		}
+	}
+	
+	public: static keydesc_t global(keydesc_t desc)
+	{
+		switch (desc>>28)
+		{
+			case dev_unknown: return 0;
+			case dev_kb: return kb::global(desc);
+			case dev_mouse: return 0;
+			case dev_gamepad: return 0;
+			default: return 0;
+		}
+	}
+	
+	private: static keydata parse_single(const char * desc)
+	{
+		if (desc[0]=='K' && desc[1]=='B') return kb::parse(desc+2);
+		return keydata();
+	}
+	
+	public: static keydata parse(const char * desc)
+	{
+		const char * next = strchr(desc, ',');
+		if (next)
+		{
+			keydata first = parse_single(desc);
+			next++;
+			while (isspace(*next)) next++;
+			keydata second = parse(next);
+			if (first.level && second.level)
+			{
+				first.next = malloc(sizeof(keydata));
+				new(first.next) keydata(second);
+				return first;
+			}
+			else if (first.level) return first;
+			else return second;
+		}
+		
+		return parse_single(desc);
+	}
+};
+
+
+array<keydata> mappings;//the key is a slot ID
+keyslot_t firstempty;//any slot such that all previous slots are used
+
+intmap<keydesc_t, multiint<keyslot_t> > keylist;//returns which slots are affected by this descriptor
 
 bool keymod_valid;
-intmap<uint32_t, multiint<uint32_t> > keymod;//returns which descriptors are modifiers for this one
+intmap<keydesc_t, multiint<keydesc_t> > keymod;//returns which descriptors are modifiers for this one
 
-intmap<uint32_t, uint8_t> keyheld;
-
-const char * const * keynames;
+intmap<keydesc_t, uint8_t> keyheld;
 
 /*private*/ void keymod_regen()
 {
 	if (keymod_valid) return;
 	keymod_valid = true;
 	
-	for (uint16_t i=0;i<mappings.len();i++)
+	for (n_keyslot_t i=0;i<mappings.len();i++)
 	{
-		keydata& key = mappings[i];
-		uint32_t nummods;
-		uint32_t* mods = key.mods.get(nummods);
-		for (uint32_t j=0;j<nummods;j++)
+		keydata* key = &mappings[i];
+		while (key)
 		{
-			keymod.get(key.trigger).add(mods[j]);
+			keydesc_t numkeys;
+			keydesc_t* keys = key->keys.get(numkeys);
+			for (keydesc_t j=0;j<numkeys;j++)
+			{
+				keymod.get(key->primary).add(keys[j]);
+			}
+			key = key->next;
 		}
 	}
-}
-
-/*private*/ unsigned int parse_keyname(const char * name, const char * * nameend)
-{
-	size_t len;
-	for (len=0;isalnum(name[len]);len++) {}
-	if (nameend) *nameend = name+len;
-	
-	if (name[0]=='x')
-	{
-		//validate the input - we require only uppercase hex, with 0x banned
-		for (size_t test=1;test<len;test++)
-		{
-			if (!isxdigit(name[test]) || islower(name[test])) return 0;
-		}
-		unsigned int keyid = strtoul(name+1, NULL, 16);
-		if (keyid >= 0x400) return 0;
-		return 0x400 | keyid;
-	}
-	else
-	{
-		for (unsigned int i=0;i<RETROK_LAST;i++)
-		{
-			if (keynames[i] && !strncmp(name, keynames[i], len) && !keynames[i][len]) return i;
-		}
-		return 0;
-	}
-}
-
-/*private*/ keydata parse_descriptor_kb(const char * desc)
-{
-	unsigned int kbid;
-	if (isdigit(*desc))
-	{
-		kbid = strtoul(desc, (char**)&desc, 10);
-		if (kbid<=0 || kbid>=32) return keydata();
-	}
-	else kbid = 0;
-	
-	if (desc[0]!=':' || desc[1]!=':') return keydata();
-	desc += 2;
-	
-	keydata ret;
-	while (true)
-	{
-		uint32_t key = parse_keyname(desc, &desc);
-		if (key==0) return keydata();
-		key |= dev_kb<<28 | kbid<<11;
-		if (*desc=='+')
-		{
-			ret.mods.add(key);
-			desc++;
-		}
-		else if (*desc=='\0' || *desc==',')
-		{
-			ret.mods.remove(key);
-			ret.trigger = key;
-			break;
-		}
-		else return keydata();
-	}
-	return ret;
-}
-
-/*private*/ keydata parse_descriptor_single(const char * desc)
-{
-	if (desc[0]=='K' && desc[1]=='B' && !isalpha(desc[2])) return parse_descriptor_kb(desc+2);
-	return keydata();
-}
-
-/*private*/ keydata parse_descriptor(const char * desc)
-{
-	const char * next = strchr(desc, ',');
-	if (next)
-	{
-		keydata first = parse_descriptor_single(desc);
-		next++;
-		while (isspace(*next)) next++;
-		keydata second = parse_descriptor_single(next);
-		if (first.trigger && second.trigger)
-		{
-			first.next = malloc(sizeof(keydata));
-			new(first.next) keydata(second);
-			return first;
-		}
-		else if (first.trigger) return first;
-		else return second;
-	}
-	
-	return parse_descriptor_single(desc);
 }
 
 /*private*/ template<typename K, typename V, typename K2, typename V2>
@@ -191,34 +263,46 @@ void multimap_remove(intmap<K, multiint<V> >& map, K2 key, V2 val)
 	if (items->count() == 0) map.remove(key);
 }
 
-/*private*/ void keydata_delete(uint16_t id)
-{
-	keydata* key = &mappings[id];
-	multimap_remove(keylist, key->trigger, id);
-	
-	if (key->next)
-	{
-		key = key->next;
-		while (key)
-		{
-			keydata* next = key->next;
-			multimap_remove(keylist, key->trigger, id);
-			key->~keydata();
-			free(key);
-			key = next;
-		}
-	}
-}
-
-/*private*/ void keydata_add(const keydata& key, uint16_t id)
+/*private*/ void keydata_add(keydata& key, keyslot_t id)
 {
 	mappings[id] = key;
 	
-	const keydata* iter = &key;
+	keydata* iter = &key;
 	while (iter)
 	{
-		keylist.get(iter->trigger).add(id);
+		n_keydesc_t numkeys;
+		keydesc_t* keys = iter->keys.get(numkeys);
+		for (n_keydesc_t i=0;i<numkeys;i++) keylist.get(keys[i]).add(id);
+		
 		iter = iter->next;
+	}
+}
+
+/*private*/ void keydata_delete(keyslot_t id)
+{
+	keydata* key = &mappings[id];
+	bool first = true;
+	
+	while (key)
+	{
+		keydata* next = key->next;
+		
+		keydesc_t numkeys;
+		keydesc_t* keys = key->keys.get(numkeys);
+		for (keydesc_t i=0;i<numkeys;i++) multimap_remove(keylist, keys[i], id);
+		
+		//keydata_delete_single(key, id);
+		if (first)
+		{
+			key->level = 0;
+			first=false;
+		}
+		else
+		{
+			key->~keydata();
+			free(key);
+		}
+		key = next;
 	}
 }
 
@@ -230,8 +314,8 @@ bool register_button(unsigned int id, const char * desc)
 	keydata_delete(id);
 	if (desc)
 	{
-		keydata newkey = parse_descriptor(desc);
-		if (!newkey.trigger) goto fail;
+		keydata newkey = bydev::parse(desc);
+		if (!newkey.level) goto fail;
 		keydata_add(newkey, id);
 		return true;
 	}
@@ -249,7 +333,7 @@ unsigned int register_group(unsigned int len)
 		unsigned int n=0;
 		while (true)
 		{
-			if (mappings[firstempty+n].trigger != 0)
+			if (mappings[firstempty+n].level != 0)
 			{
 				firstempty += n+1;
 				break;
@@ -277,124 +361,125 @@ unsigned int register_group(unsigned int len)
 // common ID will be 0, and scancode will be something valid. Scancodes are still present for non-keyboards.
 //down is the new state of the button. Duplicate events are fine and will be ignored.
 
-/*private*/ uint32_t compile_trigger(dev_t type, unsigned int device, unsigned int button, unsigned int scancode)
-{
-	switch (type)
-	{
-		case dev_unknown: return 0;
-		case dev_kb:
-			if (device > 31) device = (device&15)|16;
-			if (button) return dev_kb<<28 | device<<11 | 0<<10 | button<<0;
-			else return dev_kb<<28 | device<<11 | 1<<10 | scancode<<0;
-		case dev_mouse:
-			return 0;
-		case dev_gamepad:
-			return 0;
-	}
-	return 0;
-}
-
-/*private*/ uint32_t trigger_to_global(uint32_t trigger)
-{
-	switch (trigger>>28)
-	{
-		case dev_unknown: return 0;
-		case dev_kb:
-			return (trigger&~0x0000F800);
-		case dev_mouse:
-			return 0;
-		case dev_gamepad:
-			return 0;
-	}
-	return 0;
-}
-
-/*private*/ uint32_t num_held_in_set(multiint<uint32_t>* set)
+/*private*/ n_keydesc_t num_held_in_set(multiint<keydesc_t>* set)
 {
 	if (!set) return 0;
 	
-	uint32_t count = 0;
-	uint32_t len;
-	uint32_t* items = set->get(len);
-	for (uint32_t i=0;i<len;i++)
+	n_keydesc_t count = 0;
+	
+	n_keydesc_t len;
+	keydesc_t* items = set->get(len);
+	for (n_keydesc_t i=0;i<len;i++)
 	{
 		if (keyheld.get_or(items[i], false)) count++; // do not just add, some elements have values outside [0,1]
 	}
 	return count;
 }
 
-/*private*/ bool slot_active(uint32_t trigger, keydata* slot)
+/*private*/ triggertype slot_active_single(keydata* data, keydesc_t primary)
 {
+	//these triggertypes are treated as if the key was previously not held, whether it actually was
+	//tr_release is never used, and 0 is a valid value
+	
 	keymod_regen();
 	
-	while (slot)
+	multiint<keydesc_t>* modsforthis = &data->keys;
+	multiint<keydesc_t>* modsfor = keymod.get_ptr(data->primary);
+	
+	//we want to know if every element in modsforthis is held, but no other in modsfor
+	//since every element in modsforthis is in modsfor, these checks are sufficient
+	//they don't tell which keys have wrong state, but we're not interested either.
+	
+	if (modsforthis->count() == num_held_in_set(modsforthis) &&
+	    modsforthis->count() == num_held_in_set(modsfor))
 	{
-		do {
-			if (slot->trigger != trigger) break;
-			
-			multiint<uint32_t>* modsforthis = &slot->mods;
-			multiint<uint32_t>* modsfor = keymod.get_ptr(trigger);
-			
-			//we want to know if every element in modsforthis is held, but no other in modsfor
-			//since every element in modsforthis is in modsfor, we can check that the number of elements
-			// held in modsfor equals the number of elements in modsforthis
-			
-			if (modsforthis->count() == num_held_in_set(modsforthis) &&
-			    modsforthis->count() == num_held_in_set(modsfor))
-			{
-				return true;
-			}
-		} while(false);
-		
-		slot = slot->next;
+		if (data->primary == primary) return tr_press|tr_primary;
+		else return tr_press;
 	}
-	return false;
+	else return 0;
 }
 
-/*private*/ void send_event(uint32_t trigger, bool down)
+/*private*/ triggertype slot_active(keyslot_t slot, keydesc_t primary)
 {
-	uint16_t numslots;
-	uint16_t* slots = keylist.get(trigger).get(numslots);
-	for (uint16_t i=0;i<numslots;i++)
+	triggertype ret = 0;
+	keydata* data = &mappings[slot];
+	while (data)
 	{
-		if (slot_active(trigger, &mappings[slots[i]]))
-		{
-			callback(slots[i], down);
-		}
+		ret |= slot_active_single(data, primary);
+		data = data->next;
+	}
+	return ret;
+}
+
+/*private*/ void send_event(keydesc_t trigger, bool down)
+{
+	n_keyslot_t numslots;
+	keyslot_t* slots = keylist.get(trigger).get(numslots);
+printf("%.8X try %i\n",trigger,numslots);
+	
+	for (n_keyslot_t i=0;i<numslots;i++)
+	{
+		triggertype level = slot_active(slots[i], trigger);
+		bool newdown = (level&tr_press);
+		bool& down = mappings[slots[i]].active;
+		
+		triggertype events=0;
+		if (newdown && !down) events|=tr_press;
+		if (!newdown && down) events|=tr_release;
+		if (level&tr_primary) events|=tr_primary;
+		
+		down = newdown;
+		if (events!=0) callback(slots[i], events);
 	}
 }
 
 void event(dev_t type, unsigned int device, unsigned int button, unsigned int scancode, bool down)
 {
-	uint32_t trigger = compile_trigger(type, device, button, scancode);
-	uint32_t gtrigger = trigger_to_global(trigger);
+	keydesc_t trigger = bydev::compile(type, device, button, scancode);
+	keydesc_t gtrigger = bydev::global(trigger);
 	uint8_t& state = keyheld.get(trigger);
-	if (state && down) return;
-	if (!state && !down) return;
-	state = down;
-	send_event(trigger, down);
+	if ((bool)state == down) return;
 	
+	state = down;
 	if (trigger != gtrigger)
-	{
 		keyheld.get(gtrigger) += (down ? 1 : -1);
+	
+	send_event(trigger, down);
+	if (trigger != gtrigger)
 		send_event(gtrigger, down);
-	}
 }
 
 bool query(dev_t type, unsigned int device, unsigned int button, unsigned int scancode)
 {
-	uint32_t trigger = compile_trigger(type, device, button, scancode);
-	return keyheld.get_or(trigger, 0);
+	keydesc_t trigger = bydev::compile(type, device, button, scancode);
+	return keyheld.get_or(trigger, false);
+}
+
+bool query_slot(unsigned int slot)
+{
+	return slot_active(slot, 0);
 }
 
 void reset(dev_t type)
 {
-	
+	//TODO: this makes a bunch of keydata.active states inconsistent with keyheld
+	if (type == dev_unknown)
+	{
+		keyheld.reset();
+	}
+	else
+	{
+		keyheld.remove_if(bind_ptr(&devmgr_inputmapper_impl::reset_cond, (void*)(uintptr_t)type));
+	}
+}
+
+/*private*/ static bool reset_cond(void* type, keydesc_t key, uint8_t& value)
+{
+	return (key>>28 == (uintptr_t)type);
 }
 
 devmgr_inputmapper_impl()
 {
-	keynames = inputkb::keynames();
 	keymod_valid = false;
 	firstempty = 0;
 }

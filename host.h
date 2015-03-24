@@ -43,7 +43,6 @@
 
 #define INPUTCUR_XRECORD
 //#define INPUTCUR_RAWINPUT
-//#define INPUTCUR_W32HOOK
 #define INPUTCUR_X11
 //#define INPUTCUR_WIN32
 
@@ -98,7 +97,6 @@
 
 //#define INPUTCUR_XRECORD
 #define INPUTCUR_RAWINPUT
-#define INPUTCUR_W32HOOK
 //#define INPUTCUR_X11
 #define INPUTCUR_WIN32
 

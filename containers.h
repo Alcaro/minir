@@ -1,9 +1,26 @@
 #pragma once
 #include "global.h"
-
 #include <string.h> // strdup
-
 #include <new>
+
+template<typename T> void sort(T* items, size_t count)
+{
+	for (size_t a=0;a<count;a++)
+	{
+		size_t b;
+		for (b=0;b<a;b++)
+		{
+			if (items[a] < items[b]) break;
+		}
+		if (a == b) continue;
+		
+		char tmp[sizeof(T)];
+		memcpy(tmp, items+a, sizeof(T));
+		memmove(items+b+1, items+b, sizeof(T)*(a-b));
+		memcpy(items+b, tmp, sizeof(T));
+	}
+}
+
 //size: three pointers, plus [two pointers plus one key_t plus one val_t] per entry
 template<typename key_t, typename val_t, typename key_t_pub = key_t> class hashmap : nocopy {
 protected:
@@ -21,40 +38,41 @@ protected:
 	
 	void resize(size_t newbuckets)
 	{
-		struct node_t * * newnodes=malloc(sizeof(struct node_t*)*newbuckets);
+		struct node_t * * newnodes = malloc(sizeof(struct node_t*)*newbuckets);
 		memset(newnodes, 0, sizeof(struct node_t*)*newbuckets);
 		for (size_t i=0;i<this->buckets;i++)
 		{
-			struct node_t * node=this->nodes[i];
+			struct node_t * node = this->nodes[i];
 			while (node)
 			{
-				struct node_t * next=node->next;
-				keyhash_t newpos=node->hash % newbuckets;
-				node->next=newnodes[newpos];
-				newnodes[newpos]=node;
-				node=next;
+				struct node_t * next = node->next;
+				keyhash_t newpos = node->hash % newbuckets;
+				node->next = newnodes[newpos];
+				newnodes[newpos] = node;
+				node = next;
 			}
 		}
 		free(this->nodes);
-		this->nodes=newnodes;
-		this->buckets=newbuckets;
+		this->nodes = newnodes;
+		this->buckets = newbuckets;
 	}
 	
 	struct node_t * * find_ref(const key_t& key) const
 	{
-		keyhash_t thehash=key.hash();
-		struct node_t * * node=&this->nodes[thehash%this->buckets];
+		keyhash_t thehash = key.hash();
+		struct node_t * * noderef = &this->nodes[thehash%this->buckets];
 		while (true)
 		{
-			if (!node[0]) return NULL;
-			if (node[0]->hash==thehash && key==node[0]->key) return node;
-			node=&(node[0]->next);
+			struct node_t * node = *noderef;
+			if (!node) return NULL;
+			if (node->hash == thehash && key == node->key) return noderef;
+			noderef = &node->next;
 		}
 	}
 	
 	struct node_t * find(const key_t& key) const
 	{
-		struct node_t * * node=find_ref(key);
+		struct node_t * * node = find_ref(key);
 		if (node) return *node;
 		else return NULL;
 	}
@@ -62,12 +80,12 @@ protected:
 	//use only after checking that there is no item with this name already
 	struct node_t * create(const key_t& key)
 	{
-		struct node_t * node=malloc(sizeof(struct node_t));
-		keyhash_t thehash=key.hash();
+		struct node_t * node = malloc(sizeof(struct node_t));
+		keyhash_t thehash = key.hash();
 		new(&node->key) key_t(key);
-		node->hash=thehash;
-		node->next=this->nodes[thehash%this->buckets];
-		this->nodes[thehash%this->buckets]=node;
+		node->hash = thehash;
+		node->next = this->nodes[thehash%this->buckets];
+		this->nodes[thehash%this->buckets] = node;
 		this->entries++;
 		if (this->entries > this->buckets) resize(this->buckets*2);
 		return node;
@@ -83,7 +101,7 @@ public:
 		struct node_t * node=find(key);
 		if (!node)
 		{
-			node=create(key);
+			node = create(key);
 			new(&node->value) val_t();
 		}
 		return node->value;
@@ -91,39 +109,39 @@ public:
 	
 	val_t get_or(const key_t& key, val_t other) const
 	{
-		struct node_t * node=find(key);
+		struct node_t * node = find(key);
 		if (!node) return other;
 		return node->value;
 	}
 	
 	val_t* get_ptr(const key_t& key)
 	{
-		struct node_t * node=find(key);
+		struct node_t * node = find(key);
 		if (node) return &node->value;
 		else return NULL;
 	}
 	
 	void set(const key_t& key, const val_t& value)
 	{
-		struct node_t * node=find(key);
+		struct node_t * node = find(key);
 		if (node)
 		{
-			node->value=value;
+			node->value = value;
 		}
 		else
 		{
-			node=create(key);
+			node = create(key);
 			new(&node->value) val_t(value);
 		}
 	}
 	
 	void remove(const key_t& key)
 	{
-		struct node_t * * noderef=find_ref(key);
+		struct node_t * * noderef = find_ref(key);
 		if (!noderef) return;
 		
-		struct node_t * node=*noderef;
-		*noderef=node->next;
+		struct node_t * node = *noderef;
+		*noderef = node->next;
 		node->key.~key_t();
 		node->value.~val_t();
 		free(node);
@@ -136,20 +154,20 @@ public:
 	{
 		for (unsigned int i=0;i<this->buckets;i++)
 		{
-			struct node_t * node=this->nodes[i];
+			struct node_t * node = this->nodes[i];
 			while (node)
 			{
-				struct node_t * next=node->next;
+				struct node_t * next = node->next;
 				node->key.~key_t();
 				node->value.~val_t();
 				free(node);
-				node=next;
+				node = next;
 			}
 		}
 		free(this->nodes);
-		this->nodes=NULL;
-		this->buckets=0;
-		this->entries=0;
+		this->nodes = NULL;
+		this->buckets = 0;
+		this->entries = 0;
 		resize(4);
 	}
 	
@@ -171,27 +189,28 @@ public:
 	{
 		for (unsigned int i=0;i<this->buckets;i++)
 		{
-			struct node_t * * noderef=&this->nodes[i];
+			struct node_t * * noderef = &this->nodes[i];
 			while (*noderef)
 			{
-				bool remove=condition((*noderef)->key, (*noderef)->value);
+				struct node_t * node = *noderef;
+				bool remove = condition(node->key, node->value);
 				
-				struct node_t * node=*noderef;
-				noderef=&node->next;
 				if (remove)
 				{
 					node->key.~key_t();
 					node->value.~val_t();
 					free(node);
 					this->entries--;
+					*noderef = node->next;
 				}
+				else noderef = &node->next;
 			}
 		}
 		
 		if (this->buckets>4 && this->entries < this->buckets/2)
 		{
-			size_t newbuckets=this->buckets;
-			while (newbuckets>4 && this->entries < newbuckets/2) newbuckets/=2;
+			size_t newbuckets = this->buckets;
+			while (newbuckets>4 && this->entries < newbuckets/2) newbuckets /= 2;
 			resize(newbuckets);
 		}
 	}
@@ -261,10 +280,10 @@ public:
 		//it would be desirable to generate hash algorithms for all other values too, but zimbry chose to not publish his
 		// source codes nor results for other sizes, and I don't understand the relevant math well enough to recreate it
 		//it's not really important, anyways; this isn't OpenSSL
-		if (sizeof(T)==4)
+		if (sizeof(T) == 4)
 		{
 			//https://code.google.com/p/smhasher/wiki/MurmurHash3
-			uint32_t val=(uint32_t)ptr;
+			uint32_t val = (uint32_t)ptr;
 			val ^= val >> 16;
 			val *= 0x85ebca6b;
 			val ^= val >> 13;
@@ -272,11 +291,11 @@ public:
 			val ^= val >> 16;
 			return val;
 		}
-		if (sizeof(T)==8)
+		if (sizeof(T) == 8)
 		{
 			//http://zimbry.blogspot.se/2011/09/better-bit-mixing-improving-on.html
 			//using Mix13 because it gives the lowest mean error on low incoming entropy
-			uint64_t val=(uint64_t)ptr;
+			uint64_t val = (uint64_t)ptr;
 			val ^= val >> 30;
 			val *= 0xbf58476d1ce4e5b9;
 			val ^= val >> 27;
@@ -404,6 +423,7 @@ public:
 	array<T> operator=(array<T> other)
 	{
 		swap(other);
+		return *this;
 	}
 	
 	~array()
@@ -531,6 +551,7 @@ public:
 	multiint_inline<T>& operator=(multiint_inline<T> other)
 	{
 		swap(other);
+		return *this;
 	}
 	
 	~multiint_inline()
@@ -605,13 +626,11 @@ public:
 		return ptr();
 	}
 	
-	//TODO
-	////Guaranteed to remain ordered until the next add().
-	//multiint_inline<T>& sort()
-	//{
-	//	
-	//	return *this;
-	//}
+	//Guaranteed to remain ordered until the next add() or remove().
+	void sort()
+	{
+		::sort(ptr(), count());
+	}
 };
 
 template<typename T> class multiint_outline {
@@ -653,6 +672,7 @@ public:
 	multiint_outline<T>& operator=(multiint_outline<T> other)
 	{
 		swap(other);
+		return *this;
 	}
 	
 	~multiint_outline()
@@ -665,7 +685,12 @@ public:
 		return items;
 	}
 	
-	T count()
+	const T* ptr() const
+	{
+		return items;
+	}
+	
+	T count() const
 	{
 		return numitems;
 	}
@@ -707,13 +732,18 @@ public:
 		return items;
 	}
 	
-	//multiint_outline<T>& sort()
-	//{
-	//	
-	//	return *this;
-	//}
+	const T* get(T& len) const
+	{
+		len = numitems;
+		return items;
+	}
+	
+	void sort()
+	{
+		::sort(items, numitems);
+	}
 };
 
 template<typename T, bool useinline> class multiint_select : public multiint_inline<T> {};
 template<typename T> class multiint_select<T, false> : public multiint_outline<T> {};
-template<typename T> class multiint : public multiint_select<T, (sizeof(T*) > 2*sizeof(T))> {};
+template<typename T> class multiint : public multiint_select<T, (sizeof(T*) >= 2*sizeof(T))> {};

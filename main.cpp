@@ -182,10 +182,10 @@ const char * asdf[]={
 	"KB1::Z",
 	"KB1::X",
 	"KB1::A",
-	":KB1::S",
+	"*KB1::S",
 	"KB1::Z+X",
-	":KB1::Z+X",
-	":KB1::Z, KB1::X",
+	"*KB1::Z+X",
+	"*KB1::Z, KB1::X",
 	NULL
 };
 class dev_inputmap : public devmgr::device {
@@ -194,8 +194,8 @@ public:
 	{
 for(int i=0;asdf[i];i++)
 {
-if (asdf[i][0]!=':') register_button(asdf[i], i, false);
-else                 register_button(asdf[i]+1, i, true);
+if (asdf[i][0]!='*') register_button(asdf[i], btn_event, i);
+else                 register_button(asdf[i]+1, btn_hold, i);
 }
 	}
 	
@@ -208,6 +208,7 @@ else                 register_button(asdf[i]+1, i, true);
 
 int main_wrap(int argc, char * argv[])
 {
+puts("init=1");
 	window_init(&argc, &argv);
 #if !defined(NEW_MAIN) || defined(RELEASE)
 return old_main(argc, argv);
@@ -219,8 +220,11 @@ return old_main(argc, argv);
 #define HOME "C:/Users/Alcaro"
 #endif
 	
+puts("init=2");
 	libretro* core=libretro::create(HOME "/Desktop/minir/roms/gambatte_libretro" DYLIB_EXT, NULL, NULL);
+puts("init=3");
 	core->load_rom(file::create(HOME "/Desktop/minir/roms/zeldaseasons.gbc"));
+puts("init=4");
 	
 	unsigned int videowidth=320;
 	unsigned int videoheight=240;
@@ -229,14 +233,17 @@ return old_main(argc, argv);
 	core->get_video_settings(&videowidth, &videoheight, &videodepth, &videofps);
 	
 	widget_viewport* view;
+puts("init=5");
 	struct window * wnd=window_create(view=widget_create_viewport(videowidth, videoheight));
 	
+puts("init=6");
 	video* vid=video::drivers[0]->create2d(view->get_window_handle());
 	vid->initialize();
 	vid->set_source(videowidth, videoheight, videodepth);
 	vid->set_vsync(60);
 	vid->set_dest_size(videowidth, videoheight);
 	
+puts("init=7");
 	devmgr* contents=devmgr::create();
 #ifdef __linux__
 	contents->add_device(new dev_kb(inputkb::drivers[1]->create(view->get_window_handle())));
@@ -247,8 +254,10 @@ return old_main(argc, argv);
 	contents->add_device(new dev_core(core));
 	contents->add_device(new dev_inputmap());
 	
+puts("init=8");
 	wnd->set_visible(wnd, true);
 	
+puts("init=9");
 	while (wnd->is_visible(wnd))
 	{
 		window_run_iter();

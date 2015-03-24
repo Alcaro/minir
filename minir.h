@@ -150,11 +150,10 @@ public:
 		//The primary device is allowed to save an event for later, and dispatch it at some point in the future.
 		//To do this, call hold(). The event will remain open for dispatching until release().
 		//Alternatively, a device may want to keep an event and process it later. For example, video dumping is expensive.
-		//Savestate and frame events may not be held.
+		//Savestate, frame and button events may not be held.
+		//TODO: figure out how this interacts with threading
 		void hold() { this->holdcount++; }
 		void release() { this->holdcount--; if (!this->holdcount) delete this; }
-		
-		//TODO: figure out how this interacts with threading
 		
 		event(uint8_t type) : next(NULL), source(NULL), holdcount(1), blockstate(bs_normal), type(type) {}
 		
@@ -163,6 +162,7 @@ public:
 	
 	class device : nocopy {
 		friend class devmgr::impl;
+		friend class devmgr;
 	public:
 		enum devtype {
 			//The secondary device is the default type. It doesn't have any special privileges nor obligations.
@@ -183,8 +183,10 @@ public:
 		//This returns a menu which can control the device. Its lifetime is strictly bound to the device; it must be destructed before the device is.
 		//TODO: some items just want a single button, not an entire submenu (e.g. screenshot); account for this
 		virtual struct windowmenu * get_menu() { return NULL; }
+		//virtual void add_menu(struct windowmenu * root) {}? Need a way to query the menues first.
 		
 		//Returns the configuration options used by a device. It will be added to the tab panel.
+		//TODO: Turn this too into add_cfgpanel.
 		virtual class widget_base * get_cfgpanel() { return NULL; }
 		virtual const char * get_cfgname() { return NULL; }
 		
@@ -195,16 +197,20 @@ public:
 		//Most primary events come from the I/O drivers. They're direct instructions from the user.
 		//Secondary events come from other devices, like the keyboard->joypad translator. They are dispatched in response to primary events.
 		//Any event may be dispatched as a response to a primary event, with the exception that frame events may not be dispatched as response to this.
-		//Secondary events may not emit response events, with the exception that the primary device and the core may react to the secondary frame event.
+		//Secondary events may not emit response events.
+		//Exceptions: The primary device and the core may react to the secondary frame event, and the primary device may emit frame events.
 		//This is to guarantee that there can be devices who see the same events as the core.
 		void register_events(uint32_t primary, uint32_t secondary) { parent->dev_register_events(this, primary, secondary); }
 		
-		//The descriptor looks like KB1::Z. The given ID will be given to the event handler. Each device has its own ID namespace.
-		//This is built on top of ev_keyboard/etc, but is far easier to use.
-		//If 'hold' is true, the event will be dispatched between the two frame events if the button is held, or ignored otherwise.
-		//If false, it will be called every time the state changes.
+		//Input descriptors look like KB1::Z. The given ID will be given to ev_button.
+		//This is built on top of ev_keyboard/etc. It is the recommended option for everything that doesn't have a specific reason to be anything else.
 		//Any ID is allowed; each device has its own ID namespace.
-		bool register_button(const char * desc, unsigned int id, bool hold) { return parent->dev_register_button(this, desc, id, hold); }
+		enum buttontype {
+			btn_event,  // Fires every time the key is pressed. Never fires with down=false.
+			btn_change, // Fires every time the button state changes.
+			btn_hold,   // Fires every frame it's held, and once upon release.
+		};
+		bool register_button(const char * desc, buttontype when, unsigned int id) { return parent->dev_register_button(this, desc, when, id); }
 		
 		//Asks whether a button is held.
 		bool query_button(unsigned int id) { return parent->dev_test_button(this, id); }
@@ -215,11 +221,10 @@ public:
 		void dispatch(event* ev) { parent->ev_set_source(ev, this); parent->ev_append(ev); }
 		
 		//This allows events to be dispatched from a foreign thread.
-		//After this returns, the next entry to frame() is guaranteed to process the event.
 		//Events are processed between the primary and secondary frame events. Anything else is unspecified.
 		//The event must be a primary input event. It should be called from an event dispatched by window_run(),
-		// but is allowed to be dispatched in response to something else (for example, a device is allowed to
-		// listen to both window_run and primary frame and dispatch the same events from both).
+		// but is allowed to be dispatched in response to something else. For example, a device is allowed to
+		// listen to both window_run and primary frame and dispatch the same events from both.
 		void dispatch_async(event* ev) { parent->ev_set_source(ev, this); parent->ev_append_async(ev); }
 		
 		//Blocks the current event. The event may be held and dispatch()ed later.
@@ -329,7 +334,7 @@ protected:
 	void ev_set_source(event* ev, device* source) { ev->source = source; } // this one is here so it can be inlined
 	
 	virtual void dev_register_events(device* target, uint32_t primary, uint32_t secondary) = 0;
-	virtual bool dev_register_button(device* target, const char * desc, unsigned int id, bool hold) = 0;
+	virtual bool dev_register_button(device* target, const char * desc, device::buttontype when, unsigned int id) = 0;
 	virtual bool dev_test_button(device* target, unsigned int id) = 0;
 	virtual void dev_unregister(device* dev) = 0;
 	
@@ -347,10 +352,18 @@ public:
 	
 	class inputmapper {
 		class impl;
-	protected:
-		function<void(unsigned int id, bool down)> callback;
 	public:
-		void set_cb(function<void(unsigned int id, bool down)> callback) { this->callback=callback; }
+		typedef unsigned int triggertype;
+		enum {
+			tr_press = 1,   // The slot is now held, and wasn't before.
+			tr_release = 2, // The slot is now released, and wasn't before.
+			tr_primary = 4, // The primary key for this slot was pressed.
+			//Only a few of the combinations are possible.
+		};
+	protected:
+		function<void(unsigned int id, triggertype events)> callback;
+	public:
+		void set_cb(function<void(unsigned int id, triggertype events)> callback) { this->callback=callback; }
 		
 		//void request_next(function<void(const char * desc)> callback) { this->req_callback=callback; }
 		
@@ -360,7 +373,7 @@ public:
 		//If the descriptor is invalid, the slot will be set to NULL, and false will be returned.
 		
 		//The implementation may limit the maximum number of modifiers on any descriptor. At least 15 modifiers
-		// must be supported, but more is allowed. If it goes above that, the descriptor is rejected.
+		// must be supported, but more is allowed. If it goes above this limit, the descriptor is rejected.
 		virtual bool register_button(unsigned int id, const char * desc) = 0;
 		//Returns the lowest slot ID where the given number of descriptors can be sequentially added.
 		//If called for len=4 and it returns 2, it means that slots 2, 3, 4 and 5 are currently unused.
@@ -373,7 +386,7 @@ public:
 		//If the descriptor is invalid, -1 will be returned, and no slot will change.
 		int register_button(const char * desc)
 		{
-			int slot=register_group(1);
+			int slot = register_group(1);
 			if (register_button(slot, desc)) return slot;
 			else return -1;
 		}
@@ -399,8 +412,11 @@ public:
 		//Returns the state of a button.
 		virtual bool query(dev_t type, unsigned int device, unsigned int button, unsigned int scancode) = 0;
 		
+		//Returns the state of an input slot.
+		virtual bool query_slot(unsigned int slot) = 0;
+		
 		//Releases all buttons held on the indicated device type. Can be dev_unknown to reset everything. The callback is not called.
-		//This is likely paired with a refresh() on the relevant inputkb/etc, which will call event() and thereby the callback; set it to NULL.
+		//This is likely paired with a refresh() on the relevant inputkb/etc. To avoid calling the callback for that, set it to NULL.
 		virtual void reset(dev_t type) = 0;
 		
 		static inputmapper* create();

@@ -109,8 +109,33 @@ static void test_multiint()
 	//VALGRIND_DO_LEAK_CHECK;
 }
 
+static void test_sort()
+{
+	int items[4] = { 1,2,3,4 };
+	sort(items, 4);
+	assert(items[0]==1);
+	assert(items[1]==2);
+	assert(items[2]==3);
+	assert(items[3]==4);
+	
+	int items2[4] = { 1,3,4,2 };
+	sort(items2, 4);
+	assert(items2[0]==1);
+	assert(items2[1]==2);
+	assert(items2[2]==3);
+	assert(items2[3]==4);
+	
+	int items3[4] = { 4,3,2,1 };
+	sort(items3, 4);
+	assert(items3[0]==1);
+	assert(items3[1]==2);
+	assert(items3[2]==3);
+	assert(items3[3]==4);
+}
+
 int main()
 {
-	test_multiint();
+	//test_multiint();
+	test_sort();
 }
 #endif

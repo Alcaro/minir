@@ -129,11 +129,12 @@ void ev_append_async(event* ev)
 	this->ev_tail=NULL;
 }
 
-/*private*/ void ev_button(unsigned int id, bool down)
+/*private*/ void ev_button(unsigned int id, inputmapper::triggertype events)
 {
 	event::button ev;
 	ev.id = buttons[id].id;
-	ev.down = down;
+	ev.down = events&5;//TODO: do this properly
+printf("ev%i=%i\n",id,events);
 	buttons[id].dev->ev_button(&ev);
 }
 
@@ -153,9 +154,11 @@ void dev_register_events(device* target, uint32_t primary, uint32_t secondary)
 	}
 }
 
-bool dev_register_button(device* target, const char * desc, unsigned int id, bool hold)
+bool dev_register_button(device* target, const char * desc, device::buttontype when, unsigned int id)
 {
+	//TODO: use buttontype
 	int newid = mapper->register_button(desc);
+printf("%s=%i\n",desc,newid);
 	if (newid < 0) return false;
 	buttons[newid].dev = target;
 	buttons[newid].id = id;

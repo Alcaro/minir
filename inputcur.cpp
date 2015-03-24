@@ -21,9 +21,6 @@ const inputcursor::driver* const inputcursor::drivers[]={
 #ifdef INPUTCUR_RAWINPUT
 	&driver_rawinput,
 #endif
-#ifdef INPUTCUR_WIN32HOOK
-	&driver_w32hook,
-#endif
 #ifdef INPUTCUR_X11
 	&driver_x11,
 #endif
