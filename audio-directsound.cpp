@@ -18,7 +18,7 @@ static void libRelease();
 const GUID GUID_NULL={0};
 
 struct audio_directsound {
-	struct audio i;
+	struct caudio i;
 	
 	LPDIRECTSOUND ds;
 	LPDIRECTSOUNDBUFFER dsb_p;
@@ -34,7 +34,7 @@ struct audio_directsound {
 
 static void createbuf(struct audio_directsound * this, double samplerate, double latency);
 
-static void render(struct audio * this_, unsigned int numframes, const int16_t * samples)
+static void render(struct caudio * this_, unsigned int numframes, const int16_t * samples)
 {
 	struct audio_directsound * this=(struct audio_directsound*)this_;
 	
@@ -66,7 +66,7 @@ wait:
 	}
 }
 
-static void clear(struct audio * this_)
+static void clear(struct caudio * this_)
 {
 	struct audio_directsound * this=(struct audio_directsound*)this_;
 	
@@ -85,14 +85,14 @@ static void clear(struct audio * this_)
 	this->lastwrite=0;
 }
 
-static void set_samplerate(struct audio * this_, double samplerate)
+static void set_samplerate(struct caudio * this_, double samplerate)
 {
 	struct audio_directsound * this=(struct audio_directsound*)this_;
 	this->samplerate=samplerate;
 	this->dsb_b->lpVtbl->SetFrequency(this->dsb_b, samplerate);
 }
 
-static void set_latency(struct audio * this_, double latency)
+static void set_latency(struct caudio * this_, double latency)
 {
 	struct audio_directsound * this=(struct audio_directsound*)this_;
 	
@@ -101,18 +101,18 @@ static void set_latency(struct audio * this_, double latency)
 	createbuf(this, this->samplerate, latency);
 }
 
-static void set_sync(struct audio * this_, bool sync)
+static void set_sync(struct caudio * this_, bool sync)
 {
 	struct audio_directsound * this=(struct audio_directsound*)this_;
 	this->sync=sync;
 }
 
-static bool has_sync(struct audio * this_)
+static bool has_sync(struct caudio * this_)
 {
 	return true;
 }
 
-static void free_(struct audio * this_)
+static void free_(struct caudio * this_)
 {
 	struct audio_directsound * this=(struct audio_directsound*)this_;
 	
@@ -140,7 +140,7 @@ static void libRelease()
 	FreeLibrary(hDSound);
 }
 
-struct audio * audio_create_directsound(uintptr_t windowhandle, double samplerate, double latency)
+struct caudio * audio_create_directsound(uintptr_t windowhandle, double samplerate, double latency)
 {
 	if (!libLoad()) return NULL;
 	
@@ -176,7 +176,7 @@ struct audio * audio_create_directsound(uintptr_t windowhandle, double samplerat
 	
 	createbuf(this, samplerate, latency);
 	
-	return (struct audio*)this;
+	return (struct caudio*)this;
 }
 
 static void createbuf(struct audio_directsound * this, double samplerate, double latency)
@@ -203,6 +203,6 @@ static void createbuf(struct audio_directsound * this, double samplerate, double
 	this->dsb_b->lpVtbl->SetFrequency(this->dsb_b, this->samplerate);
 	this->dsb_b->lpVtbl->SetCurrentPosition(this->dsb_b, 0);
 	
-	clear((struct audio*)this);
+	clear((struct caudio*)this);
 }
 #endif

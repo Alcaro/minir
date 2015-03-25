@@ -279,7 +279,7 @@ public:
 		//TODO: find a way to avoid
 		//- copying this from core-owned memory to front-owned (requires libretro change, but easy for me)
 		//- copying this from front-owned to device-owned video memory (requires changing stuff around here)
-		//video data can be 90KB even for tiny stuff like GBC, and later consoles only go bigger; avoiding that copy is desirable
+		//video data can be 90KB/frame even for tiny stuff like GBC, and later consoles only go bigger; avoiding that copy is desirable
 		video() : event(ty_video) {}
 		unsigned int width;
 		unsigned int height;
@@ -291,8 +291,8 @@ public:
 	class event::audio : public event {
 	public:
 		audio() : event(ty_audio) {}
-		//TODO: libretro v2 will require that this gets changed (likely rewritten from scrath), but for now, this is sufficient.
-		//There is no remotely plausible change that could force me to change the overlying architecture.
+		//TODO: libretro v2 will require that this gets changed (likely rewritten from scratch), but for now, this is sufficient.
+		//TODO: some cores use a front-pull algorithm for audio, I'll need to handle that somehow
 		const int16_t * data;
 		size_t frames;
 		

@@ -54,6 +54,7 @@
 
 //#define AUDIO_PULSEAUDIO//defined by the configure script
 //#define AUDIO_DIRECTSOUND
+//#define AUDIO_WASAPI
 
 //#define NO_ANON_UNION_STRUCT
 #define HAVE_ASPRINTF
@@ -108,6 +109,7 @@
 
 //#define AUDIO_PULSEAUDIO
 #define AUDIO_DIRECTSOUND
+#define AUDIO_WASAPI
 
 //#define NO_ANON_UNION_STRUCT
 #if (__GNUC__*10000 + __GNUC_MINOR__*100 + __GNUC_PATCHLEVEL__)>=40900

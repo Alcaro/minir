@@ -9,7 +9,7 @@
 #define this This
 
 struct audio_pulse {
-	struct audio i;
+	struct caudio i;
 	
 	pa_mainloop* mainloop;
 	pa_context* context;
@@ -22,8 +22,8 @@ struct audio_pulse {
 	bool can_hang;
 };
 
-static void render(struct audio * this_, unsigned int numframes, const int16_t * samples);
-static void render_reset(struct audio * this_, unsigned int numframes, const int16_t * samples);
+static void render(struct caudio * this_, unsigned int numframes, const int16_t * samples);
+static void render_reset(struct caudio * this_, unsigned int numframes, const int16_t * samples);
 
 static void create(struct audio_pulse * this, uintptr_t windowhandle, double samplerate, double latency)
 {
@@ -82,7 +82,7 @@ static void reset(struct audio_pulse * this)
 	this->can_hang=false;
 }
 
-static void render(struct audio * this_, unsigned int numframes, const int16_t * samples)
+static void render(struct caudio * this_, unsigned int numframes, const int16_t * samples)
 {
 	struct audio_pulse * this=(struct audio_pulse*)this_;
 	if (!this->stream) return;
@@ -112,7 +112,7 @@ static void render(struct audio * this_, unsigned int numframes, const int16_t *
 	if (length) pa_stream_write(this->stream, samples, length, NULL, 0LL, PA_SEEK_RELATIVE);
 }
 
-static void render_reset(struct audio * this_, unsigned int numframes, const int16_t * samples)
+static void render_reset(struct caudio * this_, unsigned int numframes, const int16_t * samples)
 {
 	struct audio_pulse * this=(struct audio_pulse*)this_;
 	reset(this);
@@ -120,12 +120,12 @@ static void render_reset(struct audio * this_, unsigned int numframes, const int
 	render(this_, numframes, samples);
 }
 
-static void clear(struct audio * this)
+static void clear(struct caudio * this)
 {
 	//not needed; underruns are handled with whitespace
 }
 
-static void set_samplerate(struct audio * this_, double samplerate)
+static void set_samplerate(struct caudio * this_, double samplerate)
 {
 	struct audio_pulse * this=(struct audio_pulse*)this_;
 	
@@ -133,7 +133,7 @@ static void set_samplerate(struct audio * this_, double samplerate)
 	this->i.render=render_reset;
 }
 
-static void set_latency(struct audio * this_, double latency)
+static void set_latency(struct caudio * this_, double latency)
 {
 	struct audio_pulse * this=(struct audio_pulse*)this_;
 	
@@ -141,7 +141,7 @@ static void set_latency(struct audio * this_, double latency)
 	this->i.render=render_reset;
 }
 
-static void set_sync(struct audio * this_, bool sync)
+static void set_sync(struct caudio * this_, bool sync)
 {
 	struct audio_pulse * this=(struct audio_pulse*)this_;
 	this->sync=sync;
@@ -152,7 +152,7 @@ static bool has_sync(struct audio * this_)
 	return true;
 }
 
-static void free_(struct audio * this_)
+static void free_(struct caudio * this_)
 {
 	struct audio_pulse * this=(struct audio_pulse*)this_;
 	
@@ -176,7 +176,7 @@ static void free_(struct audio * this_)
 	free(this);
 }
 
-struct audio * audio_create_pulseaudio(uintptr_t windowhandle, double samplerate, double latency)
+struct caudio * audio_create_pulseaudio(uintptr_t windowhandle, double samplerate, double latency)
 {
 	struct audio_pulse * this=malloc(sizeof(struct audio_pulse));
 	this->i.render=render;
@@ -188,6 +188,6 @@ struct audio * audio_create_pulseaudio(uintptr_t windowhandle, double samplerate
 	this->i.free=free_;
 	this->sync=true;
 	create(this, windowhandle, samplerate, latency);
-	return (struct audio*)this;
+	return (struct caudio*)this;
 }
 #endif

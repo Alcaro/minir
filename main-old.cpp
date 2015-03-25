@@ -68,7 +68,7 @@ void unalign_unlock() {}
 
 video* vid;
 video* vid3d;
-struct audio * aud;
+struct caudio * aud;
 struct inputmapper * inp;
 struct libretroinput * retroinp;
 struct window * wndw;

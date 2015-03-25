@@ -365,40 +365,119 @@ inline video::shader::~shader(){}
 
 
 
-struct audio {
+class audio : nocopy {
+public:
+	struct driver {
+		const char * name;
+		audio* (*create)(uintptr_t windowhandle, unsigned int device, unsigned int latency, double samplerate, bool exclusive);
+		
+		//The list is terminated by a 0, or you can get the length to the argument. They will be sorted ascending.
+		//The list can be empty, in which case any sample rate is supported (within reasonable bounds).
+		const unsigned int * (*samplerate)(unsigned int * count);
+		
+		uint32_t features;
+	};
+	
+private:
+	static const driver driver_pulseaudio;
+	static const driver driver_wasapi;
+	static const driver driver_directsound;
+	static const driver driver_none;
+	
+public:
+	static const driver* const drivers[];
+	
+	//Device 0 is always the default, named "(default)". The list is terminated by a NULL, or you can get the number into numdevices.
+	static const char * const * get_devices(unsigned int * numdevices);
+	
+	class resampler {
+	public:
+		
+		virtual ~resampler() = 0;
+	};
+	
+	enum {
+		f_sync     = 0x0800,//Can refuse to return from render() for a while, if it's called too fast.
+		f_nosync   = 0x0400,//Can discard input to render() if it's called too fast.
+		f_resample = 0x0200,//Can render audio at any sample rate. If not, call drivers->samplerate() and it will tell which sample rates it supports.
+		f_anydevice= 0x0100,//Can use any audio device attached to the current machine.7
+		f_pullmode = 0x0080,//Can poll the program for audio data, instead of waiting for the application to call render().
+		f_selftest = 0x0040,//Can tell how much of the audio buffer is used. Required for DRC.
+		f_automute = 0x0020,//If render() is not called for a while, the driver silences itself. The alternative is repeating something recent, or other garbled data.
+		f_drc      = 0x0010,//Can change sample rate without resetting anything. Implies f_resample.
+		f_exclusive= 0x0008,//Can take exclusive control of the system audio. If this is done, latency is lowered, but at the obvious cost.
+		f_direct   = 0x0004,//Does not go through a separate process. Improves latency.
+		f_remote   = 0x0002,//Compatible with X11 remoting, or equivalent. Implies !f_direct.
+		f_public   = 0x0001,//Does not require elevated privileges to use. While this makes the device a lot more useful, insufficient privileges make it fail creation, and so it should have little if any effect on creation order.
+	};
+	virtual uint32_t features() = 0;
+	
+	//Only this audio format is supported because that's what libretro does.
+	virtual void render(const int16_t* samples, size_t nsamples) = 0;
+	//Empties the current audio buffer. Use if you're not going to call render() for a while.
+	virtual void cancel() = 0;
+	
+	//Enables pull mode. The given function will be called as often as needed.
+	//The function must render the requested number of samples, and must be prepared for any value in nsamples.
+	virtual void enable_pullmode(function<void(int16_t* samples, size_t nsamples)>) {}
+	
+	//Sizes are in samples.
+	virtual void get_bufuse(unsigned int * used, unsigned int * size) { if (used) *used=0; if (size) *size=0; }
+	
+	//Syncing is the act of sleeping in render() if too much data is pushed. Does not affect results if too little data is pushed.
+	virtual void set_sync(bool sync) {}
+	
+	//Latency is in milliseconds. May reset the audio buffers.
+	virtual void set_bufsize(unsigned int latency) {}
+	
+	//Sample rate is samples per second.
+	virtual void set_samplerate(double samplerate) {}
+	
+	//TODO: multiple speakers
+	//TODO: the-device-you're-rendering-to-has-become-invalid notifications
+	
+	virtual ~audio() = 0;
+};
+inline audio::~audio(){}
+inline audio::resampler::~resampler(){}
+
+struct caudio {
 	//Plays the given samples. They're interleaved left then right then left then right; one pair is
 	// one frame.
-	void (*render)(struct audio * This, unsigned int numframes, const int16_t * samples);
+	void (*render)(struct caudio * This, unsigned int numframes, const int16_t * samples);
 	
 	//Clears out the sound buffer, silencing the buffer until the next call to render(). It is
 	// implementation defined whether what's already in the buffer is played.
-	void (*clear)(struct audio * This);
+	void (*clear)(struct caudio * This);
 	
 	//It is implementation defined whether doing this will drop whatever is currently in the sound buffer.
-	void (*set_samplerate)(struct audio * This, double samplerate);
-	void (*set_latency)(struct audio * This, double latency);
+	void (*set_samplerate)(struct caudio * This, double samplerate);
+	void (*set_latency)(struct caudio * This, double latency);
 	
 	//Toggles synchronization, that is, whether render() should wait or drop some samples if there's
 	// insufficient freespace in the internal sound buffer. Defaults to wait.
-	void (*set_sync)(struct audio * This, bool sync);
+	void (*set_sync)(struct caudio * This, bool sync);
 	
-	bool (*has_sync)(struct audio * This);
+	bool (*has_sync)(struct caudio * This);
 	
 	//Deletes the structure.
-	void (*free)(struct audio * This);
+	void (*free)(struct caudio * This);
 };
 
 const char * const * audio_supported_backends();
-struct audio * audio_create(const char * backend, uintptr_t windowhandle, double samplerate, double latency);
+struct caudio * audio_create(const char * backend, uintptr_t windowhandle, double samplerate, double latency);
 
 //Should be used only within audio_create.
 #ifdef AUDIO_PULSEAUDIO
-struct audio * audio_create_pulseaudio(uintptr_t windowhandle, double samplerate, double latency);
+struct caudio * audio_create_pulseaudio(uintptr_t windowhandle, double samplerate, double latency);
 #endif
 #ifdef AUDIO_DIRECTSOUND
-struct audio * audio_create_directsound(uintptr_t windowhandle, double samplerate, double latency);
+struct caudio * audio_create_directsound(uintptr_t windowhandle, double samplerate, double latency);
 #endif
-struct audio * audio_create_none(uintptr_t windowhandle, double samplerate, double latency);
+#ifdef AUDIO_WASAPI
+struct caudio * audio_create_wasapi(uintptr_t windowhandle, double samplerate, double latency);
+#endif
+struct caudio * audio_create_none(uintptr_t windowhandle, double samplerate, double latency);
 
 
 
