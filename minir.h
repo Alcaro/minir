@@ -205,10 +205,12 @@ public:
 		//Input descriptors look like KB1::Z. The given ID will be given to ev_button.
 		//This is built on top of ev_keyboard/etc. It is the recommended option for everything that doesn't have a specific reason to be anything else.
 		//Any ID is allowed; each device has its own ID namespace.
+		//A button event is neither primary nor secondary. Don't use the primary flag.
 		enum buttontype {
-			btn_event,  // Fires every time the key is pressed. Never fires with down=false.
-			btn_change, // Fires every time the button state changes.
-			btn_hold,   // Fires every frame it's held, and once upon release.
+			btn_event, //Fires every time the key is pressed. Never fires with down=false.
+			btn_change,//Fires every time the button state changes.
+			btn_hold,  //Fires every frame it's held, and once upon release.
+			           // Note that 'held' is not fired on the frame it's released, even if this is the same frame it's pressed.
 		};
 		bool register_button(const char * desc, buttontype when, unsigned int id) { return parent->dev_register_button(this, desc, when, id); }
 		
@@ -358,7 +360,7 @@ public:
 			tr_press = 1,   // The slot is now held, and wasn't before.
 			tr_release = 2, // The slot is now released, and wasn't before.
 			tr_primary = 4, // The primary key for this slot was pressed.
-			//Only a few of the combinations are possible.
+			//Only a few of the combinations (1, 2, 4, 5) are possible.
 		};
 	protected:
 		function<void(unsigned int id, triggertype events)> callback;

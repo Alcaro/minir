@@ -22,11 +22,12 @@ size_t numdevices;
 struct buttondat {
 	device* dev;
 	unsigned int id;
-	bool hold;
+	uint8_t type;
 	//char padding[3];
 };
 inputmapper* mapper;
 array<buttondat> buttons;
+multiint<uint16_t> holdfire;
 
 uint8_t buttonblock;
 
@@ -131,11 +132,32 @@ void ev_append_async(event* ev)
 
 /*private*/ void ev_button(unsigned int id, inputmapper::triggertype events)
 {
+	buttondat& button = buttons[id];
 	event::button ev;
 	ev.id = buttons[id].id;
-	ev.down = events&5;//TODO: do this properly
-printf("ev%i=%i\n",id,events);
-	buttons[id].dev->ev_button(&ev);
+	
+	//there's so many possibilities here; three event types, and three event flags, each of which can be set individually
+	if (button.type == device::btn_event)
+	{
+		if (events&inputmapper::tr_primary) ev.down = true;
+		else return;
+	}
+	else
+	{
+		if ((events&(inputmapper::tr_press|inputmapper::tr_release)) == 0) return;
+		ev.down = (events&inputmapper::tr_press);
+		if (button.type == device::btn_hold)
+		{
+			if (ev.down)
+			{
+				holdfire.add(id);
+				return;//btn_hold fires each frame, but not as a direct response to events
+			}
+			else holdfire.remove(id);
+		}
+	}
+	
+	button.dev->ev_button(&ev);
 }
 
 
@@ -156,12 +178,13 @@ void dev_register_events(device* target, uint32_t primary, uint32_t secondary)
 
 bool dev_register_button(device* target, const char * desc, device::buttontype when, unsigned int id)
 {
-	//TODO: use buttontype
 	int newid = mapper->register_button(desc);
-printf("%s=%i\n",desc,newid);
 	if (newid < 0) return false;
-	buttons[newid].dev = target;
-	buttons[newid].id = id;
+	
+	buttondat& button = buttons[newid];
+	button.dev = target;
+	button.id = id;
+	button.type = when;
 	return true;
 }
 
@@ -214,27 +237,46 @@ void frame()
 {
 	//Event dispatch order:
 	//1. The primary frame is sent to all devices. This is the first event they get.
-	//2. All events created by that, as well as the asynchronously submitted events, are processed.
-	//3. The secondary frame is sent to the primary device.
-	//4. Events created by that are processed.
-	//5. The secondary frame event is dispatched to the other devices, including the core.
-	//6. Core output is dispatched.
+	//2. Asynchronously submitted events are processed.
+	//3. All events created by the above are processed.
+	//4. Button hold events are dispatched.
+	//5. All events created by that are processed.
+	//6. The secondary frame is sent to the primary device.
+	//7. Events created by that are processed.
+	//8. The secondary frame event is dispatched to the other devices, including the core.
+	//9. Core output is dispatched.
 	
 	event::frame ev;
 	
 	ev.secondary=false;
 	ev_dispatch(&ev); // #1
 	ev_dispatch_chain(lock_xchg(&this->ev_head_thread, NULL)); // #2
-	ev_dispatch_all(); // #2
+	ev_dispatch_all(); // #3
+	
+	// #4
+	uint16_t numheld;
+	uint16_t* held = holdfire.get(numheld);
+	if (numheld)
+	{
+		event::button ev;
+		ev.down = true;
+		for (uint16_t i=0;i<numheld;i++)
+		{
+			ev.id = buttons[held[i]].id;
+			buttons[held[i]].dev->ev_button(&ev);
+		}
+	}
+	
+	ev_dispatch_all(); // #5
 	
 	ev.secondary=true;
 	ev.blockstate = event::bs_blocked;//this is a bit ugly, but I'd rather not split the function.
-	ev_dispatch(&ev); // #3
-	ev_dispatch_all(); // #4
+	ev_dispatch(&ev); // #6
+	ev_dispatch_all(); // #7
 	ev.blockstate = event::bs_resent;
-	ev_dispatch(&ev); // #5
+	ev_dispatch(&ev); // #8
 	
-	ev_dispatch_all(); // #6
+	ev_dispatch_all(); // #9
 }
 
 bool add_device(device* dev)

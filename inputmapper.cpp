@@ -304,6 +304,8 @@ void multimap_remove(intmap<K, multiint<V> >& map, K2 key, V2 val)
 		}
 		key = next;
 	}
+	
+	if (id < firstempty) firstempty = id;
 }
 
 bool register_button(unsigned int id, const char * desc)
@@ -322,7 +324,7 @@ bool register_button(unsigned int id, const char * desc)
 	//fall through to fail - it's not a failure, but the results are the same.
 	
 fail:
-	firstempty = id;
+	if (id < firstempty) firstempty = id;
 	return false;
 }
 

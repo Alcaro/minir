@@ -178,30 +178,42 @@ public:
 };
 
 
-const char * asdf[]={
-	"KB1::Z",
-	"KB1::X",
-	"KB1::A",
-	"*KB1::S",
-	"KB1::Z+X",
-	"*KB1::Z+X",
-	"*KB1::Z, KB1::X",
-	NULL
+const char * inputmap[16]={
+	"KB::Z",     // B
+	"KB::A",     // Y
+	"KB::Space", // Select
+	"KB::Return",// Start
+	"KB::Up",    // Up
+	"KB::Down",  // Down
+	"KB::Left",  // Left
+	"KB::Right", // Right
+	"KB::X",     // A
+	"KB::S",     // X
+	"KB::Q",     // L
+	"KB::W",     // R
+	NULL, // L2
+	NULL, // R2
+	NULL, // L3
+	NULL, // R3
 };
 class dev_inputmap : public devmgr::device {
 public:
 	void attach()
 	{
-for(int i=0;asdf[i];i++)
-{
-if (asdf[i][0]!='*') register_button(asdf[i], btn_event, i);
-else                 register_button(asdf[i]+1, btn_hold, i);
-}
+		for (unsigned int i=0;i<16;i++)
+		{
+			register_button(inputmap[i], btn_change, i);
+		}
 	}
 	
-	void ev_button(devmgr::event::button* ev)
+	void ev_button(devmgr::event::button* bev)
 	{
-		printf("%s\n", asdf[ev->id]);
+		devmgr::event::gamepad* gev = new devmgr::event::gamepad();
+		gev->device = 0;
+		gev->button = bev->id;
+		gev->down = bev->down;
+		gev->secondary = true;
+		dispatch(gev);
 	}
 };
 
@@ -210,9 +222,9 @@ int main_wrap(int argc, char * argv[])
 {
 puts("init=1");
 	window_init(&argc, &argv);
-//#if !defined(NEW_MAIN) || defined(RELEASE)
+#if !defined(NEW_MAIN) || defined(RELEASE)
 return old_main(argc, argv);
-//#endif
+#endif
 	
 #ifdef __linux__
 #define HOME "/home/alcaro"
