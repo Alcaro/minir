@@ -42,7 +42,7 @@ public:
 		this->core->refresh();
 	}
 	
-	void ev_frame(devmgr::event::frame* ev)
+	void ev_frame(const devmgr::event& ev)
 	{
 		this->core->poll();
 	}
@@ -52,12 +52,12 @@ public:
 private:
 	/*private*/ void key_cb(unsigned int keyboard, unsigned int scancode, unsigned int libretrocode, bool down)
 	{
-		devmgr::event::keyboard* ev=new devmgr::event::keyboard();
-		ev->secondary = false;
-		ev->deviceid = keyboard;
-		ev->scancode = scancode;
-		ev->libretrocode = libretrocode;
-		ev->down = down;
+		devmgr::event ev(devmgr::event::ty_keyboard);
+		ev.secondary = false;
+		ev.keyboard.deviceid = keyboard;
+		ev.keyboard.scancode = scancode;
+		ev.keyboard.libretrocode = libretrocode;
+		ev.keyboard.down = down;
 		dispatch_async(ev); // this is sometimes called on the device manager thread, but not always, and it works no matter which thread it is on
 	}
 };
@@ -84,9 +84,9 @@ public:
 		register_events(devmgr::e_video, 0);
 	}
 	
-	void ev_video(devmgr::event::video* ev)
+	void ev_video(const devmgr::event& ev)
 	{
-		if (ev->data) this->core->draw_2d(ev->width, ev->height, ev->data, ev->pitch);
+		if (ev.video.data) this->core->draw_2d(ev.video.width, ev.video.height, ev.video.data, ev.video.pitch);
 		else this->core->draw_repeat();
 	}
 	
@@ -106,22 +106,22 @@ class dev_core : public devmgr::device {
 	
 	void c_vid2d(unsigned int width, unsigned int height, const void* data, size_t pitch)
 	{
-		devmgr::event::video* ev=new devmgr::event::video;
-		ev->secondary=false;
-		ev->width=width;
-		ev->height=height;
+		devmgr::event ev(devmgr::event::ty_video);
+		ev.secondary=false;
+		ev.video.width=width;
+		ev.video.height=height;
 		
 		if (data)
 		{
-			ev->data=malloc(sizeof(uint32_t)*width*height);
-			ev->pitch=sizeof(uint32_t)*width;
+			ev.video.data=malloc(sizeof(uint32_t)*width*height);
+			ev.video.pitch=sizeof(uint32_t)*width;
 			
-			video::copy_2d((void*)ev->data, sizeof(uint32_t)*width, data, pitch, sizeof(uint32_t)*width, height);
+			video::copy_2d((void*)ev.video.data, sizeof(uint32_t)*width, data, pitch, sizeof(uint32_t)*width, height);
 		}
 		else
 		{
-			ev->data=NULL;
-			ev->pitch=0;
+			ev.video.data=NULL;
+			ev.video.pitch=0;
 		}
 		
 		dispatch(ev);
@@ -149,29 +149,29 @@ public:
 		
 	}
 	
-	void ev_frame(devmgr::event::frame* ev)
+	void ev_frame(const devmgr::event& ev)
 	{
 		core->run();
 	}
 	
-	void ev_state_save(devmgr::event::state_save* ev)
+	void ev_state_save(const devmgr::event& ev)
 	{
 		//TODO
 	}
 	
-	void ev_state_load(devmgr::event::state_load* ev)
+	void ev_state_load(const devmgr::event& ev)
 	{
 		//TODO
 	}
 	
 	//TODO
-	void ev_keyboard(devmgr::event::keyboard* ev) {}
-	void ev_mousemove(devmgr::event::mousemove* ev) {}
-	void ev_mousebutton(devmgr::event::mousebutton* ev) {}
+	void ev_keyboard(const devmgr::event& ev) {}
+	void ev_mousemove(const devmgr::event& ev) {}
+	void ev_mousebutton(const devmgr::event& ev) {}
 	
-	void ev_gamepad(devmgr::event::gamepad* ev)
+	void ev_gamepad(const devmgr::event& ev)
 	{
-		core->input_gamepad(ev->device, ev->button, ev->down);
+		core->input_gamepad(ev.gamepad.device, ev.gamepad.button, ev.gamepad.down);
 	}
 	
 	~dev_core() { delete this->core; }
@@ -206,13 +206,13 @@ public:
 		}
 	}
 	
-	void ev_button(devmgr::event::button* bev)
+	void ev_button(const devmgr::event& bev)
 	{
-		devmgr::event::gamepad* gev = new devmgr::event::gamepad();
-		gev->device = 0;
-		gev->button = bev->id;
-		gev->down = bev->down;
-		gev->secondary = true;
+		devmgr::event gev(devmgr::event::ty_gamepad);
+		gev.secondary = true;
+		gev.gamepad.device = 0;
+		gev.gamepad.button = bev.button.id;
+		gev.gamepad.down = bev.button.down;
 		dispatch(gev);
 	}
 };

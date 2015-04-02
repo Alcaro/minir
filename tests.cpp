@@ -133,9 +133,64 @@ static void test_sort()
 	assert(items3[3]==4);
 }
 
+static void test_fifo()
+{
+	{
+		fifo<int> n;
+		for (int i=0;i<4;i++)
+		{
+			assert(n.count() == 0);
+			for (int i=1;i<=4;i++) n.push(i);
+			assert(n.count() == 4);
+			for (int i=1;i<=4;i++) assert(n.pop()==i);
+		}
+	}
+	
+	{
+		fifo<int> n;
+		assert(n.count() == 0);
+		for (int i=1;i<=8;i++) n.push(i);
+		assert(n.count() == 8);
+		for (int i=1;i<=8;i++) assert(n.pop()==i);
+	}
+	
+	{
+		fifo<int> n;
+		assert(n.count() == 0);
+		for (int i=1;i<=12;i++) n.push(i);
+		assert(n.count() == 12);
+		for (int i=1;i<=12;i++) assert(n.pop()==i);
+	}
+	
+	{
+		fifo<int> n;
+		assert(n.count() == 0);
+		for (int i=1;i<=16;i++) n.push(i);
+		assert(n.count() == 16);
+		for (int i=1;i<=16;i++) assert(n.pop()==i);
+	}
+	
+	{
+		fifo<int> n;
+		for (int i=1;i<=4;i++) n.push(i);
+		for (int i=1;i<=4;i++) assert(n.pop()==i);
+		for (int i=1;i<=15;i++) n.push(i);
+		for (int i=1;i<=15;i++) assert(n.pop()==i);
+	}
+	
+	{
+		fifo<int> n;
+		for (int i=1;i<=7;i++) n.push(i);
+		for (int i=1;i<=7;i++) assert(n.pop()==i);
+		for (int i=1;i<=15;i++) n.push(i);
+		for (int i=1;i<=15;i++) assert(n.pop()==i);
+	}
+}
+
 int main()
 {
 	//test_multiint();
-	test_sort();
+	//test_sort();
+	test_fifo();
 }
 #endif

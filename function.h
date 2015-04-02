@@ -4,13 +4,13 @@
 //- BIND_FREE_CB/BIND_MEM_CB were combined to a single bind(), by using the C99 preprocessor's __VA_ARGS__.
 //- Instead of the thousand lines of copypasta, the implementations were merged by using some preprocessor macros and having the file include itself.
 //- The Arity, ReturnType and ParamNType constants/typedefs were removed.
-//- NullCallback was replaced with support for plain NULL, by implicitly casting the NULL to a pointer to a private class.
-//- BoundCallbackFactory and bind_arg was added. It's useful for legacy C-like code, and some other cases.
+//- NullCallback was replaced with support for plain NULL, by implicitly casting the NULL to a pointer to a private class (default construction also exists).
+//- BoundCallbackFactory and bind_ptr were added. It's useful for legacy C-like code, and some other cases.
 //- Made it safe to call an unassigned object. (Unassigned objects are still false.)
 
 //List of libraries that do roughly the same thing:
 //http://www.codeproject.com/Articles/7150/ Member Function Pointers and the Fastest Possible C++ Delegates
-// rejected because it uses ugly hacks which defeat the optimizer, and my brain
+// rejected because it uses ugly hacks which defeat the optimizer, unknown compilers, and my brain
 //http://www.codeproject.com/Articles/11015/ The Impossibly Fast C++ Delegates
 // rejected because creation syntax is ugly
 //http://www.codeproject.com/Articles/13287/ Fast C++ Delegate
@@ -111,13 +111,31 @@ template<typename FuncSignature> class function;
 template<typename R C TYPENAMES>
 class function<R (ARG_TYPES)>
 {
-private: class null_only;
+private:
+    class null_only;
+
+    typedef R (*FuncType)(const void* C ARG_TYPES);
+    function(FuncType f, const void* o) : func(f), obj(o) {}
+
+    FuncType func;
+    const void* obj;
+
 public:
-    function()                    : func(EmptyHandler), obj(NULL) {}
+    //to make null objects callable, 'func' must be a valid function
+    //I can not:
+    //- use the lowest bits - requires mask at call time, and confuses the optimizer
+    //- compare it to a static null function, I don't trust the compiler to merge it correctly
+    //nor can I use NULL/whatever in 'obj', because foreign code can find that argument just as easily as this one can
+    //solution: set obj=func=EmptyFunction for null functions
+    //- EmptyFunction doesn't use obj, it can be whatever
+    //- it is not sensitive to false negatives - even if the address of EmptyFunction changes, obj==func does not
+    //- it is not sensitive to false positives - EmptyFunction is private and it is impossible for foreign code to know where it is, and luck can not hit it 
+    //- it is sensitive to hostile callers, but if you call bind_ptr(func, (void*)func), you're asking for bugs.
+    function()                    : func(EmptyHandler), obj((void*)EmptyHandler) {}
     function(const function& rhs) : func(rhs.func), obj(rhs.obj) {}
     ~function() {}
 
-    function(const null_only*)    : func(EmptyHandler), obj(NULL) {}
+    function(const null_only*)    : func(EmptyHandler), obj((void*)EmptyHandler) {}
 
     function& operator=(const function& rhs)
         { obj = rhs.obj; func = rhs.func; return *this; }
@@ -129,19 +147,17 @@ public:
 
 private:
     typedef const void* function::*SafeBoolType;
+    bool isTrue() const
+    {
+      return ((void*)func != obj);
+    }
 public:
     inline operator SafeBoolType() const
-        { return func != EmptyHandler ? &function::obj : NULL; }
+        { return isTrue() ? &function::obj : NULL; }
     inline bool operator!() const
-        { return func == EmptyHandler; }
+        { return !isTrue(); }
 
 private:
-    typedef R (*FuncType)(const void* C ARG_TYPES);
-    function(FuncType f, const void* o) : func(f), obj(o) {}
-
-private:
-    FuncType func;
-    const void* obj;
 
     static R EmptyHandler(const void* o C ARG_TYPES_AND_NAMES) { return R(); }
 

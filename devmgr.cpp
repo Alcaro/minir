@@ -9,14 +9,15 @@ struct devicedat {
 	uint32_t events[2];//[0]=primary, [1]=secondary (index with event->secondary)
 };
 
-event* ev_head;
-event* ev_tail;
-
-event* ev_head_thread;
-
 //[0] is the core, [1] is the primary device
 struct devicedat * devices;
 size_t numdevices;
+
+
+fifo<event> events;
+
+smutex t_mut;
+fifo<event> t_events;
 
 
 struct buttondat {
@@ -32,32 +33,25 @@ multiint<uint16_t> holdfire;
 uint8_t buttonblock;
 
 
-void ev_append(event* ev)
+void ev_append(const event& ev)
 {
-	if (this->ev_tail) this->ev_tail->next=ev;
-	else this->ev_head=ev;
-	this->ev_tail=ev;
+	events.push(ev);
 }
 
-void ev_append_async(event* ev)
+void ev_append_async(const event& ev)
 {
-	event* oldval=lock_read(&this->ev_head_thread);
-	while (true)
-	{
-		ev->next=oldval;
-		event* newval=lock_write_eq(&this->ev_head_thread, oldval, ev);
-		if (newval==oldval) break;
-		else oldval=newval;
+	synchronized(t_mut) {
+		t_events.push(ev);
 	}
 }
 
-/*private*/ void ev_do_dispatch(event* ev, device* dev)
+/*private*/ void ev_do_dispatch(const event& ev, device* dev)
 {
-	switch (ev->type)
+	switch (ev.type)
 	{
 #define HANDLE_EVENT(name) \
 	case event::ty_##name: \
-		dev->ev_##name((event::name*)ev); \
+		dev->ev_##name(ev); \
 		break
 	//ignore null events, they're never dispatched anyways
 	HANDLE_EVENT(frame);
@@ -74,8 +68,7 @@ void ev_append_async(event* ev)
 	}
 }
 
-//Returns whether the event was dispatched.
-/*private*/ void ev_dispatch_to(event* ev, size_t index)
+/*private*/ void ev_dispatch_to(const event& ev, size_t index)
 {
 	static const uint16_t subscriber_bits[]={
 		0,
@@ -84,26 +77,25 @@ void ev_append_async(event* ev)
 		e_keyboard, e_mouse, e_mouse, e_gamepad,
 	};
 	
-	if (ev->source != this->devices[index].obj &&
-	    subscriber_bits[ev->type] & this->devices[index].events[ev->secondary])
+	if (ev.source != this->devices[index].obj &&
+	    subscriber_bits[ev.type] & this->devices[index].events[ev.secondary])
 	{
 		//no need to null check obj; null objs ask for no events, so they won't get here
 		ev_do_dispatch(ev, this->devices[index].obj);
 	}
 }
 
-/*private*/ void ev_dispatch(event* ev)
+/*private*/ void ev_dispatch(const event& ev)
 {
-	if (ev->blockstate != event::bs_resent) ev_dispatch_to(ev, 1);
+	if (ev.blockstate != event::bs_resent) ev_dispatch_to(ev, 1);
 	
-	if (ev->type == event::ty_keyboard) // TODO: mousemove, mousebutton, gamepad
+	if (ev.type == event::ty_keyboard) // TODO: mousemove, mousebutton, gamepad
 	{
-		event::keyboard* key = (event::keyboard*)ev;
-		buttonblock = key->blockstate;
-		mapper->event(inputmapper::dev_kb, key->deviceid, key->libretrocode, key->scancode, key->down);
+		buttonblock = ev.blockstate;
+		mapper->event(inputmapper::dev_kb, ev.keyboard.deviceid, ev.keyboard.libretrocode, ev.keyboard.scancode, ev.keyboard.down);
 	}
 	
-	if (ev->blockstate == event::bs_blocked) return;
+	if (ev.blockstate == event::bs_blocked) return;
 	for (size_t i=2;i<this->numdevices;i++)
 	{
 		ev_dispatch_to(ev, i);
@@ -111,44 +103,34 @@ void ev_append_async(event* ev)
 	ev_dispatch_to(ev, 0);
 }
 
-/*private*/ void ev_dispatch_chain(event* ev)
-{
-	while (ev)
-	{
-		ev_dispatch(ev);
-		event* next=ev->next;
-		ev->next=NULL;
-		ev->release();
-		ev=next;
-	}
-}
-
 /*private*/ void ev_dispatch_all()
 {
-	ev_dispatch_chain(this->ev_head);
-	this->ev_head=NULL;
-	this->ev_tail=NULL;
+	while (!events.empty())
+	{
+		event ev = events.pop_checked();
+		ev_dispatch(ev);
+	}
 }
 
 /*private*/ void ev_button(unsigned int id, inputmapper::triggertype events)
 {
 	buttondat& button = buttons[id];
-	event::button ev;
-	ev.id = buttons[id].id;
+	event ev(event::ty_button);
+	ev.button.id = buttons[id].id;
 	
 	//there's so many possibilities here; three event types, and three event flags, each of which can be set individually
 	if (button.type == device::btn_event)
 	{
-		if (events&inputmapper::tr_primary) ev.down = true;
+		if (events&inputmapper::tr_primary) ev.button.down = true;
 		else return;
 	}
 	else
 	{
 		if ((events&(inputmapper::tr_press|inputmapper::tr_release)) == 0) return;
-		ev.down = (events&inputmapper::tr_press);
+		ev.button.down = (events&inputmapper::tr_press);
 		if (button.type == device::btn_hold)
 		{
-			if (ev.down)
+			if (ev.button.down)
 			{
 				holdfire.add(id);
 				return;//btn_hold fires each frame, but not as a direct response to events
@@ -157,7 +139,7 @@ void ev_append_async(event* ev)
 		}
 	}
 	
-	button.dev->ev_button(&ev);
+	button.dev->ev_button(ev);
 }
 
 
@@ -246,11 +228,22 @@ void frame()
 	//8. The secondary frame event is dispatched to the other devices, including the core.
 	//9. Core output is dispatched.
 	
-	event::frame ev;
+	event ev(event::ty_frame);
 	
 	ev.secondary=false;
-	ev_dispatch(&ev); // #1
-	ev_dispatch_chain(lock_xchg(&this->ev_head_thread, NULL)); // #2
+	ev_dispatch(ev); // #1
+	
+	// #2
+	t_mut.lock();
+	while (!t_events.empty())
+	{
+		event ev = t_events.pop_checked();
+		t_mut.unlock();
+		ev_dispatch(ev);
+		t_mut.lock();
+	}
+	t_mut.unlock();
+	
 	ev_dispatch_all(); // #3
 	
 	// #4
@@ -258,12 +251,12 @@ void frame()
 	uint16_t* held = holdfire.get(numheld);
 	if (numheld)
 	{
-		event::button ev;
-		ev.down = true;
+		event ev(event::ty_button);
+		ev.button.down = true;
 		for (uint16_t i=0;i<numheld;i++)
 		{
-			ev.id = buttons[held[i]].id;
-			buttons[held[i]].dev->ev_button(&ev);
+			ev.button.id = buttons[held[i]].id;
+			buttons[held[i]].dev->ev_button(ev);
 		}
 	}
 	
@@ -271,10 +264,10 @@ void frame()
 	
 	ev.secondary=true;
 	ev.blockstate = event::bs_blocked;//this is a bit ugly, but I'd rather not split the function.
-	ev_dispatch(&ev); // #6
+	ev_dispatch(ev); // #6
 	ev_dispatch_all(); // #7
 	ev.blockstate = event::bs_resent;
-	ev_dispatch(&ev); // #8
+	ev_dispatch(ev); // #8
 	
 	ev_dispatch_all(); // #9
 }
@@ -322,10 +315,6 @@ impl()
 	this->numdevices=2;
 	this->devices=malloc(sizeof(struct devicedat)*this->numdevices);
 	memset(this->devices, 0, sizeof(struct devicedat)*this->numdevices);
-	
-	this->ev_head=NULL;
-	this->ev_tail=NULL;
-	this->ev_head_thread=NULL;
 	
 	this->mapper=inputmapper::create();
 	this->mapper->set_cb(bind_this(&impl::ev_button));

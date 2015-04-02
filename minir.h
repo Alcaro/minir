@@ -91,12 +91,10 @@ public:
 		e_gamepad = 0x0040,
 	};
 	
-	class event : nocopy {
+	class event {
 		friend class devmgr;
 		friend class devmgr::impl;
-		event* next;
 		device* source;
-		uint8_t holdcount;
 		
 		enum {
 			bs_normal,
@@ -105,7 +103,7 @@ public:
 		};
 		uint8_t blockstate;
 		
-		//char padding[1];
+		//char padding[2];
 		
 		event();//not implemented
 		
@@ -131,33 +129,145 @@ public:
 		};
 		uint8_t type;
 		
-		class null;
+		union {
+			struct /*null_t*/ {} null;//empty
+			struct /*frame_t*/ {} frame;//empty
+			
+			struct /*state_save_t*/ {
+				//TODO
+				//Any device may declare that it wants an extra piece of data inserted into savestates. This is done through this function.
+				//The data is copied and may be deleted once this returns.
+				//The name should match the name of the device. The core will use a blank string as name.
+				//void insert(const char * name, const uint8_t * data, size_t len);
+			} state_save;
+			
+			struct /*state_load_t*/ {
+				//TODO
+				//The returned data is owned by the event object and is deleted once that happens.
+				//TODO: The core must be able to reject an offered savestate.
+				//Does the primary get/dispatch state events, then core dispatches secondary if it accepts the primary?
+				//const uint8_t* query(const char * name, size_t* len);
+			} state_load;
+			
+			struct /*video_t*/ {
+				//TODO: find a way to avoid
+				//- copying this from core-owned memory to front-owned (requires libretro change, but easy for me)
+				//- copying this from front-owned to device-owned video memory (requires changing stuff around here)
+				//video data can be 90KB/frame even for tiny stuff like GBC, and later consoles only go bigger; avoiding that copy is desirable
+				//TODO: may want to hold() this one
+				unsigned int width;
+				unsigned int height;
+				const void* data;
+				unsigned int pitch;
+				
+			private:
+				friend class event;
+				uint32_t* refcount;
+			} video;
+			
+			struct /*audio_t*/ {
+				//TODO: libretro v2 will require that this gets changed (likely rewritten from scratch), but for now, this is sufficient.
+				//TODO: some cores use a front-pull algorithm for audio, I'll need to handle that somehow
+				//TODO: may want to hold() this one
+				
+				const int16_t * data;
+				size_t frames;
+				
+			private:
+				friend class event;
+				uint32_t* refcount;
+			} audio;
+			
+			
+			struct /*keyboard_t*/ {
+				unsigned int deviceid;//usually 1
+				unsigned int scancode;//0..1023
+				unsigned int libretrocode;//0..RETROK_LAST
+				bool down;
+			} keyboard;
+			
+			struct /*mousemove_t*/ {
+				//TODO
+			} mousemove;
+			
+			struct /*mousebutton_t*/ {
+				//TODO
+			} mousebutton;
+			
+			struct /*gamepad_t*/ {
+				//TODO: libretro v2 will change this too. If I'm lucky, it'll change to exactly this.
+				unsigned int device;
+				unsigned int button;//RETRO_DEVICE_ID_JOYPAD_*
+				bool down;
+			} gamepad;
+			
+			struct /*button_t*/ {
+				unsigned int id;
+				bool down;
+			} button;
+		};
 		
-		class frame;
-		class state_save;
-		class state_load;
+	private:
+		void ref()
+		{
+			uint32_t* refcount = NULL;
+			if (type==ty_video) refcount = video.refcount;
+			if (type==ty_audio) refcount = audio.refcount;
+			if (refcount) ++*refcount;
+		}
 		
-		class video;
-		class audio;
+		void unref()
+		{
+			if (type==ty_video)
+			{
+				if (!video.refcount) return;
+				if (--*video.refcount == 0)
+				{
+					free((void*)video.data);
+					free(video.refcount);
+				}
+			}
+			if (type==ty_audio)
+			{
+				if (!audio.refcount) return;
+				if (--*audio.refcount == 0)
+				{
+					free((void*)audio.data);
+					free(audio.refcount);
+				}
+			}
+		}
+	public:
 		
-		class keyboard;
-		class mousemove;
-		class mousebutton;
-		class gamepad;
+		event(uint8_t type) : source(NULL), blockstate(bs_normal), type(type)
+		{
+			if (type==ty_video || type==ty_audio)
+			{
+				uint32_t* refcount = malloc(sizeof(uint32_t));
+				*refcount = 1;
+				if (type==ty_video) video.refcount = refcount;
+				if (type==ty_audio) audio.refcount = refcount;
+			}
+		}
 		
-		class button;
+		event(const event& other)
+		{
+			memcpy(this, &other, sizeof(event));
+			ref();
+		}
 		
-		//The primary device is allowed to save an event for later, and dispatch it at some point in the future.
-		//To do this, call hold(). The event will remain open for dispatching until release().
-		//Alternatively, a device may want to keep an event and process it later. For example, video dumping is expensive.
-		//Savestate, frame and button events may not be held.
-		//TODO: figure out how this interacts with threading
-		void hold() { this->holdcount++; }
-		void release() { this->holdcount--; if (!this->holdcount) delete this; }
+		event& operator=(const event& other)
+		{
+			unref();
+			memcpy(this, &other, sizeof(event));
+			ref();
+			return *this;
+		}
 		
-		event(uint8_t type) : next(NULL), source(NULL), holdcount(1), blockstate(bs_normal), type(type) {}
-		
-		virtual ~event() {}
+		~event()
+		{
+			unref();
+		}
 	};
 	
 	class device : nocopy {
@@ -220,120 +330,49 @@ public:
 		//An event is not dispatched to its sender. Events are guaranteed to be processed in the order they're dispatched.
 		//While few devices would listen to the same events they emit, the primary device is likely to
 		// both listen to and emit secondary frame events, so the same guarantees are given to all devices.
-		void dispatch(event* ev) { parent->ev_set_source(ev, this); parent->ev_append(ev); }
+		void dispatch(event& ev) { ev.source = this; parent->ev_append(ev); }
 		
 		//This allows events to be dispatched from a foreign thread.
 		//Events are processed between the primary and secondary frame events. Anything else is unspecified.
 		//The event must be a primary input event. It should be called from an event dispatched by window_run(),
 		// but is allowed to be dispatched in response to something else. For example, a device is allowed to
 		// listen to both window_run and primary frame and dispatch the same events from both.
-		void dispatch_async(event* ev) { parent->ev_set_source(ev, this); parent->ev_append_async(ev); }
+		void dispatch_async(event& ev) { ev.source = this; parent->ev_append_async(ev); }
 		
 		//Blocks the current event. The event may be held and dispatch()ed later.
 		//May only be called during an event handler, and only on that event.
 		//May only be called if you're the primary device.
 		//If you block an input event, button events connected to that input will not fire, even if you're the primary device.
-		void reject(event* ev) { ev->blockstate = event::bs_blocked; }
+		void reject(event& ev) { ev.blockstate = event::bs_blocked; }
 		
 	private:
 		virtual void attach() = 0;
 		virtual void detach() {}
 		
-		virtual void ev_frame(event::frame* ev) {}
-		virtual void ev_state_save(event::state_save* ev) {}
-		virtual void ev_state_load(event::state_load* ev) {}
+		virtual void ev_frame(const event& ev) {}
+		virtual void ev_state_save(const event& ev) {}
+		virtual void ev_state_load(const event& ev) {}
 		
-		virtual void ev_video(event::video* ev) {}
-		virtual void ev_audio(event::audio* ev) {}
+		virtual void ev_video(const event& ev) {}
+		virtual void ev_audio(const event& ev) {}
 		
-		virtual void ev_keyboard(event::keyboard* ev) {}
-		virtual void ev_mousemove(event::mousemove* ev) {}
-		virtual void ev_mousebutton(event::mousebutton* ev) {}
-		virtual void ev_gamepad(event::gamepad* ev) {}
+		virtual void ev_keyboard(const event& ev) {}
+		virtual void ev_mousemove(const event& ev) {}
+		virtual void ev_mousebutton(const event& ev) {}
+		virtual void ev_gamepad(const event& ev) {}
 		
-		virtual void ev_button(event::button* ev) {}
+		virtual void ev_button(const event& ev) {}
 		
 	protected:
 		virtual ~device() { if (parent) parent->dev_unregister(this); }
 	};
 	
-	//See class device for more information about these.
-	class event::null : public event { public: null() : event(ty_null) {} }; // Used internally by the device manager. Devices never see those.
-	class event::frame : public event { public: frame() : event(ty_frame) {} };
-	class event::state_save : public event {
-	public:
-		state_save() : event(ty_state_save) {}
-		//Any device may declare that it wants an extra piece of data inserted into savestates. This is done through this function.
-		//The data is copied and may be deleted once this returns.
-		//The name should match the name of the device. The core will use a blank string as name.
-		void insert(const char * name, const uint8_t * data, size_t len);
-	};
-	class event::state_load : public event {
-	public:
-		state_load() : event(ty_state_load) {}
-		//The returned data is owned by the event object and is deleted once that happens.
-		//TODO: The core must be able to reject an offered savestate.
-		//Does the primary get/dispatch state events, then core dispatches secondary if it accepts the primary?
-		const uint8_t* query(const char * name, size_t* len);
-	};
-	class event::video : public event {
-	public:
-		//TODO: find a way to avoid
-		//- copying this from core-owned memory to front-owned (requires libretro change, but easy for me)
-		//- copying this from front-owned to device-owned video memory (requires changing stuff around here)
-		//video data can be 90KB/frame even for tiny stuff like GBC, and later consoles only go bigger; avoiding that copy is desirable
-		video() : event(ty_video) {}
-		unsigned int width;
-		unsigned int height;
-		const void* data;
-		size_t pitch;
-		
-		~video() { free((void*)data); }
-	};
-	class event::audio : public event {
-	public:
-		audio() : event(ty_audio) {}
-		//TODO: libretro v2 will require that this gets changed (likely rewritten from scratch), but for now, this is sufficient.
-		//TODO: some cores use a front-pull algorithm for audio, I'll need to handle that somehow
-		const int16_t * data;
-		size_t frames;
-		
-		~audio() { free((int16_t*)data); }
-	};
-	class event::keyboard : public event {
-	public:
-		keyboard() : event(ty_keyboard) {}
-		unsigned int deviceid;//usually 1
-		unsigned int scancode;//0..1023
-		unsigned int libretrocode;//0..RETROK_LAST
-		bool down;
-	};
-	//TODO: Fill in the mouse events.
-	class event::mousemove : public event {};
-	class event::mousebutton : public event {};
-	class event::gamepad : public event {
-	public:
-		gamepad() : event(ty_gamepad) {}
-		//TODO: libretro v2 will change this too. If I'm lucky, it'll change to exactly this.
-		unsigned int device;
-		unsigned int button;//RETRO_DEVICE_ID_JOYPAD_*
-		bool down;
-	};
-	class event::button : public event {
-	public:
-		button() : event(ty_button) {}
-		//You can't dispatch a button event manually, nor can you hold it.
-		unsigned int id;
-		bool down;
-	};
-	
 protected:
 	friend class event;
-	virtual void ev_append(event* ev) = 0;
-	virtual void ev_append_async(event* ev) = 0;
-	//virtual void ev_dispatch_sec(event* ev) = 0;
+	virtual void ev_append(const event& ev) = 0;
+	virtual void ev_append_async(const event& ev) = 0;
 	
-	void ev_set_source(event* ev, device* source) { ev->source = source; } // this one is here so it can be inlined
+	//void ev_set_source(event* ev, device* source) { ev->source = source; } // this one is here so it can be inlined
 	
 	virtual void dev_register_events(device* target, uint32_t primary, uint32_t secondary) = 0;
 	virtual bool dev_register_button(device* target, const char * desc, device::buttontype when, unsigned int id) = 0;

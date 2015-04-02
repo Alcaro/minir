@@ -113,9 +113,9 @@ uintptr_t thread_get_id()
 }
 
 
-uint32_t lock_incr(uint32_t * val) { return InterlockedIncrement((LONG*)val); }
-uint32_t lock_decr(uint32_t * val) { return InterlockedDecrement((LONG*)val); }
-uint32_t lock_read(uint32_t * val) { return InterlockedCompareExchange((LONG*)val, 0, 0); }
+uint32_t lock_incr(uint32_t* val) { return InterlockedIncrement((LONG*)val); }
+uint32_t lock_decr(uint32_t* val) { return InterlockedDecrement((LONG*)val); }
+uint32_t lock_read(uint32_t* val) { return InterlockedCompareExchange((LONG*)val, 0, 0); }
 
 void* lock_read_i(void* * val) { return InterlockedCompareExchangePointer(val, 0, 0); }
 void lock_write_i(void** val, void* value) { (void)InterlockedExchangePointer(val, value); }

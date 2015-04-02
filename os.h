@@ -29,8 +29,7 @@ public:
 	
 	//per http://chadaustin.me/cppinterface.html - redirect operator delete to a function, this doesn't come from the normal allocator.
 	static void operator delete(void* p) { if (p) ((dylib*)p)->release(); }
-private:
-	void release();//this is the real destructor
+	void release();//this is the real destructor, you can use either this one or delete it
 };
 
 
@@ -68,7 +67,6 @@ public:
 	void unlock();
 	
 	static void operator delete(void* p) { if (p) ((mutex*)p)->release(); }
-private:
 	void release();
 };
 
@@ -89,7 +87,6 @@ public:
 	void runlock();
 	
 	static void operator delete(void* p) { if (p) ((rwlock*)p)->release(); }
-private:
 	void release();
 };
 
@@ -150,19 +147,20 @@ public:
 	mutexlocker(mutex* m) { this->m=m; this->m->lock(); }
 	~mutexlocker() { this->m->unlock(); }
 };
-#define CRITICAL_FUNCTION() static smutex CF_holder; mutexlocker CF_lock(&CF_holder)
+//#define CRITICAL_FUNCTION() static smutex CF_holder; mutexlocker CF_lock(&CF_holder)
+#define synchronized(mutex) for(bool FIRST=true;FIRST;FIRST=false)for(mutexlocker LOCK(mutex);FIRST;FIRST=false)
 
-//Static mutex. Initialized on first use.
+//Wrapper around a mutex, to treat it more like a value class.
 class smutex {
 public:
-	smutex() : mut(NULL) {}
+	smutex() : mut(mutex::create()) {}
 	~smutex() { delete mut; }
 	
-	void lock() { thread_once_create(&this->mut)->lock(); }
-	bool try_lock() { return thread_once_create(&this->mut)->try_lock(); }
-	void unlock() { this->mut->unlock(); }
+	void lock() { mut->lock(); }
+	bool try_lock() { return mut->try_lock(); }
+	void unlock() { mut->unlock(); }
 	
-	mutex* operator&() { return thread_once_create(&this->mut); }
+	operator mutex*() { return mut; }
 private:
 	mutex* mut;
 };
@@ -208,6 +206,7 @@ private:
 	signed int n_count;//Not used by all implementations.
 };
 
+
 //Increments or decrements a variable, while guaranteeing atomicity relative to other threads. lock_read() just reads the value.
 //Returns the value after changing it.
 uint32_t lock_incr(uint32_t* val);
@@ -239,13 +238,14 @@ template<typename T> T* lock_write_eq(T** val, null_only* old, null_only* newval
 template<typename T> T* lock_xchg(T** val, null_only* newval) { return (T*)lock_xchg_i((void**)val, NULL); }
 #endif
 
+
 void thread_sleep(unsigned int usec);
 
 //Returns a value that's unique to the current thread for as long as the process lives. Does not
 // necessarily have any relationship to OS-level thread IDs.
 size_t thread_get_id();
 
-//This one creates 'count' threads, calls startpos() in each of them with 'id' from 0 to 'count'-1, and
+//This one creates 'count' threads, calls work() in each of them with 'id' from 0 to 'count'-1, and
 // returns once each thread has returned.
 //Unlike thread_create, thread_split is expected to be called often, for short-running tasks. The threads may be reused.
 //It is safe to use the values 0 and 1. However, you should avoid going above thread_ideal_count().
