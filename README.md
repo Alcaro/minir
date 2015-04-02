@@ -1,5 +1,7 @@
 # minir
-minir is a libretro frontend intended to complement RetroArch, by focusing on the usecases RetroArch is not focused on. In the unlikely event that RetroArch catches up to minir on all meaningful features, minir will be declared obsolute.
+minir is a libretro frontend intended to complement RetroArch, by focusing on the usecases RetroArch is not focused on. It's intended to match or exceed the power and usability of bsnes-qt (preferably exceed), both for beginners and advanced users.
+
+If RetroArch catches up to minir on all meaningful features, minir will be declared obsolute; however, due to the differing target audiences, this won't happen.
 
  | RetroArch | minir
 ----- | ----- | ------
