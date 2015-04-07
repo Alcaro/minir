@@ -147,7 +147,7 @@ static void set_sync(struct caudio * this_, bool sync)
 	this->sync=sync;
 }
 
-static bool has_sync(struct audio * this_)
+static bool has_sync(struct caudio * this_)
 {
 	return true;
 }

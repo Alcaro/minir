@@ -160,7 +160,7 @@ static inline size_t find_same(const uint16_t * a, const uint16_t * b)
 	return a-a_org;
 }
 
-size_t read_size(uint16_t* source)
+static size_t read_size(uint16_t* source)
 {
 #ifdef NO_UNALIGNED_MEM
 	size_t ret;
@@ -171,7 +171,7 @@ size_t read_size(uint16_t* source)
 #endif
 }
 
-void write_size(uint16_t* pos, size_t val)
+static void write_size(uint16_t* pos, size_t val)
 {
 #ifdef NO_UNALIGNED_MEM
 	memcpy(pos, val, sizeof(size_t);
