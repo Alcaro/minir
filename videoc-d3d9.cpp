@@ -326,7 +326,7 @@ static void libRelease()
 	FreeLibrary(hD3D9);
 }
 
-struct video * cvideo_create_d3d9(uintptr_t windowhandle, unsigned int screen_width, unsigned int screen_height,
+static struct video * cvideo_create_d3d9(uintptr_t windowhandle, unsigned int screen_width, unsigned int screen_height,
                                  videoformat depth, double fps)
 
 {

@@ -164,7 +164,7 @@ void image_convert(const struct image * src, struct image * dst)
 
 
 
-void convert_resize_2_2_self(const struct image * src, struct image * dst)
+static void convert_resize_2_2_self(const struct image * src, struct image * dst)
 {
 	float xstep=(float)src->width/dst->width;
 	float ystep=(float)src->height/dst->height;
@@ -182,7 +182,7 @@ void convert_resize_2_2_self(const struct image * src, struct image * dst)
 	}
 }
 
-void convert_resize_2_4(const struct image * src, struct image * dst)
+static void convert_resize_2_4(const struct image * src, struct image * dst)
 {
 	const uint32_t * conv=(const uint32_t*)image_get_convert_table(src->format, fmt_xrgb8888);
 	float xstep=(float)src->width/dst->width;
@@ -201,7 +201,7 @@ void convert_resize_2_4(const struct image * src, struct image * dst)
 	}
 }
 
-void convert_resize_4_4_self(const struct image * src, struct image * dst)
+static void convert_resize_4_4_self(const struct image * src, struct image * dst)
 {
 	float xstep=(float)src->width/dst->width;
 	float ystep=(float)src->height/dst->height;

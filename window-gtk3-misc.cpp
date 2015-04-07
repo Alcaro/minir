@@ -62,7 +62,7 @@ g_log_set_always_fatal((GLogLevelFlags)(G_LOG_LEVEL_CRITICAL|G_LOG_LEVEL_WARNING
 	XInitThreads();
 #endif
 	gtk_init(argc, argv);
-	_window_init_native();
+	_window_init_file();
 	_window_init_inner();
 	_window_init_misc();
 	//gdk_window_add_filter(NULL,scanfilter,NULL);

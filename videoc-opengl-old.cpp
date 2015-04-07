@@ -358,7 +358,7 @@ static Bool glx_wait_for_map_notify(Display* d, XEvent* e, char* arg) {
 }
 #endif
 
-struct video * cvideo_create_opengl_old(uintptr_t windowhandle, unsigned int screen_width, unsigned int screen_height,
+static struct video * cvideo_create_opengl_old(uintptr_t windowhandle, unsigned int screen_width, unsigned int screen_height,
                                    videoformat depth, double fps)
 {
 	struct video_opengl * this=malloc(sizeof(struct video_opengl));

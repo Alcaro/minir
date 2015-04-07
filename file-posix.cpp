@@ -90,7 +90,7 @@ const char * window_get_cwd()
 	return cwd_init;
 }
 
-void _window_init_native()
+void _window_init_file()
 {
 	char * cwd_init_tmp=getcwd(NULL, 0);
 	char * cwdend=strrchr(cwd_init_tmp, '/');

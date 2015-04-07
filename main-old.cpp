@@ -11,6 +11,11 @@
 #include <ctype.h>
 #include <time.h>
 
+#ifdef __GNUC__
+//this entire file is a mess of global shit
+#pragma GCC diagnostic ignored "-Wmissing-declarations"
+#endif
+
 #define VERSION "0.91"
 
 //yes, this file is a mess; the plan is to rewrite it from scratch.

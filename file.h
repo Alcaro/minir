@@ -134,3 +134,5 @@ void file_find_close(void* find);
 // anything except the local file system, it would only be able to return the input, or be
 // equivalent to _window_native_get_absolute_path, making it redundant and therefore useless.
 char * _window_native_get_absolute_path(const char * basepath, const char * path, bool allow_up);
+
+void _window_init_file();

@@ -142,7 +142,7 @@ static void free_(struct video * this_)
 	free(this);
 }
 
-struct video * cvideo_create_gdi(uintptr_t windowhandle, unsigned int screen_width, unsigned int screen_height,
+static struct video * cvideo_create_gdi(uintptr_t windowhandle, unsigned int screen_width, unsigned int screen_height,
                                    videoformat depth, double fps)
 {
 	struct video_gdi * this=malloc(sizeof(struct video_gdi));

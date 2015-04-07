@@ -146,7 +146,7 @@ static void set_pos(struct window * this_, int x, int y)
 	in_callback=false;
 }
 
-gboolean onmove_activate(GtkWidget* widget, GdkEvent* event, gpointer user_data)
+static gboolean onmove_activate(GtkWidget* widget, GdkEvent* event, gpointer user_data)
 {
 	struct window_gtk3 * this=(struct window_gtk3*)user_data;
 	if (!in_callback) this->onmove(event->configure.x, event->configure.y);
