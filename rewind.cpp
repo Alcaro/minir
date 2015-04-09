@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <string.h>
 
+//force some year-old C code to compile properly as C++ - I decided to switch long ago but still haven't finished.
 #define this This
 
 //Format per frame:

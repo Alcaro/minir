@@ -8,6 +8,7 @@
 #include <limits.h>
 #include "libretro.h"
 
+//force some year-old C code to compile properly as C++ - I decided to switch long ago but still haven't finished.
 #define this This
 
 //http://msdn.microsoft.com/en-us/library/vstudio/tcxf1dw6.aspx says %zX is not supported

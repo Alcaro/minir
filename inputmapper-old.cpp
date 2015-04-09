@@ -7,6 +7,7 @@
 #include "libretro.h"
 //static void dump_buttons(const unsigned int * buttons){for(int i=0;buttons[i];i++)printf("%.8X,",buttons[i]);puts("00000000");}
 
+//force some year-old C code to compile properly as C++ - I decided to switch long ago but still haven't finished.
 #define this This
 
 namespace {

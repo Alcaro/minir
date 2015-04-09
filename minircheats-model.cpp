@@ -12,6 +12,7 @@
 //- printf with 'z' size specifier - use PRIuPTR (yes, it's ugly)
 //   ('z' is (s)size_t while PRIuPTR is (u)intptr_t, but they have the same size on everything since MS-DOS)
 
+//force some year-old C code to compile properly as C++ - I decided to switch long ago but still haven't finished.
 #define this This
 
 //how address conversion works

@@ -8,6 +8,7 @@
 #include <X11/Xutil.h>
 #include <X11/extensions/XShm.h>
 
+//force some year-old C code to compile properly as C++ - I decided to switch long ago but still haven't finished.
 #define this This
 
 //this file is slightly based on ruby by byuu

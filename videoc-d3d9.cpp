@@ -6,6 +6,7 @@
 #include <D3D9.h>
 #define bind bind_func
 
+//force some year-old C code to compile properly as C++ - I decided to switch long ago but still haven't finished.
 #define this This
 
 #define D3DSWAPEFFECT_FLIPEX ((D3DSWAPEFFECT)5)//lazy compiler. and it's an enum so I can't #ifdef it

@@ -2,6 +2,7 @@
 
 namespace {
 
+//force some year-old C code to compile properly as C++ - I decided to switch long ago but still haven't finished.
 #define this This
 
 //TODO: there is no procedure for destroying threads

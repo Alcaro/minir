@@ -8,6 +8,7 @@
 #include <gdk/gdkx.h>
 #endif
 
+//force some year-old C code to compile properly as C++ - I decided to switch long ago but still haven't finished.
 #define this This
 
 static bool in_callback=false;

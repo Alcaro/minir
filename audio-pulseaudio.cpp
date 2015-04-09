@@ -6,6 +6,7 @@
 
 //this file is heavily based on the implementation in byuu's ruby, written by RedDwarf
 
+//force some year-old C code to compile properly as C++ - I decided to switch long ago but still haven't finished.
 #define this This
 
 struct audio_pulse {
