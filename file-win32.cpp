@@ -90,7 +90,7 @@ const char * window_get_cwd()
 	return cwd_init;
 }
 
-void _window_init_native()
+void _window_init_file()
 {
 	DWORD len=GetCurrentDirectory(0, NULL);
 	cwd_init=malloc(len+1);
