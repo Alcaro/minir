@@ -164,7 +164,7 @@ static size_t read_size(uint16_t* source)
 {
 #ifdef NO_UNALIGNED_MEM
 	size_t ret;
-	memcpy(ret, source, sizeof(size_t);
+	memcpy(ret, source, sizeof(size_t));
 	return ret;
 #else
 	return *(size_t*)source;
@@ -174,7 +174,7 @@ static size_t read_size(uint16_t* source)
 static void write_size(uint16_t* pos, size_t val)
 {
 #ifdef NO_UNALIGNED_MEM
-	memcpy(pos, val, sizeof(size_t);
+	memcpy(pos, val, sizeof(size_t));
 #else
 	*(size_t*)pos = val;
 #endif
