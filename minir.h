@@ -66,6 +66,131 @@ public:
 	
 	class device;
 	
+	//Event types:
+	// Event
+	//  Stateless event.
+	// Button
+	//  A simple boolean.
+	// Joystick
+	//  A two-dimensional analog pointer. If no external stimuli are applied, it moves back to the center.
+	// Motion
+	//  A two-dimensional analog device. Lacks state, only reports changes. Pretty much the same as Joystick, but can be far more jittery.
+	//  [TODO] Figure out whether this should report how much one point of movement means.
+	// Position
+	//  A position on a finite two-dimensional plane. Remains immobile if no external stimuli are applied.
+	// Pointer
+	//  Zero or one position.
+	// Multipointer
+	//  Zero or more positions.
+	
+	//Combined events:
+	// Keyboard
+	//  50-100 Button.
+	// Gamepad
+	//  16 Button, two Joystick.
+	// Mouse
+	//  One Motion, three Button, and another Motion whose X axis never moves (wheel).
+	// Mouse cursor
+	//  Like Mouse, but Position instead of Motion.
+	
+	
+	//Device list:
+	
+	//Sources:
+	// Keyboard
+	// Mouse
+	// Mouse cursor
+	// Gamepad
+	// Multitouch
+	//  input: (user)
+	//  output: variable number of items of their own name
+	//  constraints: single instance
+	
+	//Sinks:
+	// Audio
+	// Video
+	// A bunch of input visualizers, mainly for debugging so they're not in the gui, but usable if you poke the config
+	
+	//Translators: Simple devices that take input and return it in another form.
+	// Finger extractor
+	//  input: 1 Multipointer
+	//  output: 1 Pointer
+	//  constraints: auto create
+	//  Returns a random touch point if there are any. Otherwise, nothing.
+	//
+	// Position emulator
+	//  input: 1 Pointer
+	//  output: 1 Position
+	//  constraints: auto create
+	//  If there is no touch point, the position remains whereever it last was.
+	//
+	// Pointer emulator
+	//  input: 1 Position, 1 Button
+	//  output: 1 Pointer
+	//  constraints: auto create
+	//  If the button is pressed, report the Position. If not, report no touch point. The Button is recommended to be on the mouse.
+	//
+	// Joystick emulator
+	//  input: 1 Pointer
+	//  output: 1 Joystick
+	//  constraints: auto create
+	//  If there is no touch point, returns the center.
+	//
+	// Gamepad emulator
+	//  input: 16 buttons, 2 analog self-centering
+	//  output: gamepad
+	//  Joins the input into a RetroPad.
+	
+	//Processors: Complex devices that transform input in strange ways.
+	// Gamepad joiner
+	//  input: 2 gamepad, 16 booleans
+	//  output: 1 gamepad
+	//  Each of the inputs on a gamepad has a boolean. One of the two gamepads is considered 'primary'; the other is 'secondary'.
+	//  The inputs have two ways to work, depending on the boolean:
+	//  If clear, it's 'join mode'. If either of the two inputs are pressed, the output is.
+	//  If set, it's 'suppression mode'. If any suppression input on the primary device has been active for the last second,
+	//   all suppression input is taken from the primary device. If not, secondary.
+	//  [TODO: figure out how to do with analogs]
+	//
+	// Screenshots
+	//  input: core video, 1 Event
+	//  output: (binary file)
+	//  When the event fires, saves the next (or previous) core video output to a file.
+	//
+	// Netplay
+	//  input: all core input, core output, (internet)
+	//  output: same as input, creates savestates, modifies savestates, rejects savestate requests
+	//  constraints: must be the only input to the core
+	//  Passes around all core input between multiple computers, allowing people to play with each other.
+	//  
+	// Video recording
+	//  input: all core input
+	//  output: modifies savestates, (binary file)
+	//  constraints: must see the final output to the core
+	//  Dumps the core input to a file, allowing it to be replayed later.
+	//
+	// Video replay
+	//  input: (binary file)
+	//  output: same as core
+	//  constraints: must be the only input to the core
+	//  Replays a video recording.
+	//
+	// Rewind
+	//  input: 1 Button
+	//  output: creates savestates, loads savestates, alters core audio
+	//  Saves a savestate each frame. While the button is held, reloads the savestates instead.
+	//
+	// Mouse follow setup
+	//  input: core video?, core memory
+	//  output: 1 Gamepad, creates savestates, loads savestates, can detach itself
+	//  constraints: must be the only input to the core
+	//  Spams savestates and input events, analyzing the core memory as it goes along, to find the player position.
+	//
+	// Mouse follow
+	//  input: 1 Position, core memory, core video?, some checkbox
+	//  output: 1 Gamepad (using only the arrow keys), can add other devices
+	//  Using data captured from the mouse follow setup, makes the player follow the mouse pointer.
+	
 	struct devinfo {
 		enum {
 			f_primary = 0x0001,//This will become a primary device.
@@ -73,6 +198,7 @@ public:
 		};
 		
 		const char * name;
+		void (*create)();
 		
 		uint32_t features;
 		//char padding[4];
