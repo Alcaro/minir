@@ -186,7 +186,7 @@ public:
 	//  input: core video
 	//  output: modifies savestates
 	//  Adds a thumbnail of the core output to savestates, which shows up in the savestate manager.
-	//  [TODO: Does not trigger on rewind savestates.]
+	//  Does not trigger on 'ethereal' savestates, like rewind and mouse follow setup.
 	//
 	// Rewind
 	//  input: 1 Button
@@ -194,10 +194,10 @@ public:
 	//  Saves a savestate each frame. While the button is held, reloads the savestates instead.
 	//
 	// Mouse follow setup
-	//  input: core video?, core memory
+	//  input: modifies core video, modifies core audio (by discarding them), core memory
 	//  output: 1 Gamepad, creates savestates, loads savestates, can detach itself
 	//  constraints: must be the only input to the core
-	//  Spams savestates and input events, analyzing the core memory as it goes along, to find the player position.
+	//  Sends a large number of savestates and input events, analyzing the core memory as it goes along, to find the player position.
 	//
 	// Mouse follow
 	//  input: 1 Position, core memory, core video?, some checkbox
