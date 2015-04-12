@@ -175,6 +175,19 @@ public:
 	//  constraints: must be the only input to the core
 	//  Replays a video recording.
 	//
+	// Savestates
+	//  input: 25 Event
+	//  output: creates savestates, loads savestates
+	//  Four of the events are a slot selector, with Next, Previous, Save and Load.
+	//  An additional 20 are unslotted; they're hardcoded to refer to slots 0 through 9.
+	//  The last one opens a savestate manager window, allowing a GUI for the listed actions.
+	//
+	// Savestate thumbnails
+	//  input: core video
+	//  output: modifies savestates
+	//  Adds a thumbnail of the core output to savestates, which shows up in the savestate manager.
+	//  [TODO: Does not trigger on rewind savestates.]
+	//
 	// Rewind
 	//  input: 1 Button
 	//  output: creates savestates, loads savestates, alters core audio
