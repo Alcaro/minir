@@ -104,7 +104,6 @@ public:
 	// Multitouch
 	//  input: (user)
 	//  output: variable number of items of their own name
-	//  constraints: single instance
 	
 	//Sinks:
 	// Audio
@@ -137,50 +136,51 @@ public:
 	//  If there is no touch point, returns the center.
 	//
 	// Gamepad emulator
-	//  input: 16 buttons, 2 analog self-centering
+	//  input: 16 Button, 2 Joystick
 	//  output: gamepad
 	//  Joins the input into a RetroPad.
 	
-	//Processors: Complex devices that transform input in strange ways.
-	// Gamepad joiner
-	//  input: 2 gamepad, 16 booleans
-	//  output: 1 gamepad
-	//  Each of the inputs on a gamepad has a boolean. One of the two gamepads is considered 'primary'; the other is 'secondary'.
-	//  The inputs have two ways to work, depending on the boolean:
-	//  If clear, it's 'join mode'. If either of the two inputs are pressed, the output is.
-	//  If set, it's 'suppression mode'. If any suppression input on the primary device has been active for the last second,
-	//   all suppression input is taken from the primary device. If not, secondary.
-	//  [TODO: figure out how to do with analogs]
-	//
+	//Processors: Devices that do complex stuff.
 	// Screenshots
 	//  input: core video, 1 Event
 	//  output: (binary file)
 	//  When the event fires, saves the next (or previous) core video output to a file.
 	//
+	// Video recording
+	//  input: core video, code audio, ???
+	//  output: (binary file)
+	//  Records all core output to a multimedia file.
+	//
+	// L+R block
+	//  input: 1 Gamepad
+	//  output: 1 Gamepad
+	//  If both left+right are held on the input, only the last one to be pressed is held on the output. Same for up+down.
+	//
 	// Netplay
 	//  input: all core input, core output, (internet)
-	//  output: same as input, creates savestates, modifies savestates, rejects savestate requests
+	//  output: same as input, creates savestates, modifies savestates, rejects savestate requests, creates frame events
 	//  constraints: must be the only input to the core
 	//  Passes around all core input between multiple computers, allowing people to play with each other.
 	//  
-	// Video recording
+	// Playback recording
 	//  input: all core input
 	//  output: modifies savestates, (binary file)
 	//  constraints: must see the final output to the core
 	//  Dumps the core input to a file, allowing it to be replayed later.
 	//
-	// Video replay
+	// Playback replay
 	//  input: (binary file)
 	//  output: same as core
 	//  constraints: must be the only input to the core
-	//  Replays a video recording.
+	//  Replays a playback recording.
 	//
 	// Savestates
-	//  input: 25 Event
+	//  input: 25? Event
 	//  output: creates savestates, loads savestates
 	//  Four of the events are a slot selector, with Next, Previous, Save and Load.
 	//  An additional 20 are unslotted; they're hardcoded to refer to slots 0 through 9.
 	//  The last one opens a savestate manager window, allowing a GUI for the listed actions.
+	//  May want to create more for moving 10 or 100 slots...
 	//
 	// Savestate thumbnails
 	//  input: core video
@@ -195,28 +195,88 @@ public:
 	//
 	// Mouse follow setup
 	//  input: modifies core video, modifies core audio (by discarding them), core memory
-	//  output: 1 Gamepad, creates savestates, loads savestates, can detach itself
+	//  output: 1 Gamepad, creates savestates, loads savestates, can detach itself, creates frame events
 	//  constraints: must be the only input to the core
 	//  Sends a large number of savestates and input events, analyzing the core memory as it goes along, to find the player position.
 	//
-	// Mouse follow
-	//  input: 1 Position, core memory, core video?, some checkbox
-	//  output: 1 Gamepad (using only the arrow keys), can add other devices
+	// Mouse follow core
+	//  input: 1 Gamepad, 1 Position, core memory, core video?
+	//  output: 1 Gamepad, can add other devices
 	//  Using data captured from the mouse follow setup, makes the player follow the mouse pointer.
+	//  The input gamepad is used to push buttons while using this device, or to override the controls if it's misbehaving
+	//  If the arrows are used, it turns off until the Position changes.
+	//
+	// Cheats
+	//  input: core memory
+	//  output: modifies core memory, creates windows
+	//  Allows the user to use and create cheat codes.
 	
+class newdev {
+	class device;
 	struct devinfo {
-		enum {
-			f_primary = 0x0001,//This will become a primary device.
-			f_mandatory=0x0002,//The device must be enabled. Used only for the most fundamental devices, like mapper and inputkb.
-		};
+		//The info is a bunch of NUL-separated strings.
+		//The first one is the name. The rest are specifications for what input and output the device gives/takes.
+		//
+		//Examples:
+		//"Rewind\0"
+		//">B\0" // Input: Button (anonymous)
+		//"SSL\0" // Savestates: Save, Load
+		//
+		//"Mouse follow\0"
+		//">P\0" // Inputs: Pointer, Gamepad, Memory, Video
+		//">G\0"
+		//">M\0"
+		//">V\0"
+		//"<G\0" // Output: Gamepad
+		//
+		//"Netplay\0"
+		//"<!\0" // Output: Nothing else sends data to the core
+		//">G*\0" // Input: Gamepad (zero or more)
+		//"<G*\0" // Output: Gamepad (zero or more)
+		//"<F\0" // Output: Can force additional frame events
+		//"<CAV\0" // Output: Core audio/video (if it's input, it only requests to see it, not modify)
+		//"SSLMB\0" // Savestates: Save, Load, Modify, Block
+		//
+		//"Gamepad\0"
+		//">BUp\0"
+		//">BDown\0"
+		//">BLeft\0"
+		//">BRight\0" // Input: A huge pile of Button, each with a name.
+		//">BA\0"
+		//">BB\0"
+		//">BX\0"
+		//">BY\0"
+		//">BStart\0"
+		//">BSelect\0"
+		//">BL\0"
+		//">BR\0"
+		//">BL2\0"
+		//">BR2\0"
+		//">BL3\0"
+		//">BR3\0"
+		//"<G\0"
 		
-		const char * name;
-		void (*create)();
-		
-		uint32_t features;
-		//char padding[4];
+		const char * info;
+		device* (*create)();
 	};
 	static const devinfo* const devices[];
+	
+	class device {
+		friend class devmgr;
+		devmgr* parent;
+		size_t id;
+		
+	protected:
+		//The init event is fired when the object is initialized. 
+		virtual void ev_init() {}
+		//The frame begin event is the first event of each frame.
+		virtual void ev_frame_begin() {}
+		//The frame end event fires once all input is handled this frame and the core is ready to proceed.
+		virtual void ev_frame_end() {}
+		
+		virtual ~device() {}
+	};
+};
 	
 	enum {
 		e_frame   = 0x0001,
