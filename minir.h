@@ -16,50 +16,6 @@ extern const unsigned char icon_minir_64x64_png[1300];
 
 
 
-//A compressing, lossy stack. Optimized for large, mostly similar, blocks of data; optimized for
-// writing, less so for reading.
-//"Lossy" means that it will discard old data if its capacity is exhausted. It will not give out any
-// memory block it wasn't given.
-struct rewindstack {
-	//This is equivalent to deleting and recreating the structure, but may be faster.
-	//It is safe to set the capacity to 0, though this will make the structure rather useless.
-	//The structure may hand out bigger blocks of data than requested. This is not detectable; just
-	// ignore the extra bytes.
-	//The structure may allocate a reasonable multiple of blocksize, in addition to capacity.
-	//It is not possible to accurately predict how many blocks will fit in the structure; it varies
-	// depending on how much the data changes. Emulator savestates are usually compressed to about
-	// 0.5-2% of their original size, but this varies depending on various factors. For exact numbers,
-	// stick in some data and use capacity().
-	void (*reset)(struct rewindstack * This, size_t blocksize, size_t capacity);
-	
-	//Asks where to put a new block. Size is same as blocksize. Don't read from it; contents are undefined.
-	//push_end or push_cancel must be the first function called on the structure after this; not even free() is allowed.
-	//This function cannot fail, though a pull() directly afterwards may fail.
-	void * (*push_begin)(struct rewindstack * This);
-	//Tells that the savestate has been written. Don't use the pointer from push_begin after this point.
-	void (*push_end)(struct rewindstack * This);
-	//Tells that nothing usable was written to the pointer from push_begin. Equivalent to push_end+pull,
-	// but faster, and may avoid discarding something. The user is allowed to have written to the pointer.
-	void (*push_cancel)(struct rewindstack * This);
-	
-	//Pulls off a block. Don't change it; it will be used to generate the next one. The returned pointer is only
-	// guaranteed valid until the first call to any function in this structure, with the exception that capacity()
-	// will not invalidate anything. If the requested block has been discarded, or was never pushed, it returns NULL.
-	const void * (*pull)(struct rewindstack * This);
-	
-	//Tells how many entries are in the structure, how many bytes are used, and whether the structure
-	// is likely to discard something if a new item is appended. The full flag is guaranteed true if
-	// it has discarded anything since the last pull() or reset(); however, it may be set even before
-	// discarding, if the implementation believes that will simplify the implementation.
-	void (*capacity)(struct rewindstack * This, unsigned int * entries, size_t * bytes, bool * full);
-	
-	void (*free)(struct rewindstack * This);
-};
-struct rewindstack * rewindstack_create(size_t blocksize, size_t capacity);
-
-
-
-
 class devmgr : nocopy {
 	class impl;
 public:
@@ -820,121 +776,46 @@ inline libretro::~libretro(){}
 
 
 
-//An input mapper that converts the interface of an inputmapper to whatever a libretro core
-// understands. It's roughly a joypad emulator. The input mapper is assumed polled elsewhere.
-struct libretroinput {
-	//Polls input. Same interface as libretro.
-	int16_t (*query)(struct libretroinput * This, unsigned port, unsigned device, unsigned index, unsigned id);
+//A compressing, lossy stack. Optimized for large, mostly similar, blocks of data; optimized for
+// writing, less so for reading.
+//"Lossy" means that it will discard old data if its capacity is exhausted. It will not give out any
+// memory block it wasn't given.
+struct rewindstack {
+	//This is equivalent to deleting and recreating the structure, but may be faster.
+	//It is safe to set the capacity to 0, though this will make the structure rather useless.
+	//The structure may hand out bigger blocks of data than requested. This is not detectable; just
+	// ignore the extra bytes.
+	//The structure may allocate a reasonable multiple of blocksize, in addition to capacity.
+	//It is not possible to accurately predict how many blocks will fit in the structure; it varies
+	// depending on how much the data changes. Emulator savestates are usually compressed to about
+	// 0.5-2% of their original size, but this varies depending on various factors. For exact numbers,
+	// stick in some data and use capacity().
+	void (*reset)(struct rewindstack * This, size_t blocksize, size_t capacity);
 	
-	//Sets the input handler. It is still usable for other things while attached to a libretroinput.
-	// It is not deleted once this structure is deleted.
-	void (*set_input)(struct libretroinput * This, struct inputmapper * in);
+	//Asks where to put a new block. Size is same as blocksize. Don't read from it; contents are undefined.
+	//push_end or push_cancel must be the first function called on the structure after this; not even free() is allowed.
+	//This function cannot fail, though a pull() directly afterwards may fail.
+	void * (*push_begin)(struct rewindstack * This);
+	//Tells that the savestate has been written. Don't use the pointer from push_begin after this point.
+	void (*push_end)(struct rewindstack * This);
+	//Tells that nothing usable was written to the pointer from push_begin. Equivalent to push_end+pull,
+	// but faster, and may avoid discarding something. The user is allowed to have written to the pointer.
+	void (*push_cancel)(struct rewindstack * This);
 	
-	//Tells where the libretroinput should ask the inputmapper for the first used key. Order is rather
-	// illogical; B, Y, Select, Start, Up, Down, Left, Right, A, X, L, R, L2, R2, L3, R3.
-	//len is how many input slots should be used, including the first one. They must be consecutive,
-	// and should be a multiple of 16.
-	void (*joypad_set_inputs)(struct libretroinput * This, unsigned port, unsigned int inputstart, unsigned int len);
+	//Pulls off a block. Don't change it; it will be used to generate the next one. The returned pointer is only
+	// guaranteed valid until the first call to any function in this structure, with the exception that capacity()
+	// will not invalidate anything. If the requested block has been discarded, or was never pushed, it returns NULL.
+	const void * (*pull)(struct rewindstack * This);
 	
-	//Whether to blocks left+right and up+down. Defaults to allowed.
-	void (*joypad_set_block_opposing)(struct libretroinput * This, bool block);
+	//Tells how many entries are in the structure, how many bytes are used, and whether the structure
+	// is likely to discard something if a new item is appended. The full flag is guaranteed true if
+	// it has discarded anything since the last pull() or reset(); however, it may be set even before
+	// discarding, if the implementation believes that will simplify the implementation.
+	void (*capacity)(struct rewindstack * This, unsigned int * entries, size_t * bytes, bool * full);
 	
-	void (*free)(struct libretroinput * This);
+	void (*free)(struct rewindstack * This);
 };
-
-struct libretroinput * libretroinput_create(struct inputmapper * in);
-
-
-
-struct configcorelist {
-	const char * path;
-	const char * name;
-};
-
-enum configscope {
-	cfgsc_default,
-	cfgsc_default_globonly,
-	cfgsc_global,
-	cfgsc_global_globonly,
-	cfgsc_core,
-	cfgsc_invalid1,//this would be by-core global-only, which doesn't make sense
-	cfgsc_game
-};
-
-enum configverbosity {
-	cfgv_minimal,
-	cfgv_nocomments,
-	cfgv_default,
-	cfgv_maximum
-};
-
-struct configdata {
-	//Only config.c may access the items starting with underscores.
-	
-	char * corename;
-	char * _corepath;
-	char * gamename;
-	char * _gamepath;
-	
-	UNION_BEGIN
-		//cores
-		STRUCT_BEGIN
-			char* * support;
-			char* * primary;
-		STRUCT_END
-		
-		//used for games, only inside config.c - marking as unioned with support/primary since they're not applicable for games
-		STRUCT_BEGIN
-			char * _forcecore;
-		STRUCT_END
-	UNION_END
-	
-#define CONFIG_HEADER
-//this also defines CONFIG_ENUM_INPUT
-#include "obj/generated.cpp"
-#undef CONFIG_HEADER
-	
-	//these are at the end for packing reasons
-	bool firstrun;
-	
-	bool _autoload;
-};
-
-enum input { CONFIG_ENUM_INPUT };
-
-struct minirconfig {
-	//Tells which game to autoload. Can be NULL if none. Don't free it.
-	const char * (*get_autoload)(struct minirconfig * This);
-	//Returns { "smc", "sfc", NULL } for the extensions supported by any core.
-	//Free it when you're done, but don't free the pointers inside.
-	struct configcorelist * (*get_core_for)(struct minirconfig * This, const char * gamepath, unsigned int * count);
-	//This one should also be freed. Its contents should not.
-	const char * * (*get_supported_extensions)(struct minirconfig * This);
-	
-	//This one loads config for the given core and game.
-	//NULL is valid for either or both of them. It is not an error if a given entry doesn't exist; it will be created.
-	//If the given game demands a specific core, the given core will be ignored. The game will always be honored unless it's NULL.
-	//The caller gets ownership of everything in 'config'. When you're done, use data_free().
-	void (*data_load)(struct minirconfig * This, struct configdata * config,
-	                  bool free_old, const char * corepath, const char * gamepath);
-	//To change anything permanently, free() the old value if needed and hand in the new one.
-	//NULL is treated identically to an empty item.
-	//If anything is written to 'support' and no core has an entry for that in 'primary', it will be created.
-	//If anything is written to 'primary', it will be deleted from the entries for all other cores.
-	//Nothing is freed; the caller is responsible for cleaning out the structure.
-	void (*data_save)(struct minirconfig * This, struct configdata * config);
-	//Frees all pointers in 'config' and sets them to NULL. 'config' itself is not freed.
-	void (*data_free)(struct minirconfig * This, struct configdata * config);
-	
-	//Removes all data for a core or game.
-	void (*data_destroy)(struct minirconfig * This, const char * item);
-	
-	//This one writes the configuration back to disk, if changed.
-	void (*write)(struct minirconfig * This, const char * path);
-	
-	void (*free)(struct minirconfig * This);
-};
-struct minirconfig * config_create(const char * path);
+struct rewindstack * rewindstack_create(size_t blocksize, size_t capacity);
 
 
 
@@ -1085,3 +966,121 @@ struct minircheats {
 	void (*free)(struct minircheats * This);
 };
 struct minircheats * minircheats_create();
+
+
+
+//An input mapper that converts the interface of an inputmapper to whatever a libretro core
+// understands. It's roughly a joypad emulator. The input mapper is assumed polled elsewhere.
+struct libretroinput {
+	//Polls input. Same interface as libretro.
+	int16_t (*query)(struct libretroinput * This, unsigned port, unsigned device, unsigned index, unsigned id);
+	
+	//Sets the input handler. It is still usable for other things while attached to a libretroinput.
+	// It is not deleted once this structure is deleted.
+	void (*set_input)(struct libretroinput * This, struct inputmapper * in);
+	
+	//Tells where the libretroinput should ask the inputmapper for the first used key. Order is rather
+	// illogical; B, Y, Select, Start, Up, Down, Left, Right, A, X, L, R, L2, R2, L3, R3.
+	//len is how many input slots should be used, including the first one. They must be consecutive,
+	// and should be a multiple of 16.
+	void (*joypad_set_inputs)(struct libretroinput * This, unsigned port, unsigned int inputstart, unsigned int len);
+	
+	//Whether to blocks left+right and up+down. Defaults to allowed.
+	void (*joypad_set_block_opposing)(struct libretroinput * This, bool block);
+	
+	void (*free)(struct libretroinput * This);
+};
+
+struct libretroinput * libretroinput_create(struct inputmapper * in);
+
+
+
+struct configcorelist {
+	const char * path;
+	const char * name;
+};
+
+enum configscope {
+	cfgsc_default,
+	cfgsc_default_globonly,
+	cfgsc_global,
+	cfgsc_global_globonly,
+	cfgsc_core,
+	cfgsc_invalid1,//this would be by-core global-only, which doesn't make sense
+	cfgsc_game
+};
+
+enum configverbosity {
+	cfgv_minimal,
+	cfgv_nocomments,
+	cfgv_default,
+	cfgv_maximum
+};
+
+struct configdata {
+	//Only config.c may access the items starting with underscores.
+	
+	char * corename;
+	char * _corepath;
+	char * gamename;
+	char * _gamepath;
+	
+	UNION_BEGIN
+		//cores
+		STRUCT_BEGIN
+			char* * support;
+			char* * primary;
+		STRUCT_END
+		
+		//used for games, only inside config.c - marking as unioned with support/primary since they're not applicable for games
+		STRUCT_BEGIN
+			char * _forcecore;
+		STRUCT_END
+	UNION_END
+	
+#define CONFIG_HEADER
+//this also defines CONFIG_ENUM_INPUT
+#include "obj/generated.cpp"
+#undef CONFIG_HEADER
+	
+	//these are at the end for packing reasons
+	bool firstrun;
+	
+	bool _autoload;
+};
+
+enum input { CONFIG_ENUM_INPUT };
+
+struct minirconfig {
+	//Tells which game to autoload. Can be NULL if none. Don't free it.
+	const char * (*get_autoload)(struct minirconfig * This);
+	//Returns { "smc", "sfc", NULL } for the extensions supported by any core.
+	//Free it when you're done, but don't free the pointers inside.
+	struct configcorelist * (*get_core_for)(struct minirconfig * This, const char * gamepath, unsigned int * count);
+	//This one should also be freed. Its contents should not.
+	const char * * (*get_supported_extensions)(struct minirconfig * This);
+	
+	//This one loads config for the given core and game.
+	//NULL is valid for either or both of them. It is not an error if a given entry doesn't exist; it will be created.
+	//If the given game demands a specific core, the given core will be ignored. The game will always be honored unless it's NULL.
+	//The caller gets ownership of everything in 'config'. When you're done, use data_free().
+	void (*data_load)(struct minirconfig * This, struct configdata * config,
+	                  bool free_old, const char * corepath, const char * gamepath);
+	//To change anything permanently, free() the old value if needed and hand in the new one.
+	//NULL is treated identically to an empty item.
+	//If anything is written to 'support' and no core has an entry for that in 'primary', it will be created.
+	//If anything is written to 'primary', it will be deleted from the entries for all other cores.
+	//Nothing is freed; the caller is responsible for cleaning out the structure.
+	void (*data_save)(struct minirconfig * This, struct configdata * config);
+	//Frees all pointers in 'config' and sets them to NULL. 'config' itself is not freed.
+	void (*data_free)(struct minirconfig * This, struct configdata * config);
+	
+	//Removes all data for a core or game.
+	void (*data_destroy)(struct minirconfig * This, const char * item);
+	
+	//This one writes the configuration back to disk, if changed.
+	void (*write)(struct minirconfig * This, const char * path);
+	
+	void (*free)(struct minirconfig * This);
+};
+struct minirconfig * config_create(const char * path);
