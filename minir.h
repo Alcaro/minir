@@ -167,54 +167,86 @@ public:
 	//  output: modifies core memory, creates windows
 	//  Allows the user to use and create cheat codes.
 	
-class newdev {
+class newchain {
 	class device;
-	struct devinfo {
-		//The info is a bunch of NUL-separated strings.
-		//The first one is the name. The rest are specifications for what input and output the device gives/takes.
-		//
-		//Examples:
-		//"Rewind\0"
-		//">B\0" // Input: Button (anonymous)
-		//"SSL\0" // Savestates: Save, Load
-		//
-		//"Mouse follow\0"
-		//">P\0" // Inputs: Pointer, Gamepad, Memory, Video
-		//">G\0"
-		//">M\0"
-		//">V\0"
-		//"<G\0" // Output: Gamepad
-		//
-		//"Netplay\0"
-		//"<!\0" // Output: Nothing else sends data to the core
-		//">G*\0" // Input: Gamepad (zero or more)
-		//"<G*\0" // Output: Gamepad (zero or more)
-		//"<F\0" // Output: Can force additional frame events
-		//"<CAV\0" // Output: Core audio/video (if it's input, it only requests to see it, not modify)
-		//"SSLMB\0" // Savestates: Save, Load, Modify, Block
-		//
-		//"Gamepad\0"
-		//">BUp\0"
-		//">BDown\0"
-		//">BLeft\0"
-		//">BRight\0" // Input: A huge pile of Button, each with a name.
-		//">BA\0"
-		//">BB\0"
-		//">BX\0"
-		//">BY\0"
-		//">BStart\0"
-		//">BSelect\0"
-		//">BL\0"
-		//">BR\0"
-		//">BL2\0"
-		//">BR2\0"
-		//">BL3\0"
-		//">BR3\0"
-		//"<G\0"
+	
+	enum iotype {
+		io_end,
 		
-		const char * info;
+		//Modifier/misc flags. Modifies rules of what this device does.
+		io_is_core,// This is the libretro core, the most complex and important device of them all.
+		io_core,   // Must see or emit all I/O from the core; both input, frames, and audio/video.
+		io_user,   // Takes input from, or sends output to, the user.
+		
+		//Basic event types. The building blocks of all other devices.
+		io_frame, // Fires each frame. Not needed by all devices.
+		io_event,
+		io_button,
+		io_joystick,
+		io_motion,
+		io_position,
+		io_pointer,
+		io_multipointer,
+		
+		//Combined event types. Each of those combines many basic events, giving each component a name.
+		io_gamepad,
+		io_keyboard,
+		io_mouse,
+		io_mousecur,
+		
+		//Output events of various kinds.
+		io_audio,
+		io_video,
+		io_video_3d,
+		io_video_req,//Wants video input, but only wants a few frames, and will tell which it wants. Input only.
+		
+		//These four are output only.
+		io_state_save,  // Can order the core to save a savestate.
+		io_state_load,  // Can order the core to load a savestate.
+		io_state_filter,// Can reject requests to load savestates.
+		io_state_append,// Adds a block of data to the savestates.
+	};
+	
+	//Constant information about the device that can be known without executing any of its code,
+	// for example its name and I/O geometry.
+	//To ensure that frame events come after all input of that frame, and
+	// to avoid potentially infinite recursion, the following rules are in place:
+	//- No loops among the input handlers.
+	//- No loops among the output handlers.
+	//- No event emission from the savestate handlers.
+	//- No emitting input events from the output handlers.
+	struct devinfo {
+		const char * name;
+		
+		struct nameio {
+			enum iotype type;
+			const char * name;
+		};
+		
+		//These arrays are terminated by an io_end.
+		const enum iotype * input;
+		const enum iotype * output;
+		//The name arrays must be as long as the corresponding type arrays (minus the io_end), or NULL (all anonymous). NULLs in the middle are fine.
+		const char * const * input_names;
+		const char * const * output_names;
+		
 		device* (*create)();
 	};
+#define declare_devinfo(var, name, input, output) \
+	static const enum iotype JOIN(var, _input) = { UNPACK_PAREN input }; \
+	static const enum iotype JOIN(var, _output) = { UNPACK_PAREN output }; \
+	struct devinfo var = { name, JOIN(var, _input), JOIN(var, _output), NULL, NULL, JOIN(create_, var) }
+	
+#define declare_devinfo_n(var, name, input, input_names, output, output_names) \
+	static const enum iotype JOIN(var, _input) [] = { UNPACK_PAREN input }; \
+	static const enum iotype JOIN(var, _output) [] = { UNPACK_PAREN output }; \
+	static const char * const JOIN(var, _input_names) [] = { UNPACK_PAREN input_names }; \
+	static const char * const JOIN(var, _output_names) [] = { UNPACK_PAREN output_names }; \
+	static_assert(ARRAY_SIZE(JOIN(var, _input_names)) >= ARRAY_SIZE(JOIN(var, _input))-1); \
+	static_assert(ARRAY_SIZE(JOIN(var, _output_names)) >= ARRAY_SIZE(JOIN(var, _output))-1); \
+	struct devinfo var = { name, JOIN(var, _input), JOIN(var, _output), \
+	                       JOIN(var, _input_names), JOIN(var, _output_names), JOIN(create_, var) }
+	
 	static const devinfo* const devices[];
 	
 	class device {
@@ -223,12 +255,51 @@ class newdev {
 		size_t id;
 		
 	protected:
-		//The init event is fired when the object is initialized. 
-		virtual void ev_init() {}
-		//The frame begin event is the first event of each frame.
-		virtual void ev_frame_begin() {}
-		//The frame end event fires once all input is handled this frame and the core is ready to proceed.
-		virtual void ev_frame_end() {}
+		//TODO: I don't think I need that at all.
+		////The init event is fired when the object is initialized and ready to submit events. Generally not useful, you can do most work in the constructor.
+		//virtual void ev_init() {}
+		//The frame event comes after all input events to this device.
+		virtual void ev_frame() {}
+		
+		//'id' is the index to the 'input' array in devinfo. If 'input_named' is non-NULL, it's considered appended directly after 'input'.
+		//Combined devices show up as their components, with subid telling which of its components is relevant.
+		virtual void ev_event       (size_t id, size_t subid) {}
+		//For keyboards, subid is either a RETROK_ code, or 1024 + a meaningless but unique scancode.
+		virtual void ev_button      (size_t id, size_t subid, bool down) {}
+		//-0x7FFF is the leftmost value possible, +0x7FFF is the rightmost possible.
+		virtual void ev_joystick    (size_t id, size_t subid, int16_t x, int16_t y) {}
+		//Each value here is a number of pixels.
+		virtual void ev_motion      (size_t id, size_t subid, int16_t x, int16_t y) {}
+		//0..65535 are inside the window. Other values may be possible. Same goes for pointer/multipointer.
+		virtual void ev_position    (size_t id, size_t subid, int32_t x, int32_t y) {}
+		virtual void ev_pointer     (size_t id, size_t subid, bool down, int32_t x, int32_t y) {}
+		virtual void ev_multipointer(size_t id, size_t subid, size_t count, const int32_t * x, const int32_t * y) {}
+		
+		//TODO: this audio handler needs fixing.
+		virtual void ev_audio(size_t id, const int16_t * data, size_t frames) {}
+		virtual void ev_video(size_t id, unsigned width, unsigned height, unsigned format, const void * data, size_t pitch) {}
+		
+		//To reject the savestate, return false. Savestate requests from this device do not call this function,
+		// so if a device requires exclusive control over the core state (for example netplay), it can just return false.
+		virtual bool ev_savestate_filter() { return true; }
+		virtual void ev_savestate_load(array<uint8_t>& data) {}
+		//Returning a blank array here counts as success. Use ev_savestate_filter instead.
+		virtual array<uint8_t> ev_savestate_append() { return array<uint8_t>(); }
+		
+		//Same id/etc rules as for the event handlers, except these correspond to 'output', of course.
+		void emit_event       (size_t id, size_t subid) {}
+		void emit_button      (size_t id, size_t subid, bool down) {}
+		void emit_joystick    (size_t id, size_t subid, int16_t x, int16_t y) {}
+		void emit_motion      (size_t id, size_t subid, int16_t x, int16_t y) {}
+		void emit_position    (size_t id, size_t subid, int32_t x, int32_t y) {}
+		void emit_pointer     (size_t id, size_t subid, bool down, uint16_t x, uint16_t y) {}
+		void emit_multipointer(size_t id, size_t subid, size_t count, const uint16_t * x, const uint16_t * y) {}
+		
+		void emit_audio(size_t id, const int16_t * data, size_t frames) {}
+		void emit_video(size_t id, unsigned width, unsigned height, unsigned format, const void * data, size_t pitch) {}
+		void emit_video_req(size_t id) {}
+		
+		array<uint8_t> emit_savestate() { return array<uint8_t>(); }
 		
 		virtual ~device() {}
 	};

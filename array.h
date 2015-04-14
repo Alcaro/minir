@@ -60,6 +60,9 @@ public:
 	const T& operator[](size_t n) const { return items[n]; }
 	size_t len() const { return count; }
 	
+	T* ptr() { return items; }
+	void resize(size_t len) { resize_to(len); }
+	
 	T join() const
 	{
 		T out=items[0];

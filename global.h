@@ -37,6 +37,13 @@ typedef void(*funcptr)();
 #define JOIN_(x, y) x ## y
 #define JOIN(x, y) JOIN_(x, y)
 
+#define UNPACK_PAREN(...) __VA_ARGS__
+
+//some magic stolen from http://blogs.msdn.com/b/the1/archive/2004/05/07/128242.aspx
+//C++ can be so messy sometimes...
+template<typename T, size_t N> char(&ARRAY_SIZE_CORE(T(&x)[N]))[N];
+#define ARRAY_SIZE(x) (sizeof(ARRAY_SIZE_CORE(x)))
+
 //requirements:
 //- static_assert(false) throws something at compile time
 //- multiple static_assert(true) works
@@ -53,10 +60,10 @@ typedef void(*funcptr)();
 //- can name assertions, if desired
 #ifdef __GNUC__
 #define MAYBE_UNUSED __attribute__((__unused__)) // shut up, stupid warnings
-#define TYPENAME_IF_NEEDED typename
+#define TYPENAME_IF_GCC typename
 #else
 #define MAYBE_UNUSED
-#define TYPENAME_IF_NEEDED
+#define TYPENAME_IF_GCC
 #endif
 template<bool x> struct static_assert_t;
 template<> struct static_assert_t<true> { struct STATIC_ASSERTION_FAILED {}; };
@@ -67,7 +74,7 @@ template<> struct static_assert_t<false> {};
 #define static_assert(expr) \
 	enum { \
 		JOIN(static_assertion_, __COUNTER__) = \
-		sizeof(TYPENAME_IF_NEEDED static_assert_t<(bool)(expr)>::STATIC_ASSERTION_FAILED) \
+		sizeof(TYPENAME_IF_GCC static_assert_t<(bool)(expr)>::STATIC_ASSERTION_FAILED) \
 	} MAYBE_UNUSED;
 
 

@@ -285,10 +285,8 @@ public:
 		}
 	}
 };
-//these two support the same types, but act differently
-//intmap shuffles the keys before using them, as integers sometimes have high predictability, and the hashmap doesn't like that
-//ptrmap doesn't, because pointers are far less predictable
-template<typename T1, typename T2> class ptrmap : public hashmap<hashable_int<T1, false>, T2, T1> {};
+//these two are the same, only the name varies
+template<typename T1, typename T2> class ptrmap : public hashmap<hashable_int<T1, true>, T2, T1> {};
 template<typename T1, typename T2> class intmap : public hashmap<hashable_int<T1, true>, T2, T1> {};
 
 template<typename T> class intset : public hashmap<hashable_int<T, false>, void, T> {};
