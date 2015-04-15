@@ -174,7 +174,6 @@ class newchain {
 		io_end,
 		
 		//Modifier/misc flags. Modifies rules of what this device does.
-		io_is_core,// This is the libretro core, the most complex and important device of them all.
 		io_core,   // Must see or emit all I/O from the core; both input, frames, and audio/video.
 		io_user,   // Takes input from, or sends output to, the user.
 		
@@ -218,6 +217,12 @@ class newchain {
 	struct devinfo {
 		const char * name;
 		
+		enum {
+			f_is_core  = 0x0001,
+			f_autocreate=0x0002,
+		};
+		uint32_t flags;
+		
 		struct nameio {
 			enum iotype type;
 			const char * name;
@@ -232,12 +237,12 @@ class newchain {
 		
 		device* (*create)();
 	};
-#define declare_devinfo(var, name, input, output) \
+#define declare_devinfo(var, name, input, output, flags) \
 	static const enum iotype JOIN(var, _input) = { UNPACK_PAREN input }; \
 	static const enum iotype JOIN(var, _output) = { UNPACK_PAREN output }; \
-	struct devinfo var = { name, JOIN(var, _input), JOIN(var, _output), NULL, NULL, JOIN(create_, var) }
+	struct devinfo var = { name, JOIN(var, _input), JOIN(var, _output), NULL, NULL, JOIN(create_, var), flags }
 	
-#define declare_devinfo_n(var, name, input, input_names, output, output_names) \
+#define declare_devinfo_n(var, name, input, input_names, output, output_names, flags) \
 	static const enum iotype JOIN(var, _input) [] = { UNPACK_PAREN input }; \
 	static const enum iotype JOIN(var, _output) [] = { UNPACK_PAREN output }; \
 	static const char * const JOIN(var, _input_names) [] = { UNPACK_PAREN input_names }; \
@@ -245,7 +250,7 @@ class newchain {
 	static_assert(ARRAY_SIZE(JOIN(var, _input_names)) >= ARRAY_SIZE(JOIN(var, _input))-1); \
 	static_assert(ARRAY_SIZE(JOIN(var, _output_names)) >= ARRAY_SIZE(JOIN(var, _output))-1); \
 	struct devinfo var = { name, JOIN(var, _input), JOIN(var, _output), \
-	                       JOIN(var, _input_names), JOIN(var, _output_names), JOIN(create_, var) }
+	                       JOIN(var, _input_names), JOIN(var, _output_names), JOIN(create_, var), flags }
 	
 	static const devinfo* const devices[];
 	
