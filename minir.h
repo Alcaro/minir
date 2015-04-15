@@ -20,8 +20,6 @@ class devmgr : nocopy {
 	class impl;
 public:
 	
-	class device;
-	
 	//Event types:
 	// Event
 	//  Stateless event.
@@ -167,8 +165,8 @@ public:
 	//  output: modifies core memory, creates windows
 	//  Allows the user to use and create cheat codes.
 	
-class newchain {
 	class device;
+	friend class device;
 	
 	enum iotype {
 		io_end,
@@ -237,387 +235,139 @@ class newchain {
 		
 		device* (*create)();
 	};
+	
+#define declare_devinfo_core(var, name, input, output, input_names, output_names, flags) \
+	struct devinfo JOIN(dev_,var); \
+	static device* JOIN(create_,var)() { device* ret = new JOIN(JOIN(device_,var),_impl)(); ret->info = JOIN(dev_,var); return ret; } \
+	static const enum iotype JOIN(var,_input) = { UNPACK_PAREN input }; \
+	static const enum iotype JOIN(var,_output) = { UNPACK_PAREN output }; \
+	struct devinfo JOIN(dev_,var) = { name, JOIN(var,_input), JOIN(var,_output), input_names, output_names, JOIN(create_,var), flags }
+	
 #define declare_devinfo(var, name, input, output, flags) \
-	static const enum iotype JOIN(var, _input) = { UNPACK_PAREN input }; \
-	static const enum iotype JOIN(var, _output) = { UNPACK_PAREN output }; \
-	struct devinfo var = { name, JOIN(var, _input), JOIN(var, _output), NULL, NULL, JOIN(create_, var), flags }
+	declare_devinfo_core(var, name, input, output, NULL, NULL, flags)
 	
 #define declare_devinfo_n(var, name, input, input_names, output, output_names, flags) \
-	static const enum iotype JOIN(var, _input) [] = { UNPACK_PAREN input }; \
-	static const enum iotype JOIN(var, _output) [] = { UNPACK_PAREN output }; \
-	static const char * const JOIN(var, _input_names) [] = { UNPACK_PAREN input_names }; \
-	static const char * const JOIN(var, _output_names) [] = { UNPACK_PAREN output_names }; \
+	static const char * const JOIN(var, _input_names) [] = { UNPACK_PAREN input_names, io_end }; \
+	static const char * const JOIN(var, _output_names) [] = { UNPACK_PAREN output_names, io_end }; \
+	declare_devinfo_core(var, name, input, output, JOIN(var, _input_names), JOIN(var, _output_names), flags); \
 	static_assert(ARRAY_SIZE(JOIN(var, _input_names)) >= ARRAY_SIZE(JOIN(var, _input))-1); \
-	static_assert(ARRAY_SIZE(JOIN(var, _output_names)) >= ARRAY_SIZE(JOIN(var, _output))-1); \
-	struct devinfo var = { name, JOIN(var, _input), JOIN(var, _output), \
-	                       JOIN(var, _input_names), JOIN(var, _output_names), JOIN(create_, var), flags }
+	static_assert(ARRAY_SIZE(JOIN(var, _output_names)) >= ARRAY_SIZE(JOIN(var, _output))-1)
 	
-	static const devinfo* const devices[];
+	static const struct devinfo * const devices[];
 	
 	class device {
 		friend class devmgr;
-		devmgr* parent;
-		size_t id;
 		
 	protected:
-		//TODO: I don't think I need that at all.
-		////The init event is fired when the object is initialized and ready to submit events. Generally not useful, you can do most work in the constructor.
-		//virtual void ev_init() {}
+		devmgr* parent;
+		size_t id;
+		const struct devinfo * info;
+		
 		//The frame event comes after all input events to this device.
+		void       emit_frame() {}
 		virtual void ev_frame() {}
 		
-		//'id' is the index to the 'input' array in devinfo. If 'input_named' is non-NULL, it's considered appended directly after 'input'.
+		//'id' is the index to the 'input' or 'output' arrays in devinfo (input for ev_, output for emit_).
 		//Combined devices show up as their components, with subid telling which of its components is relevant.
+		void       emit_event       (size_t id, size_t subid) {}
 		virtual void ev_event       (size_t id, size_t subid) {}
 		//For keyboards, subid is either a RETROK_ code, or 1024 + a meaningless but unique scancode.
+		void       emit_button      (size_t id, size_t subid, bool down) {}
 		virtual void ev_button      (size_t id, size_t subid, bool down) {}
 		//-0x7FFF is the leftmost value possible, +0x7FFF is the rightmost possible.
+		void       emit_joystick    (size_t id, size_t subid, int16_t x, int16_t y) {}
 		virtual void ev_joystick    (size_t id, size_t subid, int16_t x, int16_t y) {}
 		//Each value here is a number of pixels.
+		void       emit_motion      (size_t id, size_t subid, int16_t x, int16_t y) {}
 		virtual void ev_motion      (size_t id, size_t subid, int16_t x, int16_t y) {}
 		//0..65535 are inside the window. Other values may be possible. Same goes for pointer/multipointer.
+		void       emit_position    (size_t id, size_t subid, int32_t x, int32_t y) {}
 		virtual void ev_position    (size_t id, size_t subid, int32_t x, int32_t y) {}
+		void       emit_pointer     (size_t id, size_t subid, bool down, uint16_t x, uint16_t y) {}
 		virtual void ev_pointer     (size_t id, size_t subid, bool down, int32_t x, int32_t y) {}
+		void       emit_multipointer(size_t id, size_t subid, size_t count, const uint16_t * x, const uint16_t * y) {}
 		virtual void ev_multipointer(size_t id, size_t subid, size_t count, const int32_t * x, const int32_t * y) {}
 		
-		//TODO: this audio handler needs fixing.
-		virtual void ev_audio(size_t id, const int16_t * data, size_t frames) {}
-		virtual void ev_video(size_t id, unsigned width, unsigned height, unsigned format, const void * data, size_t pitch) {}
+		void       emit_video_setup   (size_t id, enum videoformat fmt, unsigned std_width, unsigned std_height, unsigned max_width, unsigned max_height) {}
+		virtual void ev_video_setup   (size_t id, enum videoformat fmt, unsigned std_width, unsigned std_height, unsigned max_width, unsigned max_height) {}
+		//This allows the video data to be put whereever the target device wants. The target also decides pitch. The pointer does not need to be readable.
+		//Returning NULL means that the target device has no opinion, so the caller allocates. If called, and the return value is non-NULL, it must be obeyed.
+		void       emit_video_locate  (size_t id, unsigned width, unsigned height, void * * data, size_t * pitch) {}
+		virtual void ev_video_locate  (size_t id, unsigned width, unsigned height, void * * data, size_t * pitch) { *data=NULL; *pitch=0; }
+		void       emit_video         (size_t id, unsigned width, unsigned height, const void * data, size_t pitch) {}
+		virtual void ev_video         (size_t id, unsigned width, unsigned height, const void * data, size_t pitch) {}
+		//Dupe video events means the last frame should be repeated. Wait for another vsync.
+		void       emit_video_dupe    (size_t id) {}
+		virtual void ev_video_dupe    (size_t id) {}
+		//emit_video_req means that the calling device, and only it, will get an ev_video corresponding to
+		// the last ev_video_{locate,3d,dupe}. Likely to be slower than asking for normal video events.
+		//If you get an ev_video_req, call emit_video. emit_video_locate is allowed.
+		void       emit_video_req     (size_t id) {}
+		virtual bool ev_video_req     (size_t id) {}
+		//3D stuff mostly goes outside this device.
+		bool       emit_video_setup_3d(size_t id, struct retro_hw_render_callback * desc) {}
+		virtual bool ev_video_setup_3d(size_t id, struct retro_hw_render_callback * desc) { return false; }
+		void       emit_video_3d      (size_t id) {}
+		virtual void ev_video_3d      (size_t id) {}
 		
+		//'src_async' is whether the source can accept audio_req. 'dst_async' is whether the target can.
+		virtual void ev_audio_setup (size_t id, double samplerate, unsigned num_channels, bool src_async, bool * dst_async) {}
+		void       emit_audio_setup (size_t id, double samplerate, unsigned num_channels, bool src_async, bool * dst_async) {}
+		virtual void ev_audio_locate(size_t id, int16_t * * data, size_t frames) {}
+		void       emit_audio_locate(size_t id, int16_t * * data, size_t frames) {}
+		virtual void ev_audio       (size_t id, const int16_t * data, size_t frames) {}
+		void       emit_audio       (size_t id, const int16_t * data, size_t frames) {}
+		//Audio requests mean that the source is requested to emit this many audio frames to this location. Only use this if agreed upon in audio_setup.
+		virtual bool ev_audio_req   (size_t id, int16_t * data, size_t frames) { return false; }
+		bool       emit_audio_req   (size_t id, int16_t * data, size_t frames) { return false; }
+		
+		//These two allow devices to serialize and restore their state.
+		virtual array<uint8_t> ev_savestate_save() { return array<uint8_t>(); }
+		virtual void ev_savestate_load(arrayview<uint8_t> data) {}
 		//To reject the savestate, return false. Savestate requests from this device do not call this function,
 		// so if a device requires exclusive control over the core state (for example netplay), it can just return false.
-		virtual bool ev_savestate_filter() { return true; }
-		virtual void ev_savestate_load(array<uint8_t>& data) {}
-		//Returning a blank array here counts as success. Use ev_savestate_filter instead.
-		virtual array<uint8_t> ev_savestate_append() { return array<uint8_t>(); }
+		//Requests to create a savestate can only fail if the core rejects it.
+		virtual bool ev_savestate_can_load() { return true; }
 		
-		//Same id/etc rules as for the event handlers, except these correspond to 'output', of course.
-		void emit_event       (size_t id, size_t subid) {}
-		void emit_button      (size_t id, size_t subid, bool down) {}
-		void emit_joystick    (size_t id, size_t subid, int16_t x, int16_t y) {}
-		void emit_motion      (size_t id, size_t subid, int16_t x, int16_t y) {}
-		void emit_position    (size_t id, size_t subid, int32_t x, int32_t y) {}
-		void emit_pointer     (size_t id, size_t subid, bool down, uint16_t x, uint16_t y) {}
-		void emit_multipointer(size_t id, size_t subid, size_t count, const uint16_t * x, const uint16_t * y) {}
+		//These handle a complete savestate, including some metadata to identify the savestate as belonging to minir and some other stuff.
+		array<uint8_t> emit_savestate_save() { return array<uint8_t>(); }
+		bool emit_savestate_load(arrayview<uint8_t> data) { return true; }
+		//This reads a savestate and returns the part that refers to the relevant device.
+		arrayview<uint8_t> emit_savestate_locate(arrayview<uint8_t> data, device* owner) { return arrayview<uint8_t>(); }
 		
-		void emit_audio(size_t id, const int16_t * data, size_t frames) {}
-		void emit_video(size_t id, unsigned width, unsigned height, unsigned format, const void * data, size_t pitch) {}
-		void emit_video_req(size_t id) {}
+		//These two handle 'raw' savestates, containing only data from the core.
+		//Likely compatible with other frontends (including standalone), but loading them will give all other devices a blank save data array.
+		array<uint8_t> emit_savestate_save_raw() { return array<uint8_t>(); }
+		bool emit_savestate_load_raw(arrayview<uint8_t> data) { return false; }
 		
-		array<uint8_t> emit_savestate() { return array<uint8_t>(); }
+		//TODO: figure out SRAM handling
 		
 		virtual ~device() {}
 	};
-};
-	
-	enum {
-		e_frame   = 0x0001,
-		e_savestate=0x0002,
-		
-		e_video   = 0x0004,
-		e_audio   = 0x0008,
-		
-		e_keyboard= 0x0010,
-		e_mouse   = 0x0020,
-		e_gamepad = 0x0040,
-	};
-	
-	class event {
-		friend class devmgr;
-		friend class devmgr::impl;
-		device* source;
-		
-		enum {
-			bs_normal,
-			bs_blocked,//do not dispatch to secondaries/core
-			bs_resent, //do not dispatch to primary
-		};
-		uint8_t blockstate;
-		
-		//char padding[2];
-		
-		event();//not implemented
-		
-	public:
-		bool secondary;
-		
-		enum {
-			ty_null,
-			
-			ty_frame,
-			ty_state_save,
-			ty_state_load,
-			
-			ty_video,
-			ty_audio,
-			
-			ty_keyboard,
-			ty_mousemove,
-			ty_mousebutton,
-			ty_gamepad,
-			
-			ty_button,
-		};
-		uint8_t type;
-		
-		union {
-			struct /*null_t*/ {} null;//empty
-			struct /*frame_t*/ {} frame;//empty
-			
-			struct /*state_save_t*/ {
-				//TODO
-				//Any device may declare that it wants an extra piece of data inserted into savestates. This is done through this function.
-				//The data is copied and may be deleted once this returns.
-				//The name should match the name of the device. The core will use a blank string as name.
-				//void insert(const char * name, const uint8_t * data, size_t len);
-			} state_save;
-			
-			struct /*state_load_t*/ {
-				//TODO
-				//The returned data is owned by the event object and is deleted once that happens.
-				//TODO: The core must be able to reject an offered savestate.
-				//Does the primary get/dispatch state events, then core dispatches secondary if it accepts the primary?
-				//const uint8_t* query(const char * name, size_t* len);
-			} state_load;
-			
-			struct /*video_t*/ {
-				//TODO: find a way to avoid
-				//- copying this from core-owned memory to front-owned (requires libretro change, but easy for me)
-				//- copying this from front-owned to device-owned video memory (requires changing stuff around here)
-				//video data can be 90KB/frame even for tiny stuff like GBC, and later consoles only go bigger; avoiding that copy is desirable
-				//TODO: may want to hold() this one
-				unsigned int width;
-				unsigned int height;
-				const void* data;
-				unsigned int pitch;
-				
-			private:
-				friend class event;
-				uint32_t* refcount;
-			} video;
-			
-			struct /*audio_t*/ {
-				//TODO: libretro v2 will require that this gets changed (likely rewritten from scratch), but for now, this is sufficient.
-				//TODO: some cores use a front-pull algorithm for audio, I'll need to handle that somehow
-				//TODO: may want to hold() this one
-				
-				const int16_t * data;
-				size_t frames;
-				
-			private:
-				friend class event;
-				uint32_t* refcount;
-			} audio;
-			
-			
-			struct /*keyboard_t*/ {
-				unsigned int deviceid;//usually 1
-				unsigned int scancode;//0..1023
-				unsigned int libretrocode;//0..RETROK_LAST
-				bool down;
-			} keyboard;
-			
-			struct /*mousemove_t*/ {
-				//TODO
-			} mousemove;
-			
-			struct /*mousebutton_t*/ {
-				//TODO
-			} mousebutton;
-			
-			struct /*gamepad_t*/ {
-				//TODO: libretro v2 will change this too. If I'm lucky, it'll change to exactly this.
-				unsigned int device;
-				unsigned int button;//RETRO_DEVICE_ID_JOYPAD_*
-				bool down;
-			} gamepad;
-			
-			struct /*button_t*/ {
-				unsigned int id;
-				bool down;
-			} button;
-		};
-		
-	private:
-		void ref()
-		{
-			uint32_t* refcount = NULL;
-			if (type==ty_video) refcount = video.refcount;
-			if (type==ty_audio) refcount = audio.refcount;
-			if (refcount) ++*refcount;
-		}
-		
-		void unref()
-		{
-			if (type==ty_video)
-			{
-				if (!video.refcount) return;
-				if (--*video.refcount == 0)
-				{
-					free((void*)video.data);
-					free(video.refcount);
-				}
-			}
-			if (type==ty_audio)
-			{
-				if (!audio.refcount) return;
-				if (--*audio.refcount == 0)
-				{
-					free((void*)audio.data);
-					free(audio.refcount);
-				}
-			}
-		}
-	public:
-		
-		event(uint8_t type) : source(NULL), blockstate(bs_normal), type(type)
-		{
-			if (type==ty_video || type==ty_audio)
-			{
-				uint32_t* refcount = malloc(sizeof(uint32_t));
-				*refcount = 1;
-				if (type==ty_video) video.refcount = refcount;
-				if (type==ty_audio) audio.refcount = refcount;
-			}
-		}
-		
-		event(const event& other)
-		{
-			memcpy(this, &other, sizeof(event));
-			ref();
-		}
-		
-		event& operator=(const event& other)
-		{
-			unref();
-			memcpy(this, &other, sizeof(event));
-			ref();
-			return *this;
-		}
-		
-		~event()
-		{
-			unref();
-		}
-	};
-	
-	class device : nocopy {
-		friend class devmgr::impl;
-		friend class devmgr;
-	public:
-		enum devtype {
-			//The secondary device is the default type. It doesn't have any special privileges nor obligations.
-			//It should be used for everything that doesn't need exclusive control over the core.
-			t_secondary,
-			
-			//The primary device sees all events, and can choose to discard them.
-			//It can't see button events, but button events are always generated from another primary event, and that one can be blocked.
-			//There can only be one primary device.
-			t_primary,
-			
-			//The core gets all events last. Like the primary device, there can only be one.
-			//Exception: It gets savestate events after the primary device does, but before the secondaries.
-			t_core
-		};
-		virtual devtype type() { return t_secondary; }
-		
-		//This returns a menu which can control the device. Its lifetime is strictly bound to the device; it must be destructed before the device is.
-		//TODO: some items just want a single button, not an entire submenu (e.g. screenshot); account for this
-		virtual struct windowmenu * get_menu() { return NULL; }
-		//virtual void add_menu(struct windowmenu * root) {}? Need a way to query the menues first.
-		
-		//Returns the configuration options used by a device. It will be added to the tab panel.
-		//TODO: Turn this too into add_cfgpanel.
-		virtual class widget_base * get_cfgpanel() { return NULL; }
-		virtual const char * get_cfgname() { return NULL; }
-		
-	private:
-		devmgr* parent;
-		
-	protected:
-		//Most primary events come from the I/O drivers. They're direct instructions from the user.
-		//Secondary events come from other devices, like the keyboard->joypad translator. They are dispatched in response to primary events.
-		//Any event may be dispatched as a response to a primary event, with the exception that frame events may not be dispatched as response to this.
-		//Secondary events may not emit response events.
-		//Exceptions: The primary device and the core may react to the secondary frame event, and the primary device may emit frame events.
-		//This is to guarantee that there can be devices who see the same events as the core.
-		void register_events(uint32_t primary, uint32_t secondary) { parent->dev_register_events(this, primary, secondary); }
-		
-		//Input descriptors look like KB1::Z. The given ID will be given to ev_button.
-		//This is built on top of ev_keyboard/etc. It is the recommended option for everything that doesn't have a specific reason to be anything else.
-		//Any ID is allowed; each device has its own ID namespace.
-		//A button event is neither primary nor secondary. Don't use the primary flag.
-		enum buttontype {
-			btn_event, //Fires every time the key is pressed. Never fires with down=false.
-			btn_change,//Fires every time the button state changes.
-			btn_hold,  //Fires every frame it's held, and once upon release.
-			           // Note that 'held' is not fired on the frame it's released, even if this is the same frame it's pressed.
-		};
-		bool register_button(const char * desc, buttontype when, unsigned int id) { return parent->dev_register_button(this, desc, when, id); }
-		
-		//Asks whether a button is held.
-		bool query_button(unsigned int id) { return parent->dev_test_button(this, id); }
-		
-		//An event is not dispatched to its sender. Events are guaranteed to be processed in the order they're dispatched.
-		//While few devices would listen to the same events they emit, the primary device is likely to
-		// both listen to and emit secondary frame events, so the same guarantees are given to all devices.
-		void dispatch(event& ev) { ev.source = this; parent->ev_append(ev); }
-		
-		//This allows events to be dispatched from a foreign thread.
-		//Events are processed between the primary and secondary frame events. Anything else is unspecified.
-		//The event must be a primary input event. It should be called from an event dispatched by window_run(),
-		// but is allowed to be dispatched in response to something else. For example, a device is allowed to
-		// listen to both window_run and primary frame and dispatch the same events from both.
-		void dispatch_async(event& ev) { ev.source = this; parent->ev_append_async(ev); }
-		
-		//Blocks the current event. The event may be held and dispatch()ed later.
-		//May only be called during an event handler, and only on that event.
-		//May only be called if you're the primary device.
-		//If you block an input event, button events connected to that input will not fire, even if you're the primary device.
-		void reject(event& ev) { ev.blockstate = event::bs_blocked; }
-		
-	private:
-		virtual void attach() = 0;
-		virtual void detach() {}
-		
-		virtual void ev_frame(const event& ev) {}
-		virtual void ev_state_save(const event& ev) {}
-		virtual void ev_state_load(const event& ev) {}
-		
-		virtual void ev_video(const event& ev) {}
-		virtual void ev_audio(const event& ev) {}
-		
-		virtual void ev_keyboard(const event& ev) {}
-		virtual void ev_mousemove(const event& ev) {}
-		virtual void ev_mousebutton(const event& ev) {}
-		virtual void ev_gamepad(const event& ev) {}
-		
-		virtual void ev_button(const event& ev) {}
-		
-	protected:
-		virtual ~device() { if (parent) parent->dev_unregister(this); }
-	};
 	
 protected:
-	friend class event;
-	virtual void ev_append(const event& ev) = 0;
-	virtual void ev_append_async(const event& ev) = 0;
-	
-	//void ev_set_source(event* ev, device* source) { ev->source = source; } // this one is here so it can be inlined
-	
-	virtual void dev_register_events(device* target, uint32_t primary, uint32_t secondary) = 0;
-	virtual bool dev_register_button(device* target, const char * desc, device::buttontype when, unsigned int id) = 0;
-	virtual bool dev_test_button(device* target, unsigned int id) = 0;
-	virtual void dev_unregister(device* dev) = 0;
+	virtual array<uint8_t> emit_savestate(size_t source) = 0;
 	
 public:
-	//The created savestate is owned by the caller. Send it to free().
-	virtual uint8_t * state_save(size_t* size) = 0;
-	virtual bool state_load(const uint8_t * data, size_t size) = 0;
+	
+	struct dev_iomap {
+		struct entry {
+			uint16_t id;//Index to dev_get_all().
+			uint16_t subid;//Index to device::info->output[].
+		};
+		array<array<uint32_t> > map;
+	};
+	
+	virtual bool dev_add(device* dev, string* error) = 0;
+	
+	virtual array<device*> dev_get_all() = 0;
+	virtual struct devmap dev_get_map() = 0;
+	
+	virtual bool dev_add_all(array<device*> devices) = 0;
+	virtual bool dev_add_all_mapped(array<device*> devices, struct devmap map) = 0;
+	virtual void dev_remove_all() = 0;
 	
 	virtual void frame() = 0;
-	
-	virtual bool add_device(device* dev) = 0;
 	
 	static devmgr* create();
 	virtual ~devmgr() {}
