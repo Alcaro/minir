@@ -141,7 +141,7 @@ class nocopy {
 protected:
 	nocopy() {}
 	~nocopy() {}
-//#ifdef HAVE_MOVE_SEMANTICS
+//#ifdef HAVE_MOVE
 //	nocopy(nocopy&&) = default;
 //	const nocopy& operator=(nocopy&&) = default;
 //#endif
@@ -154,7 +154,7 @@ private:
 /*
 template<typename T> class autoptr : nocopy {
 	T* obj;
-#ifdef HAVE_MOVE_SEMANTICS
+#ifdef HAVE_MOVE
 public:
 	autoptr(T* obj) : obj(obj) {}
 	autoptr(map&& other) : obj(other.obj) { other.obj=NULL; }
@@ -187,7 +187,7 @@ public:
 	T* operator->() { return obj; }
 };
 */
-#ifdef HAVE_MOVE_SEMANTICS
+#ifdef HAVE_MOVE
 #define autoref nocopy
 #else
 template<typename T> class autoref {

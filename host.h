@@ -120,7 +120,7 @@
 #endif
 
 #if __cplusplus >= 201103L
-#define HAVE_MOVE_SEMANTICS
+#define HAVE_MOVE
 #endif
 
 #ifdef __linux__

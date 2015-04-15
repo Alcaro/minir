@@ -1,7 +1,52 @@
 #pragma once
 #include "global.h"
 
+//size: two pointers
+//this object does not own its storage, it's just a pointer wrapper
+template<typename T> class arrayview {
+	const T * items;
+	size_t count;
+	
+	//void clone(const arrayview<T>& other)
+	//{
+	//	this->count=other.count;
+	//	this->items=other.items;
+	//}
+	
+public:
+	const T& operator[](size_t n) const { return items[n]; }
+	
+	const T* ptr() { return items; }
+	size_t len() const { return count; }
+	
+	operator bool() { return items; }
+	
+	arrayview()
+	{
+		this->items=NULL;
+		this->count=0;
+	}
+	
+	arrayview(const T * ptr, size_t count)
+	{
+		this->items=ptr;
+		this->count=count;
+	}
+	
+	//arrayview(const arrayview<T>& other)
+	//{
+	//	clone(other);
+	//}
+	
+	//arrayview<T> operator=(const arrayview<T>& other)
+	//{
+	//	clone(other);
+	//	return *this;
+	//}
+};
+
 //size: two pointers, plus one T per item
+//this one owns its storage
 template<typename T> class array {
 	T * items;
 	size_t count;
@@ -95,8 +140,11 @@ public:
 		return out;
 	}
 	
-	void append(const T& item) { size_t pos=this->count; resize_grow(pos+1); items[pos]=item; }
+	void append(const T& item) { size_t pos=this->count; resize_grow(pos+1); this->items[pos]=item; }
 	void reset() { resize_shrink(0); }
+	
+	operator arrayview<T>() { return arrayview<T>(this->items, this->count); }
+	arrayview<T> slice(size_t first, size_t count) { return arrayview<T>(this->items+first, count); }
 	
 	array()
 	{
@@ -109,10 +157,25 @@ public:
 		clone(other);
 	}
 	
+#ifdef HAVE_MOVE
+	array(array<T>&& other)
+	{
+		swap(other);
+	}
+#endif
+	
 	array<T> operator=(array<T> other)
 	{
 		swap(other);
 		return *this;
+	}
+	
+	static array<T> create_from(T* ptr, size_t count)
+	{
+		array<T> ret;
+		ret.items = ptr;
+		ret.count = count;
+		return ret;
 	}
 	
 	~array()
