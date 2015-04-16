@@ -75,7 +75,7 @@ template<> struct static_assert_t<false> {};
 	enum { \
 		JOIN(static_assertion_, __COUNTER__) = \
 		sizeof(TYPENAME_IF_GCC static_assert_t<(bool)(expr)>::STATIC_ASSERTION_FAILED) \
-	} MAYBE_UNUSED;
+	} MAYBE_UNUSED
 
 
 

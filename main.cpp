@@ -16,33 +16,28 @@
 //#define rewind rewind_//go away, stdio
 int old_main(int argc, char * argv[]);
 
+namespace minir {
 namespace {
 
 //TODO: move those out
-class dev_kb : public devmgr::device {
-	dev_kb(){}
-	
+class dev_kb : public minir::device {
 	inputkb* core;
 	
 public:
-	dev_kb(inputkb* core) { this->core=core; }
-	
-	/*private*/ void set_core(inputkb* core)
+	void ev_init(uintptr_t windowhandle)
 	{
-		delete this->core;
-		
-		this->core=core;
-		attach();
+		emit_thread_enable();
+		core = inputkb::drivers[
+#ifdef __linux__
+1
+#else
+0
+#endif
+			]->create(windowhandle);
+		core->set_kb_cb(bind_this(&dev_kb::key_cb));
 	}
 	
-	void attach()
-	{
-		register_events((this->core->features()&inputkb::f_auto ? 0 : devmgr::e_frame), 0);//this can ask for no events - this is fine
-		this->core->set_kb_cb(bind_this(&dev_kb::key_cb));
-		this->core->refresh();
-	}
-	
-	void ev_frame(const devmgr::event& ev)
+	void ev_frame()
 	{
 		this->core->poll();
 	}
@@ -52,18 +47,23 @@ public:
 private:
 	/*private*/ void key_cb(unsigned int keyboard, unsigned int scancode, unsigned int libretrocode, bool down)
 	{
-		devmgr::event ev(devmgr::event::ty_keyboard);
-		ev.secondary = false;
-		ev.keyboard.deviceid = keyboard;
-		ev.keyboard.scancode = scancode;
-		ev.keyboard.libretrocode = libretrocode;
-		ev.keyboard.down = down;
-		dispatch_async(ev); // this is sometimes called on the device manager thread, but not always, and it works no matter which thread it is on
+		unsigned int code;
+		if (libretrocode) code = libretrocode;
+		else code = scancode+1024;
+		emit_button(EV_MAKE(keyboard, code), down);
+		//devmgr::event ev(devmgr::event::ty_keyboard);
+		//ev.secondary = false;
+		//ev.keyboard.deviceid = keyboard;
+		//ev.keyboard.scancode = scancode;
+		//ev.keyboard.libretrocode = libretrocode;
+		//ev.keyboard.down = down;
+		//dispatch_async(ev); // this is sometimes called on the device manager thread, but not always, and it works no matter which thread it is on
 	}
 };
+declare_devinfo(kb, "Keyboard", (io_user), (io_multi, io_keyboard), 0);
 
 
-class dev_video : public devmgr::device {
+class dev_video : public minir::device {
 	dev_video(){}
 	
 	video* core;
@@ -71,113 +71,133 @@ class dev_video : public devmgr::device {
 public:
 	dev_video(video* core) { this->core=core; }
 	
-	/*private*/ void set_core(video* core)
+	void ev_video(size_t id, unsigned width, unsigned height, const void * data, size_t pitch)
 	{
-		delete this->core;
-		
-		this->core=core;
-		attach();
-	}
-	
-	void attach()
-	{
-		register_events(devmgr::e_video, 0);
-	}
-	
-	void ev_video(const devmgr::event& ev)
-	{
-		if (ev.video.data) this->core->draw_2d(ev.video.width, ev.video.height, ev.video.data, ev.video.pitch);
-		else this->core->draw_repeat();
+		this->core->draw_2d(width, height, data, pitch);
 	}
 	
 	~dev_video() { delete this->core; }
 };
 
 
-class dev_core : public devmgr::device {
-	dev_core(){}
+//class dev_core : public devmgr::device {
+//	dev_core(){}
 	
-	libretro* core;
+//	libretro* core;
 	
-	void c_vid2d_where(unsigned int width, unsigned int height, void* * data, size_t* pitch)
-	{
+//	void c_vid2d_where(unsigned int width, unsigned int height, void* * data, size_t* pitch)
+//	{
 		//TODO (it's currently unused)
-	}
+//	}
 	
-	void c_vid2d(unsigned int width, unsigned int height, const void* data, size_t pitch)
-	{
-		devmgr::event ev(devmgr::event::ty_video);
-		ev.secondary=false;
-		ev.video.width=width;
-		ev.video.height=height;
+//	void c_vid2d(unsigned int width, unsigned int height, const void* data, size_t pitch)
+//	{
+//		devmgr::event ev(devmgr::event::ty_video);
+//		ev.secondary=false;
+//		ev.video.width=width;
+//		ev.video.height=height;
 		
-		if (data)
-		{
-			ev.video.data=malloc(sizeof(uint32_t)*width*height);
-			ev.video.pitch=sizeof(uint32_t)*width;
+//		if (data)
+//		{
+//			ev.video.data=malloc(sizeof(uint32_t)*width*height);
+//			ev.video.pitch=sizeof(uint32_t)*width;
 			
-			video::copy_2d((void*)ev.video.data, sizeof(uint32_t)*width, data, pitch, sizeof(uint32_t)*width, height);
-		}
-		else
-		{
-			ev.video.data=NULL;
-			ev.video.pitch=0;
-		}
+//			video::copy_2d((void*)ev.video.data, sizeof(uint32_t)*width, data, pitch, sizeof(uint32_t)*width, height);
+//		}
+//		else
+//		{
+//			ev.video.data=NULL;
+//			ev.video.pitch=0;
+//		}
 		
-		dispatch(ev);
-	}
+//		dispatch(ev);
+//	}
 	
-	void c_audio(const int16_t* data, size_t frames)
-	{
+//	void c_audio(const int16_t* data, size_t frames)
+//	{
 		
-	}
+//	}
 	
-public:
-	dev_core(libretro* core)
-	{
-		this->core=core;
+//public:
+//	dev_core(libretro* core)
+//	{
+//		this->core=core;
 		
-		this->core->set_video(bind_this(&dev_core::c_vid2d_where), bind_this(&dev_core::c_vid2d));
-		this->core->set_audio(bind_this(&dev_core::c_audio));
-	}
+//		this->core->set_video(bind_this(&dev_core::c_vid2d_where), bind_this(&dev_core::c_vid2d));
+//		this->core->set_audio(bind_this(&dev_core::c_audio));
+//	}
 	
-	devtype type() { return t_core; }
+//	devtype type() { return t_core; }
 	
-	void attach()
-	{
-		register_events(0, devmgr::e_frame | devmgr::e_savestate | devmgr::e_keyboard | devmgr::e_mouse | devmgr::e_gamepad);
+//	void attach()
+//	{
+//		register_events(0, devmgr::e_frame | devmgr::e_savestate | devmgr::e_keyboard | devmgr::e_mouse | devmgr::e_gamepad);
 		
-	}
+//	}
 	
-	void ev_frame(const devmgr::event& ev)
-	{
-		core->run();
-	}
+//	void ev_frame(const devmgr::event& ev)
+//	{
+//		core->run();
+//	}
 	
-	void ev_state_save(const devmgr::event& ev)
-	{
+//	void ev_state_save(const devmgr::event& ev)
+//	{
 		//TODO
-	}
+//	}
 	
-	void ev_state_load(const devmgr::event& ev)
-	{
+//	void ev_state_load(const devmgr::event& ev)
+//	{
 		//TODO
-	}
+//	}
 	
 	//TODO
-	void ev_keyboard(const devmgr::event& ev) {}
-	void ev_mousemove(const devmgr::event& ev) {}
-	void ev_mousebutton(const devmgr::event& ev) {}
+//	void ev_keyboard(const devmgr::event& ev) {}
+//	void ev_mousemove(const devmgr::event& ev) {}
+//	void ev_mousebutton(const devmgr::event& ev) {}
 	
-	void ev_gamepad(const devmgr::event& ev)
+//	void ev_gamepad(const devmgr::event& ev)
+//	{
+//		core->input_gamepad(ev.gamepad.device, ev.gamepad.button, ev.gamepad.down);
+//	}
+	
+//	~dev_core() { delete this->core; }
+//};
+
+
+#include "minir.h"
+class dev_gamepad : public minir::device {
+public:
+	void ev_button(uint32_t event, bool down)
 	{
-		core->input_gamepad(ev.gamepad.device, ev.gamepad.button, ev.gamepad.down);
+		static const uint8_t map[16]={
+/* RETRO_DEVICE_ID_JOYPAD_UP     */  4,
+/* RETRO_DEVICE_ID_JOYPAD_DOWN   */  5,
+/* RETRO_DEVICE_ID_JOYPAD_LEFT   */  6,
+/* RETRO_DEVICE_ID_JOYPAD_RIGHT  */  7,
+/* RETRO_DEVICE_ID_JOYPAD_A      */  8,
+/* RETRO_DEVICE_ID_JOYPAD_B      */  0,
+/* RETRO_DEVICE_ID_JOYPAD_X      */  9,
+/* RETRO_DEVICE_ID_JOYPAD_Y      */  1,
+/* RETRO_DEVICE_ID_JOYPAD_START  */  3,
+/* RETRO_DEVICE_ID_JOYPAD_SELECT */  2,
+/* RETRO_DEVICE_ID_JOYPAD_L      */ 10,
+/* RETRO_DEVICE_ID_JOYPAD_R      */ 11,
+/* RETRO_DEVICE_ID_JOYPAD_L2     */ 12,
+/* RETRO_DEVICE_ID_JOYPAD_R2     */ 13,
+/* RETRO_DEVICE_ID_JOYPAD_L3     */ 14,
+/* RETRO_DEVICE_ID_JOYPAD_R3     */ 15,
+			};
+		emit_button(EV_MAKE(0, map[EV_ID(event)]), down);
 	}
-	
-	~dev_core() { delete this->core; }
 };
+declare_devinfo_n(gamepad, "Gamepad",
+	(io_button, io_button, io_button, io_button, io_button, io_button, io_button, io_button,
+	 io_button, io_button, io_button, io_button, io_button, io_button, io_button, io_button),
+	("Up", "Down", "Left", "Right", "A", "B", "X", "Y", "Start", "Select", "L", "R", "L2", "R2", "L3", "R3"),
+	(io_gamepad), (NULL),
+	0);
 
-
+/*
 const char * inputmap[16]={
 	"KB::Z",     // B
 	"KB::A",     // Y
@@ -216,6 +236,7 @@ public:
 		dispatch(gev);
 	}
 };
+*/
 
 
 int main_wrap(int argc, char * argv[])
@@ -257,11 +278,6 @@ puts("init=6");
 	
 puts("init=7");
 	devmgr* contents=devmgr::create();
-#ifdef __linux__
-	contents->add_device(new dev_kb(inputkb::drivers[1]->create(view->get_window_handle())));
-#else
-	contents->add_device(new dev_kb(inputkb::drivers[0]->create(view->get_window_handle())));
-#endif
 	contents->add_device(new dev_video(vid));
 	contents->add_device(new dev_core(core));
 	contents->add_device(new dev_inputmap());
@@ -280,5 +296,6 @@ puts("init=9");
 }
 
 }
+}
 
-int main(int argc, char * argv[]) { main_wrap(argc, argv); }
+int main(int argc, char * argv[]) { minir::main_wrap(argc, argv); }

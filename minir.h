@@ -16,10 +16,7 @@ extern const unsigned char icon_minir_64x64_png[1300];
 
 
 
-class devmgr : nocopy {
-	class impl;
-public:
-	
+namespace minir {
 	//Event types:
 	// Event
 	//  Stateless event.
@@ -166,7 +163,9 @@ public:
 	//  Allows the user to use and create cheat codes.
 	
 	class device;
-	friend class device;
+	class devmgr;
+	class devmgr_impl;
+	class inputmapper;
 	
 	enum iotype {
 		io_end,
@@ -174,6 +173,7 @@ public:
 		//Modifier/misc flags. Modifies rules of what this device does.
 		io_core,   // Must see or emit all I/O from the core; both input, frames, and audio/video.
 		io_user,   // Takes input from, or sends output to, the user.
+		io_multi,  // Everything beyond this point repeats an arbitrary number of times.
 		
 		//Basic event types. The building blocks of all other devices.
 		io_frame, // Fires each frame. Not needed by all devices.
@@ -215,17 +215,6 @@ public:
 	struct devinfo {
 		const char * name;
 		
-		enum {
-			f_is_core  = 0x0001,
-			f_autocreate=0x0002,
-		};
-		uint32_t flags;
-		
-		struct nameio {
-			enum iotype type;
-			const char * name;
-		};
-		
 		//These arrays are terminated by an io_end.
 		const enum iotype * input;
 		const enum iotype * output;
@@ -234,92 +223,128 @@ public:
 		const char * const * output_names;
 		
 		device* (*create)();
+		
+		enum {
+			f_is_core  = 0x0001,
+			f_autocreate=0x0002,
+		};
+		uint32_t flags;
 	};
 	
 #define declare_devinfo_core(var, name, input, output, input_names, output_names, flags) \
-	struct devinfo JOIN(dev_,var); \
-	static device* JOIN(create_,var)() { device* ret = new JOIN(JOIN(device_,var),_impl)(); ret->info = JOIN(dev_,var); return ret; } \
-	static const enum iotype JOIN(var,_input) = { UNPACK_PAREN input }; \
-	static const enum iotype JOIN(var,_output) = { UNPACK_PAREN output }; \
-	struct devinfo JOIN(dev_,var) = { name, JOIN(var,_input), JOIN(var,_output), input_names, output_names, JOIN(create_,var), flags }
+	extern const struct devinfo JOIN(devinf_,var); \
+	static device* JOIN(create_,var)() { device* ret = new JOIN(dev_,var)(); ret->info = &JOIN(devinf_,var); return ret; } \
+	static const enum minir::iotype JOIN(var,_input) [] = { UNPACK_PAREN input, io_end }; \
+	static const enum minir::iotype JOIN(var,_output) [] = { UNPACK_PAREN output, io_end }; \
+	const struct devinfo JOIN(devinf_,var) = { name, JOIN(var,_input), JOIN(var,_output), input_names, output_names, JOIN(create_,var), flags }
 	
 #define declare_devinfo(var, name, input, output, flags) \
 	declare_devinfo_core(var, name, input, output, NULL, NULL, flags)
 	
 #define declare_devinfo_n(var, name, input, input_names, output, output_names, flags) \
-	static const char * const JOIN(var, _input_names) [] = { UNPACK_PAREN input_names, io_end }; \
-	static const char * const JOIN(var, _output_names) [] = { UNPACK_PAREN output_names, io_end }; \
+	static const char * const JOIN(var, _input_names) [] = { UNPACK_PAREN input_names }; \
+	static const char * const JOIN(var, _output_names) [] = { UNPACK_PAREN output_names }; \
 	declare_devinfo_core(var, name, input, output, JOIN(var, _input_names), JOIN(var, _output_names), flags); \
 	static_assert(ARRAY_SIZE(JOIN(var, _input_names)) >= ARRAY_SIZE(JOIN(var, _input))-1); \
 	static_assert(ARRAY_SIZE(JOIN(var, _output_names)) >= ARRAY_SIZE(JOIN(var, _output))-1)
 	
-	static const struct devinfo * const devices[];
+	extern const struct devinfo * const devices[];
 	
-	class device {
+	class device : nocopy {
 		friend class devmgr;
+		friend class devmgr_impl;
 		
 	protected:
 		devmgr* parent;
 		size_t id;
+	public:
 		const struct devinfo * info;
+		
+	protected:
+		//Called when being attached to a device manager. This is the earliest permissible point to send events.
+		virtual void ev_init(uintptr_t windowhandle) {}
+		
+		//These two handle thread safety.
+		//Enabling threading means that the device may send events on other threads than they're received on.
+		//The device manager will make sure that events to a device will only be delivered on one thread.
+		void       emit_thread_enable() {}
+		//A device can mark itself thread safe, meaning that any number of ev_* can be entered at once.
+		void       emit_thread_safe() {}
+		//A device starts in the disabled state, and while it's disabled, it may not emit and will not receive events.
+		//While enabled, it may deliver events on any thread.
+		//A disable request must not return until all emit_* calls from this device have returned.
+		virtual void ev_thread_enable(bool enable) {}
 		
 		//The frame event comes after all input events to this device.
 		void       emit_frame() {}
 		virtual void ev_frame() {}
 		
+#define EV_MAKE(id, subid) ((id)<<16 | (subid))
+#define EV_ID(ev) ((ev)>>16)
+#define EV_SUBID(ev) ((ev)&0xFFFF)
 		//'id' is the index to the 'input' or 'output' arrays in devinfo (input for ev_, output for emit_).
 		//Combined devices show up as their components, with subid telling which of its components is relevant.
-		void       emit_event       (size_t id, size_t subid) {}
-		virtual void ev_event       (size_t id, size_t subid) {}
-		//For keyboards, subid is either a RETROK_ code, or 1024 + a meaningless but unique scancode.
-		void       emit_button      (size_t id, size_t subid, bool down) {}
-		virtual void ev_button      (size_t id, size_t subid, bool down) {}
-		//-0x7FFF is the leftmost value possible, +0x7FFF is the rightmost possible.
-		void       emit_joystick    (size_t id, size_t subid, int16_t x, int16_t y) {}
-		virtual void ev_joystick    (size_t id, size_t subid, int16_t x, int16_t y) {}
+		void       emit_event       (uint32_t event) {}
+		virtual void ev_event       (uint32_t event) {}
+		//For gamepads, subid is a RETRO_DEVICE_ID_JOYPAD_*.
+		//For keyboards, subid is either a RETROK_ code, or 1024 + a meaningless but unique scancode less than or equal to 1023.
+		void       emit_button      (uint32_t event, bool down) {}
+		virtual void ev_button      (uint32_t event, bool down) {}
+		//-0x7FFF is the leftmost value possible, +0x7FFF is the rightmost possible. -0x8000 is invalid.
+		void       emit_joystick    (uint32_t event, int16_t x, int16_t y) {}
+		virtual void ev_joystick    (uint32_t event, int16_t x, int16_t y) {}
 		//Each value here is a number of pixels.
-		void       emit_motion      (size_t id, size_t subid, int16_t x, int16_t y) {}
-		virtual void ev_motion      (size_t id, size_t subid, int16_t x, int16_t y) {}
+		void       emit_motion      (uint32_t event, int16_t x, int16_t y) {}
+		virtual void ev_motion      (uint32_t event, int16_t x, int16_t y) {}
 		//0..65535 are inside the window. Other values may be possible. Same goes for pointer/multipointer.
-		void       emit_position    (size_t id, size_t subid, int32_t x, int32_t y) {}
-		virtual void ev_position    (size_t id, size_t subid, int32_t x, int32_t y) {}
-		void       emit_pointer     (size_t id, size_t subid, bool down, uint16_t x, uint16_t y) {}
-		virtual void ev_pointer     (size_t id, size_t subid, bool down, int32_t x, int32_t y) {}
-		void       emit_multipointer(size_t id, size_t subid, size_t count, const uint16_t * x, const uint16_t * y) {}
-		virtual void ev_multipointer(size_t id, size_t subid, size_t count, const int32_t * x, const int32_t * y) {}
+		void       emit_position    (uint32_t event, int32_t x, int32_t y) {}
+		virtual void ev_position    (uint32_t event, int32_t x, int32_t y) {}
+		void       emit_pointer     (uint32_t event, bool down, int32_t x, int32_t y) {}
+		virtual void ev_pointer     (uint32_t event, bool down, int32_t x, int32_t y) {}
+		void       emit_multipointer(uint32_t event, uint16_t count, const int32_t * x, const int32_t * y) {}
+		virtual void ev_multipointer(uint32_t event, uint16_t count, const int32_t * x, const int32_t * y) {}
 		
 		void       emit_video_setup   (size_t id, enum videoformat fmt, unsigned std_width, unsigned std_height, unsigned max_width, unsigned max_height) {}
 		virtual void ev_video_setup   (size_t id, enum videoformat fmt, unsigned std_width, unsigned std_height, unsigned max_width, unsigned max_height) {}
-		//This allows the video data to be put whereever the target device wants. The target also decides pitch. The pointer does not need to be readable.
-		//Returning NULL means that the target device has no opinion, so the caller allocates. If called, and the return value is non-NULL, it must be obeyed.
+		//This allows the video data to be put whereever the target device wants. The target also decides pitch.
+		//The pointer does not need to be normal memory, and must not be read, not even after writing.
+		//Returning NULL means that the target device has no opinion, so the caller allocates. If called, and the return value is non-NULL, it must be used.
 		void       emit_video_locate  (size_t id, unsigned width, unsigned height, void * * data, size_t * pitch) {}
 		virtual void ev_video_locate  (size_t id, unsigned width, unsigned height, void * * data, size_t * pitch) { *data=NULL; *pitch=0; }
 		void       emit_video         (size_t id, unsigned width, unsigned height, const void * data, size_t pitch) {}
 		virtual void ev_video         (size_t id, unsigned width, unsigned height, const void * data, size_t pitch) {}
-		//Dupe video events means the last frame should be repeated. Wait for another vsync.
+		//Dupe video events means the last frame should be repeated, and the driver should wait for another vsync.
 		void       emit_video_dupe    (size_t id) {}
 		virtual void ev_video_dupe    (size_t id) {}
 		//emit_video_req means that the calling device, and only it, will get an ev_video corresponding to
-		// the last ev_video_{locate,3d,dupe}. Likely to be slower than asking for normal video events.
+		// the last ev_video_{locate,3d,dupe}. Likely to be slower than asking for normal video events, but
+		// if only a few frames are desirable, explicitly asking for only them is desirable.
 		//If you get an ev_video_req, call emit_video. emit_video_locate is allowed.
-		void       emit_video_req     (size_t id) {}
-		virtual bool ev_video_req     (size_t id) {}
-		//3D stuff mostly goes outside this device.
-		bool       emit_video_setup_3d(size_t id, struct retro_hw_render_callback * desc) {}
-		virtual bool ev_video_setup_3d(size_t id, struct retro_hw_render_callback * desc) { return false; }
+		//If a device alters the video data, 'use_output' tells whether 'id' refers to the last input or output.
+		//(If it doesn't, either both are the same or only one is applicable, and that argument can be ignored.)
+		//If no relevant device supports repeat requests, it can return failure, but this is rare.
+		bool       emit_video_req     (size_t id) { return false; }
+		virtual bool ev_video_req     (size_t id, bool use_output) { return false; }
+		//3D stuff mostly goes outside this system.
+		//'context' allows multiple video handlers to share resources across threads.
+		//If NULL, the source expects the target to set up a context for this thread and will use that; if not, both devices will set up one context each.
+		bool       emit_video_setup_3d(size_t id, struct retro_hw_render_callback * desc, void* context) { return false; }
+		virtual bool ev_video_setup_3d(size_t id, struct retro_hw_render_callback * desc, void* context) { return false; }
 		void       emit_video_3d      (size_t id) {}
 		virtual void ev_video_3d      (size_t id) {}
 		
-		//'src_async' is whether the source can accept audio_req. 'dst_async' is whether the target can.
-		virtual void ev_audio_setup (size_t id, double samplerate, unsigned num_channels, bool src_async, bool * dst_async) {}
-		void       emit_audio_setup (size_t id, double samplerate, unsigned num_channels, bool src_async, bool * dst_async) {}
+		//If the source supports asynchronous audio, 'async' will point to a false. If not, NULL.
+		//If the target supports asynchronous audio and 'async' is non-NULL, it will be set to true. Only then may async audio be used.
+		virtual void ev_audio_setup (size_t id, double samplerate, unsigned num_channels, bool * async) {}
+		void       emit_audio_setup (size_t id, double samplerate, unsigned num_channels, bool * async) {}
 		virtual void ev_audio_locate(size_t id, int16_t * * data, size_t frames) {}
 		void       emit_audio_locate(size_t id, int16_t * * data, size_t frames) {}
 		virtual void ev_audio       (size_t id, const int16_t * data, size_t frames) {}
 		void       emit_audio       (size_t id, const int16_t * data, size_t frames) {}
 		//Audio requests mean that the source is requested to emit this many audio frames to this location. Only use this if agreed upon in audio_setup.
-		virtual bool ev_audio_req   (size_t id, int16_t * data, size_t frames) { return false; }
-		bool       emit_audio_req   (size_t id, int16_t * data, size_t frames) { return false; }
+		//'data' is not required to be used. Less than 'frames' frames may be emitted, but no more.
+		virtual void ev_audio_req   (size_t id, int16_t * data, size_t frames) {}
+		void       emit_audio_req   (size_t id, int16_t * data, size_t frames) {}
 		
 		//These two allow devices to serialize and restore their state.
 		virtual array<uint8_t> ev_savestate_save() { return array<uint8_t>(); }
@@ -329,7 +354,7 @@ public:
 		//Requests to create a savestate can only fail if the core rejects it.
 		virtual bool ev_savestate_can_load() { return true; }
 		
-		//These handle a complete savestate, including some metadata to identify the savestate as belonging to minir and some other stuff.
+		//These handle complete savestates, including some metadata to identify the savestate as belonging to minir and some other stuff.
 		array<uint8_t> emit_savestate_save() { return array<uint8_t>(); }
 		bool emit_savestate_load(arrayview<uint8_t> data) { return true; }
 		//This reads a savestate and returns the part that refers to the relevant device.
@@ -345,34 +370,37 @@ public:
 		virtual ~device() {}
 	};
 	
-protected:
-	virtual array<uint8_t> emit_savestate(size_t source) = 0;
-	
-public:
-	
-	struct dev_iomap {
-		struct entry {
-			uint16_t id;//Index to dev_get_all().
-			uint16_t subid;//Index to device::info->output[].
+	class devmgr : nocopy {
+		friend class device;
+	protected:
+		virtual array<uint8_t> emit_savestate(size_t source) = 0;
+		
+	public:
+		
+		struct dev_iomap {
+			struct entry {
+				uint16_t id;//Index to dev_get_all().
+				uint16_t subid;//Index to device::info->output[].
+			};
+			array<array<uint32_t> > map;
 		};
-		array<array<uint32_t> > map;
+		
+		virtual bool dev_add(device* dev, string* error) = 0;
+		
+		virtual array<device*> dev_get_all() = 0;
+		virtual struct devmap dev_get_map() = 0;
+		
+		virtual bool dev_add_all(array<device*> devices) = 0;
+		virtual bool dev_add_all_mapped(array<device*> devices, struct devmap map) = 0;
+		virtual void dev_remove_all() = 0;
+		
+		virtual void frame() = 0;
+		
+		static devmgr* create();
+		virtual ~devmgr() {}
 	};
 	
-	virtual bool dev_add(device* dev, string* error) = 0;
-	
-	virtual array<device*> dev_get_all() = 0;
-	virtual struct devmap dev_get_map() = 0;
-	
-	virtual bool dev_add_all(array<device*> devices) = 0;
-	virtual bool dev_add_all_mapped(array<device*> devices, struct devmap map) = 0;
-	virtual void dev_remove_all() = 0;
-	
-	virtual void frame() = 0;
-	
-	static devmgr* create();
-	virtual ~devmgr() {}
-	
-	class inputmapper {
+	class inputmapper : nocopy {
 		class impl;
 	public:
 		typedef unsigned int triggertype;
@@ -444,7 +472,7 @@ public:
 		static inputmapper* create();
 		virtual ~inputmapper(){}
 	};
-};
+}
 
 
 
