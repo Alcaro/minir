@@ -174,6 +174,7 @@ namespace minir {
 		io_core,   // Must see or emit all I/O from the core; both input, frames, and audio/video.
 		io_user,   // Takes input from, or sends output to, the user.
 		io_multi,  // Everything beyond this point repeats an arbitrary number of times.
+		io_thread, // Input: Can take input from multiple threads simultaneously. Output: Can send events on threads other than the one getting events.
 		
 		//Basic event types. The building blocks of all other devices.
 		io_frame, // Fires each frame. Not needed by all devices.
@@ -264,15 +265,10 @@ namespace minir {
 		//Called when being attached to a device manager. This is the earliest permissible point to send events.
 		virtual void ev_init(uintptr_t windowhandle) {}
 		
-		//These two handle thread safety.
-		//Enabling threading means that the device may send events on other threads than they're received on.
-		//The device manager will make sure that events to a device will only be delivered on one thread.
-		void       emit_thread_enable() {}
-		//A device can mark itself thread safe, meaning that any number of ev_* can be entered at once.
-		void       emit_thread_safe() {}
-		//A device starts in the disabled state, and while it's disabled, it may not emit and will not receive events.
-		//While enabled, it may deliver events on any thread.
+		//A device with threaded output must listen to this one.
+		//While enabled, it may deliver events on any thread. While disabled, it may not deliver anything.
 		//A disable request must not return until all emit_* calls from this device have returned.
+		//The device starts in the disabled state.
 		virtual void ev_thread_enable(bool enable) {}
 		
 		//The frame event comes after all input events to this device.
