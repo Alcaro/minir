@@ -26,7 +26,6 @@ class dev_kb : public minir::device {
 public:
 	void ev_init(uintptr_t windowhandle)
 	{
-		emit_thread_enable();
 		core = inputkb::drivers[
 #ifdef __linux__
 1
@@ -60,24 +59,24 @@ private:
 		//dispatch_async(ev); // this is sometimes called on the device manager thread, but not always, and it works no matter which thread it is on
 	}
 };
-declare_devinfo(kb, "Keyboard", (io_user), (io_multi, io_keyboard), 0);
+declare_devinfo(kb, "Keyboard", (io_user), (io_thread, io_multi, io_keyboard), 0);
 
 
-class dev_video : public minir::device {
-	dev_video(){}
+//class dev_video : public minir::device {
+//	dev_video(){}
 	
-	video* core;
+//	video* core;
 	
-public:
-	dev_video(video* core) { this->core=core; }
+//public:
+//	dev_video(video* core) { this->core=core; }
 	
-	void ev_video(size_t id, unsigned width, unsigned height, const void * data, size_t pitch)
-	{
-		this->core->draw_2d(width, height, data, pitch);
-	}
+//	void ev_video(size_t id, unsigned width, unsigned height, const void * data, size_t pitch)
+//	{
+//		this->core->draw_2d(width, height, data, pitch);
+//	}
 	
-	~dev_video() { delete this->core; }
-};
+//	~dev_video() { delete this->core; }
+//};
 
 
 //class dev_core : public devmgr::device {
@@ -165,7 +164,8 @@ public:
 
 
 #include "minir.h"
-class dev_gamepad : public minir::device {
+//namespace minir {
+class dev_vgamepad : public minir::device {
 public:
 	void ev_button(uint32_t event, bool down)
 	{
@@ -190,53 +190,14 @@ public:
 		emit_button(EV_MAKE(0, map[EV_ID(event)]), down);
 	}
 };
-declare_devinfo_n(gamepad, "Gamepad",
+declare_devinfo_n(vgamepad, "VGamepad",
 	(io_button, io_button, io_button, io_button, io_button, io_button, io_button, io_button,
 	 io_button, io_button, io_button, io_button, io_button, io_button, io_button, io_button),
 	("Up", "Down", "Left", "Right", "A", "B", "X", "Y", "Start", "Select", "L", "R", "L2", "R2", "L3", "R3"),
 	(io_gamepad), (NULL),
 	0);
+//}
 
-/*
-const char * inputmap[16]={
-	"KB::Z",     // B
-	"KB::A",     // Y
-	"KB::Space", // Select
-	"KB::Return",// Start
-	"KB::Up",    // Up
-	"KB::Down",  // Down
-	"KB::Left",  // Left
-	"KB::Right", // Right
-	"KB::X",     // A
-	"KB::S",     // X
-	"KB::Q",     // L
-	"KB::W",     // R
-	NULL, // L2
-	NULL, // R2
-	NULL, // L3
-	NULL, // R3
-};
-class dev_inputmap : public devmgr::device {
-public:
-	void attach()
-	{
-		for (unsigned int i=0;i<16;i++)
-		{
-			register_button(inputmap[i], btn_change, i);
-		}
-	}
-	
-	void ev_button(const devmgr::event& bev)
-	{
-		devmgr::event gev(devmgr::event::ty_gamepad);
-		gev.secondary = true;
-		gev.gamepad.device = 0;
-		gev.gamepad.button = bev.button.id;
-		gev.gamepad.down = bev.button.down;
-		dispatch(gev);
-	}
-};
-*/
 
 
 int main_wrap(int argc, char * argv[])
@@ -278,14 +239,15 @@ puts("init=6");
 	
 puts("init=7");
 	devmgr* contents=devmgr::create();
-	contents->add_device(new dev_video(vid));
-	contents->add_device(new dev_core(core));
-	contents->add_device(new dev_inputmap());
-	
 puts("init=8");
-	wnd->set_visible(wnd, true);
+	contents->add_device(create_kb());
+	const char * map[16]={"kb.up", "kb.down", "kb.left", "kb.right", "kb.x", "kb.z", "kb.s", "kb.a", "kb.return", "kb.space", "kb.q", "kb.w"};
+	contents->add_device(create_vgamepad(), map);
 	
 puts("init=9");
+	wnd->set_visible(wnd, true);
+	
+puts("init=10");
 	while (wnd->is_visible(wnd))
 	{
 		window_run_iter();

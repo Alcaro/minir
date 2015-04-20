@@ -164,7 +164,6 @@ namespace minir {
 	
 	class device;
 	class devmgr;
-	class devmgr_impl;
 	class inputmapper;
 	
 	enum iotype {
@@ -199,10 +198,11 @@ namespace minir {
 		io_video_req,//Wants video input, but only wants a few frames, and will tell which it wants. Input only.
 		
 		//These four are output only.
-		io_state_save,  // Can order the core to save a savestate.
-		io_state_load,  // Can order the core to load a savestate.
-		io_state_filter,// Can reject requests to load savestates.
-		io_state_append,// Adds a block of data to the savestates.
+		io_state_save,       // Can order the core to save a savestate.
+		io_state_load,       // Can order the core to load a savestate.
+		io_state_filter,     // Can reject requests to load savestates.
+		io_state_append,     // Adds a block of data to the savestates.
+		io_state_append_ethe,// Adds a block of data to the savestates. Included in short-term savestates too.
 	};
 	
 	//Constant information about the device that can be known without executing any of its code,
@@ -253,7 +253,6 @@ namespace minir {
 	
 	class device : nocopy {
 		friend class devmgr;
-		friend class devmgr_impl;
 		
 	protected:
 		devmgr* parent;
@@ -263,7 +262,7 @@ namespace minir {
 		
 	protected:
 		//Called when being attached to a device manager. This is the earliest permissible point to send events.
-		virtual void ev_init(uintptr_t windowhandle) {}
+		virtual void ev_init() {}
 		
 		//A device with threaded output must listen to this one.
 		//While enabled, it may deliver events on any thread. While disabled, it may not deliver anything.
@@ -343,6 +342,8 @@ namespace minir {
 		void       emit_audio_req   (size_t id, int16_t * data, size_t frames) {}
 		
 		//These two allow devices to serialize and restore their state.
+		//Savestate data should be endian safe. The litend<>/bigend<> templates help.
+		//On loading, it is guaranteed four-byte aligned; if it contains uint64s, it should be copied before use.
 		virtual array<uint8_t> ev_savestate_save() { return array<uint8_t>(); }
 		virtual void ev_savestate_load(arrayview<uint8_t> data) {}
 		//To reject the savestate, return false. Savestate requests from this device do not call this function,
@@ -351,15 +352,37 @@ namespace minir {
 		virtual bool ev_savestate_can_load() { return true; }
 		
 		//These handle complete savestates, including some metadata to identify the savestate as belonging to minir and some other stuff.
-		array<uint8_t> emit_savestate_save() { return array<uint8_t>(); }
+		//Ethereal savestates are guaranteed to not be loaded in any other process. Non-ethereal may be transmitted and saved to files.
+		array<uint8_t> emit_savestate_save(bool ethereal) { return array<uint8_t>(); }
 		bool emit_savestate_load(arrayview<uint8_t> data) { return true; }
 		//This reads a savestate and returns the part that refers to the relevant device.
 		arrayview<uint8_t> emit_savestate_locate(arrayview<uint8_t> data, device* owner) { return arrayview<uint8_t>(); }
 		
-		//These two handle 'raw' savestates, containing only data from the core.
-		//Likely compatible with other frontends (including standalone), but loading them will give all other devices a blank save data array.
-		array<uint8_t> emit_savestate_save_raw() { return array<uint8_t>(); }
-		bool emit_savestate_load_raw(arrayview<uint8_t> data) { return false; }
+		//Savestate format:
+		//byte[] native_savestate;
+		//align[4];
+		//struct(char[] name, align[4], u32 size, byte[] data, align[4]) dev_data;
+		//u32 native_size;
+		//char[] signature=NUL+"minir-savestate";
+		//
+		//native_savestate: The core savestate. It's at the start to allow (partial) interopability with most other frontends, including
+		// standalone; most core savestates already contain a size, and most are constant size already. Most of them ignore excess data.
+		//dev_data: One structure for each device that requests to be part of the states. Multiple items may
+		// have the same name, in which case they're guaranteed to be together; otherwise, order is unspecified.
+		//native_size: The length of the native savestate. The list of device data starts here (after some alignment padding).
+		//signature: The constant string NUL+"minir-savestate". Identifies the savestate as containing minir data.
+		//
+		//If there is no dev_data, the minir-specific data is discarded, and the savestate is only the core-generated blob.
+		//
+		//The padding (if present) must be only 00s.
+		
+		//Validates that the savestate is structurally valid:
+		//- Contains at least one dev_data
+		//- All names are ASCII only ('!' through '~')
+		//- All padding is 00s
+		//- The dev_data array ends right at native_size
+		//If the savestate lacks the minir signature, it's considered valid.
+		bool emit_savestate_validate(arrayview<uint8_t> data) { return false; }
 		
 		//TODO: figure out SRAM handling
 		
@@ -369,26 +392,16 @@ namespace minir {
 	class devmgr : nocopy {
 		friend class device;
 	protected:
-		virtual array<uint8_t> emit_savestate(size_t source) = 0;
+		void dev_setup(device* dev, size_t id) { dev->parent=this; dev->id=id; }
+		size_t dev_get_id(device* dev) { return dev->id; }
+		//virtual array<uint8_t> emit_savestate(size_t source) = 0;
 		
 	public:
-		
-		struct dev_iomap {
-			struct entry {
-				uint16_t id;//Index to dev_get_all().
-				uint16_t subid;//Index to device::info->output[].
-			};
-			array<array<uint32_t> > map;
-		};
-		
-		virtual bool dev_add(device* dev, string* error) = 0;
-		
-		virtual array<device*> dev_get_all() = 0;
-		virtual struct devmap dev_get_map() = 0;
-		
-		virtual bool dev_add_all(array<device*> devices) = 0;
-		virtual bool dev_add_all_mapped(array<device*> devices, struct devmap map) = 0;
-		virtual void dev_remove_all() = 0;
+		//Each inputs[] to a device is one string, in order.
+		//Devices can be added in any order. The order is mostly ignored, but if two devices of the same type are submitted (for example vgamepad), the order is used.
+		//The I/O map is allowed to be blank, in which case the device manager will try to connect all inputs to free outputs.
+		virtual void add_device(device* dev, arrayview<string> inputs = NULL) = 0;
+		virtual void add_device(device* dev, arrayview<const char*> inputs) = 0;
 		
 		virtual void frame() = 0;
 		
@@ -398,18 +411,10 @@ namespace minir {
 	
 	class inputmapper : nocopy {
 		class impl;
-	public:
-		typedef unsigned int triggertype;
-		enum {
-			tr_press = 1,   // The slot is now held, and wasn't before.
-			tr_release = 2, // The slot is now released, and wasn't before.
-			tr_primary = 4, // The primary key for this slot was pressed.
-			//Only a few of the combinations (1, 2, 4, 5) are possible.
-		};
 	protected:
-		function<void(unsigned int id, triggertype events)> callback;
+		function<void(unsigned int id, bool down)> callback;
 	public:
-		void set_cb(function<void(unsigned int id, triggertype events)> callback) { this->callback=callback; }
+		void set_cb(function<void(unsigned int id, bool down)> callback) { this->callback=callback; }
 		
 		//void request_next(function<void(const char * desc)> callback) { this->req_callback=callback; }
 		
@@ -420,20 +425,29 @@ namespace minir {
 		
 		//The implementation may limit the maximum number of modifiers on any descriptor. At least 15 modifiers
 		// must be supported, but more is allowed. If it goes above this limit, the descriptor is rejected.
-		virtual bool register_button(unsigned int id, const char * desc) = 0;
+		//'trigger' is whether it's a trigger-based or level-based event.
+		//A level-triggered event fires the event whenever the combination changes between held and not,
+		// while trigger-based fire when the relevant modifiers are held and one of the primaries is hit.
+		//Examples of differences: If a slot is A,S and someone is holding A and repeatedly slapping S,
+		// a level-triggered event will only fire when A is pressed, because the total state is still 'down'.
+		// A trigger-based event will fire for each press of either key.
+		//If a slot is A+S and S is hit before A, the trigger will never fire (the modifier, A,
+		// had wrong state when S was pressed), but the level will fire (the combination is true).
+		//They share their ID namespaces. A trigger event never fires with down=false.
+		virtual bool register_button(unsigned int id, const char * desc, bool trigger) = 0;
 		//Returns the lowest slot ID where the given number of descriptors can be sequentially added.
 		//If called for len=4 and it returns 2, it means that slots 2, 3, 4 and 5 are currently unused.
 		//It doesn't actually reserve anything, or otherwise change the state of the object; it just tells the current state.
 		
 		//The implementation may set an upper bound on the maximum valid slot. All values up to 4095 must work,
-		// but going up to SIZE_MAX is not guaranteed. If this is hit, behaviour is undefined.
+		// but going up to UINT_MAX is not guaranteed. If this is hit, behaviour is undefined.
 		virtual unsigned int register_group(unsigned int len) = 0;
 		//If you don't want to decide which slot to use, this one will pick an unused slot and tell which it used.
 		//If the descriptor is invalid, -1 will be returned, and no slot will change.
-		int register_button(const char * desc)
+		int register_button(const char * desc, bool trigger)
 		{
 			int slot = register_group(1);
-			if (register_button(slot, desc)) return slot;
+			if (register_button(slot, desc, trigger)) return slot;
 			else return -1;
 		}
 		

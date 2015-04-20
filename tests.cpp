@@ -3,6 +3,7 @@
 //      g++ -DSELFTEST -DNOMAIN tests.cpp debug.cpp memory.cpp -g && gdb ./a.out
 #include "os.h"
 #include "containers.h"
+#include "endian.h"
 
 static void assert(bool cond)
 {
@@ -187,10 +188,37 @@ static void test_fifo()
 	}
 }
 
+static void test_endian()
+{
+	bigend<uint32_t> t;
+	t = 0x01020304;
+	uint8_t* p=(uint8_t*)&t;
+	assert(p[0]==0x01);
+	assert(p[1]==0x02);
+	assert(p[2]==0x03);
+	assert(p[3]==0x04);
+	
+	t=0x04030201;
+	assert(p[0]==0x04);
+	assert(p[1]==0x03);
+	assert(p[2]==0x02);
+	assert(p[3]==0x01);
+	
+	t+=0x02040608;
+	assert(p[0]==0x06);
+	assert(p[1]==0x07);
+	assert(p[2]==0x08);
+	assert(p[3]==0x09);
+}
+
 int main()
 {
 	//test_multiint();
 	//test_sort();
-	test_fifo();
+	//test_fifo();
+	//test_endian();
 }
+
+void n(litend<uint32_t>* p) { (*p)++; }
+void m(bigend<uint32_t>* p) { (*p)++; }
 #endif

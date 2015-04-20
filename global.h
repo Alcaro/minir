@@ -77,6 +77,13 @@ template<> struct static_assert_t<false> {};
 		sizeof(TYPENAME_IF_GCC static_assert_t<(bool)(expr)>::STATIC_ASSERTION_FAILED) \
 	} MAYBE_UNUSED
 
+#ifdef __GNUC__
+#define ALIGN(n) __attribute__((aligned(n)))
+#endif
+#ifdef _MSC_VER
+#define ALIGN(n) __declspec(align(n))
+#endif
+
 
 
 
@@ -248,9 +255,6 @@ template<typename T> static inline T bitround(T in)
 	return in;
 }
 
-
-//#include "window.h"
-//#include "image.h"
 
 //If any interface defines a callback, free() is banned while inside this callback; other functions
 // are allowed, unless otherwise specified. Other instances of the same interface may be used and

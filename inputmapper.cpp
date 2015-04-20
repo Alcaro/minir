@@ -5,7 +5,7 @@
 #include <ctype.h>
 
 namespace {
-class devmgr_inputmapper_impl : public devmgr::inputmapper {
+class minir_inputmapper_impl : public minir::inputmapper {
 public:
 //function<void(int id, bool down)> callback; // held in the parent class
 
@@ -63,7 +63,7 @@ struct keydata {
 	keydesc_t primary;
 	keyslot_t level;//used by some event sources; 0 if the slot is unused
 	bool active;//whether this one is set (only valid for entries in 'mappings', not child items)
-	//char padding[1];
+	bool trigger;//whether this one is trigger-only (false: level-based)
 	keydata* next;//if multiple key combos are mapped to the same slot, this is non-NULL
 	
 	keydata() : primary(0), level(0), active(false), next(NULL) {}
@@ -308,7 +308,7 @@ void multimap_remove(intmap<K, multiint<V> >& map, K2 key, V2 val)
 	if (id < firstempty) firstempty = id;
 }
 
-bool register_button(unsigned int id, const char * desc)
+bool register_button(unsigned int id, const char * desc, bool trigger)
 {
 	keymod.reset();
 	keymod_valid = false;
@@ -318,6 +318,7 @@ bool register_button(unsigned int id, const char * desc)
 	{
 		keydata newkey = bydev::parse(desc);
 		if (!newkey.level) goto fail;
+		newkey.trigger = trigger;
 		keydata_add(newkey, id);
 		return true;
 	}
@@ -378,11 +379,8 @@ unsigned int register_group(unsigned int len)
 	return count;
 }
 
-/*private*/ triggertype slot_active_single(keydata* data, keydesc_t primary)
+/*private*/ bool slot_active_single(keydata* data, keydesc_t primary)
 {
-	//these triggertypes are treated as if the key was previously not held, whether it actually was
-	//tr_release is never used, and 0 is a valid value
-	
 	keymod_regen();
 	
 	multiint<keydesc_t>* modsforthis = &data->keys;
@@ -393,24 +391,23 @@ unsigned int register_group(unsigned int len)
 	//they don't tell which keys have wrong state, but we're not interested either.
 	
 	if (modsforthis->count() == num_held_in_set(modsforthis) &&
-	    modsforthis->count() == num_held_in_set(modsfor))
+	    modsforthis->count() == num_held_in_set(modsfor) && 
+	    (!primary || data->primary == primary))
 	{
-		if (data->primary == primary) return tr_press|tr_primary;
-		else return tr_press;
+		return true;
 	}
-	else return 0;
+	else return false;
 }
 
-/*private*/ triggertype slot_active(keyslot_t slot, keydesc_t primary)
+/*private*/ bool slot_active(keyslot_t slot, keydesc_t primary)
 {
-	triggertype ret = 0;
 	keydata* data = &mappings[slot];
 	while (data)
 	{
-		ret |= slot_active_single(data, primary);
+		if (slot_active_single(data, primary)) return true;
 		data = data->next;
 	}
-	return ret;
+	return false;
 }
 
 /*private*/ void send_event(keydesc_t trigger, bool down)
@@ -421,17 +418,18 @@ printf("%.8X try %i\n",trigger,numslots);
 	
 	for (n_keyslot_t i=0;i<numslots;i++)
 	{
-		triggertype level = slot_active(slots[i], trigger);
-		bool newdown = (level&tr_press);
-		bool& down = mappings[slots[i]].active;
+		keydata& keydat = mappings[slots[i]];
+		bool down = slot_active(slots[i], keydat.trigger ? trigger : 0);
 		
-		triggertype events=0;
-		if (newdown && !down) events|=tr_press;
-		if (!newdown && down) events|=tr_release;
-		if (level&tr_primary) events|=tr_primary;
-		
-		down = newdown;
-		if (events!=0) callback(slots[i], events);
+		if (keydat.trigger)
+		{
+			if (down) callback(slots[i], true);
+		}
+		else
+		{
+			if (down != keydat.active) callback(slots[i], down);
+			keydat.active = down;
+		}
 	}
 }
 
@@ -471,7 +469,7 @@ void reset(dev_t type)
 	}
 	else
 	{
-		keyheld.remove_if(bind_ptr(&devmgr_inputmapper_impl::reset_cond, (void*)(uintptr_t)type));
+		keyheld.remove_if(bind_ptr(&minir_inputmapper_impl::reset_cond, (void*)(uintptr_t)type));
 	}
 }
 
@@ -480,7 +478,7 @@ void reset(dev_t type)
 	return (key>>28 == (uintptr_t)type);
 }
 
-devmgr_inputmapper_impl()
+minir_inputmapper_impl()
 {
 	keymod_valid = false;
 	firstempty = 0;
@@ -489,7 +487,16 @@ devmgr_inputmapper_impl()
 };
 }
 
-devmgr::inputmapper* devmgr::inputmapper::create()
+minir::inputmapper* minir::inputmapper::create()
 {
-	return new devmgr_inputmapper_impl;
+	return new minir_inputmapper_impl;
 }
+
+
+//typedef unsigned int triggertype;
+//enum {
+//	tr_press = 1,   // The slot is now held, and wasn't before.
+//	tr_release = 2, // The slot is now released, and wasn't before.
+//	tr_primary = 4, // The primary key for this slot was pressed.
+//	//Only a few of the combinations (1, 2, 4, 5) are possible.
+//};

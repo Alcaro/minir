@@ -198,6 +198,7 @@ private:
 	
 	void set_to_bytes(const char * bytes)
 	{
+		if (!bytes) bytes="";
 		this->state=st_ascii;
 		size_t codepoints;
 		this->utf=utf8dup(bytes, &codepoints, &this->nbyte, &this->state);
@@ -297,7 +298,7 @@ private:
 public:
 	//static string from_us_ascii(const char * bytes) {}
 	
-	string() { set_to_bytes(""); }
+	string() { set_to_bytes(NULL); }
 	string(const char * bytes) { set_to_bytes(bytes); }
 	string(const string& other) { set_to_str_clone(other); }
 #ifdef HAVE_MOVE
