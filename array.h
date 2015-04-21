@@ -156,7 +156,6 @@ public:
 	void append(const T& item) { size_t pos = this->count; resize_grow(pos+1); this->items[pos] = item; }
 	void reset() { resize_shrink(0); }
 	
-	operator arrayview<T>() { return arrayview<T>(this->items, this->count); }
 	arrayview<T> slice(size_t first, size_t count) { return arrayview<T>(this->items+first, this->count); }
 	
 	array()

@@ -61,37 +61,39 @@ namespace minir {
 	// Video
 	// A bunch of input visualizers, mainly for debugging so they're not in the gui, but usable if you poke the config
 	
-	//Translators: Simple devices that take input and return it in another form.
-	// Finger extractor
+	//Translators: Simple devices that take input and return it in another form. Can be automatically created.
+	// :multipointer.as_pointer
 	//  input: 1 Multipointer
 	//  output: 1 Pointer
 	//  constraints: auto create
-	//  Returns a random touch point if there are any. Otherwise, nothing.
+	//  Returns the average of all pointers, if there are any. Otherwise, nothing.
 	//
-	// Position emulator
+	// :pointer.as_position
 	//  input: 1 Pointer
 	//  output: 1 Position
 	//  constraints: auto create
 	//  If there is no touch point, the position remains whereever it last was.
 	//
-	// Pointer emulator
+	// :position.as_pointer(:button)
 	//  input: 1 Position, 1 Button
 	//  output: 1 Pointer
 	//  constraints: auto create
-	//  If the button is pressed, report the Position. If not, report no touch point. The Button is recommended to be on the mouse.
+	//  If the button is pressed, report the Position. If not, report no touch point. The Button is
+	//   recommended to be on the mouse, alternatively hardcoded true.
 	//
-	// Joystick emulator
+	// :pointer.as_joystick
 	//  input: 1 Pointer
 	//  output: 1 Joystick
 	//  constraints: auto create
-	//  If there is no touch point, returns the center.
-	//
-	// Gamepad emulator
+	//  If there is no pointer, returns the center.
+	
+	//Processors: Devices that do complex stuff.
+	// VGamepad
 	//  input: 16 Button, 2 Joystick
 	//  output: gamepad
 	//  Joins the input into a RetroPad.
-	
-	//Processors: Devices that do complex stuff.
+	//  This one is simple, but due to its large configuration requirements, it can't be a Translator.
+	//
 	// Screenshots
 	//  input: core video, 1 Event
 	//  output: (binary file)
@@ -170,14 +172,15 @@ namespace minir {
 		io_end,
 		
 		//Modifier/misc flags. Modifies rules of what this device does.
+		io_is_core,// This is the core, the most important device. Output only.
 		io_core,   // Must see or emit all I/O from the core; both input, frames, and audio/video.
-		io_user,   // Takes input from, or sends output to, the user.
+		io_user,   // Takes input from, or sends output to, the user, and must not be optimized out if unused.
 		io_multi,  // Everything beyond this point repeats an arbitrary number of times.
-		io_thread, // Input: Can take input from multiple threads simultaneously. Output: Can send events on threads other than the one getting events.
+		io_thread, // Events are not guaranteed dispatched on the input thread; the device manager may need to buffer the events. Output only.
 		
 		//Basic event types. The building blocks of all other devices.
-		io_frame, // Fires each frame. Not needed by all devices.
-		io_event,
+		io_frame, // Fires each frame, and is the last input event. Other input comes in an unspecified order.
+		io_event, // Event and Button are not automatically attached to anything.
 		io_button,
 		io_joystick,
 		io_motion,
@@ -197,12 +200,12 @@ namespace minir {
 		io_video_3d,
 		io_video_req,//Wants video input, but only wants a few frames, and will tell which it wants. Input only.
 		
-		//These four are output only.
+		//These five are output only.
 		io_state_save,       // Can order the core to save a savestate.
 		io_state_load,       // Can order the core to load a savestate.
 		io_state_filter,     // Can reject requests to load savestates.
 		io_state_append,     // Adds a block of data to the savestates.
-		io_state_append_ethe,// Adds a block of data to the savestates. Included in short-term savestates too.
+		io_state_append_ethe,// Adds a block of data to the savestates, even short-term same-process savestates.
 	};
 	
 	//Constant information about the device that can be known without executing any of its code,
@@ -217,48 +220,35 @@ namespace minir {
 		const char * name;
 		
 		//These arrays are terminated by an io_end.
-		const enum iotype * input;
-		const enum iotype * output;
 		//The name arrays must be as long as the corresponding type arrays (minus the io_end), or NULL (all anonymous). NULLs in the middle are fine.
+		const enum iotype * input;
 		const char * const * input_names;
+		const enum iotype * output;
 		const char * const * output_names;
 		
-		device* (*create)();
-		
-		enum {
-			f_is_core  = 0x0001,
-			f_autocreate=0x0002,
-		};
-		uint32_t flags;
+		//device* (*create)();
+		//
+		//enum {
+		//	f_is_core  = 0x0001,
+		//	f_autocreate=0x0002,
+		//};
+		//uint32_t flags;
 	};
 	
-#define declare_devinfo_core(var, name, input, output, input_names, output_names, flags) \
-	extern const struct devinfo JOIN(devinf_,var); \
-	static device* JOIN(create_,var)() { device* ret = new JOIN(dev_,var)(); ret->info = &JOIN(devinf_,var); return ret; } \
-	static const enum minir::iotype JOIN(var,_input) [] = { UNPACK_PAREN input, io_end }; \
-	static const enum minir::iotype JOIN(var,_output) [] = { UNPACK_PAREN output, io_end }; \
-	const struct devinfo JOIN(devinf_,var) = { name, JOIN(var,_input), JOIN(var,_output), input_names, output_names, JOIN(create_,var), flags }
-	
-#define declare_devinfo(var, name, input, output, flags) \
-	declare_devinfo_core(var, name, input, output, NULL, NULL, flags)
-	
-#define declare_devinfo_n(var, name, input, input_names, output, output_names, flags) \
-	static const char * const JOIN(var, _input_names) [] = { UNPACK_PAREN input_names }; \
-	static const char * const JOIN(var, _output_names) [] = { UNPACK_PAREN output_names }; \
-	declare_devinfo_core(var, name, input, output, JOIN(var, _input_names), JOIN(var, _output_names), flags); \
-	static_assert(ARRAY_SIZE(JOIN(var, _input_names)) >= ARRAY_SIZE(JOIN(var, _input))-1); \
-	static_assert(ARRAY_SIZE(JOIN(var, _output_names)) >= ARRAY_SIZE(JOIN(var, _output))-1)
-	
-	extern const struct devinfo * const devices[];
+	//extern const struct devinfo * const devices[];
 	
 	class device : nocopy {
 		friend class devmgr;
+		
+		device();
 		
 	protected:
 		devmgr* parent;
 		size_t id;
 	public:
 		const struct devinfo * info;
+		device(const struct devinfo * info) : info(info) {}
+		device(const struct devinfo & info) : info(&info) {}
 		
 	protected:
 		//Called when being attached to a device manager. This is the earliest permissible point to send events.
@@ -271,6 +261,8 @@ namespace minir {
 		virtual void ev_thread_enable(bool enable) {}
 		
 		//The frame event comes after all input events to this device.
+		//It acts like an event, but it's so common it's moved elsewhere.
+		//A device that wants to emit ev_frame must also emit io_core.
 		void       emit_frame() {}
 		virtual void ev_frame() {}
 		
@@ -380,7 +372,7 @@ namespace minir {
 		//- Contains at least one dev_data
 		//- All names are ASCII only ('!' through '~')
 		//- All padding is 00s
-		//- The dev_data array ends right at native_size
+		//- The last dev_data ends exactly where native_size starts
 		//If the savestate lacks the minir signature, it's considered valid.
 		bool emit_savestate_validate(arrayview<uint8_t> data) { return false; }
 		
@@ -398,10 +390,13 @@ namespace minir {
 		
 	public:
 		//Each inputs[] to a device is one string, in order.
-		//Devices can be added in any order. The order is mostly ignored, but if two devices of the same type are submitted (for example vgamepad), the order is used.
+		//The order of the devices is mostly ignored, but if two devices of the same type are submitted (for example vgamepad), the order is used.
 		//The I/O map is allowed to be blank, in which case the device manager will try to connect all inputs to free outputs.
 		virtual void add_device(device* dev, arrayview<string> inputs = NULL) = 0;
 		virtual void add_device(device* dev, arrayview<const char*> inputs) = 0;
+		
+		//Attaches all unspecified inputs, and performs a bunch of other setup. Must be called between add_device() and frame().
+		virtual bool map_devices() = 0;
 		
 		virtual void frame() = 0;
 		
@@ -409,6 +404,7 @@ namespace minir {
 		virtual ~devmgr() {}
 	};
 	
+	//TODO: this does not scale properly to minir's massive number of event sources
 	class inputmapper : nocopy {
 		class impl;
 	protected:

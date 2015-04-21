@@ -1,0 +1,255 @@
+tough situation:
+     -- dev1 ---------
+    /                  \
+frame > dev2 \          > dev8
+    |         > dev7 > /
+    |   dev6 /        /
+    |    ^           /
+    |   dev5        /
+    |    ^         /
+    \   dev4 -----
+     \   ^
+      - dev3
+
+where dev2 and dev5 are threaded and the others do nothing fancy
+the correct solution is threading only dev7's input, but the obvious implementations will thread dev8 too
+they can not be sorted; some of the events may be output and can trigger loops (worst case, dev8==dev5 or something)
+
+each object knows all incoming and outgoing edges
+
+
+for (local device in frame_event.output.listeners):
+  device.input_thread = main_thread
+
+local set<device_t> loop;
+loop.add(devices.select_where(this.input.io_frame || this.output.io_thread))
+
+while (local sender = loop.pop_any()):
+  local sender_out_thread
+  if sender.output.io_thread:
+    sender_out_thread = sender
+  else
+    # if we're both taking frame events and non-main-thread input, we're going to get a conflict
+    # the threader will send all our input to the main thread, so we'll mark our output as main thread too,
+    # because that's where we're going to end up
+    sender_out_thread = sender.input_thread
+  for (local listener in sender.output.listeners):
+    local prev_input_thread = listener.input_thread
+    if listener.input_thread.eq_any(null, sender_out_thread):
+      listener.input_thread = sender_out_thread
+    else:
+      listener.input_thread = main_thread
+    if prev_input_thread != listener.input_thread && !listener.output.io_thread:
+      loop.add(listener)
+
+for (local device in devices):
+  for (local sender in device.input.sources):
+    local sender_out_thread = (sender.output.io_thread ? sender : sender.input_thread)
+    if (sender_out_thread != device.input_thread):
+      device = new device_threadwrap(device)
+      break
+
+executing that algorithm:
+the worst order should be:
+dev2->dev7->dev8
+dev3->dev4->dev8
+dev1->dev8
+dev4->dev5
+dev5->dev6->dev7->?
+
+dev1 - 
+dev2 - 
+dev3 - 
+dev4 - 
+dev5 - 
+dev6 - 
+dev7 - 
+dev8 - 
+loop: dev1, dev2, dev3, dev5
+
+(1) pick dev2
+dev2 has io_frame -> listens to main
+dev2 has io_thread -> outputs to itself
+dev2 outputs to dev7
+dev1 - 
+dev2 - main
+dev3 - 
+dev4 - 
+dev5 - 
+dev6 - 
+dev7 - dev2
+dev8 - 
+loop: dev1, dev3, dev5, dev7
+
+(2) pick dev7
+dev7 does not have io_frame
+dev7 does not have io_thread -> outputs to its input, dev2
+dev1 - 
+dev2 - main
+dev3 - 
+dev4 - 
+dev5 - 
+dev6 - 
+dev7 - dev2
+dev8 - dev2
+loop: dev1, dev3, dev5, dev8
+
+(3) pick dev8
+dev8 does not have io_frame
+dev8 does not have io_thread -> outputs to its input, dev2
+dev8 does not have any listeners
+loop: dev1, dev3, dev5
+
+(4) pick dev3
+dev3 does have io_frame -> listens to main
+dev3 does not have io_thread -> outputs to its input, main
+dev1 - 
+dev2 - main
+dev3 - main
+dev4 - main
+dev5 - 
+dev6 - 
+dev7 - dev2
+dev8 - dev2
+loop: dev1, dev4, dev5
+
+(5) pick dev5
+dev5 does not have io_frame
+dev5 does have io_thread -> outputs to itself
+dev1 - 
+dev2 - main
+dev3 - main
+dev4 - main
+dev5 - 
+dev6 - dev5
+dev7 - dev2
+dev8 - dev2
+loop: dev1, dev4, dev6
+
+(6) pick dev4
+dev4 does not have io_frame
+dev4 does not have io_thread -> outputs to its input, main
+dev5 has io_thread and will not be iterated
+dev8 takes input from another thread -> set to main
+dev1 - 
+dev2 - main
+dev3 - main
+dev4 - main
+dev5 - main
+dev6 - dev5
+dev7 - dev2
+dev8 - conflict (dev2, main) -> main
+loop: dev1, dev6, dev8
+
+(7) pick dev1
+dev1 does have io_frame -> listens to main
+dev1 does not have io_thread -> outputs to its input, main
+dev8 is already listening to main, don't add it to the loop
+dev1 - main
+dev2 - main
+dev3 - main
+dev4 - main
+dev5 - main
+dev6 - dev5
+dev7 - dev2
+dev8 - main
+loop: dev6, dev8
+
+(8) pick dev6
+dev6 does not have io_frame
+dev6 does not have io_thread -> outputs to its input, dev5
+dev7 takes input from another thread -> set to main
+dev1 - main
+dev2 - main
+dev3 - main
+dev4 - main
+dev5 - main
+dev6 - dev5
+dev7 - conflict (dev2, main) -> main
+dev8 - main
+loop: dev7, dev8
+
+(9) pick dev8
+dev8 does not have io_frame
+dev8 does not have io_thread -> outputs to its input, main
+dev8 does not have any listeners
+loop: dev7
+
+(10) pick dev7
+dev7 does not have io_frame
+dev7 does not have io_thread -> outputs to its input, main
+dev8 is already listening to main, don't iterate
+dev1 - main
+dev2 - main
+dev3 - main
+dev4 - main
+dev5 - main
+dev6 - dev5
+dev7 - main
+dev8 - main
+loop: null
+
+done
+
+
+if dev8 emits to dev3:
+(3) pick dev8
+dev8 does not have io_frame
+dev8 does not have io_thread -> outputs to its input, dev2
+dev1 - 
+dev2 - main
+dev3 - dev2
+dev4 - main
+dev5 - 
+dev6 - 
+dev7 - dev2
+dev8 - dev2
+loop: dev1, dev3, dev5
+
+(4) pick dev3
+dev3 does have io_frame -> listens to main
+dev3 does not have io_thread -> outputs to its input, main (it's going to conflict, so it'll use main)
+dev1 - 
+dev2 - main
+dev3 - dev2
+dev4 - main
+dev5 - 
+dev6 - 
+dev7 - dev2
+dev8 - dev2
+loop: dev1, dev4, dev5
+
+[...]
+
+(9) pick dev8
+dev8 does not have io_frame
+dev8 does not have io_thread -> outputs to its input, main
+set dev3 to 'main'
+loop: dev3, dev7
+
+iterating dev3 does nothing because dev4 is already listening to main
+
+
+phase 2
+dev1 - frme -> main = main
+dev2 - frme -> main = main
+dev3 - frme -> main = main
+dev4 - dev3 -> main = main
+dev5 - dev4 -> main = main
+dev6 - dev5 -> dev5 = dev5
+dev7 - (dev2, dev6) -> (dev2, dev5) != main -> conflict, thread
+dev8 - (dev1, dev4, dev7) -> (main, main, main) = main
+
+the desired result is achieved
+
+
+proof of termination:
+every time a device is scheduled for iteration, its input thread has changed
+the input thread can change from null to anything, or from anything to main - at most twice
+therefore, a finite number of input thread changes, and thereby iterations, are possible
+
+complexity analysis:
+iterating an object takes O(m) in the number of outputs from this object
+an object can be iterated at most 2n times
+O(m*2n)=O(m*n) is quadratic
+m,n are both less than 100 for all devices, which is fully acceptable

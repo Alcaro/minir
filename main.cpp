@@ -20,19 +20,21 @@ namespace minir {
 namespace {
 
 //TODO: move those out
-class dev_kb : public minir::device {
+static const enum iotype dev_kb_input[] = { io_user, io_end };
+static const enum iotype dev_kb_output[] = { io_thread, io_multi, io_keyboard, io_end };
+static const struct devinfo dev_kb_info = { "Keyboard", dev_kb_input, NULL, dev_kb_output, NULL };
+
+class dev_kb : public device {
 	inputkb* core;
 	
 public:
-	void ev_init(uintptr_t windowhandle)
+	dev_kb() : device(dev_kb_info), core(NULL) {}
+	dev_kb(inputkb* core) : device(dev_kb_info), core(core) { core->set_kb_cb(bind_this(&dev_kb::key_cb)); }
+	
+	/*private*/ void set_core(inputkb* core)
 	{
-		core = inputkb::drivers[
-#ifdef __linux__
-1
-#else
-0
-#endif
-			]->create(windowhandle);
+		delete this->core;
+		this->core = core;
 		core->set_kb_cb(bind_this(&dev_kb::key_cb));
 	}
 	
@@ -59,7 +61,6 @@ private:
 		//dispatch_async(ev); // this is sometimes called on the device manager thread, but not always, and it works no matter which thread it is on
 	}
 };
-declare_devinfo(kb, "Keyboard", (io_user), (io_thread, io_multi, io_keyboard), 0);
 
 
 //class dev_video : public minir::device {
@@ -79,94 +80,22 @@ declare_devinfo(kb, "Keyboard", (io_user), (io_thread, io_multi, io_keyboard), 0
 //};
 
 
-//class dev_core : public devmgr::device {
-//	dev_core(){}
-	
-//	libretro* core;
-	
-//	void c_vid2d_where(unsigned int width, unsigned int height, void* * data, size_t* pitch)
-//	{
-		//TODO (it's currently unused)
-//	}
-	
-//	void c_vid2d(unsigned int width, unsigned int height, const void* data, size_t pitch)
-//	{
-//		devmgr::event ev(devmgr::event::ty_video);
-//		ev.secondary=false;
-//		ev.video.width=width;
-//		ev.video.height=height;
-		
-//		if (data)
-//		{
-//			ev.video.data=malloc(sizeof(uint32_t)*width*height);
-//			ev.video.pitch=sizeof(uint32_t)*width;
-			
-//			video::copy_2d((void*)ev.video.data, sizeof(uint32_t)*width, data, pitch, sizeof(uint32_t)*width, height);
-//		}
-//		else
-//		{
-//			ev.video.data=NULL;
-//			ev.video.pitch=0;
-//		}
-		
-//		dispatch(ev);
-//	}
-	
-//	void c_audio(const int16_t* data, size_t frames)
-//	{
-		
-//	}
-	
-//public:
-//	dev_core(libretro* core)
-//	{
-//		this->core=core;
-		
-//		this->core->set_video(bind_this(&dev_core::c_vid2d_where), bind_this(&dev_core::c_vid2d));
-//		this->core->set_audio(bind_this(&dev_core::c_audio));
-//	}
-	
-//	devtype type() { return t_core; }
-	
-//	void attach()
-//	{
-//		register_events(0, devmgr::e_frame | devmgr::e_savestate | devmgr::e_keyboard | devmgr::e_mouse | devmgr::e_gamepad);
-		
-//	}
-	
-//	void ev_frame(const devmgr::event& ev)
-//	{
-//		core->run();
-//	}
-	
-//	void ev_state_save(const devmgr::event& ev)
-//	{
-		//TODO
-//	}
-	
-//	void ev_state_load(const devmgr::event& ev)
-//	{
-		//TODO
-//	}
-	
-	//TODO
-//	void ev_keyboard(const devmgr::event& ev) {}
-//	void ev_mousemove(const devmgr::event& ev) {}
-//	void ev_mousebutton(const devmgr::event& ev) {}
-	
-//	void ev_gamepad(const devmgr::event& ev)
-//	{
-//		core->input_gamepad(ev.gamepad.device, ev.gamepad.button, ev.gamepad.down);
-//	}
-	
-//	~dev_core() { delete this->core; }
-//};
-
-
 #include "minir.h"
 //namespace minir {
-class dev_vgamepad : public minir::device {
+static const enum iotype dev_vgamepad_input[] = {
+	io_button, io_button, io_button, io_button, io_button, io_button, io_button, io_button,
+	io_button, io_button, io_button, io_button, io_button, io_button, io_button, io_button,
+	io_end };
+static const char * const dev_vgamepad_input_names[] = {
+	"Up", "Down", "Left", "Right", "A", "B", "X", "Y",
+	"Start", "Select", "L", "R", "L2", "R2", "L3", "R3"
+	};
+static const enum iotype dev_vgamepad_output[] = { io_gamepad, io_end };
+static const struct devinfo dev_vgamepad_info = { "VGamepad", dev_vgamepad_input, dev_vgamepad_input_names, dev_vgamepad_output, NULL };
+
+class dev_vgamepad : public device {
 public:
+	dev_vgamepad() : device(dev_vgamepad_info) {}
 	void ev_button(uint32_t event, bool down)
 	{
 		static const uint8_t map[16]={
@@ -190,14 +119,84 @@ public:
 		emit_button(EV_MAKE(0, map[EV_ID(event)]), down);
 	}
 };
-declare_devinfo_n(vgamepad, "VGamepad",
-	(io_button, io_button, io_button, io_button, io_button, io_button, io_button, io_button,
-	 io_button, io_button, io_button, io_button, io_button, io_button, io_button, io_button),
-	("Up", "Down", "Left", "Right", "A", "B", "X", "Y", "Start", "Select", "L", "R", "L2", "R2", "L3", "R3"),
-	(io_gamepad), (NULL),
-	0);
 //}
 
+
+static const enum iotype dev_core_input[] = { io_frame, io_gamepad, io_end };
+static const enum iotype dev_core_output[] = { io_is_core, io_video, io_audio, io_end };
+static const struct devinfo dev_core_info = { "Core", dev_core_input, NULL, dev_core_output, NULL };
+
+class dev_core : public device {
+	dev_core();
+	
+	libretro* core;
+	
+	void c_vid2d_where(unsigned int width, unsigned int height, void* * data, size_t* pitch)
+	{
+		//TODO (it's currently unused)
+	}
+	
+	void c_vid2d(unsigned int width, unsigned int height, const void* data, size_t pitch)
+	{
+		//devmgr::event ev(devmgr::event::ty_video);
+		//ev.secondary=false;
+		//ev.video.width=width;
+		//ev.video.height=height;
+		
+		//if (data)
+		//{
+		//	ev.video.data=malloc(sizeof(uint32_t)*width*height);
+		//	ev.video.pitch=sizeof(uint32_t)*width;
+			
+		//	video::copy_2d((void*)ev.video.data, sizeof(uint32_t)*width, data, pitch, sizeof(uint32_t)*width, height);
+		//}
+		//else
+		//{
+		//	ev.video.data=NULL;
+		//	ev.video.pitch=0;
+		//}
+		
+		//dispatch(ev);
+	}
+	
+	void c_audio(const int16_t* data, size_t frames)
+	{
+		
+	}
+	
+public:
+	dev_core(libretro* core) : device(dev_core_info)
+	{
+		this->core=core;
+		
+		this->core->set_video(bind_this(&dev_core::c_vid2d_where), bind_this(&dev_core::c_vid2d));
+		this->core->set_audio(bind_this(&dev_core::c_audio));
+	}
+	
+	void ev_frame()
+	{
+		core->run();
+	}
+	
+	//void ev_state_save(const devmgr::event& ev)
+	//{
+	//	//TODO
+	//}
+	
+	//void ev_state_load(const devmgr::event& ev)
+	//{
+	//	//TODO
+	//}
+	
+	//TODO
+	void ev_button(uint32_t event, bool down)
+	{
+		printf("%.8X=%i\n",event,down);
+		//core->input_gamepad(ev.gamepad.device, ev.gamepad.button, ev.gamepad.down);
+	}
+	
+	~dev_core() { delete this->core; }
+};
 
 
 int main_wrap(int argc, char * argv[])
@@ -240,18 +239,28 @@ puts("init=6");
 puts("init=7");
 	devmgr* contents=devmgr::create();
 puts("init=8");
-	contents->add_device(create_kb());
+#ifdef __linux__
+#define INPUTKB_ID 1 // skip udev, it requires root
+#else
+#define INPUTKB_ID 0
+#endif
+	contents->add_device(new dev_kb(inputkb::drivers[INPUTKB_ID]->create(view->get_window_handle())));
 	const char * map[16]={"kb.up", "kb.down", "kb.left", "kb.right", "kb.x", "kb.z", "kb.s", "kb.a", "kb.return", "kb.space", "kb.q", "kb.w"};
-	contents->add_device(create_vgamepad(), map);
+	contents->add_device(new dev_vgamepad(), map);
+	contents->add_device(new dev_core(core));
 	
 puts("init=9");
-	wnd->set_visible(wnd, true);
+	contents->map_devices();
 	
 puts("init=10");
+	wnd->set_visible(wnd, true);
+	
+puts("init=11");
 	while (wnd->is_visible(wnd))
 	{
 		window_run_iter();
 		contents->frame();
+static int i=0;if(i++==2000)break;
 	}
 	
 	return 0;
