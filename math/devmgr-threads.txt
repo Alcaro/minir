@@ -29,9 +29,6 @@ while (local sender = loop.pop_any()):
   if sender.output.io_thread:
     sender_out_thread = sender
   else
-    # if we're both taking frame events and non-main-thread input, we're going to get a conflict
-    # the threader will send all our input to the main thread, so we'll mark our output as main thread too,
-    # because that's where we're going to end up
     sender_out_thread = sender.input_thread
   for (local listener in sender.output.listeners):
     local prev_input_thread = listener.input_thread
