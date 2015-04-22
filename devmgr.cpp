@@ -41,19 +41,42 @@ void add_device(device* dev, arrayview<const char *> inputs) { add_device_core(d
 
 bool map_devices()
 {
+	//list all device outputs
+	//testcases:
+	//one device, one output
+	//  vgamepad
+	//one device, multiple outputs
+	//  kb3
+	//  kb (only if io_multi)
+	//one device, multiple named outputs
+	//  dev.named
+	//  dev.alsonamed
+	//multiple devices, one output each
+	//  vgamepad2
+	//multiple devices, one anonymous and one named output
+	//  mouse2
+	//  mouse2.wheel
+	//multiple devices, two outputs each including a few named
+	//  dev1.1
+	//  dev3.2
+	//  dev2.named
+	//.x or similar can be appended to all of the above to access their components
+	
 	//parse 'inmap'
-	//
+	
+	
 	//assign missing inputs
 	//  while the last iteration did something:
 	//    list all unused outputs from devices with all inputs satisfied
 	//    for each unspecified input:
 	//      if there is exactly one unused output of that type, use it
+	//      if there is exactly one output of that type, use it
 	//
-	//discard unused devices:
+	//discard unused devices
 	//  while the last iteration did something:
 	//    find all devices that do not output to 'io_user' and whose outputs are not listened to
 	//    toss them onto the garbage pile
-	//    find all devices that do not have any attached input; 'io_user' counts as attached
+	//    find all devices that do not have any attached input; 'io_user' is a valid input
 	//    toss them onto the garbage pile
 	//
 	//find a suitable order for frame events
@@ -79,9 +102,6 @@ bool map_devices()
 	//    if sender.output.io_thread:
 	//      sender_out_thread = sender
 	//    else
-	//      # if we're both taking frame events and non-main-thread input, we're going to get a conflict
-	//      # the threader will send all our input to the main thread, so we'll mark our output as main thread too,
-	//      # because that's where we're going to end up
 	//      sender_out_thread = sender.input_thread
 	//    for (local listener in sender.output.listeners):
 	//      local prev_input_thread = listener.input_thread
