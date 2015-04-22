@@ -446,3 +446,11 @@ public:
 static inline void strlen(cstring){}//don't do this - use .len()
 //I can't force use to give an error, but strlen() is expected to return a value, and using a void will throw.
 #define S (string)
+
+inline string to_string(int n)
+{
+	char out[16];
+	sprintf(out, "%i", n);
+	return out;
+}
+#define string(x) to_string(x)

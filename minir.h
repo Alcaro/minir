@@ -246,7 +246,7 @@ namespace minir {
 		devmgr* parent;
 		size_t id;
 	public:
-		const struct devinfo * info;
+		const struct devinfo * const info;
 		device(const struct devinfo * info) : info(info) {}
 		device(const struct devinfo & info) : info(&info) {}
 		
@@ -390,7 +390,7 @@ namespace minir {
 		
 	public:
 		//Each inputs[] to a device is one string, in order.
-		//The order of the devices is mostly ignored, but if two devices of the same type are submitted (for example vgamepad), the order is used.
+		//The order of the devices is used only between devices of the same type.
 		//The I/O map is allowed to be blank, in which case the device manager will try to connect all inputs to free outputs.
 		virtual void add_device(device* dev, arrayview<string> inputs = NULL) = 0;
 		virtual void add_device(device* dev, arrayview<const char*> inputs) = 0;

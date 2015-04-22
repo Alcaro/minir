@@ -74,9 +74,9 @@ protected:
 public:
 	size_t size() const { return this->entries; }
 	
-	bool has(const key_t& key) const { return find(key); }
+	bool has(const key_t_pub& key) const { return find(key); }
 	
-	val_t& get(const key_t& key)
+	val_t& get(const key_t_pub& key)
 	{
 		struct node_t * node=find(key);
 		if (!node)
@@ -87,21 +87,23 @@ public:
 		return node->value;
 	}
 	
-	val_t get_or(const key_t& key, val_t other) const
+	val_t& operator[](const key_t_pub& key) { return get(key); }
+	
+	val_t get_or(const key_t_pub& key, val_t other) const
 	{
 		struct node_t * node = find(key);
 		if (!node) return other;
 		return node->value;
 	}
 	
-	val_t* get_ptr(const key_t& key)
+	val_t* get_ptr(const key_t_pub& key)
 	{
 		struct node_t * node = find(key);
 		if (node) return &node->value;
 		else return NULL;
 	}
 	
-	void set(const key_t& key, const val_t& value)
+	void set(const key_t_pub& key, const val_t& value)
 	{
 		struct node_t * node = find(key);
 		if (node)
@@ -115,7 +117,7 @@ public:
 		}
 	}
 	
-	void remove(const key_t& key)
+	void remove(const key_t_pub& key)
 	{
 		struct node_t * * noderef = find_ref(key);
 		if (!noderef) return;
