@@ -45,9 +45,11 @@ bool map_devices()
 	//testcases:
 	//one device, one output
 	//  vgamepad
-	//one device, multiple outputs
+	//one device, multiple outputs, io_multi
+	//  kb
 	//  kb3
-	//  kb (only if io_multi)
+	//one device, multiple outputs, not io_multi
+	//  dev.2
 	//one device, multiple named outputs
 	//  dev.named
 	//  dev.alsonamed
@@ -56,11 +58,17 @@ bool map_devices()
 	//multiple devices, one anonymous and one named output
 	//  mouse2
 	//  mouse2.wheel
-	//multiple devices, two outputs each including a few named
+	//multiple devices, two anonymous outputs each plus some named
 	//  dev1.1
 	//  dev3.2
 	//  dev2.named
-	//.x or similar can be appended to all of the above to access their components
+	//.left or similar can be appended to all of the above to access their components
+	//to turn a joystick into arrow keys: joy.left(0.5) or joy.left(50%)
+	// 1 (or 100%) is the leftmost possible value, 0 is middle
+	// only (0..1] are allowed; left() can not know whether the stick is at the center or right
+	//
+	//there are also 'true' and 'false' buttons, though 'false' is useless since blank mappings are also false.
+	
 	
 	//parse 'inmap'
 	
@@ -71,14 +79,16 @@ bool map_devices()
 	//    for each unspecified input:
 	//      if there is exactly one unused output of that type, use it
 	//      if there is exactly one output of that type, use it
-	//
+	
+	
 	//discard unused devices
 	//  while the last iteration did something:
 	//    find all devices that do not output to 'io_user' and whose outputs are not listened to
 	//    toss them onto the garbage pile
 	//    find all devices that do not have any attached input; 'io_user' is a valid input
 	//    toss them onto the garbage pile
-	//
+	
+	
 	//find a suitable order for frame events
 	//  mark all devices 'unordered'
 	//  while there are unordered devices:
@@ -86,10 +96,12 @@ bool map_devices()
 	//    if there are no such devices: return error
 	//    add them to the device array
 	//    mark these devices ordered
-	//
+	
+	
 	//look for output loops
 	//  same method as above, with the obvious changes
-	//
+	
+	
 	//check which devices need thread safety
 	//  for (local device in frame_event.output.listeners):
 	//    device.input_thread = main_thread

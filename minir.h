@@ -61,31 +61,29 @@ namespace minir {
 	// Video
 	// A bunch of input visualizers, mainly for debugging so they're not in the gui, but usable if you poke the config
 	
+	
 	//Translators: Simple devices that take input and return it in another form. Can be automatically created.
 	// :multipointer.as_pointer
 	//  input: 1 Multipointer
 	//  output: 1 Pointer
-	//  constraints: auto create
 	//  Returns the average of all pointers, if there are any. Otherwise, nothing.
 	//
 	// :pointer.as_position
 	//  input: 1 Pointer
 	//  output: 1 Position
-	//  constraints: auto create
 	//  If there is no touch point, the position remains whereever it last was.
 	//
 	// :position.as_pointer(:button)
 	//  input: 1 Position, 1 Button
 	//  output: 1 Pointer
-	//  constraints: auto create
-	//  If the button is pressed, report the Position. If not, report no touch point. The Button is
-	//   recommended to be on the mouse, alternatively hardcoded true.
+	//  If the button is pressed, report the Position. If not, report no touch point. The Button can
+	//   be hardcoded 'true'; left mouse button is also a good choice.
 	//
 	// :pointer.as_joystick
 	//  input: 1 Pointer
 	//  output: 1 Joystick
-	//  constraints: auto create
 	//  If there is no pointer, returns the center.
+	
 	
 	//Processors: Devices that do complex stuff.
 	// VGamepad
@@ -97,7 +95,7 @@ namespace minir {
 	// Screenshots
 	//  input: core video, 1 Event
 	//  output: (binary file)
-	//  When the event fires, saves the next (or previous) core video output to a file.
+	//  When the event fires, saves the previous core video output to a file. If not available, uses the next.
 	//
 	// Video recording
 	//  input: core video, code audio, ???
