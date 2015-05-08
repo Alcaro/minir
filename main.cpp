@@ -247,6 +247,8 @@ puts("init=8");
 	contents->add_device(new dev_kb(inputkb::drivers[INPUTKB_ID]->create(view->get_window_handle())));
 	const char * map[16]={"kb.up", "kb.down", "kb.left", "kb.right", "kb.x", "kb.z", "kb.s", "kb.a", "kb.return", "kb.space", "kb.q", "kb.w"};
 	contents->add_device(new dev_vgamepad(), map);
+	contents->add_device(new dev_vgamepad(), map);
+	contents->add_device(new dev_vgamepad(), map);
 	contents->add_device(new dev_core(core));
 	
 puts("init=9");

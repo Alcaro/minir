@@ -42,7 +42,7 @@ void add_device(device* dev, arrayview<const char *> inputs) { add_device_core(d
 bool map_devices()
 {
 	//list all device outputs
-	//testcases:
+	//expected results:
 	//one device, one output
 	//  vgamepad
 	//one device, multiple outputs, io_multi
@@ -65,9 +65,68 @@ bool map_devices()
 	//.left or similar can be appended to all of the above to access their components
 	//to turn a joystick into arrow keys: joy.left(0.5) or joy.left(50%)
 	// 1 (or 100%) is the leftmost possible value, 0 is middle
-	// only (0..1] are allowed; left() can not know whether the stick is at the center or right
+	// only [0..1] are allowed, where 0 doesn't fire if the stick is to the right
 	//
 	//there are also 'true' and 'false' buttons, though 'false' is useless since blank mappings are also false.
+	//
+	//TODO: figure out devices with multiple anon outputs of different kinds, and what to do with that
+	// kb1, joy3, but it's gonna be tough.
+	//
+	//TODO: figure out what to do with analogs, they're not going to fit in 32 bits
+	
+	stringmap<size_t> sources;
+	stringmap<size_t> multisources;
+	
+	sources["true"] = (size_t)-1; // special cases, given special treatment
+	sources["false"] = (size_t)-1;
+	
+	{
+		stringmap<size_t> n_sources; // extra scope here to throw out this one when it's done
+		
+		for (size_t i=0;i<devices.len();i++)
+		{
+			device* dev = devices[i].dev;
+			
+			//check if this one emits io_multi
+			for (size_t j=0;dev->info->output[j];j++)
+			{
+				if (dev->info->output[j] == io_multi)
+				{
+					if (multisources.has(dev->info->name))
+					{
+						error(S"Cannot have multiple devices of type "+dev->info->name);
+						return false;
+					}
+					multisources.set(dev->info->name, i);
+					//continue execution, we want this in sources[] too
+				}
+			}
+			
+			size_t count = ++n_sources[dev->info->name];
+			
+			if (count==1)
+			{
+				sources[dev->info->name] = i;
+			}
+			else
+			{
+				size_t prev;
+				if (count==2)
+				{
+					prev = sources[dev->info->name];
+					sources[(S dev->info->name)+"1"] = prev;
+					sources.remove(dev->info->name);
+				}
+				else prev = sources[(S dev->info->name)+"1"];
+				
+				//this is supposed to be a pointer (identity) comparison; devices with the same name must have the same devinfo
+				//not 'return false' because this is an internal bug
+				if (devices[prev].dev->info != dev->info) debug_abort();
+				
+				sources[(S dev->info->name) + string(count)] = i;
+			}
+		}
+	}
 	
 	
 	//parse 'inmap'
@@ -79,6 +138,7 @@ bool map_devices()
 	//    for each unspecified input:
 	//      if there is exactly one unused output of that type, use it
 	//      if there is exactly one output of that type, use it
+	//  if there is still any missing input, leave it unassigned; most weird inputs should be in 'inmap' already.
 	
 	
 	//discard unused devices

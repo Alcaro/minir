@@ -1,14 +1,13 @@
 #pragma once
 #include "global.h"
 
-//size: three pointers, plus [two pointers plus one key_t plus one val_t] per entry
+//size: three pointers, plus [one pointer plus one key_t plus one val_t] per entry
 template<typename key_t, typename val_t, typename key_t_pub = key_t> class hashmap : nocopy {
 protected:
 	typedef size_t keyhash_t;
 	
 	struct node_t {
 		struct node_t * next;
-		keyhash_t hash;
 		key_t key;
 		val_t value;
 	};
@@ -26,7 +25,7 @@ protected:
 			while (node)
 			{
 				struct node_t * next = node->next;
-				keyhash_t newpos = node->hash % newbuckets;
+				keyhash_t newpos = node->key.hash() % newbuckets;
 				node->next = newnodes[newpos];
 				newnodes[newpos] = node;
 				node = next;
@@ -39,13 +38,12 @@ protected:
 	
 	struct node_t * * find_ref(const key_t& key) const
 	{
-		keyhash_t thehash = key.hash();
-		struct node_t * * noderef = &this->nodes[thehash%this->buckets];
+		struct node_t * * noderef = &this->nodes[key.hash() % this->buckets];
 		while (true)
 		{
 			struct node_t * node = *noderef;
 			if (!node) return NULL;
-			if (node->hash == thehash && key == node->key) return noderef;
+			if (key == node->key) return noderef;
 			noderef = &node->next;
 		}
 	}
@@ -63,7 +61,6 @@ protected:
 		struct node_t * node = malloc(sizeof(struct node_t));
 		keyhash_t thehash = key.hash();
 		new(&node->key) key_t(key);
-		node->hash = thehash;
 		node->next = this->nodes[thehash%this->buckets];
 		this->nodes[thehash%this->buckets] = node;
 		this->entries++;

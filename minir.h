@@ -36,7 +36,7 @@ namespace minir {
 	
 	//Combined events:
 	// Keyboard
-	//  50-100 Button.
+	//  Around 100 Button.
 	// Gamepad
 	//  16 Button, two Joystick.
 	// Mouse
@@ -131,7 +131,7 @@ namespace minir {
 	//  Four of the events are a slot selector, with Next, Previous, Save and Load.
 	//  An additional 20 are unslotted; they're hardcoded to refer to slots 0 through 9.
 	//  The last one opens a savestate manager window, allowing a GUI for the listed actions.
-	//  May want to create more for moving 10 or 100 slots...
+	//  (May want to create more events for moving 10 or 100 slots)
 	//
 	// Savestate thumbnails
 	//  input: core video
@@ -260,19 +260,24 @@ namespace minir {
 		
 		//The frame event comes after all input events to this device.
 		//It acts like an event, but it's so common it's moved elsewhere.
-		//A device that wants to emit ev_frame must also emit io_core.
+		//A device that wants to emit ev_frame must also emit io_core, and only the core will get that event.
 		void       emit_frame() {}
 		virtual void ev_frame() {}
 		
-#define EV_MAKE(id, subid) ((id)<<16 | (subid))
-#define EV_ID(ev) ((ev)>>16)
-#define EV_SUBID(ev) ((ev)&0xFFFF)
-		//'id' is the index to the 'input' or 'output' arrays in devinfo (input for ev_, output for emit_).
-		//Combined devices show up as their components, with subid telling which of its components is relevant.
+		//Event structure:
+		//???????? ????iiii iiiissss ssssssss
+		//? - unspecified, must be ignored
+		//i - index to input/output arrays in devinfo (input for ev_, output for emit_)
+		//s - sub-ID
+		static uint32_t eid_make(uint16_t id, uint16_t subid) { return id<<12 | subid; }
+		static uint16_t eid_id(uint32_t ev) { return ev>>12&0xFF; }
+		static uint16_t eid_subid(uint32_t ev) { return ev&0xFFF; }
+		
+		//Combined devices show up as their components, with the subid telling which of its components is relevant.
 		void       emit_event       (uint32_t event) {}
 		virtual void ev_event       (uint32_t event) {}
-		//For gamepads, subid is a RETRO_DEVICE_ID_JOYPAD_*.
-		//For keyboards, subid is either a RETROK_ code, or 1024 + a meaningless but unique scancode less than or equal to 1023.
+		//For gamepads, subid is a RETRO_DEVICE_ID_JOYPAD_*, or 16 + a meaningless but unique scancode equal to or less than 47.
+		//For keyboards, subid is either a RETROK_ code, or 1024 + a unique scancode less than or equal to 1023.
 		void       emit_button      (uint32_t event, bool down) {}
 		virtual void ev_button      (uint32_t event, bool down) {}
 		//-0x7FFF is the leftmost value possible, +0x7FFF is the rightmost possible. -0x8000 is invalid.
@@ -289,18 +294,18 @@ namespace minir {
 		void       emit_multipointer(uint32_t event, uint16_t count, const int32_t * x, const int32_t * y) {}
 		virtual void ev_multipointer(uint32_t event, uint16_t count, const int32_t * x, const int32_t * y) {}
 		
-		void       emit_video_setup   (size_t id, enum videoformat fmt, unsigned std_width, unsigned std_height, unsigned max_width, unsigned max_height) {}
-		virtual void ev_video_setup   (size_t id, enum videoformat fmt, unsigned std_width, unsigned std_height, unsigned max_width, unsigned max_height) {}
+		void       emit_video_setup   (uint8_t id, enum videoformat fmt, unsigned std_width, unsigned std_height, unsigned max_width, unsigned max_height) {}
+		virtual void ev_video_setup   (uint8_t id, enum videoformat fmt, unsigned std_width, unsigned std_height, unsigned max_width, unsigned max_height) {}
 		//This allows the video data to be put whereever the target device wants. The target also decides pitch.
 		//The pointer does not need to be normal memory, and must not be read, not even after writing.
 		//Returning NULL means that the target device has no opinion, so the caller allocates. If called, and the return value is non-NULL, it must be used.
-		void       emit_video_locate  (size_t id, unsigned width, unsigned height, void * * data, size_t * pitch) {}
-		virtual void ev_video_locate  (size_t id, unsigned width, unsigned height, void * * data, size_t * pitch) { *data=NULL; *pitch=0; }
-		void       emit_video         (size_t id, unsigned width, unsigned height, const void * data, size_t pitch) {}
-		virtual void ev_video         (size_t id, unsigned width, unsigned height, const void * data, size_t pitch) {}
+		void       emit_video_locate  (uint8_t id, unsigned width, unsigned height, void * * data, size_t * pitch) {}
+		virtual void ev_video_locate  (uint8_t id, unsigned width, unsigned height, void * * data, size_t * pitch) { *data=NULL; *pitch=0; }
+		void       emit_video         (uint8_t id, unsigned width, unsigned height, const void * data, size_t pitch) {}
+		virtual void ev_video         (uint8_t id, unsigned width, unsigned height, const void * data, size_t pitch) {}
 		//Dupe video events means the last frame should be repeated, and the driver should wait for another vsync.
-		void       emit_video_dupe    (size_t id) {}
-		virtual void ev_video_dupe    (size_t id) {}
+		void       emit_video_dupe    (uint8_t id) {}
+		virtual void ev_video_dupe    (uint8_t id) {}
 		//emit_video_req means that the calling device, and only it, will get an ev_video corresponding to
 		// the last ev_video_{locate,3d,dupe}. Likely to be slower than asking for normal video events, but
 		// if only a few frames are desirable, explicitly asking for only them is desirable.
@@ -308,28 +313,28 @@ namespace minir {
 		//If a device alters the video data, 'use_output' tells whether 'id' refers to the last input or output.
 		//(If it doesn't, either both are the same or only one is applicable, and that argument can be ignored.)
 		//If no relevant device supports repeat requests, it can return failure, but this is rare.
-		bool       emit_video_req     (size_t id) { return false; }
-		virtual bool ev_video_req     (size_t id, bool use_output) { return false; }
+		bool       emit_video_req     (uint8_t id) { return false; }
+		virtual bool ev_video_req     (uint8_t id, bool use_output) { return false; }
 		//3D stuff mostly goes outside this system.
 		//'context' allows multiple video handlers to share resources across threads.
 		//If NULL, the source expects the target to set up a context for this thread and will use that; if not, both devices will set up one context each.
-		bool       emit_video_setup_3d(size_t id, struct retro_hw_render_callback * desc, void* context) { return false; }
-		virtual bool ev_video_setup_3d(size_t id, struct retro_hw_render_callback * desc, void* context) { return false; }
-		void       emit_video_3d      (size_t id) {}
-		virtual void ev_video_3d      (size_t id) {}
+		bool       emit_video_setup_3d(uint8_t id, struct retro_hw_render_callback * desc, void* context) { return false; }
+		virtual bool ev_video_setup_3d(uint8_t id, struct retro_hw_render_callback * desc, void* context) { return false; }
+		void       emit_video_3d      (uint8_t id) {}
+		virtual void ev_video_3d      (uint8_t id) {}
 		
 		//If the source supports asynchronous audio, 'async' will point to a false. If not, NULL.
 		//If the target supports asynchronous audio and 'async' is non-NULL, it will be set to true. Only then may async audio be used.
-		virtual void ev_audio_setup (size_t id, double samplerate, unsigned num_channels, bool * async) {}
-		void       emit_audio_setup (size_t id, double samplerate, unsigned num_channels, bool * async) {}
-		virtual void ev_audio_locate(size_t id, int16_t * * data, size_t frames) {}
-		void       emit_audio_locate(size_t id, int16_t * * data, size_t frames) {}
-		virtual void ev_audio       (size_t id, const int16_t * data, size_t frames) {}
-		void       emit_audio       (size_t id, const int16_t * data, size_t frames) {}
+		virtual void ev_audio_setup (uint8_t id, double samplerate, unsigned num_channels, bool * async) {}
+		void       emit_audio_setup (uint8_t id, double samplerate, unsigned num_channels, bool * async) {}
+		virtual void ev_audio_locate(uint8_t id, int16_t * * data, size_t frames) {}
+		void       emit_audio_locate(uint8_t id, int16_t * * data, size_t frames) {}
+		virtual void ev_audio       (uint8_t id, const int16_t * data, size_t frames) {}
+		void       emit_audio       (uint8_t id, const int16_t * data, size_t frames) {}
 		//Audio requests mean that the source is requested to emit this many audio frames to this location. Only use this if agreed upon in audio_setup.
 		//'data' is not required to be used. Less than 'frames' frames may be emitted, but no more.
-		virtual void ev_audio_req   (size_t id, int16_t * data, size_t frames) {}
-		void       emit_audio_req   (size_t id, int16_t * data, size_t frames) {}
+		virtual void ev_audio_req   (uint8_t id, int16_t * data, size_t frames) {}
+		void       emit_audio_req   (uint8_t id, int16_t * data, size_t frames) {}
 		
 		//These two allow devices to serialize and restore their state.
 		//Savestate data should be endian safe. The litend<>/bigend<> templates help.
@@ -386,7 +391,10 @@ namespace minir {
 		size_t dev_get_id(device* dev) { return dev->id; }
 		//virtual array<uint8_t> emit_savestate(size_t source) = 0;
 		
+		function<void(const char *)> error;
 	public:
+		void set_error_handler(function<void(const char *)> handler) { this->error = handler; }
+		
 		//Each inputs[] to a device is one string, in order.
 		//The order of the devices is used only between devices of the same type.
 		//The I/O map is allowed to be blank, in which case the device manager will try to connect all inputs to free outputs.

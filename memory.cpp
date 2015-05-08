@@ -15,7 +15,7 @@ anyptr malloc_check(size_t size)
 {
 	void* ret=malloc(size);
 	debug(ret);
-	if (!ret) abort();
+	if (size && !ret) abort();
 	return ret;
 }
 
@@ -41,7 +41,7 @@ anyptr calloc_check(size_t size, size_t count)
 {
 	void* ret=calloc(size, count);
 	debug(ret);
-	if (!ret) abort();
+	if (size && count && !ret) abort();
 	return ret;
 }
 
