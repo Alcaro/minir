@@ -1,4 +1,4 @@
-/* Copyright (C) 2010-2014 The RetroArch team
+/* Copyright (C) 2010-2015 The RetroArch team
  *
  * ---------------------------------------------------------------------------------------
  * The following license statement only applies to this libretro API header (libretro.h).
@@ -199,13 +199,15 @@ extern "C" {
 #define RETRO_DEVICE_ID_ANALOG_Y         1
 
 /* Id values for MOUSE. */
-#define RETRO_DEVICE_ID_MOUSE_X          0
-#define RETRO_DEVICE_ID_MOUSE_Y          1
-#define RETRO_DEVICE_ID_MOUSE_LEFT       2
-#define RETRO_DEVICE_ID_MOUSE_RIGHT      3
-#define RETRO_DEVICE_ID_MOUSE_WHEELUP    4
-#define RETRO_DEVICE_ID_MOUSE_WHEELDOWN  5
-#define RETRO_DEVICE_ID_MOUSE_MIDDLE     6
+#define RETRO_DEVICE_ID_MOUSE_X                0
+#define RETRO_DEVICE_ID_MOUSE_Y                1
+#define RETRO_DEVICE_ID_MOUSE_LEFT             2
+#define RETRO_DEVICE_ID_MOUSE_RIGHT            3
+#define RETRO_DEVICE_ID_MOUSE_WHEELUP          4
+#define RETRO_DEVICE_ID_MOUSE_WHEELDOWN        5
+#define RETRO_DEVICE_ID_MOUSE_MIDDLE           6
+#define RETRO_DEVICE_ID_MOUSE_HORIZ_WHEELUP    7
+#define RETRO_DEVICE_ID_MOUSE_HORIZ_WHEELDOWN  8
 
 /* Id values for LIGHTGUN types. */
 #define RETRO_DEVICE_ID_LIGHTGUN_X        0
@@ -727,9 +729,10 @@ enum retro_mod
                                             * location-based information from the host device,
                                             * such as current latitude / longitude.
                                             */
-#define RETRO_ENVIRONMENT_GET_CONTENT_DIRECTORY 30
+#define RETRO_ENVIRONMENT_GET_CONTENT_DIRECTORY 30 /* Old name, kept for compatibility. */
+#define RETRO_ENVIRONMENT_GET_CORE_ASSETS_DIRECTORY 30
                                            /* const char ** --
-                                            * Returns the "content" directory of the frontend.
+                                            * Returns the "core assets" directory of the frontend.
                                             * This directory can be used to store specific assets that the 
                                             * core relies upon, such as art assets,
                                             * input data, etc etc.
@@ -1159,6 +1162,8 @@ struct retro_log_callback
 #define RETRO_SIMD_VFPU     (1 << 13)
 #define RETRO_SIMD_PS       (1 << 14)
 #define RETRO_SIMD_AES      (1 << 15)
+#define RETRO_SIMD_VFPV3    (1 << 16)
+#define RETRO_SIMD_VFPV4    (1 << 17)
 
 typedef uint64_t retro_perf_tick_t;
 typedef int64_t retro_time_t;
