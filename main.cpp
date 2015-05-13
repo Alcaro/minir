@@ -51,7 +51,7 @@ private:
 		unsigned int code;
 		if (libretrocode) code = libretrocode;
 		else code = scancode+1024;
-		emit_button(EV_MAKE(keyboard, code), down);
+		emit_button(eid_make(keyboard, code), down);
 		//devmgr::event ev(devmgr::event::ty_keyboard);
 		//ev.secondary = false;
 		//ev.keyboard.deviceid = keyboard;
@@ -116,7 +116,7 @@ public:
 /* RETRO_DEVICE_ID_JOYPAD_L3     */ 14,
 /* RETRO_DEVICE_ID_JOYPAD_R3     */ 15,
 			};
-		emit_button(EV_MAKE(0, map[EV_ID(event)]), down);
+		emit_button(eid_make(0, map[eid_id(event)]), down);
 	}
 };
 //}
@@ -199,6 +199,8 @@ public:
 };
 
 
+void errorhandler(const char * str) { puts(str); }
+
 int main_wrap(int argc, char * argv[])
 {
 puts("init=1");
@@ -238,6 +240,7 @@ puts("init=6");
 	
 puts("init=7");
 	devmgr* contents=devmgr::create();
+contents->set_error_handler(bind(errorhandler));
 puts("init=8");
 #ifdef __linux__
 #define INPUTKB_ID 1 // skip udev, it requires root
@@ -245,9 +248,11 @@ puts("init=8");
 #define INPUTKB_ID 0
 #endif
 	contents->add_device(new dev_kb(inputkb::drivers[INPUTKB_ID]->create(view->get_window_handle())));
-	const char * map[16]={"kb.up", "kb.down", "kb.left", "kb.right", "kb.x", "kb.z", "kb.s", "kb.a", "kb.return", "kb.space", "kb.q", "kb.w"};
-	contents->add_device(new dev_vgamepad(), map);
-	contents->add_device(new dev_vgamepad(), map);
+	const char * map[16]={
+		"keyboard.up", "keyboard.down", "keyboard.left", "keyboard.right",
+		"keyboard.x", "keyboard.z", "keyboard.s", "keyboard.a",
+		"keyboard.return", "keyboard.space", "keyboard.q", "keyboard.w",
+"vgamepad.left","keyboard2.x"};
 	contents->add_device(new dev_vgamepad(), map);
 	contents->add_device(new dev_core(core));
 	
@@ -260,6 +265,7 @@ puts("init=10");
 puts("init=11");
 	while (wnd->is_visible(wnd))
 	{
+		//TODO: contents->frame() on another thread
 		window_run_iter();
 		contents->frame();
 static int i=0;if(i++==2000)break;

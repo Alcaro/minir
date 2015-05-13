@@ -1,5 +1,6 @@
 #pragma once
 #include "global.h"
+#include <new>
 
 //size: two pointers
 //this object does not own its storage, it's just a pointer wrapper

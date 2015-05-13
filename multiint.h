@@ -1,5 +1,6 @@
 #pragma once
 #include "global.h"
+#include "sort.h"
 
 template<typename T> class multiint_inline {
 	enum { numinline = sizeof(T*) / sizeof(T) };

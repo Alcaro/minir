@@ -4,7 +4,7 @@
 bool configreader::parse(char * data)
 {
 	this->items.reset();
-	stringmap<sub_inner>* group=&this->items.get("").items;
+	hashmap<string,sub_inner>* group=&this->items.get("").items;
 	while (data)
 	{
 		char * nextline=strchr(data, '\n');

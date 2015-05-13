@@ -111,13 +111,13 @@ protected:
 	};
 	class sub_outer {
 	public:
-		stringmap<sub_inner> items;
+		hashmap<string,sub_inner> items;
 		bool used;
 		unsigned int children_used;
 		
 		sub_outer() : used(false), children_used(0) {}
 	};
-	stringmap<sub_outer> items;
+	hashmap<string,sub_outer> items;
 	sub_outer* group;
 	
 	

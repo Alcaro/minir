@@ -18,7 +18,7 @@ public:
 // 0011=gamepad
 // others=TODO
 //n=uint18; must be exactly this to fire
-//l=uint10; must be at >= this to fire (masked off to 0 when used as key to the intmaps)
+//l=uint10; must be at >= this to fire (masked off to 0 when used as key to the hashmaps)
 //[TODO: actually do as promised with the Ls]
 //none of those descriptors may leave this file
 //
@@ -226,12 +226,12 @@ class bydev {
 array<keydata> mappings;//the key is a slot ID
 keyslot_t firstempty;//any slot such that all previous slots are used
 
-intmap<keydesc_t, multiint<keyslot_t> > keylist;//returns which slots are affected by this descriptor
+hashmap<keydesc_t, multiint<keyslot_t> > keylist;//returns which slots are affected by this descriptor
 
 bool keymod_valid;
-intmap<keydesc_t, multiint<keydesc_t> > keymod;//returns which descriptors are modifiers for this one
+hashmap<keydesc_t, multiint<keydesc_t> > keymod;//returns which descriptors are modifiers for this one
 
-intmap<keydesc_t, uint8_t> keyheld;
+hashmap<keydesc_t, uint8_t> keyheld;
 
 /*private*/ void keymod_regen()
 {
@@ -255,7 +255,7 @@ intmap<keydesc_t, uint8_t> keyheld;
 }
 
 /*private*/ template<typename K, typename V, typename K2, typename V2>
-void multimap_remove(intmap<K, multiint<V> >& map, K2 key, V2 val)
+void multimap_remove(hashmap<K, multiint<V> >& map, K2 key, V2 val)
 {
 	multiint<V>* items = map.get_ptr(key);
 	if (!items) return;

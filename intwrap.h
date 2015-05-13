@@ -28,3 +28,15 @@ public:
 	template<typename T1, typename T2> intwrap(T1 v1, T2 v2) : U(v1, v2) {}
 	template<typename T1, typename T2, typename T3> intwrap(T1 v1, T2 v2, T3 v3) : U(v1, v2, v3) {}
 };
+
+template<typename T> struct int_inherit_core {
+	T item;
+	operator T() { return item; }
+	void operator=(T newval) { item=newval; }
+	int_inherit_core(T item) : item(item) {}
+};
+//This allows inheriting from something that acts like a plain int.
+//Why doesn't raw C++ allow that? Would it cause too much pains with people creating unsigned iostreams?
+template<typename T> class int_inherit : public intwrap<int_inherit_core<T> > {
+	int_inherit(T item) : intwrap<int_inherit_core<T> >(item) {}
+};

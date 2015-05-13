@@ -1,15 +1,22 @@
 #pragma once
 #include "global.h"
+#include "string.h"
+#include "intwrap.h"
 
-//size: three pointers, plus [one pointer plus one key_t plus one val_t] per entry
-template<typename key_t, typename val_t, typename key_t_pub = key_t> class hashmap : nocopy {
+template<typename T> class selfhash {
+public:
+	static uintptr_t hash(const T& item) { return item.hash(); }
+};
+
+//size: three pointers, plus [one pointer plus one key_t] per entry
+template<typename T, typename hasher = selfhash<T> >
+class hashset : public nocopy {
 protected:
 	typedef size_t keyhash_t;
 	
 	struct node_t {
 		struct node_t * next;
-		key_t key;
-		val_t value;
+		T key;
 	};
 	struct node_t * * nodes;
 	keyhash_t buckets;
@@ -25,7 +32,7 @@ protected:
 			while (node)
 			{
 				struct node_t * next = node->next;
-				keyhash_t newpos = node->key.hash() % newbuckets;
+				keyhash_t newpos = hasher::hash(node->key) % newbuckets;
 				node->next = newnodes[newpos];
 				newnodes[newpos] = node;
 				node = next;
@@ -36,19 +43,21 @@ protected:
 		this->buckets = newbuckets;
 	}
 	
-	struct node_t * * find_ref(const key_t& key) const
+	template<typename T2>
+	struct node_t * * find_ref(T2 key) const
 	{
-		struct node_t * * noderef = &this->nodes[key.hash() % this->buckets];
+		struct node_t * * noderef = &this->nodes[hasher::hash(key) % this->buckets];
 		while (true)
 		{
 			struct node_t * node = *noderef;
 			if (!node) return NULL;
-			if (key == node->key) return noderef;
+			if (node->key == key) return noderef;
 			noderef = &node->next;
 		}
 	}
 	
-	struct node_t * find(const key_t& key) const
+	template<typename T2>
+	struct node_t * find(T2 key) const
 	{
 		struct node_t * * node = find_ref(key);
 		if (node) return *node;
@@ -56,11 +65,12 @@ protected:
 	}
 	
 	//use only after checking that there is no item with this name already
-	struct node_t * create(const key_t& key)
+	template<typename T2>
+	struct node_t * create(T2 key)
 	{
 		struct node_t * node = malloc(sizeof(struct node_t));
-		keyhash_t thehash = key.hash();
-		new(&node->key) key_t(key);
+		keyhash_t thehash = hasher::hash(key);
+		new(&node->key) T(key);
 		node->next = this->nodes[thehash%this->buckets];
 		this->nodes[thehash%this->buckets] = node;
 		this->entries++;
@@ -71,63 +81,69 @@ protected:
 public:
 	size_t size() const { return this->entries; }
 	
-	bool has(const key_t_pub& key) const { return find(key); }
+	bool has(T key) const { return find((const T&)key); }
 	
-	val_t& get(const key_t_pub& key)
+	template<typename T2>
+	bool has_t(T2 key) const { return find(key); }
+	
+	template<typename T2>
+	T& get_t(T2 key)
 	{
-		struct node_t * node=find(key);
-		if (!node)
-		{
-			node = create(key);
-			new(&node->value) val_t();
-		}
-		return node->value;
+		struct node_t * node = find(key);
+		if (!node) node = create(key);
+		return node->key;
 	}
 	
-	val_t& operator[](const key_t_pub& key) { return get(key); }
+	T& get(T key) { return get_t((const T&)key); }
 	
-	val_t get_or(const key_t_pub& key, val_t other) const
+	template<typename T2>
+	T& operator[](T2 key) { return get_t(key); }
+	
+	template<typename T2>
+	T get_or_t(T2 key, const T& other) const
 	{
 		struct node_t * node = find(key);
 		if (!node) return other;
 		return node->value;
 	}
 	
-	val_t* get_ptr(const key_t_pub& key)
+	T get_or(T key, T other) const { return get_or_t((const T&)key, (const T&)other); }
+	
+	template<typename T2>
+	T* get_ptr_t(T2 key)
 	{
 		struct node_t * node = find(key);
-		if (node) return &node->value;
+		if (node) return &node->key;
 		else return NULL;
 	}
 	
-	void set(const key_t_pub& key, const val_t& value)
+	T* get_ptr(T key) { return get_ptr_t((const T&)key); }
+	
+	template<typename T2>
+	void add_t(const T2& key)
 	{
-		struct node_t * node = find(key);
-		if (node)
-		{
-			node->value = value;
-		}
-		else
-		{
-			node = create(key);
-			new(&node->value) val_t(value);
-		}
+		if (!find(key)) create(key);
 	}
 	
-	void remove(const key_t_pub& key)
+	void add(const T& key) { return add_t(key); }
+	
+	template<typename T2>
+	void remove_t(const T2& key)
 	{
 		struct node_t * * noderef = find_ref(key);
 		if (!noderef) return;
 		
 		struct node_t * node = *noderef;
 		*noderef = node->next;
-		node->key.~key_t();
-		node->value.~val_t();
+		node->key.~T();
 		free(node);
 		
 		this->entries--;
 		if (this->buckets>4 && this->entries < this->buckets/2) resize(this->buckets/2);
 	}
+	
+	void remove(T key) { remove_t(key); }
+	void remove(const T& key) { remove_t(key); }
 	
 	void reset()
 	{
@@ -137,8 +153,7 @@ public:
 			while (node)
 			{
 				struct node_t * next = node->next;
-				node->key.~key_t();
-				node->value.~val_t();
+				node->key.~T();
 				free(node);
 				node = next;
 			}
@@ -150,7 +165,72 @@ public:
 		resize(4);
 	}
 	
-	void each(function<void(key_t_pub key, val_t& value)> iter)
+	
+	class iterator {
+		friend class hashset;
+		hashset<T>* parent;
+		size_t bucket;
+		node_t* * current;
+		
+		iterator(hashset<T>* parent, size_t bucket, node_t* * current) : parent(parent), bucket(bucket), current(current) {}
+		
+		void next_valid()
+		{
+			while (!*current && bucket < parent->buckets)
+			{
+				bucket++;
+				if (bucket < parent->buckets) current = &parent->nodes[bucket];
+				else current = NULL;
+			}
+		}
+		
+	public:
+		T& operator*()
+		{
+			return (*current)->key;
+		}
+		
+		iterator& operator++()
+		{
+			current = &(*current)->next;
+			next_valid();
+			return *this;
+		}
+		
+		iterator operator++(int)
+		{
+			iterator prev = *this;
+			this->operator++();
+			return prev;
+		}
+		
+		bool operator==(const iterator& other)
+		{
+			//no need to check 'bucket'; if it's different, 'current' is too, so that one is enough.
+			//however, 'current' can be NULL
+			return (this->parent == other.parent && this->current == other.current);
+		}
+		
+		operator bool() { return current; }
+		
+		void remove()
+		{
+			struct node_t * node = *current;
+			*current = node->next;
+			node->key.~T();
+			free(node);
+			parent->entries--;
+			next_valid();
+		}
+	};
+	friend class iterator;
+	
+	iterator begin() { return iterator(this, 0, &this->nodes[0]); }
+	iterator end() { return iterator(this, 0, NULL); }
+	
+	
+	template<typename T2>
+	void each(function<void(T2 key)> iter)
 	{
 		for (unsigned int i=0;i<this->buckets;i++)
 		{
@@ -158,13 +238,14 @@ public:
 			while (node)
 			{
 				struct node_t * next=node->next;
-				iter(node->key, node->value);
+				iter(node->key);
 				node=next;
 			}
 		}
 	}
 	
-	void remove_if(function<bool(key_t_pub key, val_t& value)> condition)
+	template<typename T2>
+	void remove_if(function<bool(T2 key)> condition)
 	{
 		for (unsigned int i=0;i<this->buckets;i++)
 		{
@@ -172,15 +253,15 @@ public:
 			while (*noderef)
 			{
 				struct node_t * node = *noderef;
-				bool remove = condition(node->key, node->value);
+				bool remove = condition(node->key);
 				
 				if (remove)
 				{
-					node->key.~key_t();
-					node->value.~val_t();
+					struct node_t * nextnode = node->next;
+					node->key.~T();
 					free(node);
 					this->entries--;
-					*noderef = node->next;
+					*noderef = nextnode;
 				}
 				else noderef = &node->next;
 			}
@@ -194,14 +275,14 @@ public:
 		}
 	}
 	
-	hashmap()
+	hashset()
 	{
 		this->buckets=0;
 		this->nodes=NULL;
 		reset();
 	}
 	
-	~hashmap()
+	~hashset()
 	{
 		for (unsigned int i=0;i<this->buckets;i++)
 		{
@@ -209,8 +290,7 @@ public:
 			while (item)
 			{
 				struct node_t * next=item->next;
-				item->key.~key_t();
-				item->value.~val_t();
+				item->key.~T();
 				free(item);
 				item=next;
 			}
@@ -219,50 +299,94 @@ public:
 	}
 };
 
-class simple_string {
-	char* ptr;
-	simple_string();
+template<typename K, typename V, typename hasher = selfhash<K> >
+class hashmap {
+	struct entry {
+		K key;
+		V value;
+		size_t hash() const { return hasher::hash(key); }
+		bool operator==(const entry& other) const { return (this->key == other.key); }
+		bool operator==(const K& key) const { return (this->key == key); }
+		entry(K key) : key(key), value() {}
+		entry(K key, V value) : key(key), value(value) {}
+	};
+	
+	hashset<entry> items;
+	
 public:
-	simple_string(const char * other) { ptr=strdup(other); }
-	simple_string(const simple_string& other) { ptr=strdup(other.ptr); }
-	~simple_string() { free(ptr); }
-	bool operator==(const simple_string& other) const { return (!strcmp(ptr, other.ptr)); }
-	operator const char *() const { return ptr; }
-	uintptr_t hash() const
+	size_t size() const { return items.size(); }
+	
+	bool has(K key) const { return items.has_t((const K&)key); }
+	
+	V& get(K key) { return items.get_t((const K&)key).value; }
+	
+	V& operator[](K key) { return get((const K&)key); }
+	
+	V get_or(const K& key, const V& def)
 	{
-		const char * str=ptr;
-		size_t ret=0;
-		while (*str)
+		entry* e = items.get_ptr_t(key);
+		if (e) return e->value;
+		else return def;
+	}
+	
+	V* get_ptr(const K& key)
+	{
+		entry* e = items.get_ptr_t(key);
+		if (e) return &e->value;
+		else return NULL;
+	}
+	
+	void set(const K& key, const V& value)
+	{
+		entry& e = items.get_t(key);
+		e.value = value;
+	}
+	
+	void remove(K key) { items.remove_t((const K&)key); }
+	
+	void reset() { items.reset(); }
+	
+	template<typename K2, typename V2>
+	void each(function<void(K2 key, V2& value)> iter)
+	{
+		typename hashset<entry>::iterator begin = items.begin();
+		typename hashset<entry>::iterator end = items.end();
+		while (begin!=end)
 		{
-			ret*=101;
-			ret+=*str;
-			str++;
+			entry& e = *begin;
+			iter(e.key, e.value);
+			begin++;
 		}
-		return ret;
+	}
+	
+	template<typename K2, typename V2>
+	void remove_if(function<bool(K2 key, V2& value)> condition)
+	{
+		typename hashset<entry>::iterator begin = items.begin();
+		typename hashset<entry>::iterator end = items.end();
+		while (begin!=end)
+		{
+			entry& e = *begin;
+			if (condition(e.key, e.value)) begin.remove();
+			else begin++;
+		}
 	}
 };
-template<typename T> class stringmap : public hashmap<simple_string, T, const char *> {};
 
-template<typename T, bool shuffle> class hashable_int {
-	T ptr;
-	hashable_int();
+
+template<typename T> class inthasher {
 public:
-	hashable_int(T other) { ptr=other; }
-	hashable_int(const hashable_int& other) { ptr=other.ptr; }
-	bool operator==(const hashable_int& other) const { return (ptr==other.ptr); }
-	operator T() const { return ptr; }
-	uintptr_t hash() const
+	static uintptr_t hash(T raw)
 	{
-		if (!shuffle) return (uintptr_t)ptr;
-		static_assert(!shuffle || sizeof(T)==4 || sizeof(T)==8);
+		static_assert(sizeof(uintptr_t)==4 || sizeof(uintptr_t)==8);
 		//each of those hash functions is reversible
 		//it would be desirable to generate hash algorithms for all other values too, but zimbry chose to not publish his
 		// source codes nor results for other sizes, and I don't understand the relevant math well enough to recreate it
 		//it's not really important, anyways; this isn't OpenSSL
-		if (sizeof(T) == 4)
+		if (sizeof(uintptr_t) == 4)
 		{
 			//https://code.google.com/p/smhasher/wiki/MurmurHash3
-			uint32_t val = (uint32_t)ptr;
+			uint32_t val = (uint32_t)raw;
 			val ^= val >> 16;
 			val *= 0x85ebca6b;
 			val ^= val >> 13;
@@ -270,11 +394,11 @@ public:
 			val ^= val >> 16;
 			return val;
 		}
-		if (sizeof(T) == 8)
+		if (sizeof(uintptr_t) == 8)
 		{
 			//http://zimbry.blogspot.se/2011/09/better-bit-mixing-improving-on.html
 			//using Mix13 because it gives the lowest mean error on low incoming entropy
-			uint64_t val = (uint64_t)ptr;
+			uint64_t val = (uint64_t)raw;
 			val ^= val >> 30;
 			val *= 0xbf58476d1ce4e5b9;
 			val ^= val >> 27;
@@ -284,8 +408,8 @@ public:
 		}
 	}
 };
-//these two are the same, only the name varies
-template<typename T1, typename T2> class ptrmap : public hashmap<hashable_int<T1, true>, T2, T1> {};
-template<typename T1, typename T2> class intmap : public hashmap<hashable_int<T1, true>, T2, T1> {};
 
-template<typename T> class intset : public hashmap<hashable_int<T, false>, void, T> {};
+template<typename V> class hashmap<uint8_t,  V> : public hashmap<uint8_t,  V, inthasher<uint8_t > > {};
+template<typename V> class hashmap<uint16_t, V> : public hashmap<uint16_t, V, inthasher<uint16_t> > {};
+template<typename V> class hashmap<uint32_t, V> : public hashmap<uint32_t, V, inthasher<uint32_t> > {};
+template<typename V> class hashmap<uint64_t, V> : public hashmap<uint64_t, V, inthasher<uint64_t> > {};

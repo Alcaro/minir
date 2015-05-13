@@ -212,11 +212,29 @@ static void test_endian()
 	assert(p[3]==0x09);
 }
 
+static void test_hashset()
+{
+	//this is far from comprehesive, it's just some really basic sanity checks
+	{
+		hashset<string> set;
+		set.add("abc");
+		assert(set.has("abc"));
+		assert(!set.has("abcd"));
+	}
+	
+	{
+		hashmap<string,string> map;
+		map.set("abc", "123");
+		assert(map.get("abc")=="123");
+	}
+}
+
 int main()
 {
 	//test_multiint();
 	//test_sort();
 	//test_fifo();
 	//test_endian();
+	test_hashset();
 }
 #endif

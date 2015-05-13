@@ -37,8 +37,6 @@ typedef void(*funcptr)();
 #define JOIN_(x, y) x ## y
 #define JOIN(x, y) JOIN_(x, y)
 
-#define UNPACK_PAREN(...) __VA_ARGS__
-
 //some magic stolen from http://blogs.msdn.com/b/the1/archive/2004/05/07/128242.aspx
 //C++ can be so messy sometimes...
 template<typename T, size_t N> char(&ARRAY_SIZE_CORE(T(&x)[N]))[N];

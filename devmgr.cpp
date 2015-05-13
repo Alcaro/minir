@@ -1,5 +1,8 @@
 #include "minir.h"
 #include <string.h>
+#include <ctype.h>
+#include "hashmap.h"
+#include "multiint.h"
 
 namespace minir {
 namespace {
@@ -63,73 +66,130 @@ bool map_devices()
 	//  dev3.2
 	//  dev2.named
 	//.left or similar can be appended to all of the above to access their components
-	//to turn a joystick into arrow keys: joy.left(0.5) or joy.left(50%)
-	// 1 (or 100%) is the leftmost possible value, 0 is middle
-	// only [0..1] are allowed, where 0 doesn't fire if the stick is to the right
+	//to turn a joystick into arrow keys: joy.left, hardcoded to trigger if the stick is on 50% of max distance
+	// (may be extended later, if anyone cares)
 	//
 	//there are also 'true' and 'false' buttons, though 'false' is useless since blank mappings are also false.
 	//
 	//TODO: figure out devices with multiple anon outputs of different kinds, and what to do with that
-	// kb1, joy3, but it's gonna be tough.
-	//
-	//TODO: figure out what to do with analogs, they're not going to fit in 32 bits
+	// dev.kb1, dev.joy3, it's gonna be messy.
 	
-	stringmap<size_t> sources;
-	stringmap<size_t> multisources;
+	hashmap<string,uint16_t> sourcenames;
+	hashmap<string,uint16_t> multisourcenames;
 	
-	sources["true"] = (size_t)-1; // special cases, given special treatment
-	sources["false"] = (size_t)-1;
+	sourcenames["true"] = (uint16_t)-1; // special cases, given special treatment
+	sourcenames["false"] = (uint16_t)-1;
 	
 	{
-		stringmap<size_t> n_sources; // extra scope here to throw out this one when it's done
+		hashmap<string,uint16_t> n_sourcenames; // extra scope here to throw out this one when it's done
 		
-		for (size_t i=0;i<devices.len();i++)
+		for (uint16_t i=0;i<devices.len();i++)
 		{
 			device* dev = devices[i].dev;
 			
+			string namelower = string(dev->info->name).lower();
+			
 			//check if this one emits io_multi
-			for (size_t j=0;dev->info->output[j];j++)
+			for (uint16_t j=0;dev->info->output[j];j++)
 			{
 				if (dev->info->output[j] == io_multi)
 				{
-					if (multisources.has(dev->info->name))
+					if (multisourcenames.has(namelower))
 					{
 						error(S"Cannot have multiple devices of type "+dev->info->name);
 						return false;
 					}
-					multisources.set(dev->info->name, i);
+					multisourcenames.set(namelower, i);
 					//continue execution, we want this in sources[] too
 				}
 			}
 			
-			size_t count = ++n_sources[dev->info->name];
+			uint16_t count = ++n_sourcenames[namelower];
 			
 			if (count==1)
 			{
-				sources[dev->info->name] = i;
+				sourcenames[namelower] = i;
 			}
 			else
 			{
-				size_t prev;
+				uint16_t prev;
 				if (count==2)
 				{
-					prev = sources[dev->info->name];
-					sources[(S dev->info->name)+"1"] = prev;
-					sources.remove(dev->info->name);
+					prev = sourcenames[namelower];
+					sourcenames[namelower+"1"] = prev;
+					sourcenames.remove(namelower);
 				}
-				else prev = sources[(S dev->info->name)+"1"];
+				else prev = sourcenames[namelower+"1"];
 				
 				//this is supposed to be a pointer (identity) comparison; devices with the same name must have the same devinfo
 				//not 'return false' because this is an internal bug
 				if (devices[prev].dev->info != dev->info) debug_abort();
 				
-				sources[(S dev->info->name) + string(count)] = i;
+				sourcenames[namelower + string(count)] = i;
 			}
 		}
 	}
 	
 	
 	//parse 'inmap'
+	
+	//possible input mappings:
+	//kb.x
+	//kb.x+kb.y
+	//kb.x, kb.y
+	//kb.f1
+	//kb.lshift+kbf1, kb.rshift+kb.f1
+	//vgamepad.lanalog.left
+	
+	//dependencies[index to 'devices'] contains all devices that must be before this one, including button/event
+	array<multiint<uint16_t> > dependencies;
+	
+	//mappings[index to 'devices'][index to 'inmap'] = output ID; 12bit device, 8bit output ID, 12bit unused (zero)
+	//unassigned and button/event is 0xFFFFFFFF; buttons are complex and treated differently
+	//array<array<uint32_t> > mappings;
+	
+	{
+		for (size_t i=0;i<devices.len();i++)
+		{
+			devinf_i* inf = &devices[i];
+			for (size_t j=0;inf->dev->info->input[j];j++)
+			{
+				if (inf->inmap[j])
+				{
+					char* name = inf->inmap[j];
+					char * nameend = strchr(name, '.');
+					if (nameend) *nameend = '\0';
+					
+					uint16_t* device = sourcenames.get_ptr(name);
+					if (!device)
+					{
+						char * namenul = nameend ? nameend : strchr(name, '\0');
+						if (namenul != name)
+						{
+							while (isdigit(namenul[-1])) namenul--;
+							
+							char digit = *namenul;
+							*namenul = '\0';
+							device = multisourcenames.get_ptr(name);
+							*namenul = digit;
+						}
+					}
+					
+					if (!device)
+					{
+						error(S"Device "+inf->dev->info->name+" refers to device "+name+", which doesn't exist");
+					}
+					
+					if (nameend) *nameend = '.';
+					
+					if (device)
+					{
+						dependencies[i].add(*device);
+					}
+				}
+			}
+		}
+	}
 	
 	
 	//assign missing inputs
@@ -139,6 +199,14 @@ bool map_devices()
 	//      if there is exactly one unused output of that type, use it
 	//      if there is exactly one output of that type, use it
 	//  if there is still any missing input, leave it unassigned; most weird inputs should be in 'inmap' already.
+	
+	//event/button can be mapped to complex things, do I need to put them separately somehow?
+	//or perhaps it's reasonably easy - event and button should not be assigned because there's a thousand possible choices for them
+	
+	//could the input assigner possibly generate loops or other nasty conditions? Not likely, unassigned inputs are rare.
+	//could I combine the frame-order assigner with the input assigner, and only assign outputs backwards? Could that give weird order-based randomness?
+	//can I deprioritize devices with unassigned inputs that can't be satisfied? Can I only assign inputs if the device has exactly one input?
+	//perhaps I should not autoassign at all, and let the GUI do it? That should be the most logical method, GUI can know whether it's autoconfigurable.
 	
 	
 	//discard unused devices
@@ -156,6 +224,10 @@ bool map_devices()
 	//    if there are no such devices: return error
 	//    add them to the device array
 	//    mark these devices ordered
+	
+	{
+		
+	}
 	
 	
 	//look for output loops
