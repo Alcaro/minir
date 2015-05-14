@@ -94,12 +94,12 @@ namespace minir {
 	//
 	// Screenshots
 	//  input: core video, 1 Event
-	//  output: (binary file)
+	//  output: many File
 	//  When the event fires, saves the previous core video output to a file. If not available, uses the next.
 	//
 	// Video recording
-	//  input: core video, code audio, ???
-	//  output: (binary file)
+	//  input: core video, code audio, possibly more?
+	//  output: 1 File
 	//  Records all core output to a multimedia file.
 	//
 	// L+R block
@@ -161,6 +161,11 @@ namespace minir {
 	//  input: core memory
 	//  output: modifies core memory, creates windows
 	//  Allows the user to use and create cheat codes.
+	//
+	// Softpatching
+	//  input: two File
+	//  output: one File
+	//  Applies the given patch (IPS, UPS or BPS) to the given file and emits that.
 	
 	class device;
 	class devmgr;
@@ -425,6 +430,13 @@ namespace minir {
 		//Each inputs[] to a device is one string, in order.
 		//The order of the devices is used only between devices of the same type.
 		//The I/O map is allowed to be blank, in which case the device manager will try to connect all inputs to free outputs.
+		//Button and event inputs can use multiple boolean sources. They look like this:
+		//keyboard.shiftl+keyboard.f1, keyboard.shiftr+keyboard.f1
+		//The last key is known as the primary key; the others are known as modifiers.
+		//If multiple Event or Button share the primary key but have different modifiers, they will
+		// only fire if all used modifiers for that button match the input descriptor.
+		//For example, with the given example, something mapped to 'keyboard.f1' would not fire by
+		// ShiftL+F1, and ShiftL+ShiftR+F1 wouldn't trigger either of them.
 		virtual void add_device(device* dev, arrayview<string> inputs = NULL) = 0;
 		virtual void add_device(device* dev, arrayview<const char*> inputs) = 0;
 		
@@ -457,19 +469,20 @@ namespace minir {
 		//'trigger' is whether it's a trigger-based or level-based event.
 		//A level-triggered event fires the event whenever the combination changes between held and not,
 		// while trigger-based fire when the relevant modifiers are held and one of the primaries is hit.
-		//Examples of differences: If a slot is A,S and someone is holding A and repeatedly slapping S,
+		//Examples of differences: If a slot is A+S and someone is holding A and repeatedly slapping S,
 		// a level-triggered event will only fire when A is pressed, because the total state is still 'down'.
 		// A trigger-based event will fire for each press of either key.
 		//If a slot is A+S and S is hit before A, the trigger will never fire (the modifier, A,
 		// had wrong state when S was pressed), but the level will fire (the combination is true).
 		//They share their ID namespaces. A trigger event never fires with down=false.
 		virtual bool register_button(unsigned int id, const char * desc, bool trigger) = 0;
+		
 		//Returns the lowest slot ID where the given number of descriptors can be sequentially added.
 		//If called for len=4 and it returns 2, it means that slots 2, 3, 4 and 5 are currently unused.
 		//It doesn't actually reserve anything, or otherwise change the state of the object; it just tells the current state.
 		
 		//The implementation may set an upper bound on the maximum valid slot. All values up to 4095 must work,
-		// but going up to UINT_MAX is not guaranteed. If this is hit, behaviour is undefined.
+		// but if this is exceeded, behaviour is undefined.
 		virtual unsigned int register_group(unsigned int len) = 0;
 		//If you don't want to decide which slot to use, this one will pick an unused slot and tell which it used.
 		//If the descriptor is invalid, -1 will be returned, and no slot will change.

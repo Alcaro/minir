@@ -242,7 +242,8 @@ puts("init=8");
 	const char * map[16]={
 		"keyboard.up", "keyboard.down", "keyboard.left", "keyboard.right",
 		"keyboard.x", "keyboard.z", "keyboard.s", "keyboard.a",
-		"keyboard.return", "keyboard.space", "keyboard.q", "keyboard.w"};
+		"keyboard.return", "keyboard.space", "keyboard.q", "keyboard.w",
+"vgamepad.aaa+vgamepad.bbb,    vgamepad.ccc+vgamepad.ddd"};
 	contents->add_device(new dev_vgamepad(), map);
 	contents->add_device(new dev_kb(inputkb::drivers[INPUTKB_ID]->create(view->get_window_handle())));
 	contents->add_device(new dev_core(core));

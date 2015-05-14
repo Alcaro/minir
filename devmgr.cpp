@@ -141,7 +141,11 @@ bool map_devices()
 	//kb.lshift+kbf1, kb.rshift+kb.f1
 	//vgamepad.lanalog.left
 	
-	//dependencies[index to 'devices'] contains all devices that must be before this one, including button/event
+	//for dependencies[index to 'devices'], each listed device is used as an input to the given device
+	//_in and _out contain only those devices that listen to input or output events
+	//_in and _out are used to detect disallowed loops and to order the frame event
+	//the full one is used for thread safety and garbage collection
+	array<multiint<uint16_t> > dependencies;
 	array<multiint<uint16_t> > dependencies_in;
 	array<multiint<uint16_t> > dependencies_out;
 	
@@ -160,36 +164,66 @@ bool map_devices()
 				
 				if (inf->inmap[j])
 				{
-					char* name = inf->inmap[j];
-					char * nameend = strchr(name, '.');
-					if (nameend) *nameend = '\0';
-					
-					uint16_t* device = sourcenames.get_ptr(name);
-					if (!device)
+					char* desc = inf->inmap[j];
+					char * descend = desc;
+					while (*descend)
 					{
-						char * namenul = nameend ? nameend : strchr(name, '\0');
-						if (namenul != name)
+						char * nameend = NULL;
+						while (*descend!='\0' && *descend!='+' && *descend!=',')
 						{
-							while (isdigit(namenul[-1])) namenul--;
-							
-							char digit = *namenul;
-							*namenul = '\0';
-							device = multisourcenames.get_ptr(name);
-							*namenul = digit;
+							if (*descend=='.') nameend=descend;
+							descend++;
 						}
-					}
-					
-					if (!device)
-					{
-						error(S"Device "+inf->dev->info->name+" refers to device "+name+", which doesn't exist");
-					}
-					
-					if (nameend) *nameend = '.';
-					
-					if (device)
-					{
-						if (group==iog_in) dependencies_in[i].add(*device);
-						if (group==iog_out) dependencies_out[i].add(*device);
+						char descsep = *descend;
+						if (descsep!='\0' && type!=io_button && type!=io_event)
+						{
+							error(S"Device "+inf->dev->info->name+" has an invalid input descriptor");
+							break;
+						}
+						*descend = '\0';
+puts(desc);
+						
+						char * name = desc;
+						if (nameend) *nameend = '\0';
+						
+						uint16_t* device = sourcenames.get_ptr(name);
+						if (!device)
+						{
+							char * namenul = nameend ? nameend : strchr(name, '\0');
+							if (namenul != name)
+							{
+								while (isdigit(namenul[-1])) namenul--;
+								
+								char digit = *namenul;
+								*namenul = '\0';
+								device = multisourcenames.get_ptr(name);
+								*namenul = digit;
+							}
+						}
+						
+						if (!device)
+						{
+							error(S"Device "+inf->dev->info->name+" refers to device "+name+", which doesn't exist");
+						}
+						
+						if (nameend) *nameend = '.';
+						
+						if (device)
+						{
+							dependencies[i].add(*device);
+							if (group==iog_in) dependencies_in[i].add(*device);
+							if (group==iog_out) dependencies_out[i].add(*device);
+						}
+						
+						*descend = descsep;
+						desc = descend;
+						if (*desc=='+') desc++;
+						else if (*desc==',')
+						{
+							desc++;
+							while (*desc==' ') desc++;
+						}
+						descend=desc;
 					}
 				}
 			}
@@ -220,7 +254,7 @@ bool map_devices()
 	//    toss them onto the garbage pile
 	//    find all devices that do not have any attached input; 'io_user' is a valid input
 	//    toss them onto the garbage pile
-	array<bool> w;
+	array<bool> used;
 	{
 		
 	}
