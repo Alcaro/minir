@@ -3,13 +3,13 @@
 #include "string.h"
 #include "intwrap.h"
 
-template<typename T> class selfhash {
+template<typename T> class hasher {
 public:
-	static uintptr_t hash(const T& item) { return item.hash(); }
+	static size_t hash(const T& item) { return item.hash(); }
 };
 
 //size: three pointers, plus [one pointer plus one key_t] per entry
-template<typename T, typename hasher = selfhash<T> >
+template<typename T>
 class hashset : public nocopy {
 protected:
 	typedef size_t keyhash_t;
@@ -32,7 +32,7 @@ protected:
 			while (node)
 			{
 				struct node_t * next = node->next;
-				keyhash_t newpos = hasher::hash(node->key) % newbuckets;
+				keyhash_t newpos = hasher<T>::hash(node->key) % newbuckets;
 				node->next = newnodes[newpos];
 				newnodes[newpos] = node;
 				node = next;
@@ -46,7 +46,7 @@ protected:
 	template<typename T2>
 	struct node_t * * find_ref(T2 key) const
 	{
-		struct node_t * * noderef = &this->nodes[hasher::hash(key) % this->buckets];
+		struct node_t * * noderef = &this->nodes[hasher<T>::hash(key) % this->buckets];
 		while (true)
 		{
 			struct node_t * node = *noderef;
@@ -69,7 +69,7 @@ protected:
 	struct node_t * create(T2 key)
 	{
 		struct node_t * node = malloc(sizeof(struct node_t));
-		keyhash_t thehash = hasher::hash(key);
+		keyhash_t thehash = hasher<T>::hash(key);
 		new(&node->key) T(key);
 		node->next = this->nodes[thehash%this->buckets];
 		this->nodes[thehash%this->buckets] = node;
@@ -299,12 +299,12 @@ public:
 	}
 };
 
-template<typename K, typename V, typename hasher = selfhash<K> >
+template<typename K, typename V>
 class hashmap {
 	struct entry {
 		K key;
 		V value;
-		size_t hash() const { return hasher::hash(key); }
+		size_t hash() const { return hasher<K>::hash(key); }
 		bool operator==(const entry& other) const { return (this->key == other.key); }
 		bool operator==(const K& key) const { return (this->key == key); }
 		entry(K key) : key(key), value() {}
@@ -374,42 +374,54 @@ public:
 };
 
 
-template<typename T> class inthasher {
+
+//each of those hash functions is reversible
+//it would be desirable to generate hash algorithms for all other values too, but zimbry chose to not publish his
+// source codes nor results for other sizes, and I don't understand the relevant math well enough to recreate it
+//it's not really important, anyways; this isn't OpenSSL
+template<> class hasher<uint32_t> {
 public:
-	static uintptr_t hash(T raw)
+	static size_t hash(uint32_t val)
 	{
-		static_assert(sizeof(uintptr_t)==4 || sizeof(uintptr_t)==8);
-		//each of those hash functions is reversible
-		//it would be desirable to generate hash algorithms for all other values too, but zimbry chose to not publish his
-		// source codes nor results for other sizes, and I don't understand the relevant math well enough to recreate it
-		//it's not really important, anyways; this isn't OpenSSL
-		if (sizeof(uintptr_t) == 4)
-		{
-			//https://code.google.com/p/smhasher/wiki/MurmurHash3
-			uint32_t val = (uint32_t)raw;
-			val ^= val >> 16;
-			val *= 0x85ebca6b;
-			val ^= val >> 13;
-			val *= 0xc2b2ae35;
-			val ^= val >> 16;
-			return val;
-		}
-		if (sizeof(uintptr_t) == 8)
-		{
-			//http://zimbry.blogspot.se/2011/09/better-bit-mixing-improving-on.html
-			//using Mix13 because it gives the lowest mean error on low incoming entropy
-			uint64_t val = (uint64_t)raw;
-			val ^= val >> 30;
-			val *= 0xbf58476d1ce4e5b9;
-			val ^= val >> 27;
-			val *= 0x94d049bb133111eb;
-			val ^= val >> 31;
-			return val;
-		}
+		//https://code.google.com/p/smhasher/wiki/MurmurHash3
+		val ^= val >> 16;
+		val *= 0x85ebca6b;
+		val ^= val >> 13;
+		val *= 0xc2b2ae35;
+		val ^= val >> 16;
+		return val;
 	}
 };
 
-template<typename V> class hashmap<uint8_t,  V> : public hashmap<uint8_t,  V, inthasher<uint8_t > > {};
-template<typename V> class hashmap<uint16_t, V> : public hashmap<uint16_t, V, inthasher<uint16_t> > {};
-template<typename V> class hashmap<uint32_t, V> : public hashmap<uint32_t, V, inthasher<uint32_t> > {};
-template<typename V> class hashmap<uint64_t, V> : public hashmap<uint64_t, V, inthasher<uint64_t> > {};
+template<> class hasher<uint64_t> {
+public:
+	static size_t hash(uint64_t val)
+	{
+		//http://zimbry.blogspot.se/2011/09/better-bit-mixing-improving-on.html
+		//using Mix13 because it gives the lowest mean error on low incoming entropy
+		val ^= val >> 30;
+		val *= 0xbf58476d1ce4e5b9;
+		val ^= val >> 27;
+		val *= 0x94d049bb133111eb;
+		val ^= val >> 31;
+		return val;
+	}
+};
+
+template<> class hasher<uint8_t> {
+public:
+	static size_t hash(uint8_t val) { return hasher<uint32_t>::hash(val); }
+};
+
+template<> class hasher<uint16_t> {
+public:
+	static size_t hash(uint16_t val) { return hasher<uint32_t>::hash(val); }
+};
+
+template<typename T> class hasher<T*> {
+public:
+	static size_t hash(T* val)
+	{
+		return hasher<uintptr_t>::hash((uintptr_t)val);
+	}
+};
