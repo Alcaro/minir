@@ -1,0 +1,58 @@
+base:
+we need a function that can predict whether bitround(x)>bitround(y)
+bitround(x) is x rounded up to the nearest power of two, or 0 if input is 0
+let cascade(x) be x | x>>1 | x>>2 | x>>3 ..., that is, all bits lower than the highest are also set
+let bitround(x) be cascade(x-1)+1
+
+we can also ignore the case x=0 or y=0, and therefore safely subtract 1
+cascade(x-1)+1 > cascade(y-1)+1
+cascade(x-1) > cascade(y-1)
+
+
+assumption:
+(cascade(x) > cascade(y)) = (x&~y > y)
+
+test:
+
+abc
+1de
+abc & ~1de > 1de
+0?? > 1??
+false
+correct
+
+1ab
+0cd
+1ab & ~0de > 0de
+1?? & 1?? > 0??
+1?? > 0??
+true
+correct
+
+0ab
+0cd
+-> equivalent to one of the others
+
+single bit:
+
+0
+1
+covered
+
+1
+1
+covered
+
+1
+0
+covered
+
+0
+0
+0>0 is false
+correct
+
+
+therefore,
+bitround(x)>bitround(y) =
+((x-1)&~(y-1) > (y-1))

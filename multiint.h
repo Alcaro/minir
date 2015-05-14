@@ -88,20 +88,24 @@ template<typename T> class multiint_inline {
 		if (oldcount >= numinline && newcount < numinline)
 		{
 			T* freethis = ptr_raw;
-			memcpy(inlines(), oldptr, sizeof(T)*newcount);
+			memcpy(inlines(), oldptr, sizeof(T)*bitround(newcount));
 			tag() = newcount<<1 | 1;
 			free(freethis);
 		}
 		if (oldcount < numinline && newcount >= numinline)
 		{
-			T* newptr = malloc(sizeof(T)*(1+newcount));
+			T* newptr = malloc(sizeof(T)*bitround(newcount+1));
 			newptr[0] = newcount;
 			memcpy(newptr+1, oldptr, sizeof(T)*oldcount);
 			ptr_raw = newptr;
 		}
 		if (oldcount >= numinline && newcount >= numinline)
 		{
-			ptr_raw = realloc(ptr_raw, sizeof(T)*(1+newcount));
+			//math/bitround.txt
+			//we can ignore subtracting 1 because {old,new}count does not include the length,
+			// so we have to add 1, and that results in +1-1 that cancels out.
+			if ((newcount & ~oldcount) > oldcount)
+				ptr_raw = realloc(ptr_raw, sizeof(T)*bitround(newcount+1));
 			ptr_raw[0] = newcount;
 		}
 	}

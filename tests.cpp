@@ -105,6 +105,17 @@ static void test_multiint()
 	ptr = obj.get(num);
 	assert(num == 4);
 	assert(ptr[0]+ptr[1]+ptr[2]+ptr[3] == 1+12+123+1234);
+	//leaving 1, 12, 123, 1234 there
+	
+	for (int i=0;i<100;i++)
+	{
+		obj.add(i);
+	}
+	ptr = obj.get(num);
+	assert(num==102); // 0..99, 123, 1234
+	int sum=0;
+	for (int i=0;i<num;i++) sum+=ptr[i];
+	assert(sum==6307); // sum(0..99)=4950, +123+1234 =6307
 }
 
 static void test_sort()

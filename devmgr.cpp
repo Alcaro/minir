@@ -142,7 +142,8 @@ bool map_devices()
 	//vgamepad.lanalog.left
 	
 	//dependencies[index to 'devices'] contains all devices that must be before this one, including button/event
-	array<multiint<uint16_t> > dependencies;
+	array<multiint<uint16_t> > dependencies_in;
+	array<multiint<uint16_t> > dependencies_out;
 	
 	//mappings[index to 'devices'][index to 'inmap'] = output ID; 12bit device, 8bit output ID, 12bit unused (zero)
 	//unassigned and button/event is 0xFFFFFFFF; buttons are complex and treated differently
@@ -154,6 +155,9 @@ bool map_devices()
 			devinf_i* inf = &devices[i];
 			for (size_t j=0;inf->dev->info->input[j];j++)
 			{
+				enum iotype type = inf->dev->info->input[j];
+				enum iogroup group = iog_find(type);
+				
 				if (inf->inmap[j])
 				{
 					char* name = inf->inmap[j];
@@ -184,7 +188,8 @@ bool map_devices()
 					
 					if (device)
 					{
-						dependencies[i].add(*device);
+						if (group==iog_in) dependencies_in[i].add(*device);
+						if (group==iog_out) dependencies_out[i].add(*device);
 					}
 				}
 			}
@@ -215,7 +220,10 @@ bool map_devices()
 	//    toss them onto the garbage pile
 	//    find all devices that do not have any attached input; 'io_user' is a valid input
 	//    toss them onto the garbage pile
-	
+	array<bool> w;
+	{
+		
+	}
 	
 	//find a suitable order for frame events
 	//  mark all devices 'unordered'
@@ -225,8 +233,24 @@ bool map_devices()
 	//    add them to the device array
 	//    mark these devices ordered
 	
+	array<uint16_t> order;
 	{
-		
+		for (int n=0;n<2;n++)
+		{
+			array<multiint<uint16_t> >& dependencies = (n ? dependencies_in : dependencies_out);
+			
+			multiint<uint16_t> unordered;
+			for (size_t i=0;i<devices.len();i++)
+			{
+				unordered.add_uniq(i);
+			}
+			
+			bool did_anything = false;
+			//for (size_t i=0;i<devices.len();i++)
+			//{
+				//unordered.add(i);
+			//}
+		}
 	}
 	
 	
@@ -288,4 +312,5 @@ devmgr_impl()
 }
 
 devmgr* devmgr::create() { return new devmgr_impl(); }
+
 }

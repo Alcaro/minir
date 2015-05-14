@@ -247,6 +247,7 @@ template<typename T> static inline T bitround(T in)
 	in|=in>>1;
 	in|=in>>2;
 	in|=in>>4;
+	in|=in>>8;
 	in|=in>>16;
 	if (sizeof(T)>4) in|=in>>16>>16;
 	in++;

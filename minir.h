@@ -166,6 +166,12 @@ namespace minir {
 	class devmgr;
 	class inputmapper;
 	
+	enum iogroup {
+		iog_special,
+		iog_in,
+		iog_out,
+		iog_misc,
+	};
 	enum iotype {
 		io_end,
 		
@@ -176,6 +182,9 @@ namespace minir {
 		io_file,   // Reads or writes a file.
 		io_multi,  // Everything beyond this point repeats an arbitrary number of times.
 		io_thread, // Events are not guaranteed dispatched on the input thread; the device manager may need to buffer the events. Output only.
+		
+		iog_special_first = io_is_core,
+		iog_special_last = io_thread,
 		
 		//Basic event types. The building blocks of all other devices.
 		io_frame, // Fires each frame, and is the last input event. Other input comes in an unspecified order.
@@ -193,11 +202,17 @@ namespace minir {
 		io_mouse,
 		io_mousecur,
 		
+		iog_in_first = io_frame,
+		iog_in_last = io_mousecur,
+		
 		//Output events of various kinds.
 		io_audio,
 		io_video,
 		io_video_3d,
 		io_video_req,//Wants video input, but only wants a few frames, and will tell which it wants. Input only.
+		
+		iog_out_first = io_audio,
+		iog_out_last = io_video_req,
 		
 		//These five are output only.
 		io_state_save,       // Can order the core to save a savestate.
@@ -205,7 +220,18 @@ namespace minir {
 		io_state_filter,     // Can reject requests to load savestates.
 		io_state_append,     // Adds a block of data to the savestates.
 		io_state_append_ethe,// Adds a block of data to the savestates, even short-term same-process savestates.
+		
+		iog_misc_first = io_state_save,
+		iog_misc_last  = io_state_append_ethe,
 	};
+	inline enum iogroup iog_find(enum iotype event)
+	{
+		if (event>=iog_special_first && event<=iog_special_last) return iog_special;
+		if (event>=iog_in_first      && event<=iog_in_last)      return iog_in;
+		if (event>=iog_out_first     && event<=iog_out_last)     return iog_out;
+		if (event>=iog_misc_first    && event<=iog_misc_last)    return iog_misc;
+		return (iogroup)-1;
+	}
 	
 	//Constant information about the device that can be known without executing any of its code,
 	// for example its name and I/O geometry.
