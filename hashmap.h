@@ -408,20 +408,12 @@ public:
 	}
 };
 
-template<> class hasher<uint8_t> {
-public:
-	static size_t hash(uint8_t val) { return hasher<uint32_t>::hash(val); }
-};
+template<> class hasher<uint8_t>  { public: static size_t hash(uint8_t  val) { return hasher<uint32_t>::hash(val); } };
+template<> class hasher<uint16_t> { public: static size_t hash(uint16_t val) { return hasher<uint32_t>::hash(val); } };
 
-template<> class hasher<uint16_t> {
-public:
-	static size_t hash(uint16_t val) { return hasher<uint32_t>::hash(val); }
-};
+template<> class hasher<int8_t>  { public: static size_t hash(int8_t  val) { return hasher<uint8_t> ::hash(val); } };
+template<> class hasher<int16_t> { public: static size_t hash(int16_t val) { return hasher<uint16_t>::hash(val); } };
+template<> class hasher<int32_t> { public: static size_t hash(int32_t val) { return hasher<uint32_t>::hash(val); } };
+template<> class hasher<int64_t> { public: static size_t hash(int64_t val) { return hasher<uint64_t>::hash(val); } };
 
-template<typename T> class hasher<T*> {
-public:
-	static size_t hash(T* val)
-	{
-		return hasher<uintptr_t>::hash((uintptr_t)val);
-	}
-};
+template<typename T> class hasher<T*> { public: static size_t hash(T* val) { return hasher<uintptr_t>::hash((uintptr_t)val); } };
