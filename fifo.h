@@ -110,6 +110,7 @@ fifo()
 		for (size_t i=head;i<buflen;i++) items[i].~T();
 		for (size_t i=0;i<tail;i++) items[i].~T();
 	}
+	free(items);
 }
 
 };

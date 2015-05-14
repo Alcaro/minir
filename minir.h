@@ -173,6 +173,7 @@ namespace minir {
 		io_is_core,// This is the core, the most important device. Output only.
 		io_core,   // Must see or emit all I/O from the core; both input, frames, and audio/video.
 		io_user,   // Takes input from, or sends output to, the user, and must not be optimized out if unused.
+		io_file,   // Reads or writes a file.
 		io_multi,  // Everything beyond this point repeats an arbitrary number of times.
 		io_thread, // Events are not guaranteed dispatched on the input thread; the device manager may need to buffer the events. Output only.
 		

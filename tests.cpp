@@ -229,12 +229,31 @@ static void test_hashset()
 	}
 }
 
+static void test_bitarray()
+{
+	{
+		array<bool> a;
+		for (int i=0;i<=7;i++) assert(!a[i]);
+		a[7]=true;
+		for (int i=0;i<=6;i++) assert(!a[i]);
+		assert(a[7]);
+		for (int i=8;i<=15;i++) assert(!a[i]);
+		
+		for (int i=0;i<=7;i++) a[i]=true;
+		a[15]=true;
+		for (int i=0;i<=7;i++) assert(a[i]);
+		for (int i=8;i<=14;i++) assert(!a[i]);
+		assert(a[15]);
+	}
+}
+
 int main()
 {
 	//test_multiint();
 	//test_sort();
 	//test_fifo();
 	//test_endian();
-	test_hashset();
+	//test_hashset();
+	//test_bitarray();
 }
 #endif

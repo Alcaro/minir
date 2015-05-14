@@ -197,3 +197,71 @@ public:
 		free(this->items);
 	}
 };
+
+
+template<> class array<bool> {
+protected:
+	class null_only;
+	
+	uint8_t* bits;
+	size_t nbits;
+	
+	class entry {
+		array<bool>& parent;
+		size_t index;
+		
+	public:
+		operator bool() const { return parent.get(index); }
+		entry& operator=(bool val) { parent.set(index, val); return *this; }
+		
+		entry(array<bool>& parent, size_t index) : parent(parent), index(index) {}
+	};
+	friend class entry;
+	
+	bool get(size_t n) const
+	{
+		if (n >= nbits) return false;
+		return bits[n/8]>>(n&7) & 1;
+	}
+	
+	void set(size_t n, bool val)
+	{
+		if (n >= nbits)
+		{
+			size_t prevbytes = bitround((nbits+7)/8);
+			size_t newbytes = bitround((n+8)/8);
+			if (newbytes > prevbytes)
+			{
+				bits = realloc(bits, newbytes);
+				memset(bits+prevbytes, 0, newbytes-prevbytes);
+			}
+			nbits = n+1;
+		}
+		uint8_t& byte = bits[n/8];
+		byte &=~ (1<<(n&7));
+		byte |= (val<<(n&7));
+	}
+	
+public:
+	bool operator[](size_t n) const { return get(n); }
+	entry operator[](size_t n) { return entry(*this, n); }
+	
+	size_t len() const { return nbits; }
+	void reset()
+	{
+		free(this->bits);
+		this->bits = NULL;
+		this->nbits = 0;
+	}
+	
+	array()
+	{
+		this->bits = NULL;
+		this->nbits = 0;
+	}
+	
+	~array()
+	{
+		free(this->bits);
+	}
+};
