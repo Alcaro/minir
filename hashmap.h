@@ -7,11 +7,45 @@ template<typename T> struct hasher {
 	static size_t hash(const T& item) { return item.hash(); }
 };
 
+//these two are reversible
+//it would be desirable to generate finalizers for all other values too, but zimbry chose to not publish his
+// source codes nor results for other sizes, and I don't understand the relevant math well enough to recreate it
+//it's not really important, anyways; this isn't OpenSSL
+inline uint32_t int_shuffle(uint32_t val)
+{
+	//https://code.google.com/p/smhasher/wiki/MurmurHash3
+	val ^= val >> 16;
+	val *= 0x85ebca6b;
+	val ^= val >> 13;
+	val *= 0xc2b2ae35;
+	val ^= val >> 16;
+	return val;
+}
+
+inline uint64_t int_shuffle(uint64_t val)
+{
+	//http://zimbry.blogspot.se/2011/09/better-bit-mixing-improving-on.html
+	//using Mix13 because it gives the lowest mean error on low incoming entropy
+	//(bonus: all shifts are below 32, so it shuts up when compiling on 32bit)
+	val ^= val >> 30;
+	val *= 0xbf58476d1ce4e5b9;
+	val ^= val >> 27;
+	val *= 0x94d049bb133111eb;
+	val ^= val >> 31;
+	return val;
+}
+
+//linked-list implementation
 //size: three pointers, plus [one pointer plus one key_t] per entry
 template<typename T>
 class hashset : public nocopy {
 protected:
 	typedef size_t keyhash_t;
+	
+	static keyhash_t hash(const T& item)
+	{
+		return int_shuffle(hasher<T>::hash(item));
+	}
 	
 	struct node_t {
 		struct node_t * next;
@@ -31,7 +65,7 @@ protected:
 			while (node)
 			{
 				struct node_t * next = node->next;
-				keyhash_t newpos = hasher<T>::hash(node->key) % newbuckets;
+				keyhash_t newpos = hash(node->key) % newbuckets;
 				node->next = newnodes[newpos];
 				newnodes[newpos] = node;
 				node = next;
@@ -45,7 +79,7 @@ protected:
 	template<typename T2>
 	struct node_t * * find_ref(T2 key) const
 	{
-		struct node_t * * noderef = &this->nodes[hasher<T>::hash(key) % this->buckets];
+		struct node_t * * noderef = &this->nodes[hash(key) % this->buckets];
 		while (true)
 		{
 			struct node_t * node = *noderef;
@@ -68,7 +102,7 @@ protected:
 	struct node_t * create(T2 key)
 	{
 		struct node_t * node = malloc(sizeof(struct node_t));
-		keyhash_t thehash = hasher<T>::hash(key);
+		keyhash_t thehash = hash(key);
 		new(&node->key) T(key);
 		node->next = this->nodes[thehash%this->buckets];
 		this->nodes[thehash%this->buckets] = node;
@@ -298,6 +332,8 @@ public:
 	}
 };
 
+
+
 template<typename K, typename V>
 class hashmap {
 	struct entry {
@@ -374,43 +410,14 @@ public:
 
 
 
-//each of those hash functions is reversible
-//it would be desirable to generate hash algorithms for all other values too, but zimbry chose to not publish his
-// source codes nor results for other sizes, and I don't understand the relevant math well enough to recreate it
-//it's not really important, anyways; this isn't OpenSSL
-template<> struct hasher<uint32_t> {
-	static size_t hash(uint32_t val)
-	{
-		//https://code.google.com/p/smhasher/wiki/MurmurHash3
-		val ^= val >> 16;
-		val *= 0x85ebca6b;
-		val ^= val >> 13;
-		val *= 0xc2b2ae35;
-		val ^= val >> 16;
-		return val;
-	}
-};
+template<> struct hasher<uint8_t>  { static size_t hash(uint8_t  val) { return val; } };
+template<> struct hasher<uint16_t> { static size_t hash(uint16_t val) { return val; } };
+template<> struct hasher<uint32_t> { static size_t hash(uint32_t val) { return val; } };
+template<> struct hasher<uint64_t> { static size_t hash(uint64_t val) { return val; } };
 
-template<> struct hasher<uint64_t> {
-	static size_t hash(uint64_t val)
-	{
-		//http://zimbry.blogspot.se/2011/09/better-bit-mixing-improving-on.html
-		//using Mix13 because it gives the lowest mean error on low incoming entropy
-		val ^= val >> 30;
-		val *= 0xbf58476d1ce4e5b9;
-		val ^= val >> 27;
-		val *= 0x94d049bb133111eb;
-		val ^= val >> 31;
-		return val;
-	}
-};
+template<> struct hasher<int8_t>  { static size_t hash(int8_t  val) { return val; } };
+template<> struct hasher<int16_t> { static size_t hash(int16_t val) { return val; } };
+template<> struct hasher<int32_t> { static size_t hash(int32_t val) { return val; } };
+template<> struct hasher<int64_t> { static size_t hash(int64_t val) { return val; } };
 
-template<> struct hasher<uint8_t>  { static size_t hash(uint8_t  val) { return hasher<uint32_t>::hash(val); } };
-template<> struct hasher<uint16_t> { static size_t hash(uint16_t val) { return hasher<uint32_t>::hash(val); } };
-
-template<> struct hasher<int8_t>  { static size_t hash(int8_t  val) { return hasher<uint8_t> ::hash(val); } };
-template<> struct hasher<int16_t> { static size_t hash(int16_t val) { return hasher<uint16_t>::hash(val); } };
-template<> struct hasher<int32_t> { static size_t hash(int32_t val) { return hasher<uint32_t>::hash(val); } };
-template<> struct hasher<int64_t> { static size_t hash(int64_t val) { return hasher<uint64_t>::hash(val); } };
-
-template<typename T> struct hasher<T*> { static size_t hash(T* val) { return hasher<uintptr_t>::hash((uintptr_t)val); } };
+template<typename T> struct hasher<T*> { static size_t hash(T* val) { return (uintptr_t)val; } };

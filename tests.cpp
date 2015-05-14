@@ -1,6 +1,6 @@
 #ifdef SELFTEST
 //cls & g++ -DSELFTEST -DNOMAIN tests.cpp debug.cpp memory.cpp -g & gdb a.exe
-//      g++ -DSELFTEST -DNOMAIN tests.cpp debug.cpp memory.cpp -g && gdb ./a.out
+//      g++ -DSELFTEST -DNOMAIN tests.cpp debug.cpp memory.cpp -g && valgrind ./a.out
 #include "os.h"
 #include "containers.h"
 #include "endian.h"
@@ -105,9 +105,6 @@ static void test_multiint()
 	ptr = obj.get(num);
 	assert(num == 4);
 	assert(ptr[0]+ptr[1]+ptr[2]+ptr[3] == 1+12+123+1234);
-	
-	//leave it populated - leak check
-	//VALGRIND_DO_LEAK_CHECK;
 }
 
 static void test_sort()
@@ -220,7 +217,25 @@ static void test_endian()
 
 static void test_hashset()
 {
-	//this is far from comprehensive, it's just some really basic sanity checks
+	{
+		hashset<uint32_t> set;
+		for (uint32_t i=0;i<100;i++)
+		{
+			for (uint32_t j=0;j<100;j++)
+			{
+				uint32_t val = int_shuffle(j);
+				if (j<i) assert(set.has(val));
+				else assert(!set.has(val));
+			}
+			uint32_t val = int_shuffle(i);
+			set.add(val);
+		}
+	}
+	
+	{
+		hashset<void*> test_ptr; // just to test that this compiles cleanly
+	}
+	
 	{
 		hashset<string> set;
 		set.add("abc");
@@ -233,8 +248,6 @@ static void test_hashset()
 		map.set("abc", "123");
 		assert(map.get("abc")=="123");
 	}
-	
-	hashset<void*> q;
 }
 
 static void test_bitarray()

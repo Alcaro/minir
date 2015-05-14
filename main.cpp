@@ -19,7 +19,6 @@ int old_main(int argc, char * argv[]);
 namespace minir {
 namespace {
 
-//TODO: move those out
 static const enum iotype dev_kb_input[] = { io_user, io_end };
 static const enum iotype dev_kb_output[] = { io_thread, io_multi, io_keyboard, io_end };
 static const struct devinfo dev_kb_info = { "Keyboard", dev_kb_input, NULL, dev_kb_output, NULL };
@@ -52,30 +51,23 @@ private:
 		if (libretrocode) code = libretrocode;
 		else code = scancode+1024;
 		emit_button(eid_make(keyboard, code), down);
-		//devmgr::event ev(devmgr::event::ty_keyboard);
-		//ev.secondary = false;
-		//ev.keyboard.deviceid = keyboard;
-		//ev.keyboard.scancode = scancode;
-		//ev.keyboard.libretrocode = libretrocode;
-		//ev.keyboard.down = down;
-		//dispatch_async(ev); // this is sometimes called on the device manager thread, but not always, and it works no matter which thread it is on
 	}
 };
 
 
 //class dev_video : public minir::device {
 //	dev_video(){}
-	
+//	
 //	video* core;
-	
+//	
 //public:
 //	dev_video(video* core) { this->core=core; }
-	
+//	
 //	void ev_video(size_t id, unsigned width, unsigned height, const void * data, size_t pitch)
 //	{
 //		this->core->draw_2d(width, height, data, pitch);
 //	}
-	
+//	
 //	~dev_video() { delete this->core; }
 //};
 
@@ -142,12 +134,12 @@ class dev_core : public device {
 		//ev.secondary=false;
 		//ev.video.width=width;
 		//ev.video.height=height;
-		
+		//
 		//if (data)
 		//{
 		//	ev.video.data=malloc(sizeof(uint32_t)*width*height);
 		//	ev.video.pitch=sizeof(uint32_t)*width;
-			
+		//	
 		//	video::copy_2d((void*)ev.video.data, sizeof(uint32_t)*width, data, pitch, sizeof(uint32_t)*width, height);
 		//}
 		//else
@@ -155,7 +147,7 @@ class dev_core : public device {
 		//	ev.video.data=NULL;
 		//	ev.video.pitch=0;
 		//}
-		
+		//
 		//dispatch(ev);
 	}
 	
@@ -247,13 +239,12 @@ puts("init=8");
 #else
 #define INPUTKB_ID 0
 #endif
-	contents->add_device(new dev_kb(inputkb::drivers[INPUTKB_ID]->create(view->get_window_handle())));
 	const char * map[16]={
 		"keyboard.up", "keyboard.down", "keyboard.left", "keyboard.right",
 		"keyboard.x", "keyboard.z", "keyboard.s", "keyboard.a",
-		"keyboard.return", "keyboard.space", "keyboard.q", "keyboard.w",
-"vgamepad.left","keyboard2.x"};
+		"keyboard.return", "keyboard.space", "keyboard.q", "keyboard.w"};
 	contents->add_device(new dev_vgamepad(), map);
+	contents->add_device(new dev_kb(inputkb::drivers[INPUTKB_ID]->create(view->get_window_handle())));
 	contents->add_device(new dev_core(core));
 	
 puts("init=9");

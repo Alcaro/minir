@@ -235,6 +235,7 @@ bool map_devices()
 	
 	
 	//check which devices need thread safety
+	//TODO: given that the frame orderer comes first, this one should be possible to simplify
 	//  for (local device in frame_event.output.listeners):
 	//    device.input_thread = main_thread
 	//  
