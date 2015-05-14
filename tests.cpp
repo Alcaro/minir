@@ -215,6 +215,22 @@ static void test_endian()
 	assert(p[3]==0x09);
 }
 
+
+//stupid C++ why can't I use statics as template arguments
+/*static*/ void test_hashset_seen(bool* flags, uint32_t& n)
+{
+	for (uint32_t i=0;i<100;i++)
+	{
+		if (int_shuffle(i)==n)
+		{
+			assert(!flags[i]);
+			flags[i]=true;
+			return;
+		}
+	}
+	assert(false);
+}
+
 static void test_hashset()
 {
 	{
@@ -230,6 +246,11 @@ static void test_hashset()
 			uint32_t val = int_shuffle(i);
 			set.add(val);
 		}
+		
+		bool seen[100];
+		for (int i=0;i<100;i++) seen[i]=false;
+		set.each(bind_ptr(test_hashset_seen, seen));
+		for (int i=0;i<100;i++) assert(seen[i]);
 	}
 	
 	{
