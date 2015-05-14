@@ -3,8 +3,7 @@
 #include "string.h"
 #include "intwrap.h"
 
-template<typename T> class hasher {
-public:
+template<typename T> struct hasher {
 	static size_t hash(const T& item) { return item.hash(); }
 };
 
@@ -379,8 +378,7 @@ public:
 //it would be desirable to generate hash algorithms for all other values too, but zimbry chose to not publish his
 // source codes nor results for other sizes, and I don't understand the relevant math well enough to recreate it
 //it's not really important, anyways; this isn't OpenSSL
-template<> class hasher<uint32_t> {
-public:
+template<> struct hasher<uint32_t> {
 	static size_t hash(uint32_t val)
 	{
 		//https://code.google.com/p/smhasher/wiki/MurmurHash3
@@ -393,8 +391,7 @@ public:
 	}
 };
 
-template<> class hasher<uint64_t> {
-public:
+template<> struct hasher<uint64_t> {
 	static size_t hash(uint64_t val)
 	{
 		//http://zimbry.blogspot.se/2011/09/better-bit-mixing-improving-on.html
@@ -408,12 +405,12 @@ public:
 	}
 };
 
-template<> class hasher<uint8_t>  { public: static size_t hash(uint8_t  val) { return hasher<uint32_t>::hash(val); } };
-template<> class hasher<uint16_t> { public: static size_t hash(uint16_t val) { return hasher<uint32_t>::hash(val); } };
+template<> struct hasher<uint8_t>  { static size_t hash(uint8_t  val) { return hasher<uint32_t>::hash(val); } };
+template<> struct hasher<uint16_t> { static size_t hash(uint16_t val) { return hasher<uint32_t>::hash(val); } };
 
-template<> class hasher<int8_t>  { public: static size_t hash(int8_t  val) { return hasher<uint8_t> ::hash(val); } };
-template<> class hasher<int16_t> { public: static size_t hash(int16_t val) { return hasher<uint16_t>::hash(val); } };
-template<> class hasher<int32_t> { public: static size_t hash(int32_t val) { return hasher<uint32_t>::hash(val); } };
-template<> class hasher<int64_t> { public: static size_t hash(int64_t val) { return hasher<uint64_t>::hash(val); } };
+template<> struct hasher<int8_t>  { static size_t hash(int8_t  val) { return hasher<uint8_t> ::hash(val); } };
+template<> struct hasher<int16_t> { static size_t hash(int16_t val) { return hasher<uint16_t>::hash(val); } };
+template<> struct hasher<int32_t> { static size_t hash(int32_t val) { return hasher<uint32_t>::hash(val); } };
+template<> struct hasher<int64_t> { static size_t hash(int64_t val) { return hasher<uint64_t>::hash(val); } };
 
-template<typename T> class hasher<T*> { public: static size_t hash(T* val) { return hasher<uintptr_t>::hash((uintptr_t)val); } };
+template<typename T> struct hasher<T*> { static size_t hash(T* val) { return hasher<uintptr_t>::hash((uintptr_t)val); } };
