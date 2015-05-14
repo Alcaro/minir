@@ -112,26 +112,32 @@ static void test_multiint()
 
 static void test_sort()
 {
-	int items[4] = { 1,2,3,4 };
-	sort(items, 4);
-	assert(items[0]==1);
-	assert(items[1]==2);
-	assert(items[2]==3);
-	assert(items[3]==4);
+	{
+		int items[4] = { 1,2,3,4 };
+		sort(items, 4);
+		assert(items[0]==1);
+		assert(items[1]==2);
+		assert(items[2]==3);
+		assert(items[3]==4);
+	}
 	
-	int items2[4] = { 1,3,4,2 };
-	sort(items2, 4);
-	assert(items2[0]==1);
-	assert(items2[1]==2);
-	assert(items2[2]==3);
-	assert(items2[3]==4);
+	{
+		int items[4] = { 1,3,4,2 };
+		sort(items, 4);
+		assert(items[0]==1);
+		assert(items[1]==2);
+		assert(items[2]==3);
+		assert(items[3]==4);
+	}
 	
-	int items3[4] = { 4,3,2,1 };
-	sort(items3, 4);
-	assert(items3[0]==1);
-	assert(items3[1]==2);
-	assert(items3[2]==3);
-	assert(items3[3]==4);
+	{
+		int items[4] = { 4,3,2,1 };
+		sort(items, 4);
+		assert(items[0]==1);
+		assert(items[1]==2);
+		assert(items[2]==3);
+		assert(items[3]==4);
+	}
 }
 
 static void test_fifo()
@@ -214,7 +220,7 @@ static void test_endian()
 
 static void test_hashset()
 {
-	//this is far from comprehesive, it's just some really basic sanity checks
+	//this is far from comprehensive, it's just some really basic sanity checks
 	{
 		hashset<string> set;
 		set.add("abc");
@@ -227,6 +233,8 @@ static void test_hashset()
 		map.set("abc", "123");
 		assert(map.get("abc")=="123");
 	}
+	
+	hashset<void*> q;
 }
 
 static void test_bitarray()
