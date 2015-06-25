@@ -56,6 +56,12 @@ template<typename T> class multiint_inline {
 		else return inlines_raw;
 	}
 	
+	const T* inlines() const
+	{
+		if (tag_offset()==0) return inlines_raw+1;
+		else return inlines_raw;
+	}
+	
 	
 	void clone(const multiint_inline<T>& other)
 	{
@@ -150,25 +156,30 @@ public:
 		else return ptr_raw[0];
 	}
 	
-	void add(T val)
-	{
-		T* entries = ptr();
-		T num = count();
-		
-		for (T i=0;i<num;i++)
-		{
-			if (entries[i]==val) return;
-		}
-		
-		add_uniq(val);
-	}
-	
 	//Use this if the value is known to not exist in the set already.
 	void add_uniq(T val)
 	{
 		T num = count();
 		set_count(num+1);
 		ptr()[num] = val;
+	}
+	
+	bool contains(T val) const
+	{
+		const T* entries = ptr();
+		T num = count();
+		
+		for (T i=0;i<num;i++)
+		{
+			if (entries[i]==val) return true;
+		}
+		
+		return false;
+	}
+	
+	void add(T val)
+	{
+		if (!contains(val)) add_uniq(val);
 	}
 	
 	void remove(T val)
@@ -198,6 +209,8 @@ public:
 		len=count();
 		return ptr();
 	}
+	
+	T operator[](T pos) const { return ptr()[pos]; }
 	
 	//Guaranteed to remain ordered until the next add() or remove().
 	void sort()
@@ -268,22 +281,26 @@ public:
 		return numitems;
 	}
 	
-	void add(T val)
-	{
-		for (T i=0;i<numitems;i++)
-		{
-			if (items[i]==val) return;
-		}
-		
-		add_uniq(val);
-	}
-	
 	//Use this if the value is known to not exist in the set already.
 	void add_uniq(T val)
 	{
 		items = realloc(items, sizeof(T)*(numitems+1));
 		items[numitems] = val;
 		numitems++;
+	}
+	
+	bool contains(T val) const
+	{
+		for (T i=0;i<numitems;i++)
+		{
+			if (items[i]==val) return true;
+		}
+		return false;
+	}
+	
+	void add(T val)
+	{
+		if (!contains(val)) add_uniq(val);
 	}
 	
 	void remove(T val)
@@ -310,6 +327,8 @@ public:
 		len = numitems;
 		return items;
 	}
+	
+	T operator[](T pos) const { return items[pos]; }
 	
 	void sort()
 	{

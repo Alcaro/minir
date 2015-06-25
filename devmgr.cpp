@@ -76,6 +76,7 @@ bool map_devices()
 	
 	hashmap<string,uint16_t> sourcenames;
 	hashmap<string,uint16_t> multisourcenames;
+	array<string> sourcenames_rev;
 	
 	sourcenames["true"] = (uint16_t)-1; // special cases, given special treatment
 	sourcenames["false"] = (uint16_t)-1;
@@ -109,6 +110,7 @@ bool map_devices()
 			if (count==1)
 			{
 				sourcenames[namelower] = i;
+				sourcenames_rev[i] = string(dev->info->name);
 			}
 			else
 			{
@@ -118,6 +120,8 @@ bool map_devices()
 					prev = sourcenames[namelower];
 					sourcenames[namelower+"1"] = prev;
 					sourcenames.remove(namelower);
+					
+					sourcenames_rev[prev] = string(dev->info->name)+"1";
 				}
 				else prev = sourcenames[namelower+"1"];
 				
@@ -126,6 +130,7 @@ bool map_devices()
 				if (devices[prev].dev->info != dev->info) debug_abort();
 				
 				sourcenames[namelower + string(count)] = i;
+				sourcenames_rev[i] = string(dev->info->name) + string(count);
 			}
 		}
 	}
@@ -181,7 +186,6 @@ bool map_devices()
 							break;
 						}
 						*descend = '\0';
-puts(desc);
 						
 						char * name = desc;
 						if (nameend) *nameend = '\0';
@@ -203,7 +207,7 @@ puts(desc);
 						
 						if (!device)
 						{
-							error(S"Device "+inf->dev->info->name+" refers to device "+name+", which doesn't exist");
+							error(S"Device "+sourcenames_rev[i]+" refers to device "+name+", which doesn't exist");
 						}
 						
 						if (nameend) *nameend = '.';
@@ -266,12 +270,14 @@ puts(desc);
 	//    if there are no such devices: return error
 	//    add them to the device array
 	//    mark these devices ordered
-	
+	//also do the same check for the output events
 	array<uint16_t> order;
 	{
-		for (int n=0;n<2;n++)
+		enum pass_t { p_input, p_output, p_end };
+		for (int pass=0;pass<p_end;pass++)
 		{
-			array<multiint<uint16_t> >& dependencies = (n ? dependencies_in : dependencies_out);
+			//dep[devidA].contains(devidB) = (B before A)
+			array<multiint<uint16_t> >& dependencies = (pass==p_input ? dependencies_in : dependencies_out);
 			
 			multiint<uint16_t> unordered;
 			for (size_t i=0;i<devices.len();i++)
@@ -279,17 +285,67 @@ puts(desc);
 				unordered.add_uniq(i);
 			}
 			
-			bool did_anything = false;
-			//for (size_t i=0;i<devices.len();i++)
-			//{
-				//unordered.add(i);
-			//}
+			while (true)
+			{
+				bool did_anything = false;
+				
+				for (int i=0;i<unordered.count();i++)
+				{
+					bool free = true;
+					multiint<uint16_t>& mydeps = dependencies[unordered[i]];
+					for (int j=0;j<mydeps.count();j++)
+					{
+						if (unordered.contains(mydeps[j])) { free=false; break; }
+					}
+					if (free)
+					{
+						unordered.remove(unordered[i]);
+						if (pass==p_input) order.append(i);
+						i--;
+						did_anything=true;
+					}
+				}
+				if (unordered.count()==0) break;
+				
+				if (!did_anything)
+				{
+					string errmsg;
+					errmsg += (pass==p_input ? "Input" : "Output");
+					errmsg += " loop between these devices:";
+					
+					uint16_t id1 = unordered[0];
+					uint16_t id2 = unordered[0];
+					
+					//no way to create nested functions without this
+					class next {
+					public:
+						static uint16_t get(array<multiint<uint16_t> >& dependencies, multiint<uint16_t>& unordered, uint16_t id)
+						{
+							uint16_t i=0;
+							while (!unordered.contains(dependencies[id][i])) i++;
+							return dependencies[id][i];
+						}
+					};
+					
+#define next(id) next::get(dependencies, unordered, id)
+					do {
+						id1 = next(id1);
+						id2 = next(next(id2));
+					} while (id1!=id2);
+					
+					do {
+						id1 = next(id1);
+						errmsg += " ";
+						errmsg += sourcenames_rev[id1];
+					} while (id1!=id2);
+#undef next
+					
+					error(errmsg);
+					return false;
+				}
+			}
 		}
 	}
-	
-	
-	//look for output loops
-	//  same method as above, with the obvious changes
 	
 	
 	//check which devices need thread safety
