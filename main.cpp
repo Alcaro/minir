@@ -19,7 +19,7 @@ int old_main(int argc, char * argv[]);
 namespace minir {
 namespace {
 
-static const enum iotype dev_kb_input[] = { io_user, io_end };
+static const enum iotype dev_kb_input[] = { io_user, io_frame, io_end };
 static const enum iotype dev_kb_output[] = { io_thread, io_multi, io_keyboard, io_end };
 static const struct devinfo dev_kb_info = { "Keyboard", dev_kb_input, NULL, dev_kb_output, NULL };
 
@@ -55,21 +55,34 @@ private:
 };
 
 
-//class dev_video : public minir::device {
-//	dev_video(){}
-//	
-//	video* core;
-//	
-//public:
-//	dev_video(video* core) { this->core=core; }
-//	
-//	void ev_video(size_t id, unsigned width, unsigned height, const void * data, size_t pitch)
-//	{
-//		this->core->draw_2d(width, height, data, pitch);
-//	}
-//	
-//	~dev_video() { delete this->core; }
-//};
+static const enum iotype dev_video_input[] = { io_video, io_end };
+static const enum iotype dev_video_output[] = { io_user, io_end };
+static const struct devinfo dev_video_info = { "Video", dev_video_input, NULL, dev_video_output, NULL };
+
+class dev_video : public device {
+	video* core;
+	
+public:
+	dev_video() : device(dev_video_info), core(NULL) {}
+	dev_video(video* core) : device(dev_video_info), core(NULL) { set_core(core); }
+	
+	/*private*/ void set_core(video* core)
+	{
+		delete this->core;
+		this->core = core;
+		//core->set_video(bind_this(&dev_video::video_where_cb), bind_this(&dev_video::video_cb));
+	}
+	
+	~dev_video() { delete this->core; }
+	
+	/*private*/ void video_where_cb(unsigned int width, unsigned int height, void* * data, size_t* pitch)
+	{
+	}
+	
+	/*private*/ void video_cb(unsigned int width, unsigned int height, const void* data, size_t pitch)
+	{
+	}
+};
 
 
 #include "minir.h"
@@ -246,6 +259,8 @@ puts("init=8");
 	contents->add_device(new dev_vgamepad(), map);
 	contents->add_device(new dev_kb(inputkb::drivers[INPUTKB_ID]->create(view->get_window_handle())));
 	contents->add_device(new dev_core(core));
+	contents->add_device(new dev_video(vid));
+	//contents->add_device(new dev_audio(aud));
 	
 puts("init=9");
 	contents->map_devices();
@@ -259,7 +274,7 @@ puts("init=11");
 		//TODO: contents->frame() on another thread
 		window_run_iter();
 		contents->frame();
-static int i=0;if(i++==2000)break;
+//static int i=0;if(i++==2000)break;
 	}
 	
 	return 0;

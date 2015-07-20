@@ -112,7 +112,7 @@ namespace minir {
 	//  output: same as input, creates savestates, modifies savestates, rejects savestate requests, creates frame events
 	//  constraints: must be the only input to the core
 	//  Passes around all core input between multiple computers, allowing people to play with each other.
-	//  
+	//
 	// Playback recording
 	//  input: all core input
 	//  output: modifies savestates, (binary file)
@@ -267,8 +267,10 @@ namespace minir {
 	
 	//extern const struct devinfo * const devices[];
 	
+	class devmgr_impl;
 	class device : nocopy {
 		friend class devmgr;
+		friend class devmgr_impl;
 		
 		device();
 		
@@ -393,7 +395,7 @@ namespace minir {
 		//char[] signature=NUL+"minir-savestate";
 		//
 		//native_savestate: The core savestate. It's at the start to allow (partial) interopability with most other frontends, including
-		// standalone; most core savestates already contain a size, and most are constant size already. Most of them ignore excess data.
+		// standalone; most cores have constant savestate size, and many others encode the size in the state. Most of them ignore excess data.
 		//dev_data: One structure for each device that requests to be part of the states. Multiple items may
 		// have the same name, in which case they're guaranteed to be together; otherwise, order is unspecified.
 		//native_size: The length of the native savestate. The list of device data starts here (after some alignment padding).
@@ -421,7 +423,6 @@ namespace minir {
 	protected:
 		void dev_setup(device* dev, size_t id) { dev->parent=this; dev->id=id; }
 		size_t dev_get_id(device* dev) { return dev->id; }
-		//virtual array<uint8_t> emit_savestate(size_t source) = 0;
 		
 		function<void(const char *)> error;
 	public:

@@ -46,7 +46,7 @@ template<typename T, size_t N> char(&ARRAY_SIZE_CORE(T(&x)[N]))[N];
 //- static_assert(false) throws something at compile time
 //- multiple static_assert(true) works
 //- does not require unique names for each assertion
-//- zero traces left in the object files, except if debug info is enabled
+//- zero traces left in the object files, assuming no debug info
 //- zero warnings under any compiler
 //- static_assert(2+2 < 5); works at the global scope
 //- static_assert(2+2 < 5); works as a class member
@@ -54,7 +54,7 @@ template<typename T, size_t N> char(&ARRAY_SIZE_CORE(T(&x)[N]))[N];
 //- static_assert(2+2 < 5); works in all of the above when templates are involved
 //- works on all compilers
 //optional:
-//- (FAILED) works if compiled as C
+//- (FAILED) works if compiled as C (can fix with an ifdef, but I'm lazy)
 //- can name assertions, if desired
 #ifdef __GNUC__
 #define MAYBE_UNUSED __attribute__((__unused__)) // shut up, stupid warnings
@@ -74,6 +74,8 @@ template<> struct static_assert_t<false> {};
 		JOIN(static_assertion_, __COUNTER__) = \
 		sizeof(TYPENAME_IF_GCC static_assert_t<(bool)(expr)>::STATIC_ASSERTION_FAILED) \
 	} MAYBE_UNUSED
+
+
 
 #ifdef __GNUC__
 #define ALIGN(n) __attribute__((aligned(n)))

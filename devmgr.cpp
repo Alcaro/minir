@@ -5,7 +5,7 @@
 #include "multiint.h"
 
 namespace minir {
-namespace {
+//anonymous namespace not needed - since everything is in the declaration, it's all inlined and not linkable.
 class devmgr_impl : public devmgr {
 public:
 
@@ -15,8 +15,6 @@ struct buttondat {
 	//char padding[6];
 };
 inputmapper* mapper;
-array<buttondat> buttons;
-multiint<uint16_t> holdfire;
 
 
 struct devinf_i {
@@ -25,6 +23,8 @@ struct devinf_i {
 	//TODO
 };
 array<devinf_i> devices;
+
+array<uint16_t> frame_order;
 
 /*private*/ template<typename T> void add_device_core(device* dev, arrayview<T> inputs)
 {
@@ -44,6 +44,8 @@ void add_device(device* dev, arrayview<const char *> inputs) { add_device_core(d
 
 bool map_devices()
 {
+	frame_order.reset();
+	
 	//list all device outputs
 	//expected results:
 	//one device, one output
@@ -143,7 +145,7 @@ bool map_devices()
 	//kb.x+kb.y
 	//kb.x, kb.y
 	//kb.f1
-	//kb.lshift+kbf1, kb.rshift+kb.f1
+	//kb.lshift+kb.f1, kb.rshift+kb.f1
 	//vgamepad.lanalog.left
 	
 	//for dependencies[index to 'devices'], each listed device is used as an input to the given device
@@ -252,16 +254,17 @@ bool map_devices()
 	//perhaps I should not autoassign at all, and let the GUI do it? That should be the most logical method, GUI can know whether it's autoconfigurable.
 	
 	
-	//discard unused devices
-	//  while the last iteration did something:
-	//    find all devices that do not output to 'io_user' and whose outputs are not listened to
-	//    toss them onto the garbage pile
-	//    find all devices that do not have any attached input; 'io_user' is a valid input
-	//    toss them onto the garbage pile
-	array<bool> used;
-	{
-		
-	}
+	//I doubt this does anything. Unused devices should be rare, and even if they do exist, they don't have any input and therefore never run.
+	////discard unused devices
+	////  while the last iteration did something:
+	////    find all devices that do not output to 'io_user' and whose outputs are not listened to
+	////    toss them onto the garbage pile
+	////    find all devices that do not have any attached input; 'io_user' is a valid input
+	////    toss them onto the garbage pile
+	//array<bool> used;
+	//{
+	//	
+	//}
 	
 	//find a suitable order for frame events
 	//  mark all devices 'unordered'
@@ -271,7 +274,7 @@ bool map_devices()
 	//    add them to the device array
 	//    mark these devices ordered
 	//also do the same check for the output events
-	array<uint16_t> order;
+	//array<uint16_t> order;
 	{
 		enum pass_t { p_input, p_output, p_end };
 		for (int pass=0;pass<p_end;pass++)
@@ -299,8 +302,18 @@ bool map_devices()
 					}
 					if (free)
 					{
+						if (pass==p_input)
+						{
+							devinf_i* inf = &devices[unordered[i]];
+							for (int j=0;inf->dev->info->input[j];j++)
+							{
+								if (inf->dev->info->input[j] == io_frame)
+								{
+									frame_order.append(unordered[i]);
+								}
+							}
+						}
 						unordered.remove(unordered[i]);
-						if (pass==p_input) order.append(i);
 						i--;
 						did_anything=true;
 					}
@@ -316,7 +329,7 @@ bool map_devices()
 					uint16_t id1 = unordered[0];
 					uint16_t id2 = unordered[0];
 					
-					//no way to create nested functions without this
+					//no way to create nested functions without this ugly trick
 					class next {
 					public:
 						static uint16_t get(array<multiint<uint16_t> >& dependencies, multiint<uint16_t>& unordered, uint16_t id)
@@ -378,13 +391,16 @@ bool map_devices()
 	//        device = new device_threadwrap(device)
 	//        break
 	
-	return false;
+	return true;
 }
 
 
 void frame()
 {
-	
+	for (uint16_t i=0;i<frame_order.len();i++)
+	{
+		devices[frame_order[i]].dev->ev_frame();
+	}
 }
 
 
@@ -399,7 +415,6 @@ devmgr_impl()
 }
 
 };
-}
 
 devmgr* devmgr::create() { return new devmgr_impl(); }
 
