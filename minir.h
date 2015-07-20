@@ -380,8 +380,10 @@ namespace minir {
 		//Requests to create a savestate can only fail if the core rejects it.
 		virtual bool ev_savestate_can_load() { return true; }
 		
-		//These handle complete savestates, including some metadata to identify the savestate as belonging to minir and some other stuff.
+		//These handle complete savestates, including some metadata to identify the savestate as belonging to minir, and some other stuff.
 		//Ethereal savestates are guaranteed to not be loaded in any other process. Non-ethereal may be transmitted and saved to files.
+		//If there are two cores, native_savestate is the string "minir-multipart", and the states are in dev_data.
+		//If there is no need for custom metadata, the core state is returned unchanged.
 		array<uint8_t> emit_savestate_save(bool ethereal) { return array<uint8_t>(); }
 		bool emit_savestate_load(arrayview<uint8_t> data) { return true; }
 		//This reads a savestate and returns the part that refers to the relevant device.
@@ -394,8 +396,9 @@ namespace minir {
 		//u32 native_size;
 		//char[] signature=NUL+"minir-savestate";
 		//
-		//native_savestate: The core savestate. It's at the start to allow (partial) interopability with most other frontends, including
-		// standalone; most cores have constant savestate size, and many others encode the size in the state. Most of them ignore excess data.
+		//native_savestate: The core savestate. It's at the start to allow (partial) interopability with
+		// most other frontends, including standalone. Most cores have constant savestate size, and many
+		// others encode the size in the state, allowing them to ignore the excess data.
 		//dev_data: One structure for each device that requests to be part of the states. Multiple items may
 		// have the same name, in which case they're guaranteed to be together; otherwise, order is unspecified.
 		//native_size: The length of the native savestate. The list of device data starts here (after some alignment padding).
@@ -403,7 +406,7 @@ namespace minir {
 		//
 		//If there is no dev_data, the minir-specific data is discarded, and the savestate is only the core-generated blob.
 		//
-		//The padding (if present) must be only 00s.
+		//The padding, if present, must be only 00s.
 		
 		//Validates that the savestate is structurally valid:
 		//- Contains at least one dev_data

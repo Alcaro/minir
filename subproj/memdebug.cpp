@@ -1,5 +1,3 @@
-#include "minir.h"
-
 #ifdef DYLIB_POSIX
 #undef malloc
 #undef realloc

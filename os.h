@@ -41,6 +41,7 @@ void debug_abort();
 
 
 
+#ifndef THREAD_NONE
 //Any data associated with this thread is freed once the thread procedure returns.
 //It is safe to malloc() something in one thread and free() it in another.
 //It is not safe to call window_run_*() from within another thread than the one entering main().
@@ -250,3 +251,11 @@ size_t thread_get_id();
 //Unlike thread_create, thread_split is expected to be called often, for short-running tasks. The threads may be reused.
 //It is safe to use the values 0 and 1. However, you should avoid going above thread_ideal_count().
 void thread_split(unsigned int count, function<void(unsigned int id)> work);
+#else // THREAD_NONE
+class smutex {
+public:
+	void lock() {}
+	bool try_lock() { return true; }
+	void unlock() {}
+};
+#endif

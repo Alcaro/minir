@@ -1,8 +1,15 @@
+#if 0
+cd subproj || true
+cd ..
+g++ -pthread subproj/retrostateverify.cpp subproj/memdebug.cpp \
+	libretro.cpp -DDYLIB_POSIX dylib.cpp memory.cpp -DFILEPATH_POSIX file-posix.cpp \
+	-DTHREAD_NONE -DWINDOW_MINIMAL window-none.cpp \
+	-ldl -g -o retrostate
+exit
+#endif
 /*
 retrostateverify - a specialized libretro frontend that verifies that a savestate contains all variables that are changed by retro_run
 
-Compile with:
-g++ -I. -std=c99 subproj/retrostateverify.cpp subproj/memdebug.cpp libretro.cpp dylib.cpp memory.cpp -ldl -lrt -DDYLIB_POSIX -DWINDOW_MINIMAL window-none.cpp -Os -s -o retrostate
 The program runs only on Linux. You will not have any success on Windows, unless you're willing to write about 200 lines of ugly code.
 
 Run with:
@@ -45,13 +52,16 @@ False positives have been observed:
 - _GLOBAL_OFFSET_TABLE_ has given weird results for unknown reasons.
 - Failures have been observed cascading back into volatile arrays (e.g. framebuffer). This makes them show up as guilty.
 
-rm retrostate; g++ -I. subproj/retrostateverify.cpp subproj/memdebug.cpp libretro.cpp dylib.cpp memory.cpp -ldl -lrt -DDYLIB_POSIX -DWINDOW_MINIMAL window-none.cpp -Og -g -o retrostate; gdb --args ./retrostate roms/snes9x_libretro.so ~/smw.smc 5 60 30
+rm retrostate
+g++ -I. subproj/retrostateverify.cpp subproj/memdebug.cpp libretro.cpp dylib.cpp memory.cpp -ldl -lrt -DDYLIB_POSIX -DWINDOW_MINIMAL window-none.cpp -Og -g -o retrostate
+gdb --args ./retrostate roms/snes9x_libretro.so ~/smw.smc 5 60 30
 
 won't work on Windows
 */
 
-#include "minir.h"
-#include "libretro.h"
+#include "../minir.h"
+#include "../libretro.h"
+#include "../file.h"
 #include <stdlib.h>
 #include <stdio.h>
 #include <time.h>
@@ -157,32 +167,32 @@ printf("fr %p from %s\n", prev, context);
 	free(inf);
 }
 
-const uint8_t* vidbuffer=NULL;
-size_t vidbufsize=0;
-void trace_video(struct video * this, unsigned int width, unsigned int height, const void * data, unsigned int pitch)
-{
-	if (!vidbuffer)
-	{
-		vidbuffer=(const uint8_t*)data;
-		vidbufsize=pitch*height;
-	}
-	else if (vidbuffer!=(const uint8_t*)data || vidbufsize!=height*pitch)
-	{
-		vidbufsize=0;
-	}
-}
+//const uint8_t* vidbuffer=NULL;
+//size_t vidbufsize=0;
+//void trace_video(struct video * this, unsigned int width, unsigned int height, const void * data, unsigned int pitch)
+//{
+//	if (!vidbuffer)
+//	{
+//		vidbuffer=(const uint8_t*)data;
+//		vidbufsize=pitch*height;
+//	}
+//	else if (vidbuffer!=(const uint8_t*)data || vidbufsize!=height*pitch)
+//	{
+//		vidbufsize=0;
+//	}
+//}
 
-void no_audio(struct audio * this, unsigned int numframes, const int16_t * samples) {}
+//void no_audio(struct audio * this, unsigned int numframes, const int16_t * samples) {}
 
-uint16_t input_bits;
-int16_t queue_input(struct libretroinput * this, unsigned port, unsigned device, unsigned index, unsigned id)
-{
-	if (device==RETRO_DEVICE_JOYPAD)
-	{
-		if (port==0 && index==0) return input_bits>>id & 1;//I don't know in which order this ends up. But it doesn't matter either.
-	}
-	return 0;
-}
+//uint16_t input_bits;
+//int16_t queue_input(struct libretroinput * this, unsigned port, unsigned device, unsigned index, unsigned id)
+//{
+//	if (device==RETRO_DEVICE_JOYPAD)
+//	{
+//		if (port==0 && index==0) return input_bits>>id & 1;//I don't know in which order this ends up. But it doesn't matter either.
+//	}
+//	return 0;
+//}
 
 int randr(int lower, int upper)
 {
@@ -198,7 +208,12 @@ void die(const char * why)
 
 int main(int argc, char * argv[])
 {
-	tr_malloc(NULL, 0);
+	if (argc<6)
+	{
+		puts("usage: gdb --args retrostate /path/to/core.so /path/to/rom.bin frames_per_round frames_between_rounds rounds");
+		puts("example: gdb --args ./retrostate roms/testcore_libretro.so - 5 60 30");
+		return 0;
+	}
 	
 	struct memdebug i={ tr_malloc, tr_free };
 	memdebug_init(&i);
@@ -219,25 +234,14 @@ int main(int argc, char * argv[])
 	srand(seed);
 	
 	context="libretro_create";
-	struct libretro * core=libretro_create(argv[1], NULL, NULL);
+	struct libretro * core=libretro::create(argv[1], NULL, NULL);
 	if (!core) die("Couldn't load core.");
 	
-	static struct video novideo;
-	novideo.draw=trace_video;
-	
-	static struct audio noaudio;
-	noaudio.render=no_audio;
-	
-	static struct libretroinput noinput;
-	noinput.query=queue_input;
-	
-	core->attach_interfaces(core, &novideo, &noaudio, &noinput);
-	
 	context="libretro->load_rom";
-	if (!core->load_rom(core, NULL,0, argv[2])) die("Couldn't load ROM.");
+	if (!core->load_rom(file::create(argv[2]))) die("Couldn't load ROM.");
 	
 	context="libretro->state_size";
-	size_t statesize=core->state_size(core);
+	size_t statesize=core->state_size();
 	if (!statesize) die("Core must support savestates.");
 	void* state=i.s_malloc(statesize);
 	
@@ -254,8 +258,9 @@ int main(int argc, char * argv[])
 		printf("%i/%i\r", thisround, rounds); fflush(stdout);
 		for (unsigned int skip=randr(betweenround, betweenround*2);skip;skip--)
 		{
-			input_bits=randr(0, 65535);
-			core->run(core);
+			uint16_t input_bits=randr(0, 65535);
+			for (int i=0;i<16;i++) core->input_gamepad(0, i, (input_bits>>i)&1);
+			core->run();
 		}
 		
 		//prepare input, save state
@@ -263,7 +268,7 @@ int main(int argc, char * argv[])
 		uint16_t input_list[framesthisround];
 		for (unsigned int i=0;i<framesthisround;i++) input_list[i]=randr(0, 65535);
 		context="libretro->state_save";
-		if (!core->state_save(core, state, statesize)) die("Core refuses to save state.");
+		if (!core->state_save(state, statesize)) die("Core refuses to save state.");
 		
 #define handle_mem(oper, to) \
 		{ \
@@ -284,15 +289,16 @@ int main(int argc, char * argv[])
 		context="libretro->run (2)";
 		for (unsigned int i=0;i<framesthisround;i++)
 		{
-			input_bits=input_list[i];
-			core->run(core);
+			uint16_t input_bits=input_list[i];
+			for (int i=0;i<16;i++) core->input_gamepad(0, i, (input_bits>>i)&1);
+			core->run();
 		}
 		
 		//save state EXPECTED
 		handle_mem(=, expected);
 		
 		context="libretro->state_load";
-		if (!core->state_load(core, state, statesize)) die("Core refuses to load state.");
+		if (!core->state_load(state, statesize)) die("Core refuses to load state.");
 		
 		//save state INITIAL_POST
 		handle_mem(^=, init);
@@ -300,8 +306,9 @@ int main(int argc, char * argv[])
 		context="libretro->run (3)";
 		for (unsigned int i=0;i<framesthisround;i++)
 		{
-			input_bits=input_list[i];
-			core->run(core);
+			uint16_t input_bits=input_list[i];
+			for (int i=0;i<16;i++) core->input_gamepad(0, i, (input_bits>>i)&1);
+			core->run();
 		}
 		
 		//we could save state EXPECTED_POST here, but let's compare it instead because we need to do that anyways.
