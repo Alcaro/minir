@@ -1,7 +1,7 @@
 #if 0
 cd subproj || true
 cd ..
-g++ -pthread subproj/retrostateverify.cpp subproj/memdebug.cpp \
+g++ subproj/retrostateverify.cpp subproj/memdebug.cpp \
 	libretro.cpp -DDYLIB_POSIX dylib.cpp memory.cpp -DFILEPATH_POSIX file-posix.cpp \
 	-DTHREAD_NONE -DWINDOW_MINIMAL window-none.cpp \
 	-ldl -g -o retrostate
