@@ -43,14 +43,16 @@ FAILURE (<type>) at <addr> [<addrbase> + <offset>/<size>, #<id>]: <expected>!=<a
 <offset> is the difference between <addr> and <addrbase>.
 <size> is how big the relevant allocation is.
  DATA and BSS sections are large, and multiples of 4096 bytes; other allocations are usually, but not always, small.
- (A large non-DATA/BSS allocation would be the framebuffer. However, it is possible for it to be on both stack and BSS.)
+ (A large non-DATA/BSS allocation would be the framebuffer. However, it is possible for it to be in stack or BSS.)
 <id> is the sequential number of the relevant malloc()/free().
 <expected> and <actual> are what the relevant byte are, and what they should be, respectively.
 You usually only need <type>, <addr> and <id>.
 
 False positives have been observed:
 - _GLOBAL_OFFSET_TABLE_ has given weird results for unknown reasons.
-- Failures have been observed cascading back into volatile arrays (e.g. framebuffer). This makes them show up as guilty.
+- Failures have been observed cascading back into volatile arrays, making them show up as guilty.
+   In particular, audio output buffers are very eager to show up guilty here; the current write pointer
+   (and the buffer contents) are generally not saved, since it (normally) makes no difference. However, it shows up here.
 
 rm retrostate
 g++ -I. subproj/retrostateverify.cpp subproj/memdebug.cpp libretro.cpp dylib.cpp memory.cpp -ldl -lrt -DDYLIB_POSIX -DWINDOW_MINIMAL window-none.cpp -Og -g -o retrostate

@@ -333,6 +333,7 @@ namespace minir {
 		//This allows the video data to be put whereever the target device wants. The target also decides pitch.
 		//The pointer does not need to be normal memory, and must not be read, not even after writing.
 		//Returning NULL means that the target device has no opinion, so the caller allocates. If called, and the return value is non-NULL, it must be used.
+		//It is, however, allowed to call emit_video() without calling this.
 		void       emit_video_locate  (uint8_t id, unsigned width, unsigned height, void * * data, size_t * pitch) {}
 		virtual void ev_video_locate  (uint8_t id, unsigned width, unsigned height, void * * data, size_t * pitch) { *data=NULL; *pitch=0; }
 		void       emit_video         (uint8_t id, unsigned width, unsigned height, const void * data, size_t pitch) {}
@@ -343,7 +344,7 @@ namespace minir {
 		//emit_video_req means that the calling device, and only it, will get an ev_video corresponding to
 		// the last ev_video_{locate,3d,dupe}. Likely to be slower than asking for normal video events, but
 		// if only a few frames are desirable, explicitly asking for only them is desirable.
-		//If you get an ev_video_req, call emit_video. emit_video_locate is allowed.
+		//If you get an ev_video_req, call emit_video. emit_video_locate is allowed and recommended.
 		//If a device alters the video data, 'use_output' tells whether 'id' refers to the last input or output.
 		//(If it doesn't, either both are the same or only one is applicable, and that argument can be ignored.)
 		//If no relevant device supports repeat requests, it can return failure, but this is rare.
@@ -352,8 +353,8 @@ namespace minir {
 		//3D stuff mostly goes outside this system.
 		//'context' allows multiple video handlers to share resources across threads.
 		//If NULL, the source expects the target to set up a context for this thread and will use that; if not, both devices will set up one context each.
-		bool       emit_video_setup_3d(uint8_t id, struct retro_hw_render_callback * desc, void* context) { return false; }
-		virtual bool ev_video_setup_3d(uint8_t id, struct retro_hw_render_callback * desc, void* context) { return false; }
+		bool       emit_video_setup_3d(uint8_t id, struct retro_hw_render_callback * desc, uintptr_t context) { return false; }
+		virtual bool ev_video_setup_3d(uint8_t id, struct retro_hw_render_callback * desc, uintptr_t context) { return false; }
 		void       emit_video_3d      (uint8_t id) {}
 		virtual void ev_video_3d      (uint8_t id) {}
 		
@@ -433,7 +434,7 @@ namespace minir {
 		
 		//Each inputs[] to a device is one string, in order.
 		//The order of the devices is used only between devices of the same type.
-		//The I/O map is allowed to be blank, in which case the device manager will try to connect all inputs to free outputs.
+		//The I/O map is allowed to be blank, in which case the inputs will remain unmapped.
 		//Button and event inputs can use multiple boolean sources. They look like this:
 		//keyboard.shiftl+keyboard.f1, keyboard.shiftr+keyboard.f1
 		//The last key is known as the primary key; the others are known as modifiers.
@@ -444,7 +445,7 @@ namespace minir {
 		virtual void add_device(device* dev, arrayview<string> inputs = NULL) = 0;
 		virtual void add_device(device* dev, arrayview<const char*> inputs) = 0;
 		
-		//Attaches all unspecified inputs, and performs a bunch of other setup. Must be called between add_device() and frame().
+		//Performs a bunch of validation and setup work. Must be called between the last add_device() and the first frame().
 		virtual bool map_devices() = 0;
 		
 		virtual void frame() = 0;

@@ -73,15 +73,17 @@ public:
 		//core->set_video(bind_this(&dev_video::video_where_cb), bind_this(&dev_video::video_cb));
 	}
 	
+	void ev_video_locate(uint8_t id, unsigned int width, unsigned int height, void* * data, size_t* pitch)
+	{
+		core->draw_2d_where(width, height, data, pitch);
+	}
+	
+	void ev_video(uint8_t id, unsigned int width, unsigned int height, const void* data, size_t pitch)
+	{
+		core->draw_2d(width, height, data, pitch);
+	}
+	
 	~dev_video() { delete this->core; }
-	
-	/*private*/ void video_where_cb(unsigned int width, unsigned int height, void* * data, size_t* pitch)
-	{
-	}
-	
-	/*private*/ void video_cb(unsigned int width, unsigned int height, const void* data, size_t pitch)
-	{
-	}
 };
 
 
