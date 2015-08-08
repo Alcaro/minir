@@ -80,6 +80,9 @@ int groupsizes[]={5,2,1,1};
 #include <math.h>
 #define PI 3.14159265358979323846
 
+static retro_log_printf_t log_cb;
+static void log_null(enum retro_log_level level, const char *fmt, ...) {}
+
 retro_environment_t environ_cb = NULL;
 retro_video_refresh_t video_cb = NULL;
 retro_audio_sample_t audio_cb = NULL;
@@ -108,13 +111,33 @@ void renderchr(pixel_t col, int chr, int x, int y);
 void renderstr(pixel_t col, const char * str, int x, int y);
 unsigned long crc32_calc (unsigned char *ptr, unsigned cnt, unsigned long crc);
 
-#ifdef __unix__
+#if defined(__unix__)
 #include <time.h>
 uint64_t window_get_time()
 {
 	struct timespec ts;
 	clock_gettime(CLOCK_MONOTONIC, &ts);
 	return ts.tv_sec*1000000 + ts.tv_nsec/1000;
+}
+
+#elif defined(_WIN32)
+#include <windows.h>
+uint64_t window_get_time()
+{
+	static LARGE_INTEGER freq = {};
+	if (!freq.QuadPart) QueryPerformanceFrequency(&freq);
+	LARGE_INTEGER count;
+	QueryPerformanceCounter(&count);
+	
+	return count.QuadPart * 1000000 / freq.QuadPart;
+	
+}
+#else
+uint64_t window_get_time()
+{
+	static uint64_t last = 0;
+	last += 1000000;
+	return last;
 }
 #endif
 
@@ -335,7 +358,18 @@ EXPORT void retro_set_environment(retro_environment_t cb)
 	//environ_cb(RETRO_ENVIRONMENT_GET_PERF_INTERFACE, &perf);
 }
 
-EXPORT void retro_init(void) {}
+EXPORT void retro_init(void)
+{
+	struct retro_log_callback log;
+	if (environ_cb(RETRO_ENVIRONMENT_GET_LOG_INTERFACE, &log))
+		log_cb = log.log;
+	else
+		log_cb = log_null;
+	
+	log_cb(RETRO_LOG_DEBUG, "0123 test");
+	log_cb(RETRO_LOG_DEBUG, "%.3i%c t%st", 12, '3', "es");
+}
+
 EXPORT void retro_deinit(void) {}
 EXPORT unsigned retro_api_version(void) { return RETRO_API_VERSION; }
 

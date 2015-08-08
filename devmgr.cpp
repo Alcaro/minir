@@ -42,7 +42,7 @@ array<uint16_t> frame_order;
 void add_device(device* dev, arrayview<string> inputs) { add_device_core(dev, inputs); }
 void add_device(device* dev, arrayview<const char *> inputs) { add_device_core(dev, inputs); }
 
-bool map_devices()
+bool setup()
 {
 	frame_order.reset();
 	

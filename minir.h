@@ -437,16 +437,18 @@ namespace minir {
 		//The I/O map is allowed to be blank, in which case the inputs will remain unmapped.
 		//Button and event inputs can use multiple boolean sources. They look like this:
 		//keyboard.shiftl+keyboard.f1, keyboard.shiftr+keyboard.f1
-		//The last key is known as the primary key; the others are known as modifiers.
+		//The last key in each group is known as the primary key; the others are known as modifiers.
 		//If multiple Event or Button share the primary key but have different modifiers, they will
 		// only fire if all used modifiers for that button match the input descriptor.
 		//For example, with the given example, something mapped to 'keyboard.f1' would not fire by
 		// ShiftL+F1, and ShiftL+ShiftR+F1 wouldn't trigger either of them.
-		virtual void add_device(device* dev, arrayview<string> inputs = NULL) = 0;
+		virtual void add_device(device* dev, arrayview<string> inputs) = 0;
 		virtual void add_device(device* dev, arrayview<const char*> inputs) = 0;
 		
-		//Performs a bunch of validation and setup work. Must be called between the last add_device() and the first frame().
-		virtual bool map_devices() = 0;
+		//Performs a bunch of validation and setup work. Must be called between add_device() and frame().
+		//It is allowed to add and remove devices after calling setup(). If this is done, setup() must
+		// be called again before the next frame().
+		virtual bool setup() = 0;
 		
 		virtual void frame() = 0;
 		
