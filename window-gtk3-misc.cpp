@@ -216,12 +216,26 @@ void window_run_wait()
 
 char * window_get_absolute_path(const char * basepath, const char * path, bool allow_up)
 {
-	if (!path || !basepath) return NULL;
+	if (!path) return NULL;
 	
-	const char * pathend=strrchr(basepath, '/');
-	gchar * basepath_dir=g_strndup(basepath, pathend+1-basepath);
-	GFile* file=g_file_new_for_commandline_arg_and_cwd(path, basepath_dir);
-	g_free(basepath_dir);
+	GFile* file;
+	const char * pathend;
+	if (basepath)
+	{
+		pathend=strrchr(basepath, '/');
+		gchar * basepath_dir=g_strndup(basepath, pathend+1-basepath);
+		file=g_file_new_for_commandline_arg_and_cwd(path, basepath_dir);
+		g_free(basepath_dir);
+	}
+	else
+	{
+		if (!allow_up) return NULL;
+		//not sure if gvfs URIs are absolute or not, so if absolute, let's use the one that works for both
+		//if not absolute, demand it's an URI
+		//per glib/gconvert.c g_filename_from_uri, file:// URIs are absolute
+		if (g_path_is_absolute(path)) file=g_file_new_for_commandline_arg(path);
+		else file=g_file_new_for_uri(path);
+	}
 	
 	gchar * ret;
 	if (g_file_is_native(file)) ret=g_file_get_path(file);
