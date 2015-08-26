@@ -1686,7 +1686,7 @@ void update_menu()
 	}
 }
 
-int old_main(int argc, char * argv[])
+int main(int argc, char * argv[])
 {
 	initialize(argc, argv);
 //vid->set_shader(g);
