@@ -1,11 +1,13 @@
 #include "os.h"
-#if false
+#ifdef __linux__
+//I could try to rewrite all of this without pthread, but I'd rather not set up TLS stuff myself, that'd require replacing half of libc.
+//However, I can remove everything except pthread_create.
+//Minimum kernel version: 2.6.22 (FUTEX_PRIVATE_FLAG), released in 8 July, 2007 (source: http://kernelnewbies.org/LinuxVersions)
 #include <pthread.h>
-#include <semaphore.h>
-#include <errno.h>
-#include <stdlib.h>
-#include <string.h>
 #include <unistd.h>
+
+#include <linux/futex.h>
+#include <sys/syscall.h>
 
 //list of synchronization points: http://pubs.opengroup.org/onlinepubs/009695399/basedefs/xbd_chap04.html#tag_04_10
 
@@ -37,6 +39,29 @@ unsigned int thread_ideal_count()
 }
 
 
+//now I have to write futex code myself! How fun!
+void mutex2::lock()
+{
+#error not implemented yet
+}
+bool mutex2::try_lock()
+{
+}
+void mutex2::unlock()
+{
+}
+
+
+
+
+
+
+//stuff I should rewrite follows
+#include <semaphore.h>
+#include <errno.h>
+#include <stdlib.h>
+#include <string.h>
+
 mutex* mutex::create()
 {
 	pthread_mutex_t* ret=malloc(sizeof(pthread_mutex_t));
@@ -63,19 +88,6 @@ void mutex::release()
 {
 	pthread_mutex_destroy((pthread_mutex_t*)this);
 	free(this);
-}
-
-
-//now I have to write futex code myself! How fun!
-void mutex2::lock()
-{
-#error not implemented yet
-}
-bool mutex2::try_lock()
-{
-}
-void mutex2::unlock()
-{
 }
 
 
@@ -152,9 +164,9 @@ uintptr_t thread_get_id()
 
 
 //pthread doesn't seem to contain anything like this, but gcc is the only supported compiler here, so I can use its builtins.
-//or if I get any non-gcc compilers, I can throw in the C++11 threads. That's why these builtins exist, anyways.
+//or if I get any non-gcc compilers, I can throw in the C++11 atomics. That's why these builtins exist, anyways.
 //for Clang, if these GCC builtins aren't supported (most are), http://clang.llvm.org/docs/LanguageExtensions.html#c11-atomic-builtins
-#if __GNUC__*10000 + __GNUC_MINOR__*100 + __GNUC_PATCHLEVEL__*1 >= 40700
+#if GCC_VERSION >= 40700
 //https://gcc.gnu.org/onlinedocs/gcc-4.7.0/gcc/_005f_005fatomic-Builtins.html
 uint32_t lock_incr(uint32_t * val) { return __atomic_add_fetch(val, 1, __ATOMIC_ACQ_REL); }
 uint32_t lock_decr(uint32_t * val) { return __atomic_sub_fetch(val, 1, __ATOMIC_ACQ_REL); }
