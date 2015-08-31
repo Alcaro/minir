@@ -66,6 +66,19 @@ void mutex::release()
 }
 
 
+//now I have to write futex code myself! How fun!
+void mutex2::lock()
+{
+#error not implemented yet
+}
+bool mutex2::try_lock()
+{
+}
+void mutex2::unlock()
+{
+}
+
+
 event::event()
 {
 	this->data=malloc(sizeof(sem_t));

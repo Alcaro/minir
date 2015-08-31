@@ -23,7 +23,7 @@ struct video_thread_frame {
 class video_thread : public video {
 public://since this entire file is private, making it public inside here does no harm
 	video* next;//Child-only.
-	mutex* lock;//Thread safe.
+	mutex2 lock;//Thread safe.
 	event* wake_parent;//Thread safe.
 	event* wake_child;//Thread safe.
 	
@@ -87,14 +87,14 @@ public://since this entire file is private, making it public inside here does no
 		while (true)
 		{
 			this->wake_child->wait();
-			this->lock->lock();
+			this->lock.lock();
 			
 			if (this->exit)
 			{
 				delete this->next;
 				this->exit=false;
 				this->wake_parent->signal();
-				this->lock->unlock();
+				this->lock.unlock();
 				return;
 			}
 			
@@ -122,7 +122,7 @@ public://since this entire file is private, making it public inside here does no
 				this->buf_this=buf;
 			}
 			
-			this->lock->unlock();
+			this->lock.unlock();
 			
 			if (set_src) this->next->set_source(src_width, src_height, src_format);
 			if (set_dest) this->next->set_dest_size(dest_width, dest_height);
@@ -137,9 +137,9 @@ public://since this entire file is private, making it public inside here does no
 			
 			if (vsync!=0)
 			{
-				this->lock->lock();
+				this->lock.lock();
 				this->draw_idle=true;
-				this->lock->unlock();
+				this->lock.unlock();
 				this->wake_parent->signal();
 			}
 		}
@@ -155,17 +155,17 @@ public://since this entire file is private, making it public inside here does no
 	
 	void set_source(unsigned int max_width, unsigned int max_height, videoformat format)
 	{
-		this->lock->lock();
+		this->lock.lock();
 		this->src_format=format;
 		this->src_bpp=videofmt_byte_per_pixel(format);
 		this->src_width=max_width;
 		this->src_height=max_height;
-		this->lock->unlock();
+		this->lock.unlock();
 	}
 	
 	/*private*/ void draw_frame(bool real_frame)
 	{
-		this->lock->lock();
+		this->lock.lock();
 		if (real_frame)
 		{
 			this->buf_last=this->buf_temp;
@@ -176,16 +176,16 @@ public://since this entire file is private, making it public inside here does no
 		this->draw_null=!real_frame;
 		this->draw_idle=false;
 		this->vsync=this->new_vsync;
-		this->lock->unlock();
+		this->lock.unlock();
 		this->wake_child->signal();
 		if (this->vsync!=0)
 		{
 			while (true)
 			{
 				this->wake_parent->wait();
-				this->lock->lock();
+				this->lock.lock();
 				bool done = this->draw_idle;
-				this->lock->unlock();
+				this->lock.unlock();
 				if (done) break;
 			}
 		}
@@ -234,9 +234,9 @@ public://since this entire file is private, making it public inside here does no
 	void set_vsync(double fps)
 	{
 		//this protects not against the child thread, but against the parent thread - screenshot/shader/vsync functions can be called by a third thread
-		this->lock->lock();
+		this->lock.lock();
 		this->new_vsync=fps;
-		this->lock->unlock();
+		this->lock.unlock();
 	}
 	
 	//TODO: Enable those.
@@ -246,16 +246,16 @@ public://since this entire file is private, making it public inside here does no
 	
 	void set_dest_size(unsigned int width, unsigned int height)
 	{
-		this->lock->lock();
+		this->lock.lock();
 		this->dest_width=width;
 		this->dest_height=height;
-		this->lock->unlock();
+		this->lock.unlock();
 	}
 	
 	int get_screenshot(struct image * img)
 	{
 		//this protects not against the child thread, but against the parent thread - screenshot/shader/vsync functions can be called by a third thread
-		this->lock->lock();
+		this->lock.lock();
 		img->width=this->buf_last.width;
 		img->height=this->buf_last.height;
 		img->pitch=this->src_bpp*this->buf_last.width;
@@ -271,7 +271,7 @@ public://since this entire file is private, making it public inside here does no
 	void release_screenshot(int ret, void* data)
 	{
 		if (!ret) return;
-		this->lock->unlock();
+		this->lock.unlock();
 	}
 	
 	video_thread()
@@ -282,7 +282,6 @@ public://since this entire file is private, making it public inside here does no
 		this->src_height=0;
 		this->dest_width=0;
 		this->dest_height=0;
-		this->lock=mutex::create();
 		this->wake_child=new event();
 		this->wake_parent=new event();
 		
@@ -304,19 +303,18 @@ public://since this entire file is private, making it public inside here does no
 	
 	~video_thread()
 	{
-		this->lock->lock();
+		this->lock.lock();
 		this->exit=true;
-		this->lock->unlock();
+		this->lock.unlock();
 		this->wake_child->signal();
 		while (true)
 		{
 			this->wake_parent->wait();
-			this->lock->lock();
+			this->lock.lock();
 			bool exit=(!this->exit);
-			this->lock->unlock();
+			this->lock.unlock();
 			if (exit) break;
 		}
-		delete this->lock;
 		delete this->wake_child;
 		delete this->wake_parent;
 		free(this->buf_this.data);

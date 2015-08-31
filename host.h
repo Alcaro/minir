@@ -143,4 +143,8 @@
 #define MUTEX_NEEDS_INIT
 #endif
 
+#if defined(OS_WINDOWS) && !defined(OS_WINDOWS_XP)
+#define OS_WINDOWS_VISTA
+#endif
+
 //#define HAVE_ZLIB

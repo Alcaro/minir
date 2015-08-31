@@ -71,27 +71,37 @@ public:
 	void release();
 };
 
-//This one is like mutex, but intended for use as a value type (embedded inside various structures).
+//This one is like mutex, but intended for use as a value type, embedded inside various other structures.
 class mutex2 : nocopy {
-	//On Linux, this is a futex.
-	//On modern Windows, this is a SRWLOCK, which is the same size as a pointer.
-	//On Windows XP, this is a CRITICAL_SECTION*, allocated in the constructor.
-	void* data;
+#if defined(__linux__)
+	int futex;
 	
 public:
-#ifdef MUTEX_NEEDS_INIT
-	//yay, static initializers. I could test for NULL and cmpxchg in a critsec when locking,
-	//but that would either leak or still give destructors, and since this is XP-only, I'll just leave the initializers.
-	//Not sure what OSX and the BSDs do. Hopefully they'll gain futexes before I try to port to that.
-	mutex2();
-	~mutex2();
-#else
-	mutex2() : data(NULL) {}
-#endif
-	
 	void lock();
 	bool try_lock();
 	void unlock();
+	
+#elif defined(OS_WINDOWS_VISTA)
+	
+	SRWLOCK srwlock = SRWLOCK_INIT;
+	
+public:
+	void lock() { AcquireSRWLockExclusive(&srwlock); }
+	bool try_lock() { return TryAcquireSRWLockExclusive(&srwlock); }
+	void unlock() { ReleaseSRWLockExclusive(&srwlock); }
+	
+#elif defined(OS_WINDOWS_XP)
+	
+	CRITICAL_SECTION cs;
+	
+public:
+	//yay, static initializers. no real way to avoid them.
+	mutex2() { InitializeCriticalSection(&cs); }
+	void lock() { EnterCriticalSection(&cs); }
+	bool try_lock() { return TryEnterCriticalSection(&cs); }
+	void unlock() { LeaveCriticalSection(&cs); }
+	~mutex2() { DeleteCriticalSection(&cs); }
+#endif
 };
 
 

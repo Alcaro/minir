@@ -1,7 +1,7 @@
+#define CINTERFACE
 #include "io.h"
 #ifdef VIDEO_D3D9
 #define video cvideo
-#define CINTERFACE
 #undef bind
 #include <D3D9.h>
 #define bind bind_func

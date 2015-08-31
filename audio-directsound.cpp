@@ -1,6 +1,6 @@
+#define CINTERFACE
 #include "io.h"
 #ifdef AUDIO_DIRECTSOUND
-#define CINTERFACE
 #undef bind
 #include <dsound.h>
 #define bind bind_func
