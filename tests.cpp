@@ -303,44 +303,83 @@ static void test_bitarray()
 
 namespace test_threads {
 mutex2 mut;
-void testmutex(void* idptr)
+int iter;
+
+multievent ev;
+
+void test1(void* idptr)
 {
 	int id = (int)(uintptr_t)idptr;
-	////test light contention: this should print ()()()(). anything else is a bug
-	//for (int i=0;i<10000;i++)
-	//{
-	//	mut.lock();
-	//	printf("(");
-	//	printf(")");
-	//	mut.unlock();
-	//	thread_sleep(1000);
-	//}
-	////test heavy contention: this should print ()()()(). unsequential access are bugs
-	////it should also print much less than the above
-	//for (int i=0;i<10000;i++)
-	//{
-	//	mut.lock();
-	//	printf("(");
-	//	thread_sleep(1000);
-	//	printf(")");
-	//	mut.unlock();
-	//}
-	////test fairness: this should give a big jumble of 0123. suspiciously long sequences of 222222222 are bugs
-	//for (int i=0;i<10000;i++)
-	//{
-	//	mut.lock();
-	//	printf("%i", id);
-	//	mut.unlock();
-	//}
+	//test light contention
+	//expected duration: 1 second
+	for (int i=0;i<1000;i++)
+	{
+		mut.lock();
+		iter++;
+		mut.unlock();
+		thread_sleep(1000);
+	}
+	
+	ev.signal();
+}
+
+void test2(void* idptr)
+{
+	int id = (int)(uintptr_t)idptr;
+	//test heavy contention
+	//expected duration: 4 seconds
+	//due to the heavy contention on this mutex, there will be many sleeps and wakeups; 'time' may return raised sys numbers for this
+	for (int i=0;i<1000;i++)
+	{
+		mut.lock();
+		iter++;
+		thread_sleep(1000);
+		mut.unlock();
+	}
+	
+	ev.signal();
+}
+
+void test3(void* idptr)
+{
+	int id = (int)(uintptr_t)idptr;
+	//test heavy lock/unlock
+	//expected duration: instant
+	for (int i=0;i<10000;i++)
+	{
+		mut.lock();
+		iter++;
+		mut.unlock();
+	}
+	
+	ev.signal();
 }
 
 static void main()
 {
+	iter=0;
 	for (int i=0;i<4;i++)
 	{
-		thread_create(bind_ptr(testmutex, (void*)(uintptr_t)i));
+		thread_create(bind_ptr(test1, (void*)(uintptr_t)i));
 	}
-	thread_sleep(1000*1000);
+	for (int i=0;i<4;i++) ev.wait();
+	assert(iter==4000);
+	
+	iter=0;
+	for (int i=0;i<4;i++)
+	{
+		thread_create(bind_ptr(test2, (void*)(uintptr_t)i));
+	}
+	for (int i=0;i<4;i++) ev.wait();
+	assert(iter==4000);
+	
+	iter=0;
+	for (int i=0;i<4;i++)
+	{
+		thread_create(bind_ptr(test3, (void*)(uintptr_t)i));
+	}
+	for (int i=0;i<4;i++) ev.wait();
+	assert(iter==40000);
 }
 }
 
@@ -352,7 +391,6 @@ int main()
 	//test_endian();
 	//test_hashset();
 	//test_bitarray();
-	
-	//test_threads::main(); // warning: takes a second. additionally, output must be manually inspected, see comments.
+	//test_threads::main(); // warning: takes a while.
 }
 #endif

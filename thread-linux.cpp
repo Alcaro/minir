@@ -60,18 +60,22 @@ void mutex2::lock()
 	int result = lock_cmpxchg(&fut, MUT_UNLOCKED, MUT_LOCKED);
 	if (result == MUT_UNLOCKED)
 	{
-		return; // nothing to do, this is the fast path
+		return; // unlocked, fast path
 	}
 	
-	lock_cmpxchg(&fut, MUT_LOCKED, MUT_CONTENDED);
-	//may have changed in the meanwhile
-	//changed to CONTENDED - ignore failure, that's what we want anyways
-	//changed to UNLOCKED - ignore failure again, futex() will instantly return and then the cmpxchg will lock it for us
+	//If it was locked, mark it contended and force whoever to wake us.
+	//In the common contended case, it was previously MUT_LOCKED, so the futex would instantly return.
+	//Therefore, the xchg should be run first.
 	while (true)
 	{
-		futex(&fut, FUTEX_WAIT|FUTEX_PRIVATE_FLAG, MUT_CONTENDED);
 		result = lock_xchg(&fut, MUT_CONTENDED);
+		//results:
+		//MUT_UNLOCKED - we got it, continue
+		//MUT_CONTENDED - didn't get it, sleep for a while
+		//MUT_LOCKED - someone else got it and locked it, thinking it empty, while we're here. force it to wake us.
 		if (result == MUT_UNLOCKED) break;
+		
+		futex(&fut, FUTEX_WAIT_PRIVATE, MUT_CONTENDED);
 	}
 }
 
@@ -85,7 +89,7 @@ void mutex2::unlock()
 	int result = lock_xchg(&fut, MUT_UNLOCKED);
 	if (result == MUT_CONTENDED)
 	{
-		futex(&fut, FUTEX_WAKE|FUTEX_PRIVATE_FLAG, 1);
+		futex(&fut, FUTEX_WAKE_PRIVATE, 1);
 	}
 }
 
