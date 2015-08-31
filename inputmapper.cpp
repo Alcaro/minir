@@ -184,7 +184,7 @@ static char * create_descriptor(uint32_t * buttons)
 		{
 			//longest possible: KB31::KP_Multiply+KP_Multiply+KP_Multiply+KP_Multiply(nul)
 			//we won't hit it since there is only one KP_Multiply, but we won't overshoot too badly.
-			//overshooting by a few hundred bytes won't hurt anyone, anyways
+			//overshooting by a few dozen bytes won't hurt anyone, anyways
 			char * out=malloc(6+11+nummod*12+1);
 			
 			int keyboard=(base>>11)&31;

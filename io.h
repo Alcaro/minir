@@ -1,7 +1,7 @@
 #pragma once
 #include "global.h"
 #include "image.h"
-#include <string.h>
+#include "string.h"
 
 //this belongs more in window.h, but everything that uses it is based more on io.h than window.h
 #ifdef WNDPROT_X11
@@ -743,6 +743,80 @@ struct inputmapper * inputmapper_create();
 // the mapper's favourite format, otherwise you get a NULL.
 //Free it once you're done.
 char * inputmapper_normalize(const char * descriptor);
+
+
+
+class inputmapper2 : nocopy {
+protected:
+	function<void(unsigned int id, bool down)> callback;
+public:
+	void set_cb(function<void(unsigned int id, bool down)> callback) { this->callback=callback; }
+	
+	//void request_next(function<void(const char * desc)> callback) { this->req_callback=callback; }
+	
+	//Each input descriptor has an unique ID, known as its slot. 0 is valid.
+	//It's fine to set a descriptor slot that's already used; this will remove the old one.
+	//It's also fine to set a descriptor to NULL. This is the default for any slot which is not set, and will never fire.
+	//If the descriptor is invalid, the slot will be set to NULL, and false will be returned.
+	
+	//The implementation may limit the maximum number of modifiers on any descriptor. At least 15 modifiers
+	// must be supported, but more is allowed. If it goes above this limit, the descriptor is rejected.
+	//'trigger' is whether it's a trigger-based or level-based event.
+	//A level-triggered event fires the event whenever the combination changes between held and not,
+	// while trigger-based fire when the relevant modifiers are held and one of the primaries is hit.
+	//Examples of differences: If a slot is A+S and someone is holding A and repeatedly slapping S,
+	// a level-triggered event will only fire when A is pressed, because the total state is still 'down'.
+	// A trigger-based event will fire for each press of either key.
+	//If a slot is A+S and S is hit before A, the trigger will never fire (the modifier, A,
+	// had wrong state when S was pressed), but the level will fire (the combination is true).
+	//They share their ID namespaces. A trigger event never fires with down=false.
+	virtual bool register_button(unsigned int id, const char * desc, bool trigger) = 0;
+	
+	//Returns the lowest slot ID where the given number of descriptors can be sequentially added.
+	//If called for len=4 and it returns 2, it means that slots 2, 3, 4 and 5 are currently unused.
+	//It doesn't actually reserve anything, or otherwise change the state of the object; it just tells the current state.
+	
+	//The implementation may set an upper bound on the maximum valid slot. All values up to 4095 must work,
+	// but if this is exceeded, behaviour is undefined.
+	virtual unsigned int register_group(unsigned int len) = 0;
+	//If you don't want to decide which slot to use, this one will pick an unused slot and tell which it used.
+	//If the descriptor is invalid, -1 will be returned, and no slot will change.
+	int register_button(const char * desc, bool trigger)
+	{
+		int slot = register_group(1);
+		if (register_button(slot, desc, trigger)) return slot;
+		else return -1;
+	}
+	
+	enum dev_t {
+		dev_unknown,
+		dev_kb,
+		dev_mouse,
+		dev_gamepad,
+	};
+	enum { mb_left, mb_right, mb_middle, mb_x4, mb_x5 };
+	
+	//While you can emit events here directly, it's easier to bind an inputkb callback to event_kb, and similar.
+	virtual void event(dev_t type, uint16_t device, uint16_t item, int16_t level) = 0;
+	
+	void event_kb(unsigned int keyboard, unsigned int scancode, unsigned int libretrocode, bool down)
+	{
+		event(dev_kb, keyboard, libretrocode?libretrocode:scancode|0x400, down);
+	}
+	
+	//Returns the state of a button.
+	virtual bool query(dev_t type, unsigned int device, unsigned int button, unsigned int scancode) = 0;
+	
+	//Returns the state of an input slot.
+	virtual bool query_slot(unsigned int slot) = 0;
+	
+	//Releases all buttons held on the indicated device type. Can be dev_unknown to reset everything. The callback is not called.
+	//This is likely paired with a refresh() on the relevant inputkb/etc. To avoid calling the callback for that, set it to NULL.
+	virtual void reset(dev_t type) = 0;
+	
+	static inputmapper2* create();
+	virtual ~inputmapper2(){}
+};
 
 
 

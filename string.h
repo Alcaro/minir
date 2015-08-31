@@ -16,6 +16,8 @@ private:
 	
 	static char* clone(const char * str) { return strdup(str ? str : ""); }
 	
+	string(char * str, int) { this->data = str; }
+	
 public:
 	string() { this->data = clone(NULL); }
 	string(const char * str) { this->data = strdup(str); }
@@ -23,6 +25,9 @@ public:
 #ifdef HAVE_MOVE
 	string(string&& other) { this->data = other.data; other.data = NULL; }
 #endif
+	
+	static string take(char* str) { return string(str, 0); }
+	
 	~string() { free(this->data); }
 	string& operator=(const char * str) { free(this->data); this->data=clone(str); return *this; }
 	string& operator=(string other) // copying as the argument can sometimes avoid copying entirely
