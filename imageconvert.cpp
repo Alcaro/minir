@@ -238,7 +238,7 @@ void image_convert_resize(const struct image * src, struct image * dst)
 			convert_resize_4_4_self(src, dst);
 			break;
 		
-		default: ; char *e=0; *e=0;
+		default: abort();
 	}
 }
 

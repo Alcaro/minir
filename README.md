@@ -25,9 +25,16 @@ Automatic core selection | ? (it's been mentioned) | Yes
 Major features | Real-time rewind, Dynamic Rate Control, user-defined shaders, netplay, low-latency fullscreen, ... | Real-time rewind, maximally configurable hotkeys, (more to come)
 (Note that this table is based on the minir author's views; the RetroArch authors' views may differ.)
 
-List of features (including unimplemented ones) where the idea is from RetroArch:
+List of features and planned features where the idea is from RetroArch:
 - libretro itself, of course
 - Dynamic Rate Control (unimplemented)
 - Real-time rewind
 - Rewind-based netplay (unimplemented)
 - Custom shaders (unfinished)
+
+# Compiling
+To compile for Linux, use ./configure && make. Other Unix-likes are not supported.
+
+To compile for Windows with MinGW, use configure.bat then mingw32-make.
+
+To compile for Windows with MSVC, use mingw32-make -f Makefile.msvc from a MSVC command prompt (run any vcvars*.bat first).

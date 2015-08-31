@@ -63,6 +63,36 @@ void mutex::release()
 }
 
 
+#ifndef OS_WINDOWS_XP
+//SRWLOCK_INIT is {0}. I'd prefer to assert that, but there's no real way to do that without creating a variable.
+//the only way to change it would be to make it vary between platforms, and that's stupid.
+//however, I can assert this:
+static_assert(sizeof(SRWLOCK) == sizeof(void*));
+
+void mutex2::lock() { AcquireSRWLockExclusive((PSRWLOCK)&data); }
+bool mutex2::try_lock() { return TryAcquireSRWLockExclusive((PSRWLOCK)&data); }
+void mutex2::unlock() { ReleaseSRWLockExclusive((PSRWLOCK)&data); }
+
+#else
+
+mutex2::mutex2()
+{
+	data = malloc(sizeof(CRITICAL_SECTION));
+	InitializeCriticalSection((CRITICAL_SECTION*)data);
+}
+
+void mutex2::lock() { EnterCriticalSection((CRITICAL_SECTION*)data); }
+bool mutex2::try_lock() { return TryEnterCriticalSection((CRITICAL_SECTION*)data); }
+void mutex2::unlock() { LeaveCriticalSection((CRITICAL_SECTION*)data); }
+
+mutex2::~mutex2()
+{
+	InitializeCriticalSection((CRITICAL_SECTION*)data);
+	free(data);
+}
+#endif
+
+
 event::event() { data=(void*)CreateEvent(NULL, false, false, NULL); }
 void event::signal() { SetEvent((HANDLE)this->data); }
 void event::wait() { WaitForSingleObject((HANDLE)this->data, INFINITE); }

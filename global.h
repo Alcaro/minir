@@ -1,5 +1,17 @@
 #pragma once
 
+#include "host.h"
+
+#ifdef OS_WINDOWS_XP
+#undef _WIN32_WINNT
+#define _WIN32_WINNT 0x0501
+#define _WIN32_IE 0x0600
+#elif defined(OS_WINDOWS)
+#undef _WIN32_WINNT
+#define _WIN32_WINNT 0x0600
+#define _WIN32_IE 0x0600
+#endif
+
 #ifndef _GNU_SOURCE
 #define _GNU_SOURCE //strdup, realpath, asprintf
 #endif
@@ -10,7 +22,6 @@
 #include <stdint.h>
 #include <stddef.h>
 #include <stdio.h>
-#include "host.h"
 #include "function.h"
 
 typedef void(*funcptr)();

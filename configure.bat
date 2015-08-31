@@ -11,3 +11,6 @@ echo RC = windres                          >> config.mk
 echo RCFLAGS =                             >> config.mk
 echo obj/resource$(OBJSUFFIX).o: ico/*     >> config.mk
 echo 	$(RC) $(RCFLAGS) ico/minir.rc obj/resource$(OBJSUFFIX).o >> config.mk
+
+::some people just refuse to leave their XPs.
+ver | find "5.1" > nul && echo CONF_CFLAGS = -DOS_WINDOWS_XP >> config.mk

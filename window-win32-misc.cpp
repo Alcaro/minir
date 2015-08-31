@@ -2,9 +2,6 @@
 #include "file.h"
 #include "os.h"
 #ifdef WINDOW_WIN32
-#undef _WIN32_WINNT
-#define _WIN32_WINNT 0x0501
-#define _WIN32_IE 0x0600
 #undef bind
 #include <windows.h>
 #define bind bind_func
@@ -39,6 +36,7 @@
 //Level 4: printf dislikes z (size_t) size specifiers; they must be behind #ifdef DEBUG, or turned into "I" via #define
 // NOTE: This is present on Vista too. z requires 7 or higher.
 //Level 5: 64-bit programs dislike XP (there are 32bit Vista/7/8, but Vista is practically dead, as is 32bit 7+)
+//Level 5: SRWLOCK is Vista+.
 
 //static LARGE_INTEGER timer_freq;
 

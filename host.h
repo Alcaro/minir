@@ -23,6 +23,8 @@
 
 #define OS_POSIX
 //#define OS_WINDOWS
+//Disables Vista+-specific features. Defined in config.mk by configure.bat.
+//#define OS_WINDOWS_XP
 
 //#define LINEBREAK_CRLF
 
@@ -78,6 +80,8 @@
 
 //#define OS_POSIX
 #define OS_WINDOWS
+//Disables Vista+-specific features. Defined in config.mk by configure.bat.
+//#define OS_WINDOWS_XP
 
 #define LINEBREAK_CRLF
 
@@ -133,6 +137,10 @@
 
 #ifdef WINDOW_WIN32
 #define NEED_MANUAL_LAYOUT
+#endif
+
+#ifdef OS_WINDOWS_XP
+#define MUTEX_NEEDS_INIT
 #endif
 
 //#define HAVE_ZLIB

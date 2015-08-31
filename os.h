@@ -59,7 +59,7 @@ unsigned int thread_ideal_count();
 //However, it it allowed to hold multiple locks simultaneously.
 //lock() is not guaranteed to yield the CPU if it can't grab the lock. It may be implemented as a busy loop.
 //Remember to create all relevant mutexes before creating a thread.
-class mutex : private nocopy {
+class mutex : nocopy {
 	mutex(){}
 public:
 	static mutex* create();
@@ -71,10 +71,33 @@ public:
 	void release();
 };
 
+//This one is like mutex, but intended for use as a value type (embedded inside various structures).
+class mutex2 : nocopy {
+	//On Linux, this is a futex.
+	//On modern Windows, this is a SRWLOCK, which is the same size as a pointer.
+	//On Windows XP, this is a CRITICAL_SECTION*, allocated in the constructor.
+	void* data;
+	
+public:
+#ifdef MUTEX_NEEDS_INIT
+	//yay, static initializers. I could test for NULL and cmpxchg in a critsec when locking,
+	//but that would either leak or still give destructors, and since this is XP-only, I'll just leave the initializers.
+	//Not sure what OSX and the BSDs do. Hopefully they'll gain futexes before I try to port to that.
+	mutex2();
+	~mutex2();
+#else
+	mutex2() : data(NULL) {}
+#endif
+	
+	void lock();
+	bool try_lock();
+	void unlock();
+};
+
 
 //A reader-writer lock is similar to a mutex, but can be locked in two ways - either for reading or for writing.
 //Multiple threads may lock it for reading simultaneously; however, only one writer may enter.
-class rwlock : private nocopy {
+class rwlock : nocopy {
 	rwlock(){}
 public:
 	static rwlock* create();
