@@ -43,8 +43,14 @@ unsigned int thread_ideal_count()
 	return sysinf.dwNumberOfProcessors;
 }
 
+void thread_sleep(unsigned int usec)
+{
+	Sleep(usec/1000);
+}
 
 
+
+//rewritables follow
 mutex* mutex::create()
 {
 	CRITICAL_SECTION* cs=malloc(sizeof(CRITICAL_SECTION));

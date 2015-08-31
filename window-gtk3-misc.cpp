@@ -268,11 +268,6 @@ uint64_t window_get_time()
 	return g_get_monotonic_time();
 }
 
-void thread_sleep(unsigned int usec)
-{
-	g_usleep(usec);
-}
-
 
 
 bool file_read(const char * filename, void* * data, size_t * len)

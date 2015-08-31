@@ -185,11 +185,6 @@ uint64_t window_get_time()
 	//return timer_now.QuadPart/timer_freq.QuadPart;
 }
 
-void thread_sleep(unsigned int usec)
-{
-	Sleep(usec/1000);
-}
-
 
 
 bool file_read(const char * filename, void* * data, size_t * len)

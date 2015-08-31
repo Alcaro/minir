@@ -74,7 +74,7 @@ public:
 //This one is like mutex, but intended for use as a value type, embedded inside various other structures.
 class mutex2 : nocopy {
 #if defined(__linux__)
-	int futex;
+	int fut;
 	
 public:
 	void lock();
@@ -254,6 +254,12 @@ private:
 inline uint32_t lock_incr(uint32_t * val) { return __atomic_add_fetch(val, 1, __ATOMIC_ACQ_REL); }
 inline uint32_t lock_decr(uint32_t * val) { return __atomic_sub_fetch(val, 1, __ATOMIC_ACQ_REL); }
 inline uint32_t lock_read(uint32_t * val) { return __atomic_load_n(val, __ATOMIC_ACQUIRE); }
+
+inline int32_t lock_incr(int32_t * val) { return __atomic_add_fetch(val, 1, __ATOMIC_ACQ_REL); }
+inline int32_t lock_decr(int32_t * val) { return __atomic_sub_fetch(val, 1, __ATOMIC_ACQ_REL); }
+inline int32_t lock_read(int32_t * val) { return __atomic_load_n(val, __ATOMIC_ACQUIRE); }
+inline int32_t lock_cmpxchg(int32_t* val, int32_t old, int32_t newval) { return __sync_val_compare_and_swap(val, old, newval); }
+inline int32_t lock_xchg(int32_t* val, int32_t newval) { return __atomic_exchange_n(val, newval, __ATOMIC_ACQ_REL); }
 
 //Alternate overloads for pointers. Internal implementation, don't use.
 inline void* lock_read_p(void* * val) { return __atomic_load_n(val, __ATOMIC_ACQUIRE); }

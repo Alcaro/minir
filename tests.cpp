@@ -1,6 +1,6 @@
 #ifdef SELFTEST
-//cls & g++ -DSELFTEST -DNOMAIN tests.cpp debug.cpp memory.cpp -g & gdb a.exe
-//      g++ -DSELFTEST -DNOMAIN tests.cpp debug.cpp memory.cpp -g && valgrind ./a.out
+//    cls & g++ -DSELFTEST -DNOMAIN tests.cpp debug.cpp memory.cpp -g & gdb a.exe
+//rm a.out; g++ -DSELFTEST -DNOMAIN tests.cpp debug.cpp memory.cpp thread-linux.cpp -pthread -g && valgrind ./a.out
 #include "os.h"
 #include "containers.h"
 #include "endian.h"
@@ -300,6 +300,50 @@ static void test_bitarray()
 	}
 }
 
+
+namespace test_threads {
+mutex2 mut;
+void testmutex(void* idptr)
+{
+	int id = (int)(uintptr_t)idptr;
+	////test light contention: this should print ()()()(). anything else is a bug
+	//for (int i=0;i<10000;i++)
+	//{
+	//	mut.lock();
+	//	printf("(");
+	//	printf(")");
+	//	mut.unlock();
+	//	thread_sleep(1000);
+	//}
+	////test heavy contention: this should print ()()()(). unsequential access are bugs
+	////it should also print much less than the above
+	//for (int i=0;i<10000;i++)
+	//{
+	//	mut.lock();
+	//	printf("(");
+	//	thread_sleep(1000);
+	//	printf(")");
+	//	mut.unlock();
+	//}
+	////test fairness: this should give a big jumble of 0123. suspiciously long sequences of 222222222 are bugs
+	//for (int i=0;i<10000;i++)
+	//{
+	//	mut.lock();
+	//	printf("%i", id);
+	//	mut.unlock();
+	//}
+}
+
+static void main()
+{
+	for (int i=0;i<4;i++)
+	{
+		thread_create(bind_ptr(testmutex, (void*)(uintptr_t)i));
+	}
+	thread_sleep(1000*1000);
+}
+}
+
 int main()
 {
 	//test_multiint();
@@ -308,5 +352,7 @@ int main()
 	//test_endian();
 	//test_hashset();
 	//test_bitarray();
+	
+	//test_threads::main(); // warning: takes a second. additionally, output must be manually inspected, see comments.
 }
 #endif

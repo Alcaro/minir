@@ -3,6 +3,7 @@
 //I could try to rewrite all of this without pthread, but I'd rather not set up TLS stuff myself, that'd require replacing half of libc.
 //However, I can remove everything except pthread_create.
 //Minimum kernel version: 2.6.22 (FUTEX_PRIVATE_FLAG), released in 8 July, 2007 (source: http://kernelnewbies.org/LinuxVersions)
+//Dropping the private mutex flag would drop requirements to 2.5.40, October 1, 2002.
 #include <pthread.h>
 #include <unistd.h>
 
@@ -38,9 +39,14 @@ unsigned int thread_ideal_count()
 	return sysconf(_SC_NPROCESSORS_ONLN);
 }
 
+void thread_sleep(unsigned int usec)
+{
+	usleep(usec);
+}
+
 
 static int futex(int * uaddr, int op, int val, const struct timespec * timeout = NULL,
-                 int * uaddr2 = ULL, int val3 = 0)
+                 int * uaddr2 = NULL, int val3 = 0)
 {
 	syscall(__NR_futex, uaddr, op, val, timeout, uaddr2, val3);
 }
@@ -51,35 +57,35 @@ static int futex(int * uaddr, int op, int val, const struct timespec * timeout =
 #define MUT_CONTENDED 2
 void mutex2::lock()
 {
-	int result = lock_cmpxchg(&futex, MUT_UNLOCKED, MUT_LOCKED);
+	int result = lock_cmpxchg(&fut, MUT_UNLOCKED, MUT_LOCKED);
 	if (result == MUT_UNLOCKED)
 	{
 		return; // nothing to do, this is the fast path
 	}
 	
-	lock_cmpxchg(&futex, MUT_LOCKED, MUT_CONTENDED);
+	lock_cmpxchg(&fut, MUT_LOCKED, MUT_CONTENDED);
 	//may have changed in the meanwhile
 	//changed to CONTENDED - ignore failure, that's what we want anyways
 	//changed to UNLOCKED - ignore failure again, futex() will instantly return and then the cmpxchg will lock it for us
 	while (true)
 	{
-		futex(&futex, FUTEX_WAIT, MUT_CONTENDED);
-		result = lock_cmpxchg(&futex, MUT_UNLOCKED, MUT_LOCKED);
+		futex(&fut, FUTEX_WAIT|FUTEX_PRIVATE_FLAG, MUT_CONTENDED);
+		result = lock_xchg(&fut, MUT_CONTENDED);
 		if (result == MUT_UNLOCKED) break;
 	}
 }
 
 bool mutex2::try_lock()
 {
-	return (lock_cmpxchg(&futex, MUT_UNLOCKED, MUT_LOCKED) == MUT_UNLOCKED);
+	return (lock_cmpxchg(&fut, MUT_UNLOCKED, MUT_LOCKED) == MUT_UNLOCKED);
 }
 
 void mutex2::unlock()
 {
-	int result = lock_xchg(&futex, MUT_UNLOCKED);
+	int result = lock_xchg(&fut, MUT_UNLOCKED);
 	if (result == MUT_CONTENDED)
 	{
-		futex(&futex, FUTEX_WAKE, 1);
+		futex(&fut, FUTEX_WAKE|FUTEX_PRIVATE_FLAG, 1);
 	}
 }
 
