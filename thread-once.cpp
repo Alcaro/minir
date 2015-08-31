@@ -6,7 +6,7 @@ void* thread_once_undo_core(void* * item, function<void*()> calculate, function<
 {
 	if (*item) return *item;//nonatomic - if something weird happens, all that happens is that another item is created and deleted.
 	void* obj=calculate();
-	void* prev=lock_write_eq(item, NULL, obj);
+	void* prev=lock_cmpxchg(item, NULL, obj);
 	if (prev==NULL) return obj;
 	else
 	{
@@ -33,14 +33,14 @@ void* thread_once_core(void* * item, function<void*()> calculate)
 	//common case - initialized already
 	if (check!=NULL && check!=tag_busy && check!=tag_contended) return check;
 	
-	void* old=lock_write_eq(item, NULL, tag_busy);
+	void* old=lock_cmpxchg(item, NULL, tag_busy);
 	if (old==NULL)
 	{
 		void* result=calculate();
 		//'written' is either tag_busy or tag_contended here.
 		//It's not NULL because we wrote tag_busy, and it can't be anything else
 		// because the other threads know that they're only allowed to replace it with tag_contended.
-		if (lock_write_eq(item, tag_busy, result)==tag_contended)
+		if (lock_cmpxchg(item, tag_busy, result)==tag_contended)
 		{
 			thread_once_create(&contention_unlocker);
 			lock_write(item, result);
@@ -50,7 +50,7 @@ void* thread_once_core(void* * item, function<void*()> calculate)
 	else if (old==tag_busy || old==tag_contended)
 	{
 		//don't bother optimizing this, contention only happens a few times during program lifetime
-		lock_write_eq(item, tag_busy, tag_contended);
+		lock_cmpxchg(item, tag_busy, tag_contended);
 		thread_once_create(&contention_unlocker);
 		while (lock_read(item)==tag_busy) contention_unlocker->wait();
 		contention_unlocker->signal();

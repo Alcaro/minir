@@ -39,16 +39,48 @@ unsigned int thread_ideal_count()
 }
 
 
-//now I have to write futex code myself! How fun!
+static int futex(int * uaddr, int op, int val, const struct timespec * timeout = NULL,
+                 int * uaddr2 = ULL, int val3 = 0)
+{
+	syscall(__NR_futex, uaddr, op, val, timeout, uaddr2, val3);
+}
+
+//futexes. complex threading code. fun
+#define MUT_UNLOCKED 0
+#define MUT_LOCKED 1
+#define MUT_CONTENDED 2
 void mutex2::lock()
 {
-#error not implemented yet
+	int result = lock_cmpxchg(&futex, MUT_UNLOCKED, MUT_LOCKED);
+	if (result == MUT_UNLOCKED)
+	{
+		return; // nothing to do, this is the fast path
+	}
+	
+	lock_cmpxchg(&futex, MUT_LOCKED, MUT_CONTENDED);
+	//may have changed in the meanwhile
+	//changed to CONTENDED - ignore failure, that's what we want anyways
+	//changed to UNLOCKED - ignore failure again, futex() will instantly return and then the cmpxchg will lock it for us
+	while (true)
+	{
+		futex(&futex, FUTEX_WAIT, MUT_CONTENDED);
+		result = lock_cmpxchg(&futex, MUT_UNLOCKED, MUT_LOCKED);
+		if (result == MUT_UNLOCKED) break;
+	}
 }
+
 bool mutex2::try_lock()
 {
+	return (lock_cmpxchg(&futex, MUT_UNLOCKED, MUT_LOCKED) == MUT_UNLOCKED);
 }
+
 void mutex2::unlock()
 {
+	int result = lock_xchg(&futex, MUT_UNLOCKED);
+	if (result == MUT_CONTENDED)
+	{
+		futex(&futex, FUTEX_WAKE, 1);
+	}
 }
 
 
@@ -161,47 +193,4 @@ uintptr_t thread_get_id()
 	//(it's some big mess the first time, apparently the dependency is dynamically loaded)
 	return pthread_self();
 }
-
-
-//pthread doesn't seem to contain anything like this, but gcc is the only supported compiler here, so I can use its builtins.
-//or if I get any non-gcc compilers, I can throw in the C++11 atomics. That's why these builtins exist, anyways.
-//for Clang, if these GCC builtins aren't supported (most are), http://clang.llvm.org/docs/LanguageExtensions.html#c11-atomic-builtins
-#if GCC_VERSION >= 40700
-//https://gcc.gnu.org/onlinedocs/gcc-4.7.0/gcc/_005f_005fatomic-Builtins.html
-uint32_t lock_incr(uint32_t * val) { return __atomic_add_fetch(val, 1, __ATOMIC_ACQ_REL); }
-uint32_t lock_decr(uint32_t * val) { return __atomic_sub_fetch(val, 1, __ATOMIC_ACQ_REL); }
-uint32_t lock_read(uint32_t * val) { return __atomic_load_n(val, __ATOMIC_ACQUIRE); }
-
-void* lock_read_i(void* * val) { return __atomic_load_n(val, __ATOMIC_ACQUIRE); }
-void lock_write_i(void** val, void* newval) { return __atomic_store_n(val, newval, __ATOMIC_RELEASE); }
-//there is a modern version of this, but it adds another move instruction for whatever reason and otherwise gives the same binary.
-void* lock_write_eq_i(void** val, void* old, void* newval) { return __sync_val_compare_and_swap(val, old, newval); }
-//void* lock_write_eq_i(void** val, void* old, void* newval)
-//{
-//	__atomic_compare_exchange_n(val, &old, newval, false, __ATOMIC_ACQ_REL, __ATOMIC_ACQUIRE);
-//	return old;
-//}
-void* lock_xchg_i(void** val, void* newval) { return __atomic_exchange_n(val, newval, __ATOMIC_ACQ_REL); }
-#else
-//https://gcc.gnu.org/onlinedocs/gcc-4.1.2/gcc/Atomic-Builtins.html
-uint32_t lock_incr(uint32_t * val) { return __sync_add_and_fetch(val, 1); }
-uint32_t lock_decr(uint32_t * val) { return __sync_sub_and_fetch(val, 1); }
-uint32_t lock_read(uint32_t * val) { return __sync_val_compare_and_swap(val, 0, 0); }
-
-inline void* lock_read_i(void* * val) { return __sync_val_compare_and_swap(val, 0, 0); }
-void lock_write_i(void** val, void* newval) { *val=newval; __sync_synchronize(); }
-void* lock_write_eq_i(void** val, void* old, void* newval) { return __sync_val_compare_and_swap(val, old, newval); }
-
-//no such thing - emulate it
-void* lock_xchg_i(void** val, void* newval)
-{
-	void* prev=lock_read(val);
-	while (true)
-	{
-		void* prev2=lock_write_eq(val, prev, newval);
-		if (prev==prev2) break;
-		else prev=prev2;
-	}
-}
-#endif
 #endif

@@ -2,18 +2,17 @@
 
 #include "host.h"
 
-#ifdef OS_WINDOWS_VISTA
+#ifdef OS_WINDOWS
 #  undef _WIN32_WINNT
-#  define _WIN32_WINNT 0x0600
+#  ifndef OS_WINDOWS_XP
+#    define _WIN32_WINNT 0x0600
+#  else
+#    define _WIN32_WINNT 0x0501
+#  endif
+#  define _WIN32_IE 0x0600
 #  define _WIN32_IE 0x0600
 //the namespace pollution this causes is massive, but without it, there's a bunch of functions that
 // just tail call kernel32.dll. With it, they can be inlined.
-#  include <windows.h>
-#  undef interface
-#elif defined(OS_WINDOWS_XP)
-#  undef _WIN32_WINNT
-#  define _WIN32_WINNT 0x0501
-#  define _WIN32_IE 0x0600
 #  include <windows.h>
 #  undef interface
 #endif
@@ -22,6 +21,8 @@
 #define GCC_VERSION (__GNUC__ * 10000 \
                      + __GNUC_MINOR__ * 100 \
                      + __GNUC_PATCHLEVEL__)
+#else
+#define GCC_VERSION 0
 #endif
 
 #ifndef _GNU_SOURCE
