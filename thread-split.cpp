@@ -7,7 +7,7 @@ namespace {
 
 //TODO: there is no procedure for destroying threads
 struct threadpool {
-	mutex2 lock;
+	mutex lock;
 	
 	multievent* wake;
 	multievent* started;

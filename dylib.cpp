@@ -6,14 +6,12 @@
 #endif
 
 #ifdef DYLIB_WIN32
-#undef _WIN32_WINNT
-#define _WIN32_WINNT 0x0502//0x0501 excludes SetDllDirectory, so I need to put it at 0x0502
 #undef bind
 #include <windows.h>
 #define bind bind_func
 #endif
 
-static mutex2 dylib_lock;
+static mutex dylib_lock;
 
 dylib* dylib::create(const char * filename, bool * owned)
 {

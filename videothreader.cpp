@@ -23,7 +23,7 @@ struct video_thread_frame {
 class video_thread : public video {
 public://since this entire file is private, making it public inside here does no harm
 	video* next;//Child-only.
-	mutex2 lock;//Thread safe.
+	mutex lock;//Thread safe.
 	event* wake_parent;//Thread safe.
 	event* wake_child;//Thread safe.
 	

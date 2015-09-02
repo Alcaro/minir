@@ -68,7 +68,7 @@ char * _window_native_get_absolute_path(const char * basepath, const char * path
 
 static const char * cwd_init;
 static const char * cwd_bogus;
-static mutex2 cwd_mutex;
+static mutex cwd_mutex;
 
 static void window_cwd_enter(const char * dir)
 {

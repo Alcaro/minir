@@ -61,7 +61,7 @@ unsigned int thread_ideal_count();
 //However, it it allowed to hold multiple locks simultaneously.
 //lock() is not guaranteed to yield the CPU if it can't grab the lock. It may be implemented as a busy loop.
 //Remember to create all relevant mutexes before creating a thread.
-class mutex2 : nocopy {
+class mutex : nocopy {
 #if defined(__linux__)
 	int fut;
 	
@@ -90,32 +90,12 @@ public:
 	
 public:
 	//yay, initializers. no real way to avoid them here.
-	mutex2() { InitializeCriticalSection(&cs); }
+	mutex() { InitializeCriticalSection(&cs); }
 	void lock() { EnterCriticalSection(&cs); }
 	bool try_lock() { return TryEnterCriticalSection(&cs); }
 	void unlock() { LeaveCriticalSection(&cs); }
-	~mutex2() { DeleteCriticalSection(&cs); }
+	~mutex() { DeleteCriticalSection(&cs); }
 #endif
-};
-
-
-//A reader-writer lock is similar to a mutex, but can be locked in two ways - either for reading or for writing.
-//Multiple threads may lock it for reading simultaneously; however, only one writer may enter.
-class rwlock : nocopy {
-	rwlock(){}
-public:
-	static rwlock* create();
-	
-	void wlock();
-	bool wtry_lock();
-	void wunlock();
-	
-	void rlock();
-	bool rtry_lock();
-	void runlock();
-	
-	static void operator delete(void* p) { if (p) ((rwlock*)p)->release(); }
-	void release();
 };
 
 
@@ -123,7 +103,8 @@ public:
 //Executes 'calculate' exactly once. The return value is stored in 'item'. If multiple threads call
 // this simultaneously, none returns until calculate() is done.
 //'item' must be initialized to NULL. calculate() must return a valid pointer to an object.
-// 'return new mutex;' is valid, as is returning the address of something static. (void*)1 is not allowed.
+// 'return new mutex;' is valid, as is returning the address of something static.
+//Non-pointers, such as (void*)1, are not allowed.
 //Returns *item.
 void* thread_once_core(void* * item, function<void*()> calculate);
 template<typename T> T* thread_once(T* * item, function<T*()> calculate)
@@ -155,9 +136,9 @@ template<typename T> T* thread_once_create(T* * item)
 
 class mutexlocker {
 	mutexlocker();
-	mutex2* m;
+	mutex* m;
 public:
-	mutexlocker(mutex2* m) { this->m=m; this->m->lock(); }
+	mutexlocker(mutex* m) { this->m=m; this->m->lock(); }
 	~mutexlocker() { this->m->unlock(); }
 };
 //#define CRITICAL_FUNCTION() static smutex CF_holder; mutexlocker CF_lock(&CF_holder)
