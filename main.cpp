@@ -836,6 +836,8 @@ bool closethis(struct window * subject, void* userdata)
 
 void initialize(int argc, char * argv[])
 {
+	window_init(&argc, &argv);
+	
 	memset(&config, 0, sizeof(config));
 	
 	create_self_path(argv[0]);
