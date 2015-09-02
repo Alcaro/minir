@@ -7,7 +7,7 @@ namespace {
 
 //TODO: there is no procedure for destroying threads
 struct threadpool {
-	mutex* lock;
+	mutex2 lock;
 	
 	multievent* wake;
 	multievent* started;
@@ -40,6 +40,23 @@ void threadproc(struct threadpool * this)
 	}
 }
 
+struct threadpool* pool_create()
+{
+	struct threadpool * pool = new threadpool;
+	
+	pool->wake=new multievent();
+	pool->started=new multievent();
+	pool->numthreads=0;
+	pool->numidle=0;
+}
+
+void pool_delete(struct threadpool* pool)
+{
+	delete pool->wake;
+	delete pool->started;
+	delete pool;
+}
+
 }
 
 void thread_split(unsigned int count, function<void(unsigned int id)> work)
@@ -50,20 +67,9 @@ void thread_split(unsigned int count, function<void(unsigned int id)> work)
 		work(0);
 		return;
 	}
-	struct threadpool * this=pool;
-	if (!this)
-	{
-		this=malloc(sizeof(struct threadpool));
-		pool=this;
-		this->lock=mutex::create();
-		this->wake=new multievent();
-		this->started=new multievent();
-		this->numthreads=0;
-		this->numidle=0;
-		
-		//thread_create(threadproc, this);
-	}
-	this->lock->lock();
+	struct threadpool * this = thread_once_undo(&pool, bind(pool_create), bind(pool_delete));
+	
+	this->lock.lock();
 	multievent* done=new multievent();
 	
 	this->work=work;
@@ -79,7 +85,7 @@ void thread_split(unsigned int count, function<void(unsigned int id)> work)
 	
 	this->wake->signal(count-1);
 	this->started->wait(count-1);
-	this->lock->unlock();
+	this->lock.unlock();
 	
 	work(0);
 	

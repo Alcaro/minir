@@ -110,34 +110,6 @@ void mutex2::unlock()
 #include <stdlib.h>
 #include <string.h>
 
-mutex* mutex::create()
-{
-	pthread_mutex_t* ret=malloc(sizeof(pthread_mutex_t));
-	pthread_mutex_init(ret, NULL);
-	return (mutex*)ret;
-}
-
-void mutex::lock()
-{
-	pthread_mutex_lock((pthread_mutex_t*)this);
-}
-
-bool mutex::try_lock()
-{
-	return (pthread_mutex_trylock((pthread_mutex_t*)this)==0);
-}
-
-void mutex::unlock()
-{
-	pthread_mutex_unlock((pthread_mutex_t*)this); 
-}
-
-void mutex::release()
-{
-	pthread_mutex_destroy((pthread_mutex_t*)this);
-	free(this);
-}
-
 
 event::event()
 {

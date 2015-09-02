@@ -13,7 +13,7 @@
 #define bind bind_func
 #endif
 
-static smutex dylib_lock;
+static mutex2 dylib_lock;
 
 dylib* dylib::create(const char * filename, bool * owned)
 {

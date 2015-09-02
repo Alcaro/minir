@@ -61,19 +61,6 @@ unsigned int thread_ideal_count();
 //However, it it allowed to hold multiple locks simultaneously.
 //lock() is not guaranteed to yield the CPU if it can't grab the lock. It may be implemented as a busy loop.
 //Remember to create all relevant mutexes before creating a thread.
-class mutex : nocopy {
-	mutex(){}
-public:
-	static mutex* create();
-	void lock();
-	bool try_lock();
-	void unlock();
-	
-	static void operator delete(void* p) { if (p) ((mutex*)p)->release(); }
-	void release();
-};
-
-//This one is like mutex, but intended for use as a value type, embedded inside various other structures.
 class mutex2 : nocopy {
 #if defined(__linux__)
 	int fut;
@@ -165,46 +152,16 @@ template<typename T> T* thread_once_create(T* * item)
 	return (T*)thread_once_create_gccbug<generic_new_void<T>, generic_delete_void<T> >((void**)item);
 }
 
-#define CREATE_FUNCTION(T)                                                  \
-	static inline T* thread_once_create(T* * item)                            \
-	{                                                                         \
-		class I {                                                               \
-		public:                                                                 \
-			static void* create() { return (void*)T::create(); }                  \
-			static void undo(void* obj) { delete (T*)obj; }                       \
-		};                                                                      \
-		                                                                        \
-		return (T*)thread_once_create_gccbug<generic_create_void<T>, generic_delete_void<T> >((void**)item); \
-	}
-
-CREATE_FUNCTION(mutex);
-#undef CREATE_FUNCTION
-
 
 class mutexlocker {
 	mutexlocker();
-	mutex* m;
+	mutex2* m;
 public:
-	mutexlocker(mutex* m) { this->m=m; this->m->lock(); }
+	mutexlocker(mutex2* m) { this->m=m; this->m->lock(); }
 	~mutexlocker() { this->m->unlock(); }
 };
 //#define CRITICAL_FUNCTION() static smutex CF_holder; mutexlocker CF_lock(&CF_holder)
 #define synchronized(mutex) for(bool FIRST=true;FIRST;FIRST=false)for(mutexlocker LOCK(mutex);FIRST;FIRST=false)
-
-//Wrapper around a mutex, to treat it more like a value class.
-class smutex {
-public:
-	smutex() : mut(mutex::create()) {}
-	~smutex() { delete mut; }
-	
-	void lock() { mut->lock(); }
-	bool try_lock() { return mut->try_lock(); }
-	void unlock() { mut->unlock(); }
-	
-	operator mutex*() { return mut; }
-private:
-	mutex* mut;
-};
 
 //This one lets one thread wake another.
 //The conceptual difference between this and a mutex is that while a mutex is intended to protect a

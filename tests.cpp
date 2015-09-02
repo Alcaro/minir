@@ -352,7 +352,7 @@ printf("%id\n",id);
 	
 	//test heavy lock/unlock
 	//expected duration: instant
-	for (int i=0;i<10000;i++)
+	for (int i=0;i<1000000;i++)
 	{
 		mut.lock();
 		iter++;
@@ -373,7 +373,7 @@ void threadproc_perf(void* idptr)
 		for (int i=0;i<10000000;i++)
 		{
 			mut.lock();
-			derp++; // This like, this extra instruction, makes this one run about three times faster (1.7s -> 0.6s), reproducibly.
+			derp++; // This line, this extra instruction, makes this one run about three times faster (1.7s -> 0.6s), reproducibly.
 			mut.unlock();
 		}
 	}
@@ -410,7 +410,7 @@ void main()
 	main_release();
 	
 	main_wait();
-	assert(iter==40000);
+	assert(iter==4000000);
 }
 
 void main_perf()
