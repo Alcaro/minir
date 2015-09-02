@@ -1,6 +1,7 @@
 #ifdef SELFTEST
 //    cls & g++ -DSELFTEST -DNOMAIN tests.cpp debug.cpp memory.cpp -g & gdb a.exe
 //rm a.out; g++ -DSELFTEST -DNOMAIN tests.cpp debug.cpp memory.cpp thread-linux.cpp -pthread -g && valgrind ./a.out
+//rm a.out; g++ -DSELFTEST -DNOMAIN tests.cpp debug.cpp memory.cpp thread-linux.cpp -pthread -O3 && time ./a.out
 #include "os.h"
 #include "containers.h"
 #include "endian.h"
@@ -305,9 +306,16 @@ namespace test_threads {
 mutex2 mut;
 int iter;
 
-multievent ev;
+multievent ev1;
+multievent ev2;
 
-void test1(void* idptr)
+void barrier()
+{
+	ev1.signal();
+	ev2.wait();
+}
+
+void threadproc(void* idptr)
 {
 	int id = (int)(uintptr_t)idptr;
 	//test light contention
@@ -320,29 +328,28 @@ void test1(void* idptr)
 		thread_sleep(1000);
 	}
 	
-	ev.signal();
-}
-
-void test2(void* idptr)
-{
-	int id = (int)(uintptr_t)idptr;
+printf("%ia\n",id);
+	barrier();
+printf("%ib\n",id);
+	
 	//test heavy contention
 	//expected duration: 4 seconds
 	//due to the heavy contention on this mutex, there will be many sleeps and wakeups; 'time' may return raised sys numbers for this
 	for (int i=0;i<1000;i++)
 	{
+//printf("%il",id);
 		mut.lock();
 		iter++;
+//printf("%is",id);
 		thread_sleep(1000);
+//printf("%iu",id);
 		mut.unlock();
 	}
 	
-	ev.signal();
-}
-
-void test3(void* idptr)
-{
-	int id = (int)(uintptr_t)idptr;
+printf("%ic\n",id);
+	barrier();
+printf("%id\n",id);
+	
 	//test heavy lock/unlock
 	//expected duration: instant
 	for (int i=0;i<10000;i++)
@@ -352,34 +359,69 @@ void test3(void* idptr)
 		mut.unlock();
 	}
 	
-	ev.signal();
+printf("%ie\n",id);
+	ev1.signal();
 }
 
-static void main()
+int derp=0;
+void threadproc_perf(void* idptr)
+{
+	int id = (int)(uintptr_t)idptr;
+	
+	if (id < 2)
+	{
+		for (int i=0;i<10000000;i++)
+		{
+			mut.lock();
+			derp++; // This like, this extra instruction, makes this one run about three times faster (1.7s -> 0.6s), reproducibly.
+			mut.unlock();
+		}
+	}
+	
+	ev1.signal();
+}
+
+void main_wait()
+{
+	for (int i=0;i<4;i++) ev1.wait();
+}
+
+void main_release()
+{
+	for (int i=0;i<4;i++) ev2.signal();
+}
+
+void main()
 {
 	iter=0;
 	for (int i=0;i<4;i++)
 	{
-		thread_create(bind_ptr(test1, (void*)(uintptr_t)i));
+		thread_create(bind_ptr(threadproc, (void*)(uintptr_t)i));
 	}
-	for (int i=0;i<4;i++) ev.wait();
-	assert(iter==4000);
 	
-	iter=0;
-	for (int i=0;i<4;i++)
-	{
-		thread_create(bind_ptr(test2, (void*)(uintptr_t)i));
-	}
-	for (int i=0;i<4;i++) ev.wait();
+	main_wait();
 	assert(iter==4000);
-	
 	iter=0;
-	for (int i=0;i<4;i++)
-	{
-		thread_create(bind_ptr(test3, (void*)(uintptr_t)i));
-	}
-	for (int i=0;i<4;i++) ev.wait();
+	main_release();
+	
+	main_wait();
+	assert(iter==4000);
+	iter=0;
+	main_release();
+	
+	main_wait();
 	assert(iter==40000);
+}
+
+void main_perf()
+{
+	for (int i=0;i<4;i++)
+	{
+		thread_create(bind_ptr(threadproc_perf, (void*)(uintptr_t)i));
+	}
+	
+	main_wait();
+	printf("n=%i\n",derp);
 }
 }
 
@@ -391,6 +433,7 @@ int main()
 	//test_endian();
 	//test_hashset();
 	//test_bitarray();
-	//test_threads::main(); // warning: takes a while.
+	//test_threads::main(); // warning: takes 5sec
+	test_threads::main_perf();
 }
 #endif

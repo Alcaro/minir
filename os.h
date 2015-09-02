@@ -51,6 +51,8 @@ void thread_create(function<void()> startpos);
 //Returns the number of threads to create to utilize the system resources optimally.
 unsigned int thread_ideal_count();
 
+#include "atomic.h"
+
 //This is a simple tool that ensures only one thread is doing a certain action at a given moment.
 //Memory barriers are inserted as appropriate. Any memory access done while holding a lock is finished while holding this lock.
 //This means that if all access to an object is done exclusively while holding the lock, no further synchronization is needed.
@@ -244,84 +246,6 @@ private:
 	void* data;
 	signed int n_count;//Not used by all implementations.
 };
-
-
-#if GCC_VERSION >= 40700
-//https://gcc.gnu.org/onlinedocs/gcc-4.7.0/gcc/_005f_005fatomic-Builtins.html
-
-//Increments or decrements a variable, while guaranteeing atomicity relative to other threads. lock_read() just reads the value.
-//Returns the value after changing it.
-inline uint32_t lock_incr(uint32_t * val) { return __atomic_add_fetch(val, 1, __ATOMIC_ACQ_REL); }
-inline uint32_t lock_decr(uint32_t * val) { return __atomic_sub_fetch(val, 1, __ATOMIC_ACQ_REL); }
-inline uint32_t lock_read(uint32_t * val) { return __atomic_load_n(val, __ATOMIC_ACQUIRE); }
-
-inline int32_t lock_incr(int32_t * val) { return __atomic_add_fetch(val, 1, __ATOMIC_ACQ_REL); }
-inline int32_t lock_decr(int32_t * val) { return __atomic_sub_fetch(val, 1, __ATOMIC_ACQ_REL); }
-inline int32_t lock_read(int32_t * val) { return __atomic_load_n(val, __ATOMIC_ACQUIRE); }
-inline int32_t lock_cmpxchg(int32_t* val, int32_t old, int32_t newval) { return __sync_val_compare_and_swap(val, old, newval); }
-inline int32_t lock_xchg(int32_t* val, int32_t newval) { return __atomic_exchange_n(val, newval, __ATOMIC_ACQ_REL); }
-
-//Alternate overloads for pointers. Internal implementation, don't use.
-inline void* lock_read_p(void* * val) { return __atomic_load_n(val, __ATOMIC_ACQUIRE); }
-inline void lock_write_p(void** val, void* newval) { return __atomic_store_n(val, newval, __ATOMIC_RELEASE); }
-//Writes 'newval' to *val only if it currently equals 'old'. Returns the old value of *val, which can be compared with 'old'.
-//there is a modern version of this, but it adds another move instruction for whatever reason and otherwise gives the same binary.
-inline void* lock_cmpxchg_p(void** val, void* old, void* newval) { return __sync_val_compare_and_swap(val, old, newval); }
-//void* lock_cmpxchg_i(void** val, void* old, void* newval)
-//{
-//	__atomic_compare_exchange_n(val, &old, newval, false, __ATOMIC_ACQ_REL, __ATOMIC_ACQUIRE);
-//	return old;
-//}
-inline void* lock_xchg_p(void** val, void* newval) { return __atomic_exchange_n(val, newval, __ATOMIC_ACQ_REL); }
-#elif GCC_VERSION > 0
-//https://gcc.gnu.org/onlinedocs/gcc-4.1.2/gcc/Atomic-Builtins.html
-uint32_t lock_incr(uint32_t * val) { return __sync_add_and_fetch(val, 1); }
-uint32_t lock_decr(uint32_t * val) { return __sync_sub_and_fetch(val, 1); }
-uint32_t lock_read(uint32_t * val) { return __sync_val_compare_and_swap(val, 0, 0); }
-
-inline void* lock_read_p(void* * val) { return __sync_val_compare_and_swap(val, 0, 0); }
-inline void lock_write_p(void** val, void* newval) { *val=newval; __sync_synchronize(); }
-inline void* lock_cmpxchg_p(void** val, void* old, void* newval) { return __sync_val_compare_and_swap(val, old, newval); }
-
-//no such thing - emulate it
-inline void* lock_xchg_i(void** val, void* newval)
-{
-	void* prev=lock_read(val);
-	while (true)
-	{
-		void* prev2=lock_cmpxchg(val, prev, newval);
-		if (prev==prev2) break;
-		else prev=prev2;
-	}
-}
-#elif defined(OS_WINDOWS)
-inline uint32_t lock_incr(uint32_t* val) { return InterlockedIncrement((LONG*)val); }
-inline uint32_t lock_decr(uint32_t* val) { return InterlockedDecrement((LONG*)val); }
-inline uint32_t lock_read(uint32_t* val) { return InterlockedCompareExchange((LONG*)val, 0, 0); }
-
-inline void* lock_read_p(void* * val) { return InterlockedCompareExchangePointer(val, 0, 0); }
-inline void lock_write_p(void** val, void* value) { (void)InterlockedExchangePointer(val, value); }
-inline void* lock_cmpxchg_p(void** val, void* old, void* newval) { return InterlockedCompareExchangePointer(val, newval, old); }
-inline void* lock_xchg_p(void** val, void* value) { return InterlockedExchangePointer(val, value); }
-#endif
-
-
-
-
-template<typename T> T* lock_read(T** val) { return (T*)lock_read_p((void**)val); }
-template<typename T> void lock_write(T** val, T* newval) { lock_write_p((void**)val, (void*)newval); }
-template<typename T> T* lock_cmpxchg(T** val, T* old, T* newval) { return (T*)lock_cmpxchg_p((void**)val, (void*)old, (void*)newval); }
-template<typename T> T* lock_xchg(T** val, T* newval) { return (T*)lock_xchg_p((void**)val, (void*)newval); }
-
-#if NULL==0
-//the NULL/0 duality is one of the dumbest things I have ever seen. at least C++11 fixes that garbage
-class null_only;
-template<typename T> void lock_write(T** val, null_only* newval) { lock_write_p((void**)val, NULL); }
-template<typename T> T* lock_cmpxchg(T** val, null_only* old, T* newval) { return (T*)lock_cmpxchg_p((void**)val, NULL, (void*)newval); }
-template<typename T> T* lock_cmpxchg(T** val, T* old, null_only* newval) { return (T*)lock_cmpxchg_p((void**)val, (void*)old, NULL); }
-template<typename T> T* lock_cmpxchg(T** val, null_only* old, null_only* newval) { return (T*)lock_cmpxchg_p((void**)val, NULL, NULL); }
-template<typename T> T* lock_xchg(T** val, null_only* newval) { return (T*)lock_xchg_p((void**)val, NULL); }
-#endif
 
 
 void thread_sleep(unsigned int usec);

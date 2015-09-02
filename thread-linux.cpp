@@ -45,19 +45,24 @@ void thread_sleep(unsigned int usec)
 }
 
 
-static int futex(int * uaddr, int op, int val, const struct timespec * timeout = NULL,
-                 int * uaddr2 = NULL, int val3 = 0)
+static int futex_wait(int * uaddr, int val, const struct timespec * timeout = NULL)
 {
-	syscall(__NR_futex, uaddr, op, val, timeout, uaddr2, val3);
+	return syscall(__NR_futex, uaddr, FUTEX_WAIT_PRIVATE, val, timeout);
 }
+static int futex_wake(int * uaddr, int val)
+{
+	return syscall(__NR_futex, uaddr, FUTEX_WAKE_PRIVATE, val);
+}
+
 
 //futexes. complex threading code. fun
 #define MUT_UNLOCKED 0
 #define MUT_LOCKED 1
 #define MUT_CONTENDED 2
+
 void mutex2::lock()
 {
-	int result = lock_cmpxchg(&fut, MUT_UNLOCKED, MUT_LOCKED);
+	int result = lock_cmpxchg_acq(&fut, MUT_UNLOCKED, MUT_LOCKED);
 	if (result == MUT_UNLOCKED)
 	{
 		return; // unlocked, fast path
@@ -66,30 +71,31 @@ void mutex2::lock()
 	//If it was locked, mark it contended and force whoever to wake us.
 	//In the common contended case, it was previously MUT_LOCKED, so the futex would instantly return.
 	//Therefore, the xchg should be run first.
+	
 	while (true)
 	{
-		result = lock_xchg(&fut, MUT_CONTENDED);
+		result = lock_xchg_loose(&fut, MUT_CONTENDED);
 		//results:
 		//MUT_UNLOCKED - we got it, continue
 		//MUT_CONTENDED - didn't get it, sleep for a while
-		//MUT_LOCKED - someone else got it and locked it, thinking it empty, while we're here. force it to wake us.
+		//MUT_LOCKED - someone else got it and locked it, thinking it's empty, while we're here. force it to wake us.
 		if (result == MUT_UNLOCKED) break;
 		
-		futex(&fut, FUTEX_WAIT_PRIVATE, MUT_CONTENDED);
+		futex_wait(&fut, MUT_CONTENDED);
 	}
 }
 
 bool mutex2::try_lock()
 {
-	return (lock_cmpxchg(&fut, MUT_UNLOCKED, MUT_LOCKED) == MUT_UNLOCKED);
+	return (lock_cmpxchg_acq(&fut, MUT_UNLOCKED, MUT_LOCKED) == MUT_UNLOCKED);
 }
 
 void mutex2::unlock()
 {
-	int result = lock_xchg(&fut, MUT_UNLOCKED);
-	if (result == MUT_CONTENDED)
+	int result = lock_xchg_rel(&fut, MUT_UNLOCKED);
+	if (UNLIKELY(result == MUT_CONTENDED))
 	{
-		futex(&fut, FUTEX_WAKE_PRIVATE, 1);
+		futex_wake(&fut, 1);
 	}
 }
 

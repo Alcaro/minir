@@ -498,6 +498,11 @@ severities
 "warning",
 "error"
 };
+if(
+severity
+!=
+0
+)
 printf(
 "[%s: %s]\n",
 severities

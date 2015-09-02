@@ -21,8 +21,12 @@
 #define GCC_VERSION (__GNUC__ * 10000 \
                      + __GNUC_MINOR__ * 100 \
                      + __GNUC_PATCHLEVEL__)
+#define LIKELY(expr)    __builtin_expect(!!(expr), true)
+#define UNLIKELY(expr)  __builtin_expect(!!(expr), false)
 #else
 #define GCC_VERSION 0
+#define LIKELY(expr)    (expr)
+#define UNLIKELY(expr)  (expr)
 #endif
 
 #ifndef _GNU_SOURCE
