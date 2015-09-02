@@ -120,6 +120,7 @@ void* thread_once_core(void* * item, function<void*()> calculate)
 {
 	void* rd = *item;
 	//common case - initialized already
+	//not using an atomic read because stale values are fine, they're caught by the cmpxchg
 	if (rd!=ONCE_NEW && rd!=ONCE_ONE && rd!=ONCE_CONTENDED) return rd;
 	
 	void* old = lock_cmpxchg(item, ONCE_NEW, ONCE_ONE);

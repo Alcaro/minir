@@ -32,6 +32,7 @@ void* thread_once_core(void* * item, function<void*()> calculate)
 {
 	void* check=*item;
 	//common case - initialized already
+	//not using an atomic read because stale values are fine, they're caught by the cmpxchg
 	if (check!=NULL && check!=tag_busy && check!=tag_contended) return check;
 	
 	void* old=lock_cmpxchg(item, NULL, tag_busy);
