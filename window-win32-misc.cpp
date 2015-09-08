@@ -4,6 +4,7 @@
 #ifdef WINDOW_WIN32
 #undef bind
 #include <windows.h>
+#include <commdlg.h>
 #define bind bind_func
 
 //Number of ugly hacks: 5

@@ -5,6 +5,7 @@
 #define bind bind_func
 #include <windowsx.h>
 #include <commctrl.h>
+#include <shellapi.h>
 #include <stdlib.h>
 
 //controls HIG and screenshots of them http://msdn.microsoft.com/en-us/library/dn742399.aspx

@@ -79,33 +79,36 @@ LOCKD_LOCKS(void*)
 
 #elif defined(_WIN32)
 
-#warning "TODO: fix this once I've figured out which of the functions MSVC supports."
+#define LOCKD_LOCKS_MODEL(type, wintype, suffix, modelname) \
+	inline type lock_incr##modelname(type* val) { return (type)(InterlockedIncrement##suffix((wintype*)val)-1); } \
+	inline type lock_decr##modelname(type* val) { return (type)(InterlockedDecrement##suffix((wintype*)val)+1); } \
+	inline type lock_xchg##modelname(type* val, type newval) { return (type)InterlockedExchange##suffix((wintype*)val, (wintype)newval); } \
+	inline type lock_cmpxchg##modelname(type* val, type old, type newval) \
+		{ return (type)InterlockedCompareExchange##suffix((wintype*)val, (wintype)old, (wintype)newval); } \
 
-//#define LOCKD_LOCKS_MODEL(type, wintype, suffix, modelname) \
-//	inline type lock_incr##modelname(type* val) { return InterlockedIncrement##suffix((wintype*)val)-1; } \
-//	inline type lock_decr##modelname(type* val) { return InterlockedDecrement##suffix((wintype*)val)+1; } \
-//	inline type lock_xchg##modelname(type* val, type newval) { return InterlockedExchange##suffix((wintype*)val, (wintype)newval); } \
-//	inline type lock_cmpxchg##modelname(type* val, type old, type newval) \
-//		{ return InterlockedCompareExchange##suffix((wintype*)val, (wintype)old, (wintype)newval); } \
-//
-//#define LOCKD_LOCKS(type, wintype, suffix) \
-//	LOCKD_LOCKS_MODEL(type, wintype, suffix, , ) \
-//	LOCKD_LOCKS_MODEL(type, wintype, suffix##Acquire, _acq) \
-//	LOCKD_LOCKS_MODEL(type, wintype, suffix##Release, _rel) \
-//	LOCKD_LOCKS_MODEL(type, wintype, suffix##NoFence, _loose) \
-//
-//LOCKD_LOCKS(int32_t, LONG, )
-//LOCKD_LOCKS(uint32_t, LONG, )
-//LOCKD_LOCKS(void*, PVOID, Pointer)
+//MSVC doesn't know what half of the memory model thingies do. Substitute in the strong ones.
+#define LOCKD_LOCKS(type, wintype, suffix) \
+	LOCKD_LOCKS_MODEL(type, wintype, suffix, ) \
+	LOCKD_LOCKS_MODEL(type, wintype, suffix, _acq) \
+	LOCKD_LOCKS_MODEL(type, wintype, suffix, _rel) \
+	LOCKD_LOCKS_MODEL(type, wintype, suffix, _loose) \
+	\
+	inline type lock_read(type * val)       { return (type)InterlockedCompareExchange##suffix((wintype*)val, (wintype)0, (wintype)0); } \
+	inline type lock_read_acq(type * val)   { return (type)InterlockedCompareExchange##suffix((wintype*)val, (wintype)0, (wintype)0); } \
+	inline type lock_read_loose(type * val) { return (type)InterlockedCompareExchange##suffix((wintype*)val, (wintype)0, (wintype)0); } \
+	inline void lock_write(type * val, type value)       { (void)InterlockedExchange##suffix((wintype*)val, (wintype)value); }\
+	inline void lock_write_rel(type * val, type value)   { (void)InterlockedExchange##suffix((wintype*)val, (wintype)value); }\
+	inline void lock_write_loose(type * val, type value) { (void)InterlockedExchange##suffix((wintype*)val, (wintype)value); }\
 
-inline uint32_t lock_incr(uint32_t* val) { return InterlockedIncrement((LONG*)val); }
-inline uint32_t lock_decr(uint32_t* val) { return InterlockedDecrement((LONG*)val); }
-inline uint32_t lock_read(uint32_t* val) { return InterlockedCompareExchange((LONG*)val, 0, 0); }
-
-inline void* lock_read(void* * val) { return InterlockedCompareExchangePointer(val, 0, 0); }
-inline void lock_write(void** val, void* value) { (void)InterlockedExchangePointer(val, value); }
-inline void* lock_cmpxchg(void** val, void* old, void* newval) { return InterlockedCompareExchangePointer(val, newval, old); }
-inline void* lock_xchg(void** val, void* value) { return InterlockedExchangePointer(val, value); }
+#ifdef _M_IX86
+LOCKD_LOCKS(int32_t, LONG, )
+LOCKD_LOCKS(uint32_t, LONG, )
+LOCKD_LOCKS(void*, LONG, )
+#elif defined(_M_X64)
+LOCKD_LOCKS(int32_t, LONG, )
+LOCKD_LOCKS(uint32_t, LONG, )
+LOCKD_LOCKS(void*, LONGLONG, 64)
+#endif
 
 #endif
 

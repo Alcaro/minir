@@ -1,15 +1,8 @@
 #include "os.h"
 #include <stdlib.h>
 
-#ifdef DYLIB_POSIX
+#ifdef __unix__
 #include <dlfcn.h>
-#endif
-
-#ifdef DYLIB_WIN32
-#undef bind
-#include <windows.h>
-#define bind bind_func
-#endif
 
 static mutex dylib_lock;
 
@@ -17,7 +10,7 @@ dylib* dylib::create(const char * filename, bool * owned)
 {
 	dylib_lock.lock();
 	dylib* ret=NULL;
-#ifdef DYLIB_POSIX
+	
 	if (owned)
 	{
 		ret=(dylib*)dlopen(filename, RTLD_LAZY|RTLD_NOLOAD);
@@ -25,8 +18,42 @@ dylib* dylib::create(const char * filename, bool * owned)
 		if (ret) return ret;
 	}
 	if (!ret) ret=(dylib*)dlopen(filename, RTLD_LAZY);
+	
+	dylib_lock.unlock();
+	return ret;
+}
+
+void* dylib::sym_ptr(const char * name)
+{
+	return dlsym((void*)this, name);
+}
+
+funcptr dylib::sym_func(const char * name)
+{
+	funcptr ret;
+	*(void**)(&ret)=dlsym((void*)this, name);
+	return ret;
+}
+
+void dylib::release()
+{
+	dlclose((void*)this);
+}
 #endif
-#ifdef DYLIB_WIN32
+
+
+#ifdef _WIN32
+#undef bind
+#include <windows.h>
+#define bind bind_func
+
+static mutex dylib_lock;
+
+dylib* dylib::create(const char * filename, bool * owned)
+{
+	dylib_lock.lock();
+	dylib* ret=NULL;
+	
 	if (owned)
 	{
 		if (!GetModuleHandleEx(0, filename, (HMODULE*)&ret)) ret=NULL;
@@ -46,39 +73,23 @@ dylib* dylib::create(const char * filename, bool * owned)
 		ret=(dylib*)LoadLibrary(filename);
 		SetDllDirectory(NULL);
 	}
-#endif
+	
 	dylib_lock.unlock();
 	return ret;
 }
 
 void* dylib::sym_ptr(const char * name)
 {
-#ifdef DYLIB_POSIX
-	return dlsym((void*)this, name);
-#endif
-#ifdef DYLIB_WIN32
 	return (void*)GetProcAddress((HMODULE)this, name);
-#endif
 }
 
 funcptr dylib::sym_func(const char * name)
 {
-#ifdef DYLIB_POSIX
-	funcptr ret;
-	*(void**)(&ret)=dlsym((void*)this, name);
-	return ret;
-#endif
-#ifdef DYLIB_WIN32
 	return (funcptr)GetProcAddress((HMODULE)this, name);
-#endif
 }
 
 void dylib::release()
 {
-#ifdef DYLIB_POSIX
-	dlclose((void*)this);
-#endif
-#ifdef DYLIB_WIN32
 	FreeLibrary((HMODULE)this);
-#endif
 }
+#endif

@@ -27,8 +27,14 @@ OUTNAME = minir$(EXESUFFIX)
 
 OBJS = $(patsubst %.cpp,obj/%$(OBJSUFFIX).o,$(wildcard *.cpp)) $(EXTRAOBJ) obj/miniz$(OBJSUFFIX).o
 
-TRUE_CFLAGS = $(CFLAGS) $(CONF_CFLAGS) -fvisibility=hidden -fno-exceptions -std=c99
-TRUE_CXXFLAGS = $(CXXFLAGS) $(CONF_CXXFLAGS) -fvisibility=hidden -fno-exceptions -fno-rtti -std=c++98
+#-Wno-comment is because GCC hates code such as
+#//define foo(a,b,c) \
+#//  bar(a) \
+#//  bar(b) \
+#//  bar(c)
+#which is perfectly fine and GCC is just being stupid.
+TRUE_CFLAGS = $(CFLAGS) $(CONF_CFLAGS) -fvisibility=hidden -fno-exceptions -std=c99 -Wno-comment
+TRUE_CXXFLAGS = $(CXXFLAGS) $(CONF_CXXFLAGS) -fvisibility=hidden -fno-exceptions -fno-rtti -std=c++98 -Wno-comment
 TRUE_LFLAGS = $(LFLAGS) -fvisibility=hidden $(CONF_LFLAGS)
 
 

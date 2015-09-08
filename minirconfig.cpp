@@ -964,7 +964,7 @@ static void write(struct minirconfig * this_, const char * path)
 	reserve(1);
 	*outat='\0';
 	
-#ifdef LINEBREAK_CRLF
+#ifdef _WIN32
 	size_t len=0;
 	for (char * outlen=outstart;*outlen;outlen++)
 	{

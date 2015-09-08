@@ -1,6 +1,6 @@
 #include "os.h"
 
-#ifdef OS_WINDOWS
+#ifdef _WIN32
 #undef bind
 #include <windows.h>
 #define bind bind_func
@@ -17,7 +17,7 @@ void debug_abort()
 }
 #endif
 
-#ifdef OS_POSIX
+#ifdef __unix__
 #include <string.h>
 #include <signal.h>
 #include <unistd.h>

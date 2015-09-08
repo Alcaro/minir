@@ -17,24 +17,6 @@
 //#define WINDOW_GTK3
 //#define WINDOW_WIN32
 
-//Which system to use for file paths.
-#define FILEPATH_POSIX
-//#define FILEPATH_WINDOWS
-
-#define OS_POSIX
-//#define OS_WINDOWS
-//Disables Vista+-specific features. Defined in config.mk by configure.bat.
-//#define OS_WINDOWS_XP
-
-//#define LINEBREAK_CRLF
-
-//How to load dynamic libraries. Pick exactly one.
-#define DYLIB_POSIX
-//#define DYLIB_WIN32
-
-#define THREAD_PTHREAD
-//#define THREAD_WIN32
-
 //Which input/video/audio drivers to enable. Multiple of each kind may be enabled.
 #define INPUT_UDEV
 #define INPUT_GDK
@@ -57,11 +39,6 @@
 //#define AUDIO_PULSEAUDIO//defined by the configure script
 //#define AUDIO_DIRECTSOUND
 //#define AUDIO_WASAPI
-
-//#define NO_ANON_UNION_STRUCT
-#define HAVE_ASPRINTF
-//#define NO_UNALIGNED_MEM
-//#define HAVE_CG_SHADERS
 #endif
 
 
@@ -73,24 +50,6 @@
 //Which window toolkit to use. Pick exactly one.
 //#define WINDOW_GTK3
 //#define WINDOW_WIN32
-
-//Which system to use for file paths.
-//#define FILEPATH_POSIX
-#define FILEPATH_WINDOWS
-
-//#define OS_POSIX
-#define OS_WINDOWS
-//Disables Vista+-specific features. Defined in config.mk by configure.bat.
-//#define OS_WINDOWS_XP
-
-#define LINEBREAK_CRLF
-
-//How to load dynamic libraries. Pick exactly one.
-//#define DYLIB_POSIX
-#define DYLIB_WIN32
-
-//#define THREAD_PTHREAD
-#define THREAD_WIN32
 
 //Which input/video/audio drivers to enable. Multiple of each kind may be enabled.
 //#define INPUT_UDEV
@@ -114,20 +73,32 @@
 //#define AUDIO_PULSEAUDIO
 #define AUDIO_DIRECTSOUND
 #define AUDIO_WASAPI
-
-//#define NO_ANON_UNION_STRUCT
-#if (__GNUC__*10000 + __GNUC_MINOR__*100 + __GNUC_PATCHLEVEL__)>=40900
-#define HAVE_ASPRINTF
 #endif
-//#define NO_UNALIGNED_MEM
-//#define HAVE_CG_SHADERS
+
+
+#ifdef __APPLE__
+#define __unix__ 1 // you're a Unix, OSX, stop pretending not to be. Are you not proud of your heritage?
+#error not implemented.
+#endif
+
+
+#ifdef __GNUC__
+#define GCC_VERSION (__GNUC__ * 10000 \
+                     + __GNUC_MINOR__ * 100 \
+                     + __GNUC_PATCHLEVEL__)
+#define LIKELY(expr)    __builtin_expect(!!(expr), true)
+#define UNLIKELY(expr)  __builtin_expect(!!(expr), false)
+#else
+#define GCC_VERSION 0
+#define LIKELY(expr)    (expr)
+#define UNLIKELY(expr)  (expr)
 #endif
 
 #if __cplusplus >= 201103L
 #define HAVE_MOVE
 #endif
 
-#ifdef __linux__
+#if defined(__linux__) || GCC_VERSION >= 40900
 #define HAVE_ASPRINTF
 #endif
 
@@ -138,13 +109,3 @@
 #ifdef WINDOW_WIN32
 #define NEED_MANUAL_LAYOUT
 #endif
-
-#ifdef OS_WINDOWS_XP
-#define MUTEX_NEEDS_INIT
-#endif
-
-#if defined(OS_WINDOWS) && !defined(OS_WINDOWS_XP)
-#define OS_WINDOWS_VISTA
-#endif
-
-//#define HAVE_ZLIB

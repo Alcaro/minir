@@ -435,7 +435,7 @@ static void set_memory(struct minircheats_model * this_, const struct retro_memo
 #ifdef DEBUG
 for (unsigned int i=0;i<nummemory;i++)
 {
-printf("desc: fl=%X pt=%p of=%zx st=%zx se=%zx di=%zx le=%zx sp=%s\n",
+printf("desc: fl=%X pt=%p of=%" PRIXPTR " st=%" PRIXPTR " se=%" PRIXPTR " di=%" PRIXPTR " le=%" PRIXPTR " sp=%s\n",
 (unsigned int)memory[i].flags,
 memory[i].ptr,
 memory[i].offset,
@@ -1485,10 +1485,12 @@ static void cheat_remove(struct minircheats_model * this_, unsigned int pos)
 	this->numcheats--;
 }
 
+#ifndef cdecl
 #ifdef _MSC_VER
 #define cdecl __cdecl
 #else
 #define cdecl /* */
+#endif
 #endif
 static int cdecl cheat_sort_comp(const void * a_, const void * b_)
 {

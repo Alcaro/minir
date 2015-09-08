@@ -1,5 +1,5 @@
 #include "os.h"
-#ifdef THREAD_WIN32
+#ifdef _WIN32
 #undef bind
 #include <windows.h>
 #define bind bind_func
@@ -18,10 +18,10 @@ static DWORD WINAPI ThreadProc(LPVOID lpParameter)
 	free(thdat);
 	return 0;
 }
-void thread_create(function<void()> func)
+void thread_create(function<void()> start)
 {
 	struct threaddata_win32 * thdat=malloc(sizeof(struct threaddata_win32));
-	thdat->func=func;
+	thdat->func=start;
 	
 	//CreateThread is not listed as a synchronization point; it probably is, but I'd rather use a pointless
 	// operation than risk a really annoying bug. It's lightweight compared to creating a thread, anyways.
@@ -36,7 +36,7 @@ void thread_create(function<void()> func)
 	CloseHandle(h);
 }
 
-unsigned int thread_ideal_count()
+unsigned int thread_num_cores()
 {
 	SYSTEM_INFO sysinf;
 	GetSystemInfo(&sysinf);
@@ -51,24 +51,6 @@ void thread_sleep(unsigned int usec)
 
 
 //rewritables follow
-mutex* mutex::create()
-{
-	CRITICAL_SECTION* cs=malloc(sizeof(CRITICAL_SECTION));
-	InitializeCriticalSection(cs);
-	return (mutex*)cs;
-}
-
-void mutex::lock() { EnterCriticalSection((CRITICAL_SECTION*)this); }
-bool mutex::try_lock() { return TryEnterCriticalSection((CRITICAL_SECTION*)this); }
-void mutex::unlock() { LeaveCriticalSection((CRITICAL_SECTION*)this); }
-
-void mutex::release()
-{
-	DeleteCriticalSection((CRITICAL_SECTION*)this);
-	free(this);
-}
-
-
 event::event() { data=(void*)CreateEvent(NULL, false, false, NULL); }
 void event::signal() { SetEvent((HANDLE)this->data); }
 void event::wait() { WaitForSingleObject((HANDLE)this->data, INFINITE); }

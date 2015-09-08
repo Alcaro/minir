@@ -3,7 +3,9 @@
 #ifdef VIDEO_D3D9
 #define video cvideo
 #undef bind
+#define interface struct
 #include <D3D9.h>
+#undef interface
 #define bind bind_func
 
 //force some year-old C code to compile properly as C++ - I decided to switch long ago but still haven't finished.

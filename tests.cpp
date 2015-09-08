@@ -11,7 +11,7 @@ static void assert(bool cond)
 	if (!cond) debug_abort();
 }
 
-#ifdef OS_POSIX
+#ifdef __unix__
 #include <valgrind/memcheck.h>
 #else
 #define VALGRIND_DO_LEAK_CHECK

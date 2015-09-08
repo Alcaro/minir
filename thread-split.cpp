@@ -48,6 +48,8 @@ struct threadpool* pool_create()
 	pool->started=new multievent();
 	pool->numthreads=0;
 	pool->numidle=0;
+	
+	return pool;
 }
 
 void pool_delete(struct threadpool* pool)

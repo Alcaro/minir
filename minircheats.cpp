@@ -762,7 +762,7 @@ struct minircheats * minircheats_create()
 	
 	this->enabled=true;
 	this->model=minircheats_create_model();
-	this->model->thread_enable(this->model, thread_ideal_count());
+	this->model->thread_enable(this->model, thread_num_cores());
 	
 	return (struct minircheats*)this;
 }

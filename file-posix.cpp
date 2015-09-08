@@ -3,7 +3,7 @@
 
 #define MMAP_THRESHOLD 128*1024
 
-#ifdef FILEPATH_POSIX
+#ifdef __unix__
 #include <unistd.h>
 //#include <sys/types.h>
 #include <sys/stat.h>

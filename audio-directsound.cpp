@@ -2,7 +2,10 @@
 #include "io.h"
 #ifdef AUDIO_DIRECTSOUND
 #undef bind
+#define interface struct
+#include <mmreg.h> // dsound.h demands this, why is it not included
 #include <dsound.h>
+#undef interface
 #define bind bind_func
 
 //this file is heavily based on ruby by byuu

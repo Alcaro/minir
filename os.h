@@ -4,11 +4,11 @@
 //this is more thread.h than anything else - dylib is the only non-thread-related part. But there's
 // no other place where dylib would fit, so os.h it is.
 
-#ifdef DYLIB_POSIX
+#ifdef __unix__
 #define DYLIB_EXT ".so"
 #define DYLIB_MAKE_NAME(name) "lib" name DYLIB_EXT
 #endif
-#ifdef DYLIB_WIN32
+#ifdef _WIN32
 #define DYLIB_EXT ".dll"
 #define DYLIB_MAKE_NAME(name) name DYLIB_EXT
 #endif
@@ -46,10 +46,10 @@ void debug_abort();
 //It is safe to malloc() something in one thread and free() it in another.
 //It is not safe to call window_run_*() from within another thread than the one entering main().
 //A thread is rather heavy; for short-running jobs, use thread_create_short or thread_split.
-void thread_create(function<void()> startpos);
+void thread_create(function<void()> start);
 
 //Returns the number of threads to create to utilize the system resources optimally.
-unsigned int thread_ideal_count();
+unsigned int thread_num_cores();
 
 #include "atomic.h"
 
@@ -59,7 +59,8 @@ unsigned int thread_ideal_count();
 //It is not allowed for a thread to call lock() or try_lock() while holding the lock already. It is not allowed
 // for a thread to release the lock unless it holds it. It is not allowed to delete the lock while it's held.
 //However, it it allowed to hold multiple locks simultaneously.
-//lock() is not guaranteed to yield the CPU if it can't grab the lock. It may be implemented as a busy loop.
+//lock() is not guaranteed to yield the CPU if it can't grab the lock. It may be implemented as a
+// busy loop, or a hybrid scheme that spins a few times and then sleeps.
 //Remember to create all relevant mutexes before creating a thread.
 class mutex : nocopy {
 #if defined(__linux__)
@@ -70,9 +71,17 @@ public:
 	bool try_lock();
 	void unlock();
 	
-#elif defined(OS_WINDOWS_VISTA)
+#elif defined(__unix__)
+#error enable thread_pthread.cpp
+#elif _WIN32_WINNT >= 0x0600
 	
+#if !defined(_MSC_VER) || _MSC_VER > 1500
 	SRWLOCK srwlock = SRWLOCK_INIT;
+#else
+	SRWLOCK srwlock; // apparently MSVC2008 doesn't understand struct S item = {0}. let's do something it does understand and hope it's optimized out.
+public:
+	mutex() { srwlock.Ptr = NULL; } // and let's hope MS doesn't change the definition of RTL_SRWLOCK.
+#endif
 	//I could define a path for Windows 8+ that uses WaitOnAddress to shrink it to one single byte, but
 	//(1) The more code paths, the more potential for bugs, especially the code paths I don't regularly test
 	//(2) Saving seven bytes is pointless, a mutex is for protecting other resources and they're bigger
@@ -84,7 +93,7 @@ public:
 	bool try_lock() { return TryAcquireSRWLockExclusive(&srwlock); }
 	void unlock() { ReleaseSRWLockExclusive(&srwlock); }
 	
-#elif defined(OS_WINDOWS_XP)
+#elif _WIN32_WINNT >= 0x0501
 	
 	CRITICAL_SECTION cs;
 	
@@ -198,11 +207,16 @@ size_t thread_get_id();
 //Unlike thread_create, thread_split is expected to be called often, for short-running tasks. The threads may be reused.
 //It is safe to use the values 0 and 1. However, you should avoid going above thread_ideal_count().
 void thread_split(unsigned int count, function<void(unsigned int id)> work);
-#else // THREAD_NONE
-class smutex {
-public:
-	void lock() {}
-	bool try_lock() { return true; }
-	void unlock() {}
-};
+
+
+//It is permitted to define this as (e.g.) QThreadStorage<T> rather than compiler magic.
+//However, it must support operator=(T) and operator T(), so QThreadStorage is not directly usable. A subclass may be.
+//An implementation must support all stdint.h types, all basic integral types (char, short, etc), and all pointers.
+#ifdef __GNUC__
+#define THREAD_LOCAL(t) __thread t
+#endif
+#ifdef _MSC_VER
+#define THREAD_LOCAL(t) __declspec(thread) t
+#endif
+
 #endif

@@ -1,5 +1,5 @@
 #include "os.h"
-#if false
+#if defined(__unix__) && !defined(__linux__)
 #include <pthread.h>
 #include <semaphore.h>
 #include <errno.h>
@@ -20,16 +20,16 @@ static void * threadproc(void * userdata)
 	return NULL;
 }
 
-void thread_create(function<void()> func)
+void thread_create(function<void()> start)
 {
 	struct threaddata_pthread * thdat=malloc(sizeof(struct threaddata_pthread));
-	thdat->func=func;
+	thdat->func=start;
 	pthread_t thread;
 	if (pthread_create(&thread, NULL, threadproc, thdat)) abort();
 	pthread_detach(thread);
 }
 
-unsigned int thread_ideal_count()
+unsigned int thread_num_cores()
 {
 	//for more OSes: https://qt.gitorious.org/qt/qt/source/HEAD:src/corelib/thread/qthread_unix.cpp#L411, idealThreadCount()
 	//or http://stackoverflow.com/questions/150355/programmatically-find-the-number-of-cores-on-a-machine

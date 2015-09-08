@@ -2,31 +2,21 @@
 
 #include "host.h"
 
-#ifdef OS_WINDOWS
-#  undef _WIN32_WINNT
-#  ifndef OS_WINDOWS_XP
+#ifdef _WIN32
+#  ifndef _WIN32_WINNT
 #    define _WIN32_WINNT 0x0600
-#  else
+#    define NTDDI_VERSION NTDDI_VISTA
+#  elif _WIN32_WINNT < 0x0600
+#    undef _WIN32_WINNT
 #    define _WIN32_WINNT 0x0502//0x0501 excludes SetDllDirectory, so I need to put it at 0x0502
+#    define NTDDI_VERSION NTDDI_WINXPSP1
 #  endif
-#  define _WIN32_IE 0x0600
 #  define _WIN32_IE 0x0600
 //the namespace pollution this causes is massive, but without it, there's a bunch of functions that
 // just tail call kernel32.dll. With it, they can be inlined.
+#  define WIN32_LEAN_AND_MEAN
 #  include <windows.h>
-#  undef interface
-#endif
-
-#ifdef __GNUC__
-#define GCC_VERSION (__GNUC__ * 10000 \
-                     + __GNUC_MINOR__ * 100 \
-                     + __GNUC_PATCHLEVEL__)
-#define LIKELY(expr)    __builtin_expect(!!(expr), true)
-#define UNLIKELY(expr)  __builtin_expect(!!(expr), false)
-#else
-#define GCC_VERSION 0
-#define LIKELY(expr)    (expr)
-#define UNLIKELY(expr)  (expr)
+#  undef interface // screw that, I'm not interested in COM shittery
 #endif
 
 #ifndef _GNU_SOURCE
@@ -278,8 +268,8 @@ template<typename T> static inline T bitround(T in)
 	in|=in>>2;
 	in|=in>>4;
 	in|=in>>8;
-	in|=in>>16;
-	if (sizeof(T)>4) in|=in>>16>>16;
+	if (sizeof(T)>2) in|=in>>8>>8;
+	if (sizeof(T)>4) in|=in>>8>>8>>8>>8;
 	in++;
 	return in;
 }

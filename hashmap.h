@@ -77,7 +77,7 @@ protected:
 	}
 	
 	template<typename T2>
-	struct node_t * * find_ref(T2 key) const
+	node_t * * find_ref(T2 key) const
 	{
 		struct node_t * * noderef = &this->nodes[hash(key) % this->buckets];
 		while (true)
@@ -90,7 +90,7 @@ protected:
 	}
 	
 	template<typename T2>
-	struct node_t * find(T2 key) const
+	node_t * find(T2 key) const
 	{
 		struct node_t * * node = find_ref(key);
 		if (node) return *node;
@@ -99,7 +99,7 @@ protected:
 	
 	//use only after checking that there is no item with this name already
 	template<typename T2>
-	struct node_t * create(T2 key)
+	node_t * create(T2 key)
 	{
 		struct node_t * node = malloc(sizeof(struct node_t));
 		keyhash_t thehash = hash(key);

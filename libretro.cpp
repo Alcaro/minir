@@ -71,15 +71,8 @@ static bool load_raw_iface(dylib* lib, struct libretro_raw * interface)
 	return true;
 }
 
-#ifdef __GNUC__
-#define THREAD_LOCAL __thread
-#endif
-#ifdef _MSC_VER
-#define THREAD_LOCAL __declspec(thread)
-#endif
-
 class libretro_impl;
-static THREAD_LOCAL libretro_impl* g_this;
+static THREAD_LOCAL(libretro_impl*) g_this;
 
 class libretro_impl : public libretro {
 public:
@@ -939,12 +932,12 @@ const char * const * libretro::default_cores()
 	{
 		core_look_in_path(selfpath, true, true, false, 0);
 	}
-#ifdef DYLIB_POSIX
+#ifdef __unix__
 	core_look_in_path("/lib", true, true, true, 0);
 	core_look_in_path("/usr/lib", true, true, true, 0);
 	core_look_in_path("/usr/local/lib", true, true, true, 0);
 #endif
-#ifdef DYLIB_WIN32
+#ifdef _WIN32
 	//no plausible sys lib paths
 #endif
 	

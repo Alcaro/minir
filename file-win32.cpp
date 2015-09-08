@@ -3,7 +3,7 @@
 
 #define MMAP_THRESHOLD 128*1024
 
-#ifdef FILEPATH_WINDOWS
+#ifdef _WIN32
 #undef bind
 #include <windows.h>
 #define bind bind_func
@@ -69,11 +69,11 @@ static char * cwd_init;
 static char * cwd_bogus;
 static char * cwd_bogus_check;
 static DWORD cwd_bogus_check_len;
-static mutex* cwd_lock;
+static mutex cwd_lock;
 
 static void window_cwd_enter(const char * dir)
 {
-	cwd_lock->lock();
+	cwd_lock.lock();
 	GetCurrentDirectory(cwd_bogus_check_len, cwd_bogus_check);
 	if (strcmp(cwd_bogus, cwd_bogus_check)!=0) abort();//if this fires, someone changed the directory without us knowing - not allowed. cwd belongs to the frontend.
 	SetCurrentDirectory(dir);
@@ -82,7 +82,7 @@ static void window_cwd_enter(const char * dir)
 static void window_cwd_leave()
 {
 	SetCurrentDirectory(cwd_bogus);
-	cwd_lock->unlock();
+	cwd_lock.unlock();
 }
 
 const char * window_get_cwd()
@@ -122,8 +122,6 @@ void _window_init_file()
 	cwd_bogus_check=malloc(len);
 	cwd_bogus_check_len=len;
 	GetCurrentDirectory(len, cwd_bogus);
-	
-	cwd_lock=mutex::create();
 }
 
 
