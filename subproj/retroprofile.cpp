@@ -58,7 +58,7 @@ int main(int argc, char * argv[])
 	}
 	for (unsigned int i=fps;i<frames;i++)
 	{
-		if (i%fps==0) printf("%i/%i\r", i, frames),fflush(stdout);
+		if (i%fps==0) printf("%u/%u\r", i, frames),fflush(stdout);
 		core->run();
 	}
 	uint64_t t_run_done=window_get_time();

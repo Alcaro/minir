@@ -164,14 +164,8 @@ namespace {
 			pos.QuadPart=start;
 			SetFilePointerEx(this->handle, pos, NULL, FILE_BEGIN);
 			DWORD ignore;
-		more:
 			ReadFile(this->handle, target_c, len, &ignore, NULL);
-			if (len>0xFFFFFFFF)//you shouldn't be reading multiple gigabytes at all...
-			{
-				len-=0xFFFFFFFF;
-				target_c+=0xFFFFFFFF;
-				goto more;
-			}
+			//>4GB lengths die if entered into this, but you shouldn't read() that at all. Use mmap().
 		}
 		
 		void* mmap(size_t start, size_t len)

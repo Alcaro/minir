@@ -259,7 +259,7 @@ bool png_encode(const struct image * img, const char * * pngcomments,  void* * p
 	
 	uint8_t * prevlineplus=(uint8_t*)malloc(bpp+bpl);
 	uint8_t * prevline=prevlineplus+bpp;
-	memset(prevlineplus, 0, sizeof(bpp+bpl));
+	memset(prevlineplus, 0, bpp+bpl);
 	
 	uint8_t * thislineplus=(uint8_t*)malloc(bpp+bpl_unpacked);
 	memset(thislineplus, 0, bpp);

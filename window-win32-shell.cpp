@@ -84,10 +84,10 @@ struct window_win32 {
 
 
 enum { menu_item, menu_check, menu_radio, menu_separator, menu_submenu, menu_topmenu };
-struct windowmenu_win32_radioinfo {
-	struct windowmenu_win32 * parent;
-	unsigned int pos;
-};
+//struct windowmenu_win32_radioinfo {
+//	struct windowmenu_win32 * parent;
+//	unsigned int pos;
+//};
 struct windowmenu_win32 {
 	struct windowmenu i;
 	

@@ -329,7 +329,7 @@ void reset_config()
 	
 	if (core) core->get_video_settings(&videowidth, &videoheight, &videodepth, &videofps);
 	
-printf("Chosen zoom: %ix%i * %i\n",videowidth,videoheight,config.video_scale);
+printf("Chosen zoom: %ux%u * %u\n",videowidth,videoheight,config.video_scale);
 	draw->set_hide_cursor(config.cursor_hide);
 	draw->resize(videowidth*config.video_scale, videoheight*config.video_scale);
 wndw->resize(wndw,1,1);//UGLY HACK - force status bar resize
