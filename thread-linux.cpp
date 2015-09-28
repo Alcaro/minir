@@ -48,8 +48,16 @@ void thread_sleep(unsigned int usec)
 }
 
 
+//spurious wakeups are possible
+//TODO: use the return to tell if the wakeup is bogus
 static int futex_wait(int * uaddr, int val, const struct timespec * timeout = NULL)
 {
+	//while (true)
+	//{
+	//	int ret = syscall(__NR_futex, uaddr, FUTEX_WAIT_PRIVATE, val, timeout);
+	//	if (ret<0 && errno==EINTR) continue;
+	//	return ret;
+	//}
 	return syscall(__NR_futex, uaddr, FUTEX_WAIT_PRIVATE, val, timeout);
 }
 static int futex_wake(int * uaddr)

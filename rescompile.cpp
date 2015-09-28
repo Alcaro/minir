@@ -527,7 +527,7 @@ void compileconfig(FILE * output)
 				char table_byte[4096];
 				unsigned int table_byte_pos=0;
 				char table_byte_prev[4096];
-				unsigned int table_byte_pos_prev;
+				unsigned int table_byte_pos_prev=0xFFFFFFFF;
 				
 #define append_table_num(byte) do { table_num[table_num_pos++]=byte; } while(0)
 #define append_table_byte(byte) do { table_byte[table_byte_pos++]=byte; } while(0)

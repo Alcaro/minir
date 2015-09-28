@@ -156,7 +156,8 @@ void image_convert(const struct image * src, struct image * dst)
 		case FMT(fmt_rgb565, fmt_rgb888):
 			convert_2_3(src, dst);
 			break;
-		default: ; char *e=0; *e=0;
+		default:
+			debug_abort();
 	}
 }
 

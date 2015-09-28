@@ -8,7 +8,7 @@ template<typename T> struct hasher {
 };
 
 //these two are reversible
-//it would be desirable to generate finalizers for all other values too, but zimbry chose to not publish his
+//it would be desirable to generate finalizers for all other sizes too, but zimbry chose to not publish his
 // source codes nor results for other sizes, and I don't understand the relevant math well enough to recreate it
 //it's not really important, anyways; this isn't OpenSSL
 inline uint32_t int_shuffle(uint32_t val)

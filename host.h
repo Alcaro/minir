@@ -72,7 +72,9 @@
 
 //#define AUDIO_PULSEAUDIO
 #define AUDIO_DIRECTSOUND
+#if _WIN32_WINNT > 0x0600
 #define AUDIO_WASAPI
+#endif
 #endif
 
 
