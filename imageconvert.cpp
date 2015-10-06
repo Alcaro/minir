@@ -1,4 +1,5 @@
 #include "image.h"
+#include "os.h"
 #include <stdlib.h>
 #include <stdint.h>
 #include <string.h>
@@ -156,8 +157,7 @@ void image_convert(const struct image * src, struct image * dst)
 		case FMT(fmt_rgb565, fmt_rgb888):
 			convert_2_3(src, dst);
 			break;
-		default:
-			debug_abort();
+		default: debug_abort();
 	}
 }
 
@@ -239,7 +239,7 @@ void image_convert_resize(const struct image * src, struct image * dst)
 			convert_resize_4_4_self(src, dst);
 			break;
 		
-		default: abort();
+		default: debug_abort();
 	}
 }
 
