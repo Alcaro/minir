@@ -9,7 +9,7 @@
 #  elif _WIN32_WINNT < 0x0600
 #    undef _WIN32_WINNT
 #    define _WIN32_WINNT 0x0502//0x0501 excludes SetDllDirectory, so I need to put it at 0x0502
-#    define NTDDI_VERSION NTDDI_WINXPSP1
+#    define NTDDI_VERSION NTDDI_WS03 // actually NTDDI_WINXPSP2, but MinGW sddkddkver.h gets angry about that
 #  endif
 #  define _WIN32_IE 0x0600
 //the namespace pollution this causes is massive, but without it, there's a bunch of functions that

@@ -4,6 +4,7 @@
 #undef bind
 #define interface struct
 #include <mmreg.h> // dsound.h demands this, why is it not included
+#include <mmsystem.h> // dsound.h demands this too
 #include <dsound.h>
 #undef interface
 #define bind bind_func
