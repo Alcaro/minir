@@ -33,8 +33,17 @@ List of features and planned features where the idea is from RetroArch:
 - Custom shaders (unfinished)
 
 # Compiling
-To compile for Linux, use ./configure && make. Other Unix-likes are not supported.
+## Linux
+./configure && make. Other Unix-likes are not supported.
 
-To compile for Windows with MinGW, use configure.bat then mingw32-make.
+On Debian, Ubuntu and derivates, you need the following: `libgtk-3-dev libpulse-dev libgl1-mesa-dev mesa-common-dev`
 
-To compile for Windows with MSVC, use mingw32-make -f Makefile.msvc from a MSVC command prompt (run any vcvars*.bat first).
+## Windows - MinGW
+To compile for Windows with MinGW, use configure.bat then mingw32-make. As far as I know, all dependencies are preinstalled.
+
+The author recommends [MinGW-w64](http://sourceforge.net/projects/mingw-w64/files/Toolchains%20targetting%20Win32/Personal%20Builds/mingw-builds/installer/mingw-w64-install.exe/download),
+with CPU x86_64, threads Win32, any exception model and version, and [these cores](http://buildbot.libretro.com/nightly/windows/x86_64_w32/latest/), to avoid requiring libwinpthread-1.dll nearby.
+This may require using an older version, because Win32 threads are sometimes a few versions late.
+
+## Windows - MSVC
+To compile for Windows with MSVC, use mingw32-make -f Makefile.msvc from a MSVC command prompt (run any vcvars*.bat first). MSVC 2008 and higher should work. This configuration is considerably less tested than MinGW.
