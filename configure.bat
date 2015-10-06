@@ -19,5 +19,5 @@ echo 	$(RC) $(RCFLAGS) ico/minir.rc obj/resource$(OBJSUFFIX).o >> config.mk
 ::some people just refuse to leave their XPs.
 ver | find "5.1" > nul && echo CONF_CFLAGS = -D_WIN32_WINNT=0x0501 >> config.mk
 
-ping -n2 127.0.0.1
+ping -n 1 127.0.0.1 > nul
 echo ...it's a Windows, so probably not, but configuration is done anyways.
