@@ -46,18 +46,15 @@ The author recommends [MinGW-w64](http://sourceforge.net/projects/mingw-w64/file
 with CPU x86_64, threads Win32, any exception model and version, and [these cores](http://buildbot.libretro.com/nightly/windows/x86_64_w32/latest/), to avoid requiring libwinpthread-1.dll nearby.
 This may require using an older version of MinGW, because Win32 threads are sometimes a few versions late.
 
-Required dependencies: [Same as bsnes-qt](http://wayback.archive.org/web/20100405012103/http://byuu.org/bsnes/compilation-guide), except you don't need Qt.
+Everything else is included with MinGW, at least the version I tried (5.2.0-rev0). If (and ONLY IF, don't do it "just in case") you get errors,
+see [this](http://wayback.archive.org/web/20100405012103/http://byuu.org/bsnes/compilation-guide)
+(follow either the OpenGL or Direct3D sections depending on what errors are thrown).
+video-direct3d.cpp may also throw an error about IDirect3D9Ex and RegisterSoftwareDevice; see comments there for further instructions.
 
-You also need to fix the broken Direct3D9Ex definition. Open your D3d9.h in the MinGW include directory (fixing it in the installed version is allowed but optional), and look for this line:
-`DECLARE_INTERFACE_(IDirect3D9Ex, IDirect3D9)`
-then find the following line, which about five lines down
-`/*** IDirect3D9 methods ***/`
-and add the following line directly after it
-`STDMETHOD(RegisterSoftwareDevice)(THIS_ void* pInitializeFunction) PURE;`
-and save.
-
-Once you've done this, use configure.bat then mingw32-make.
+Once you've downloaded everything you need, use configure.bat then mingw32-make.
 
 ## Windows - MSVC
-To compile for Windows with MSVC, use mingw32-make -f Makefile.msvc from a MSVC command prompt (run any vcvars*.bat first). MSVC 2008 and higher should work.
+To compile for Windows with MSVC, use mingw32-make -f Makefile.msvc from a MSVC command prompt (run any vcvars*.bat). MSVC 2008 and higher should work. configure.bat is not required.
 This configuration is considerably less tested than MinGW, and may be broken for extended periods of time.
+
+Like older MinGWs, older (or possibly even less old) MSVCs may require some fixes to the header files. See MinGW instructions for further details.
