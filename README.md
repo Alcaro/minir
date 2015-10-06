@@ -42,11 +42,21 @@ List of features and planned features where the idea is from RetroArch:
 On Debian, Ubuntu and derivates, you need the following: `libgtk-3-dev libpulse-dev libgl1-mesa-dev mesa-common-dev`
 
 ## Windows - MinGW
-To compile for Windows with MinGW, use configure.bat then mingw32-make. As far as I know, all dependencies are preinstalled.
-
 The author recommends [MinGW-w64](http://sourceforge.net/projects/mingw-w64/files/Toolchains%20targetting%20Win32/Personal%20Builds/mingw-builds/installer/mingw-w64-install.exe/download),
 with CPU x86_64, threads Win32, any exception model and version, and [these cores](http://buildbot.libretro.com/nightly/windows/x86_64_w32/latest/), to avoid requiring libwinpthread-1.dll nearby.
 This may require using an older version of MinGW, because Win32 threads are sometimes a few versions late.
+
+Required dependencies: [Same as bsnes-qt](http://wayback.archive.org/web/20100405012103/http://byuu.org/bsnes/compilation-guide), except you don't need Qt.
+
+You also need to fix the broken Direct3D9Ex definition. Open your D3d9.h in the MinGW include directory (fixing it in the installed version is allowed but optional), and look for this line:
+`DECLARE_INTERFACE_(IDirect3D9Ex, IDirect3D9)`
+then find the following line, which about five lines down
+`/*** IDirect3D9 methods ***/`
+and add the following line directly after it
+`STDMETHOD(RegisterSoftwareDevice)(THIS_ void* pInitializeFunction) PURE;`
+and save.
+
+Once you've done this, use configure.bat then mingw32-make.
 
 ## Windows - MSVC
 To compile for Windows with MSVC, use mingw32-make -f Makefile.msvc from a MSVC command prompt (run any vcvars*.bat first). MSVC 2008 and higher should work.
