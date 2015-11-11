@@ -622,6 +622,9 @@ void run()
 	//30 GET_CONTENT_DIRECTORY, see 9.
 	if (cmd==RETRO_ENVIRONMENT_GET_SAVE_DIRECTORY) //31
 	{
+		(*(const char**)data)=NULL;
+		if (!this->rom) return true;
+		
 		const char * usepath=this->rom->filename;
 		if (!usepath)
 		{
