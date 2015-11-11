@@ -150,8 +150,7 @@ public:
 	mutexlocker(mutex* m) { this->m=m; this->m->lock(); }
 	~mutexlocker() { this->m->unlock(); }
 };
-//#define CRITICAL_FUNCTION() static smutex CF_holder; mutexlocker CF_lock(&CF_holder)
-#define synchronized(mutex) for(bool FIRST=true;FIRST;FIRST=false)for(mutexlocker LOCK(mutex);FIRST;FIRST=false)
+#define synchronized(mutex) with(mutexlocker LOCK(mutex))
 
 //This one lets one thread wake another.
 //The conceptual difference between this and a mutex is that while a mutex is intended to protect a

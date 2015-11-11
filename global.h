@@ -52,6 +52,8 @@ typedef void(*funcptr)();
 //#define STRUCT_END
 //#endif
 
+#define with(obj) for(bool FIRST=true;FIRST;FIRST=false)for(obj;FIRST;FIRST=false)
+
 #define JOIN_(x, y) x ## y
 #define JOIN(x, y) JOIN_(x, y)
 

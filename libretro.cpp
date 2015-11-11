@@ -933,11 +933,12 @@ const char * const * libretro::default_cores()
 		core_look_in_path(selfpath, true, true, false, 0);
 	}
 #ifdef __unix__
-	core_look_in_path("/lib", true, true, true, 0);
-	core_look_in_path("/usr/lib", true, true, true, 0);
-	core_look_in_path("/usr/local/lib", true, true, true, 0);
+	core_look_in_path("/lib/", true, true, true, 0);
+	core_look_in_path("/usr/lib/", true, true, true, 0);
+	core_look_in_path("/usr/local/lib/", true, true, true, 0);
 #endif
 #ifdef _WIN32
+	core_look_in_path("C:/Program Files/Libretro/Cores/", true, true, false, 0);
 	//no plausible sys lib paths
 #endif
 	
