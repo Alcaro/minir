@@ -454,15 +454,8 @@ enum retro_mod
                                             * Valid values are 0, 1, 2, 3, which rotates screen by 0, 90, 180, 
                                             * 270 degrees counter-clockwise respectively.
                                             */
-#define RETRO_ENVIRONMENT_GET_CAN_DUPE  3  /* bool * --
-                                            * Boolean value whether or not frontend supports frame duping,
-                                            * passing NULL to video frame callback.
-                                            */
-
-                                           /* Environ 4, 5 are no longer supported (GET_VARIABLE / SET_VARIABLES), 
-                                            * and reserved to avoid possible ABI clash.
-                                            */
-
+                                           /* Several environment variables are unused, here and elsewhere.
+                                            * They were used in libretro v1. */
 #define RETRO_ENVIRONMENT_SET_MESSAGE   6  /* const struct retro_message * --
                                             * Sets a message to be displayed in implementation-specific manner 
                                             * for a certain amount of 'frames'.
@@ -1824,6 +1817,8 @@ typedef bool (*retro_environment_t)(unsigned cmd, void *data);
 
 /* Render a frame. Pixel format is 15-bit 0RGB1555 native endian 
  * unless changed (see RETRO_ENVIRONMENT_SET_PIXEL_FORMAT).
+ * 
+ * The data can be NULL; this means that the previous frame should be displayed again.
  *
  * Width and height specify dimensions of buffer.
  * Pitch specifices length in bytes between two lines in buffer.
