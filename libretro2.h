@@ -501,17 +501,6 @@ enum retro_mod
                                             * This is now discouraged, and if possible, cores should try to 
                                             * use the new GET_SAVE_DIRECTORY.
                                             */
-#define RETRO_ENVIRONMENT_SET_PIXEL_FORMAT 10
-                                           /* const enum retro_pixel_format * --
-                                            * Sets the internal pixel format used by the implementation.
-                                            * The default pixel format is RETRO_PIXEL_FORMAT_0RGB1555.
-                                            * This pixel format however, is deprecated (see enum retro_pixel_format).
-                                            * If the call returns false, the frontend does not support this pixel 
-                                            * format.
-                                            *
-                                            * This function should be called inside retro_load_game() or 
-                                            * retro_get_system_av_info().
-                                            */
 #define RETRO_ENVIRONMENT_SET_INPUT_DESCRIPTORS 11
                                            /* const struct retro_input_descriptor * --
                                             * Sets an array of retro_input_descriptors.
@@ -1770,6 +1759,8 @@ struct retro_game_geometry
                             * of base_width / base_height is assumed.
                             * A frontend could override this setting,
                             * if desired. */
+   
+   enum retro_pixel_format format;
 };
 
 struct retro_system_timing
@@ -1819,8 +1810,7 @@ struct retro_game_info
  * uncommon tasks. Extensible. */
 typedef bool (*retro_environment_t)(unsigned cmd, void *data);
 
-/* Render a frame. Pixel format is 15-bit 0RGB1555 native endian 
- * unless changed (see RETRO_ENVIRONMENT_SET_PIXEL_FORMAT).
+/* Render a frame. Pixel format is as specified in retro_game_geometry.
  * 
  * The data can be NULL; this means that the previous frame should be displayed again.
  *
