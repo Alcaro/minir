@@ -1875,10 +1875,6 @@ struct retro_api {
    void (*init)(void);
    void (*deinit)(void);
    
-   /* Must return RETRO_API_VERSION. Used to validate ABI compatibility
-    * when the API is revised. */
-   unsigned (*api_version)(void);
-   
    /* Gets statically known system info. Pointers provided in *info 
     * must be statically allocated.
     * Can be called at any time, even before retro_init(). */
@@ -1949,6 +1945,7 @@ struct retro_api {
    size_t (*get_memory_size)(unsigned id);
 };
 
+/* version must be RETRO_API_VERSION (2). */
 RETRO_API struct retro_api *retro_get_api(unsigned version);
 
 #ifdef __cplusplus
