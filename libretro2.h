@@ -81,7 +81,7 @@ extern "C" {
  * implementations.
  * It is not incremented for compatible changes to the API.
  */
-#define RETRO_API_VERSION         1
+#define RETRO_API_VERSION         2
 
 /*
  * Libretro's fundamental device abstractions.
@@ -453,10 +453,6 @@ enum retro_mod
                                             * Is only implemented if rotation can be accelerated by hardware.
                                             * Valid values are 0, 1, 2, 3, which rotates screen by 0, 90, 180, 
                                             * 270 degrees counter-clockwise respectively.
-                                            */
-#define RETRO_ENVIRONMENT_GET_OVERSCAN  2  /* bool * --
-                                            * Boolean value whether or not the implementation should use overscan, 
-                                            * or crop away overscan.
                                             */
 #define RETRO_ENVIRONMENT_GET_CAN_DUPE  3  /* bool * --
                                             * Boolean value whether or not frontend supports frame duping,
