@@ -3,7 +3,12 @@
  * - input port/index duality
  * - maybe clean up the device too, have the core tell what it wants and stuff
  * - input pull, should push
- * - rotate
+ * - core options should push too
+ * - and take other types than enums
+ * - is rotate needed?
+ * - move perf to libretro-common
+ * - move get_cpu_features to libretro-common
+ * - memory ownership
  */
 /* Copyright (C) 2010-2015 The RetroArch team
  *
@@ -1354,7 +1359,7 @@ struct retro_camera_callback
    retro_camera_lifetime_status_t deinitialized;
 };
 
-#define RETRO_ENVIRONMENT_GET_LOG_INTERFACE 41
+#define RETRO_ENVIRONMENT_GET_LOG_INTERFACE 27
                                            /* struct retro_log_callback * --
                                             * Gets an interface for logging. This is useful for 
                                             * logging in a cross-platform way
@@ -1540,7 +1545,7 @@ typedef bool (*retro_location_get_position_t)(struct retro_front_instance *insta
  * and/or deinitialized.
  * retro_location_start_t can be called in initialized callback.
  */
-typedef void (*retro_location_lifetime_status_t)(struct retro_front_instance *instance, );
+typedef void (*retro_location_lifetime_status_t)(struct retro_front_instance *instance);
 
 struct retro_location_callback
 {
@@ -1914,7 +1919,8 @@ struct retro_memory_map
                                             * It can be used by the core for localization purposes.
                                             */
 
-/* version must be RETRO_API_VERSION (2). The structure must be statically allocated. */
+/* version must be RETRO_API_VERSION (2). The structure must be statically allocated.
+ * The core must return NULL if wrong version is requested. */
 RETRO_API struct retro_api *retro_get_api(unsigned version);
 
 #ifdef __cplusplus
