@@ -1954,9 +1954,6 @@ struct retro_api {
    /* Unloads a currently loaded game. */
    void (*unload_game)(void);
    
-   /* Gets region of game. */
-   unsigned (*get_region)(void);
-   
    /* Gets region of memory. */
    void *(*get_memory_data)(unsigned id);
    size_t (*get_memory_size)(unsigned id);
