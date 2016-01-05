@@ -88,6 +88,13 @@ extern "C" {
  */
 #define RETRO_API_VERSION         2
 
+/* Varies between cores. The core may put whatever it wants here; the frontend may not touch it.*/
+struct retro_core_instance;
+/* If the core does not support loading multiple contents simultaneously, it should return this. */
+#define RETRO_CORE_SINGLE_INSTANCE ((struct retro_core_instance*)-1)
+/* Varies between frontends. The front may put whatever it wants here; the core may not touch it.*/
+struct retro_front_instance;
+
 /*
  * Libretro's fundamental device abstractions.
  *
@@ -1882,7 +1889,7 @@ struct retro_api {
     * variable if needed.
     * E.g. geom.aspect_ratio might not be initialized if core doesn't 
     * desire a particular aspect ratio. */
-   void (*get_system_av_info)(struct retro_system_av_info *info);
+   void (*get_system_av_info)(struct retro_core_instance *instance, struct retro_system_av_info *info);
    
    /* Sets device to be used for player 'port'.
     * By default, RETRO_DEVICE_JOYPAD is assumed to be plugged into all 
@@ -1892,10 +1899,10 @@ struct retro_api {
     * hint to the libretro core when a core cannot automatically detect the 
     * appropriate input device type on its own. It is also relevant when a 
     * core can change its behavior depending on device type. */
-   void (*set_controller_port_device)(unsigned port, unsigned device);
+   void (*set_controller_port_device)(struct retro_core_instance *instance, unsigned port, unsigned device);
    
    /* Resets the current game. */
-   void (*reset)(void);
+   void (*reset)(struct retro_core_instance *instance);
    
    /* Runs the game for one video frame.
     * During retro_run(), input_poll callback must be called at least once.
@@ -1905,7 +1912,7 @@ struct retro_api {
     * a frame if GET_CAN_DUPE returns true.
     * In this case, the video callback can take a NULL argument for data.
     */
-   void (*run)(void);
+   void (*run)(struct retro_core_instance *instance);
    
    /* Returns the amount of data the implementation requires to serialize 
     * internal state (save states).
@@ -1913,35 +1920,35 @@ struct retro_api {
     * returned size is never allowed to be larger than a previous returned 
     * value, to ensure that the frontend can allocate a save state buffer once.
     */
-   size_t (*serialize_size)(void);
+   size_t (*serialize_size)(struct retro_core_instance *instance);
    
    /* Serializes internal state. If failed, or size is lower than
     * retro_serialize_size(), it should return false, true otherwise. */
-   bool (*serialize)(void *data, size_t size);
-   bool (*unserialize)(const void *data, size_t size);
+   bool (*serialize)(struct retro_core_instance *instance, void *data, size_t size);
+   bool (*unserialize)(struct retro_core_instance *instance, const void *data, size_t size);
    
-   void (*cheat_reset)(void);
-   void (*cheat_set)(unsigned index, bool enabled, const char *code);
+   void (*cheat_reset)(struct retro_core_instance *instance);
+   void (*cheat_set)(struct retro_core_instance *instance, unsigned index, bool enabled, const char *code);
    
-   /* Loads a game. */
-   bool (*load_game)(const struct retro_game_info *game);
+   /* Loads a game. Returns NULL on failure. */
+   struct retro_core_instance *(*load_game)(const struct retro_game_info *game);
    
    /* Loads a "special" kind of game. Should not be used,
     * except in extreme cases. */
-   bool (*load_game_special)(
+   struct retro_core_instance *(*load_game_special)(
      unsigned game_type,
      const struct retro_game_info *info, size_t num_info
    );
    
    /* Unloads a currently loaded game. */
-   void (*unload_game)(void);
+   void (*unload_game)(struct retro_core_instance *instance);
    
    /* Gets region of memory. */
-   void *(*get_memory_data)(unsigned id);
-   size_t (*get_memory_size)(unsigned id);
+   void *(*get_memory_data)(struct retro_core_instance *instance);
+   size_t (*get_memory_size)(struct retro_core_instance *instance);
 };
 
-/* version must be RETRO_API_VERSION (2). */
+/* version must be RETRO_API_VERSION (2). The structure must be statically allocated. */
 RETRO_API struct retro_api *retro_get_api(unsigned version);
 
 #ifdef __cplusplus
