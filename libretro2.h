@@ -1845,9 +1845,6 @@ typedef void (*retro_audio_sample_t)(int16_t left, int16_t right);
 typedef size_t (*retro_audio_sample_batch_t)(const int16_t *data,
       size_t frames);
 
-/* Polls input. */
-typedef void (*retro_input_poll_t)(void);
-
 /* Queries for input for player 'port'. device will be masked with 
  * RETRO_DEVICE_MASK.
  *
@@ -1868,7 +1865,6 @@ struct retro_api {
    void (*set_video_refresh)(retro_video_refresh_t);
    void (*set_audio_sample)(retro_audio_sample_t);
    void (*set_audio_sample_batch)(retro_audio_sample_batch_t);
-   void (*set_input_poll)(retro_input_poll_t);
    void (*set_input_state)(retro_input_state_t);
    
    /* Library global initialization/deinitialization. */
