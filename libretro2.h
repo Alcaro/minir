@@ -444,7 +444,9 @@ enum retro_mod
 /* If set, this call is not part of the public libretro API yet. It can 
  * change or be removed at any time. */
 #define RETRO_ENVIRONMENT_EXPERIMENTAL 0x10000
-/* Environment callback to be used internally in frontend. */
+/* Environment callback to be used internally on either side.
+ * May only be used if the loaded core is embedded inside the current frontend and can impossibly be loaded into any other.
+ */
 #define RETRO_ENVIRONMENT_PRIVATE 0x20000
 
 /* Environment commands. */
@@ -454,7 +456,7 @@ enum retro_mod
                                             * Valid values are 0, 1, 2, 3, which rotates screen by 0, 90, 180, 
                                             * 270 degrees counter-clockwise respectively.
                                             */
-                                           /* Several environment variables are unused, here and elsewhere.
+                                           /* Several environment IDs are unused, here and elsewhere.
                                             * They were used in libretro v1. */
 #define RETRO_ENVIRONMENT_SET_MESSAGE   6  /* const struct retro_message * --
                                             * Sets a message to be displayed in implementation-specific manner 
