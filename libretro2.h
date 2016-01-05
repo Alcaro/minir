@@ -1606,38 +1606,6 @@ struct retro_location_callback
                                             * If this returns false, the frontend does not acknowledge a 
                                             * changed av_info struct.
                                             */
-#define RETRO_ENVIRONMENT_SET_PROC_ADDRESS_CALLBACK 33
-                                           /* const struct retro_get_proc_address_interface * --
-                                            * Allows a libretro core to announce support for the 
-                                            * get_proc_address() interface.
-                                            * This interface allows for a standard way to extend libretro where 
-                                            * use of environment calls are too indirect,
-                                            * e.g. for cases where the frontend wants to call directly into the core.
-                                            *
-                                            * If a core wants to expose this interface, SET_PROC_ADDRESS_CALLBACK 
-                                            * **MUST** be called from within retro_set_environment().
-                                            */
-
-/* libretro API extension functions:
- * (None here so far).
- *
- * Get a symbol from a libretro core.
- * Cores should only return symbols which are actual 
- * extensions to the libretro API.
- *
- * Frontends should not use this to obtain symbols to standard 
- * libretro entry points (static linking or dlsym).
- *
- * The symbol name must be equal to the function name, 
- * e.g. if void retro_foo(void); exists, the symbol must be called "retro_foo".
- * The returned function pointer must be cast to the corresponding type.
- */
-typedef retro_proc_address_t (*retro_get_proc_address_t)(const char *sym);
-
-struct retro_get_proc_address_interface
-{
-   retro_get_proc_address_t get_proc_address;
-};
 
 #define RETRO_ENVIRONMENT_SET_SUBSYSTEM_INFO 34
                                            /* const struct retro_subsystem_info * --
