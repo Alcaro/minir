@@ -594,13 +594,6 @@ enum retro_mod
                                             * frontend since last call to RETRO_ENVIRONMENT_GET_VARIABLE.
                                             * Variables should be queried with GET_VARIABLE.
                                             */
-#define RETRO_ENVIRONMENT_SET_SUPPORT_NO_GAME 18
-                                           /* const bool * --
-                                            * If true, the libretro implementation supports calls to 
-                                            * retro_load_game() with NULL as argument.
-                                            * Used by cores which can run without particular game data.
-                                            * This should be called within retro_set_environment() only.
-                                            */
 #define RETRO_ENVIRONMENT_GET_LIBRETRO_PATH 19
                                            /* const char ** --
                                             * Retrieves the absolute path from where this libretro 
@@ -1737,7 +1730,11 @@ struct retro_system_info
                                    * load, separated with pipe.
                                    * I.e. "bin|rom|iso".
                                    * Typically used for a GUI to filter 
-                                   * out extensions. */
+                                   * out extensions.
+                                   * If a core doesn't take any content, this is NULL, and
+                                   * retro_api->load_game will be called with a NULL game_info.
+                                   * If a core can take content, but it's not mandatory, add a
+                                   * pipe at the start, i.e. "|bin|rom|iso". */
 
    /* If true, retro_load_game() is guaranteed to provide a valid pathname 
     * in retro_game_info::path.
