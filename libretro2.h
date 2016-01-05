@@ -697,7 +697,7 @@ enum retro_mod
                                             * functions must be used to explicitly
                                             * start and stop the camera driver.
                                             */
-#define RETRO_ENVIRONMENT_GET_LOG_INTERFACE 27
+#define RETRO_ENVIRONMENT_GET_LOG_INTERFACE 41
                                            /* struct retro_log_callback * --
                                             * Gets an interface for logging. This is useful for 
                                             * logging in a cross-platform way
@@ -1125,13 +1125,15 @@ enum retro_log_level
    RETRO_LOG_DUMMY = INT_MAX
 };
 
-/* Logging function. Takes log level argument as well. */
-typedef void (*retro_log_printf_t)(enum retro_log_level level,
-      const char *fmt, ...);
+/* Logging function. Takes log level argument as well.
+ * The text must not be prefixed with any core identifier, and must not contain or end with a \n.
+ */
+typedef void (*retro_log_t)(enum retro_log_level level,
+      const char *text);
 
 struct retro_log_callback
 {
-   retro_log_printf_t log;
+   retro_log_t log;
 };
 
 /* Performance related functions */
