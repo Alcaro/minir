@@ -1,3 +1,8 @@
+/* TODO:
+ * - cheats
+ * - input port/index duality
+ * - maybe clean up the device too, have the core tell what it wants and stuff
+ */
 /* Copyright (C) 2010-2015 The RetroArch team
  *
  * ---------------------------------------------------------------------------------------
