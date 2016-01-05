@@ -1820,7 +1820,7 @@ struct retro_game_info
 
 /* Environment callback. Gives implementations a way of performing 
  * uncommon tasks. Extensible. */
-typedef bool (*retro_environment_t)(unsigned cmd, void *data);
+typedef bool (*retro_environment_t)(struct retro_front_instance *instance, unsigned cmd, void *data);
 
 /* Render a frame. Pixel format is as specified in retro_game_geometry.
  * 
@@ -1834,14 +1834,14 @@ typedef bool (*retro_environment_t)(unsigned cmd, void *data);
  * Certain graphic APIs, such as OpenGL ES, do not like textures 
  * that are not packed in memory.
  */
-typedef void (*retro_video_refresh_t)(const void *data, unsigned width,
+typedef void (*retro_video_refresh_t)(struct retro_front_instance *instance, const void *data, unsigned width,
       unsigned height, size_t pitch);
 
 /* Renders a single audio frame. Should only be used if implementation 
  * generates a single sample at a time.
  * Format is signed 16-bit native endian.
  */
-typedef void (*retro_audio_sample_t)(int16_t left, int16_t right);
+typedef void (*retro_audio_sample_t)(struct retro_front_instance *instance, int16_t left, int16_t right);
 
 /* Renders multiple audio frames in one go.
  *
@@ -1849,7 +1849,7 @@ typedef void (*retro_audio_sample_t)(int16_t left, int16_t right);
  * I.e. int16_t buf[4] = { l, r, l, r }; would be 2 frames.
  * Only one of the audio callbacks must ever be used.
  */
-typedef size_t (*retro_audio_sample_batch_t)(const int16_t *data,
+typedef size_t (*retro_audio_sample_batch_t)(struct retro_front_instance *instance, const int16_t *data,
       size_t frames);
 
 /* Queries for input for player 'port'. device will be masked with 
@@ -1859,7 +1859,7 @@ typedef size_t (*retro_audio_sample_batch_t)(const int16_t *data,
  * have been set with retro_set_controller_port_device()
  * will still use the higher level RETRO_DEVICE_JOYPAD to request input.
  */
-typedef int16_t (*retro_input_state_t)(unsigned port, unsigned device, 
+typedef int16_t (*retro_input_state_t)(struct retro_front_instance *instance, unsigned port, unsigned device, 
       unsigned index, unsigned id);
 
 struct retro_api {
@@ -1874,8 +1874,9 @@ struct retro_api {
    void (*set_audio_sample_batch)(retro_audio_sample_batch_t);
    void (*set_input_state)(retro_input_state_t);
    
-   /* Library global initialization/deinitialization. */
-   void (*init)(void);
+   /* Library global initialization/deinitialization.
+    * This instance will be used for every callback that is not associated with any loaded content.*/
+   bool (*init)(struct retro_front_instance *instance);
    void (*deinit)(void);
    
    /* Gets statically known system info. Pointers provided in *info 
@@ -1930,13 +1931,15 @@ struct retro_api {
    void (*cheat_reset)(struct retro_core_instance *instance);
    void (*cheat_set)(struct retro_core_instance *instance, unsigned index, bool enabled, const char *code);
    
-   /* Loads a game. Returns NULL on failure. */
-   struct retro_core_instance *(*load_game)(const struct retro_game_info *game);
+   /* Loads a game. Returns NULL on failure.
+    * On success, the given front_instance is used for every callback that's associated with this instance.
+    */
+   struct retro_core_instance *(*load_game)(struct retro_front_instance *instance, const struct retro_game_info *game);
    
    /* Loads a "special" kind of game. Should not be used,
     * except in extreme cases. */
    struct retro_core_instance *(*load_game_special)(
-     unsigned game_type,
+     struct retro_front_instance *instance, unsigned game_type,
      const struct retro_game_info *info, size_t num_info
    );
    
