@@ -2,6 +2,8 @@
  * - cheats
  * - input port/index duality
  * - maybe clean up the device too, have the core tell what it wants and stuff
+ * - input pull, should push
+ * - rotate
  */
 /* Copyright (C) 2010-2015 The RetroArch team
  *
@@ -818,7 +820,7 @@ struct retro_api {
  * Similarily if only a keycode event is generated with no corresponding 
  * character, character should be 0.
  */
-typedef void (*retro_keyboard_event_t)(bool down, unsigned keycode, 
+typedef void (*retro_keyboard_event_t)(struct retro_core_instance *instance, bool down, unsigned keycode, 
       uint32_t character, uint16_t key_modifiers);
 
 struct retro_keyboard_callback
@@ -849,24 +851,24 @@ struct retro_keyboard_callback
 /* If ejected is true, "ejects" the virtual disk tray.
  * When ejected, the disk image index can be set.
  */
-typedef bool (*retro_set_eject_state_t)(bool ejected);
+typedef bool (*retro_set_eject_state_t)(struct retro_core_instance *instance, bool ejected);
 
 /* Gets current eject state. The initial state is 'not ejected'. */
-typedef bool (*retro_get_eject_state_t)(void);
+typedef bool (*retro_get_eject_state_t)(struct retro_core_instance *instance);
 
 /* Gets current disk index. First disk is index 0.
  * If return value is >= get_num_images(), no disk is currently inserted.
  */
-typedef unsigned (*retro_get_image_index_t)(void);
+typedef unsigned (*retro_get_image_index_t)(struct retro_core_instance *instance);
 
 /* Sets image index. Can only be called when disk is ejected.
  * The implementation supports setting "no disk" by using an 
  * index >= get_num_images().
  */
-typedef bool (*retro_set_image_index_t)(unsigned index);
+typedef bool (*retro_set_image_index_t)(struct retro_core_instance *instance, unsigned index);
 
 /* Gets total number of images which are available to use. */
-typedef unsigned (*retro_get_num_images_t)(void);
+typedef unsigned (*retro_get_num_images_t)(struct retro_core_instance *instance);
 
 /* Replaces the disk image associated with index.
  * Arguments to pass in info have same requirements as retro_load_game().
@@ -880,14 +882,14 @@ typedef unsigned (*retro_get_num_images_t)(void);
  * returned 4 before.
  * Index 1 will be removed, and the new index is 3.
  */
-typedef bool (*retro_replace_image_index_t)(unsigned index,
+typedef bool (*retro_replace_image_index_t)(struct retro_core_instance *instance, unsigned index,
       const struct retro_game_info *info);
 
 /* Adds a new valid index (get_num_images()) to the internal disk list.
  * This will increment subsequent return values from get_num_images() by 1.
  * This image index cannot be used until a disk image has been set 
  * with replace_image_index. */
-typedef bool (*retro_add_image_index_t)(void);
+typedef bool (*retro_add_image_index_t)(struct retro_core_instance *instance);
 
 struct retro_disk_control_callback
 {
@@ -928,16 +930,19 @@ struct retro_disk_control_callback
  * Also called first time video driver is initialized, 
  * allowing libretro core to initialize resources.
  */
-typedef void (*retro_hw_context_reset_t)(void);
+typedef void (*retro_hw_context_reset_t)(struct retro_core_instance *instance);
 
 /* Gets current framebuffer which is to be rendered to.
  * Could change every frame potentially.
  */
-typedef uintptr_t (*retro_hw_get_current_framebuffer_t)(void);
+typedef uintptr_t (*retro_hw_get_current_framebuffer_t)(struct retro_front_instance *instance, void);
 
-/* Get a symbol from HW context. */
+/* Get a symbol from HW context.
+ * In the case of OpenGL, the returned symbols match real GL;
+ * they do not take retro_front_instance parameters.
+ */
 typedef void (*retro_proc_address_t)(void);
-typedef retro_proc_address_t (*retro_hw_get_proc_address_t)(const char *sym);
+typedef retro_proc_address_t (*retro_hw_get_proc_address_t)(struct retro_front_instance *instance, const char *sym);
 
 enum retro_hw_context_type
 {
@@ -1126,7 +1131,7 @@ struct retro_hw_render_callback
                                             * SET_FRAME_TIME_CALLBACK.
                                             */
 /* Notifies libretro that audio data should be written. */
-typedef void (*retro_audio_callback_t)(void);
+typedef void (*retro_audio_callback_t)(struct retro_core_instance *instance);
 
 /* True: Audio driver in frontend is active, and callback is 
  * expected to be called regularily.
@@ -1135,7 +1140,7 @@ typedef void (*retro_audio_callback_t)(void);
  * called with true.
  * Initial state is false (inactive).
  */
-typedef void (*retro_audio_set_state_callback_t)(bool enabled);
+typedef void (*retro_audio_set_state_callback_t)(struct retro_core_instance *instance, bool enabled);
 
 struct retro_audio_callback
 {
@@ -1161,7 +1166,7 @@ struct retro_audio_callback
  *
  * In those scenarios the reference frame time value will be used. */
 typedef int64_t retro_usec_t;
-typedef void (*retro_frame_time_callback_t)(retro_usec_t usec);
+typedef void (*retro_frame_time_callback_t)(struct retro_core_instance *instance, retro_usec_t usec);
 struct retro_frame_time_callback
 {
    retro_frame_time_callback_t callback;
@@ -1193,7 +1198,7 @@ enum retro_rumble_effect
  *
  * Returns true if rumble state request was honored. 
  * Calling this before first retro_run() is likely to return false. */
-typedef bool (*retro_set_rumble_state_t)(unsigned port, 
+typedef bool (*retro_set_rumble_state_t)(struct retro_front_instance *instance, unsigned port, 
       enum retro_rumble_effect effect, uint16_t strength);
 
 struct retro_rumble_interface
@@ -1235,10 +1240,10 @@ enum retro_sensor_action
 #define RETRO_SENSOR_ACCELEROMETER_Y 1
 #define RETRO_SENSOR_ACCELEROMETER_Z 2
 
-typedef bool (*retro_set_sensor_state_t)(unsigned port, 
+typedef bool (*retro_set_sensor_state_t)(struct retro_front_instance *instance, unsigned port, 
       enum retro_sensor_action action, unsigned rate);
 
-typedef float (*retro_sensor_get_input_t)(unsigned port, unsigned id);
+typedef float (*retro_sensor_get_input_t)(struct retro_front_instance *instance, unsigned port, unsigned id);
 
 struct retro_sensor_interface
 {
@@ -1280,22 +1285,22 @@ enum retro_camera_buffer
 };
 
 /* Starts the camera driver. Can only be called in retro_run(). */
-typedef bool (*retro_camera_start_t)(void);
+typedef bool (*retro_camera_start_t)(struct retro_front_instance *instance);
 
 /* Stops the camera driver. Can only be called in retro_run(). */
-typedef void (*retro_camera_stop_t)(void);
+typedef void (*retro_camera_stop_t)(struct retro_front_instance *instance);
 
 /* Callback which signals when the camera driver is initialized 
  * and/or deinitialized.
  * retro_camera_start_t can be called in initialized callback.
  */
-typedef void (*retro_camera_lifetime_status_t)(void);
+typedef void (*retro_camera_lifetime_status_t)(struct retro_core_instance *instance);
 
 /* A callback for raw framebuffer data. buffer points to an XRGB8888 buffer.
  * Width, height and pitch are similar to retro_video_refresh_t.
  * First pixel is top-left origin.
  */
-typedef void (*retro_camera_frame_raw_framebuffer_t)(const uint32_t *buffer, 
+typedef void (*retro_camera_frame_raw_framebuffer_t)(struct retro_core_instance *instance, const uint32_t *buffer, 
       unsigned width, unsigned height, size_t pitch);
 
 /* A callback for when OpenGL textures are used.
@@ -1316,7 +1321,7 @@ typedef void (*retro_camera_frame_raw_framebuffer_t)(const uint32_t *buffer,
  * GL-specific typedefs are avoided here to avoid relying on gl.h in 
  * the API definition.
  */
-typedef void (*retro_camera_frame_opengl_texture_t)(unsigned texture_id, 
+typedef void (*retro_camera_frame_opengl_texture_t)(struct retro_core_instance *instance, unsigned texture_id, 
       unsigned texture_target, const float *affine);
 
 struct retro_camera_callback
@@ -1356,8 +1361,8 @@ struct retro_camera_callback
                                             * as certain platforms cannot use use stderr for logging. 
                                             * It also allows the frontend to
                                             * show logging information in a more suitable way.
-                                            * If this interface is not used, libretro cores should 
-                                            * log to stderr as desired.
+                                            * If this interface is not used, libretro cores may
+                                            * log to stderr, or discard the messages.
                                             */
 enum retro_log_level
 {
@@ -1372,7 +1377,7 @@ enum retro_log_level
 /* Logging function. Takes log level argument as well.
  * The text must not be prefixed with any core identifier, and must not contain or end with a \n.
  */
-typedef void (*retro_log_t)(enum retro_log_level level,
+typedef void (*retro_log_t)(struct retro_front_instance *instance, enum retro_log_level level,
       const char *text);
 
 struct retro_log_callback
@@ -1424,34 +1429,34 @@ struct retro_perf_counter
 /* Returns current time in microseconds.
  * Tries to use the most accurate timer available.
  */
-typedef retro_time_t (*retro_perf_get_time_usec_t)(void);
+typedef retro_time_t (*retro_perf_get_time_usec_t)(struct retro_front_instance *instance);
 
 /* A simple counter. Usually nanoseconds, but can also be CPU cycles.
  * Can be used directly if desired (when creating a more sophisticated 
  * performance counter system).
  * */
-typedef retro_perf_tick_t (*retro_perf_get_counter_t)(void);
+typedef retro_perf_tick_t (*retro_perf_get_counter_t)(struct retro_front_instance *instance);
 
 /* Returns a bit-mask of detected CPU features (RETRO_SIMD_*). */
-typedef uint64_t (*retro_get_cpu_features_t)(void);
+typedef uint64_t (*retro_get_cpu_features_t)(struct retro_front_instance *instance);
 
 /* Asks frontend to log and/or display the state of performance counters.
  * Performance counters can always be poked into manually as well.
  */
-typedef void (*retro_perf_log_t)(void);
+typedef void (*retro_perf_log_t)(struct retro_front_instance *instance);
 
 /* Register a performance counter.
  * ident field must be set with a discrete value and other values in 
  * retro_perf_counter must be 0.
  * Registering can be called multiple times. To avoid calling to 
  * frontend redundantly, you can check registered field first. */
-typedef void (*retro_perf_register_t)(struct retro_perf_counter *counter);
+typedef void (*retro_perf_register_t)(struct retro_front_instance *instance, struct retro_perf_counter *counter);
 
 /* Starts a registered counter. */
-typedef void (*retro_perf_start_t)(struct retro_perf_counter *counter);
+typedef void (*retro_perf_start_t)(struct retro_front_instance *instance, struct retro_perf_counter *counter);
 
 /* Stops a registered counter. */
-typedef void (*retro_perf_stop_t)(struct retro_perf_counter *counter);
+typedef void (*retro_perf_stop_t)(struct retro_front_instance *instance, struct retro_perf_counter *counter);
 
 /* For convenience it can be useful to wrap register, start and stop in macros.
  * E.g.:
@@ -1514,28 +1519,28 @@ struct retro_perf_callback
  * interval_ms is the interval expressed in milliseconds.
  * interval_distance is the distance interval expressed in meters.
  */
-typedef void (*retro_location_set_interval_t)(unsigned interval_ms,
+typedef void (*retro_location_set_interval_t)(struct retro_front_instance *instance, unsigned interval_ms,
       unsigned interval_distance);
 
 /* Start location services. The device will start listening for changes to the
  * current location at regular intervals (which are defined with 
  * retro_location_set_interval_t). */
-typedef bool (*retro_location_start_t)(void);
+typedef bool (*retro_location_start_t)(struct retro_front_instance *instance);
 
 /* Stop location services. The device will stop listening for changes 
  * to the current location. */
-typedef void (*retro_location_stop_t)(void);
+typedef void (*retro_location_stop_t)(struct retro_front_instance *instance);
 
 /* Get the position of the current location. Will set parameters to 
  * 0 if no new  location update has happened since the last time. */
-typedef bool (*retro_location_get_position_t)(double *lat, double *lon,
+typedef bool (*retro_location_get_position_t)(struct retro_front_instance *instance, double *lat, double *lon,
       double *horiz_accuracy, double *vert_accuracy);
 
 /* Callback which signals when the location driver is initialized 
  * and/or deinitialized.
  * retro_location_start_t can be called in initialized callback.
  */
-typedef void (*retro_location_lifetime_status_t)(void);
+typedef void (*retro_location_lifetime_status_t)(struct retro_front_instance *instance, );
 
 struct retro_location_callback
 {
@@ -1581,7 +1586,6 @@ struct retro_location_callback
                                             * internal resolutions, aspect ratios, timings, sampling rate, etc.
                                             * Calling this can require a full reinitialization of video/audio 
                                             * drivers in the frontend,
-                                            *
                                             * so it is important to call it very sparingly, and usually only with 
                                             * the users explicit consent.
                                             * An eventual driver reinitialize will happen so that video and 
