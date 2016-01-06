@@ -488,12 +488,6 @@ enum retro_pixel_format
    RETRO_PIXEL_FORMAT_UNKNOWN  = INT_MAX
 };
 
-struct retro_message
-{
-   const char *msg;        /* Message to be displayed. */
-   unsigned    frames;     /* Duration in frames of message. */
-};
-
 /* Describes how the libretro implementation maps a libretro input bind
  * to its internal input system through a human readable string.
  * This string can be used to better let a user configure input. */
@@ -759,6 +753,12 @@ struct retro_api {
                                             * logged via RETRO_ENVIRONMENT_GET_LOG_INTERFACE (or as a 
                                             * fallback, stderr).
                                             */
+struct retro_message
+{
+   const char *msg;        /* Message to be displayed. */
+   unsigned    frames;     /* Duration in frames of message. */
+};
+
 #define RETRO_ENVIRONMENT_SHUTDOWN      7  /* N/A (NULL) --
                                             * Requests the frontend to shutdown.
                                             * Should only be used if game has a specific
