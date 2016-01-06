@@ -623,12 +623,6 @@ typedef bool (*retro_environment_t)(struct retro_front_instance *instance, unsig
 typedef void (*retro_video_refresh_t)(struct retro_front_instance *instance, const void *data, unsigned width,
       unsigned height, size_t pitch);
 
-/* Renders a single audio frame. Should only be used if implementation 
- * generates a single sample at a time.
- * Format is signed 16-bit native endian.
- */
-typedef void (*retro_audio_sample_t)(struct retro_front_instance *instance, int16_t left, int16_t right);
-
 /* Renders multiple audio frames in one go.
  *
  * One frame is defined as a sample of left and right channels, interleaved.
@@ -656,7 +650,6 @@ struct retro_api {
     * before the first call to retro_run() is made. */
    void (*set_environment)(retro_environment_t);
    void (*set_video_refresh)(retro_video_refresh_t);
-   void (*set_audio_sample)(retro_audio_sample_t);
    void (*set_audio_sample_batch)(retro_audio_sample_batch_t);
    void (*set_input_state)(retro_input_state_t);
    
