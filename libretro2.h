@@ -9,6 +9,8 @@
  * - move perf to libretro-common
  * - move get_cpu_features to libretro-common
  * - memory ownership
+ * - game_info should allow mmap and read-random-chunks-from-front
+ * - rename geometry since color depth isn't geometry
  */
 /* Copyright (C) 2010-2015 The RetroArch team
  *
@@ -643,6 +645,10 @@ typedef int16_t (*retro_input_state_t)(struct retro_front_instance *instance, un
       unsigned index, unsigned id);
 
 struct retro_api {
+   /* This instance will be used for every callback that is not associated with any particular loaded content.
+    * Optional to call, defaults to NULL. */
+   void (*set_instance)(struct retro_front_instance *instance);
+   
    /* Sets callbacks. retro_set_environment() is guaranteed to be called 
     * before retro_init().
     *
@@ -653,9 +659,8 @@ struct retro_api {
    void (*set_audio_sample_batch)(retro_audio_sample_batch_t);
    void (*set_input_state)(retro_input_state_t);
    
-   /* Library global initialization/deinitialization.
-    * This instance will be used for every callback that is not associated with any loaded content.*/
-   bool (*init)(struct retro_front_instance *instance);
+   /* Library global initialization/deinitialization. */
+   bool (*init)(void);
    void (*deinit)(void);
    
    /* Gets statically known system info. Pointers provided in *info 
