@@ -644,95 +644,132 @@ typedef size_t (*retro_audio_sample_batch_t)(struct retro_front_instance *instan
 typedef int16_t (*retro_input_state_t)(struct retro_front_instance *instance, unsigned port, unsigned device, 
       unsigned index, unsigned id);
 
-struct retro_api {
-   /* This instance will be used for every callback that is not associated with any particular loaded content.
+
+/* This instance will be used for every callback that is not associated with any particular loaded content.
     * Optional to call, defaults to NULL. */
-   void (*set_instance)(struct retro_front_instance *instance);
-   
-   /* Sets callbacks. retro_set_environment() is guaranteed to be called 
-    * before retro_init().
-    *
-    * The rest of the set_* functions are guaranteed to have been called 
-    * before the first call to retro_run() is made. */
-   void (*set_environment)(retro_environment_t);
-   void (*set_video_refresh)(retro_video_refresh_t);
-   void (*set_audio_sample_batch)(retro_audio_sample_batch_t);
-   void (*set_input_state)(retro_input_state_t);
-   
-   /* Library global initialization/deinitialization. */
-   bool (*init)(void);
-   void (*deinit)(void);
-   
-   /* Gets statically known system info. Pointers provided in *info 
-    * must be statically allocated.
-    * Can be called at any time, even before retro_init(). */
-   void (*get_system_info)(struct retro_system_info *info);
-   
-   /* Gets information about system audio/video timings and geometry.
-    * Can be called only after retro_load_game() has successfully completed.
-    * NOTE: The implementation of this function might not initialize every 
-    * variable if needed.
-    * E.g. geom.aspect_ratio might not be initialized if core doesn't 
-    * desire a particular aspect ratio. */
-   void (*get_system_av_info)(struct retro_core_instance *instance, struct retro_system_av_info *info);
-   
-   /* Sets device to be used for player 'port'.
-    * By default, RETRO_DEVICE_JOYPAD is assumed to be plugged into all 
-    * available ports.
-    * Setting a particular device type is not a guarantee that libretro cores 
-    * will only poll input based on that particular device type. It is only a 
-    * hint to the libretro core when a core cannot automatically detect the 
-    * appropriate input device type on its own. It is also relevant when a 
-    * core can change its behavior depending on device type. */
-   void (*set_controller_port_device)(struct retro_core_instance *instance, unsigned port, unsigned device);
-   
-   /* Resets the current game. */
-   void (*reset)(struct retro_core_instance *instance);
-   
-   /* Runs the game for one video frame.
-    * During retro_run(), input_poll callback must be called at least once.
-    * 
-    * If a frame is not rendered for reasons where a game "dropped" a frame,
-    * this still counts as a frame, and retro_run() should explicitly dupe 
-    * a frame if GET_CAN_DUPE returns true.
-    * In this case, the video callback can take a NULL argument for data.
-    */
-   void (*run)(struct retro_core_instance *instance);
-   
-   /* Returns the amount of data the implementation requires to serialize 
-    * internal state (save states).
-    * Between calls to retro_load_game() and retro_unload_game(), the 
-    * returned size is never allowed to be larger than a previous returned 
-    * value, to ensure that the frontend can allocate a save state buffer once.
-    */
-   size_t (*serialize_size)(struct retro_core_instance *instance);
-   
-   /* Serializes internal state. If failed, or size is lower than
-    * retro_serialize_size(), it should return false, true otherwise. */
-   bool (*serialize)(struct retro_core_instance *instance, void *data, size_t size);
-   bool (*unserialize)(struct retro_core_instance *instance, const void *data, size_t size);
-   
-   void (*cheat_reset)(struct retro_core_instance *instance);
-   void (*cheat_set)(struct retro_core_instance *instance, unsigned index, bool enabled, const char *code);
-   
-   /* Loads a game. Returns NULL on failure.
-    * On success, the given front_instance is used for every callback that's associated with this instance.
-    */
-   struct retro_core_instance *(*load_game)(struct retro_front_instance *instance, const struct retro_game_info *game);
-   
-   /* Loads a "special" kind of game. Should not be used,
-    * except in extreme cases. */
-   struct retro_core_instance *(*load_game_special)(
-     struct retro_front_instance *instance, unsigned game_type,
-     const struct retro_game_info *info, size_t num_info
-   );
-   
-   /* Unloads a currently loaded game. */
-   void (*unload_game)(struct retro_core_instance *instance);
-   
-   /* Gets region of memory. */
-   void *(*get_memory_data)(struct retro_core_instance *instance);
-   size_t (*get_memory_size)(struct retro_core_instance *instance);
+typedef void (*retro_set_instance_t)(struct retro_front_instance *instance);
+
+/* Sets callbacks. retro_set_environment() is guaranteed to be called 
+ * before retro_init().
+ *
+ * The rest of the set_* functions are guaranteed to have been called 
+ * before the first call to retro_run() is made. */
+typedef void (*retro_set_environment_t)(retro_environment_t);
+typedef void (*retro_set_video_refresh_t)(retro_video_refresh_t);
+typedef void (*retro_set_audio_sample_batch_t)(retro_audio_sample_batch_t);
+typedef void (*retro_set_input_state_t)(retro_input_state_t);
+
+/* Library global initialization/deinitialization. */
+typedef bool (*retro_init_t)(void);
+typedef void (*retro_deinit_t)(void);
+
+/* Gets statically known system info. Pointers provided in *info 
+ * must be statically allocated.
+ * Can be called at any time, even before retro_init(). */
+typedef void (*retro_get_system_info_t)(struct retro_system_info *info);
+
+/* Gets information about system audio/video timings and geometry.
+ * Can be called only after retro_load_game() has successfully completed.
+ * NOTE: The implementation of this function might not initialize every 
+ * variable if needed.
+ * E.g. geom.aspect_ratio might not be initialized if core doesn't 
+ * desire a particular aspect ratio. */
+typedef void (*retro_get_system_av_info_t)(struct retro_core_instance *instance, struct retro_system_av_info *info);
+
+/* Sets device to be used for player 'port'.
+ * By default, RETRO_DEVICE_JOYPAD is assumed to be plugged into all 
+ * available ports.
+ * Setting a particular device type is not a guarantee that libretro cores 
+ * will only poll input based on that particular device type. It is only a 
+ * hint to the libretro core when a core cannot automatically detect the 
+ * appropriate input device type on its own. It is also relevant when a 
+ * core can change its behavior depending on device type. */
+typedef void (*retro_set_controller_port_device_t)(struct retro_core_instance *instance, unsigned port, unsigned device);
+
+/* Resets the current game. */
+typedef void (*retro_reset_t)(struct retro_core_instance *instance);
+
+/* Runs the game for one video frame.
+ * During retro_run(), input_poll callback must be called at least once.
+ * 
+ * If a frame is not rendered for reasons where a game "dropped" a frame,
+ * this still counts as a frame, and retro_run() should explicitly dupe 
+ * a frame if GET_CAN_DUPE returns true.
+ * In this case, the video callback can take a NULL argument for data.
+ */
+typedef void (*retro_run_t)(struct retro_core_instance *instance);
+
+/* Returns the amount of data the implementation requires to serialize 
+ * internal state (save states).
+ * Between calls to retro_load_game() and retro_unload_game(), the 
+ * returned size is never allowed to be larger than a previous returned 
+ * value, to ensure that the frontend can allocate a save state buffer once.
+ */
+typedef size_t (*retro_serialize_size_t)(struct retro_core_instance *instance);
+
+/* Serializes internal state. If failed, or size is lower than
+ * retro_serialize_size(), it should return false, true otherwise. */
+typedef bool (*retro_serialize_t)(struct retro_core_instance *instance, void *data, size_t size);
+typedef bool (*retro_unserialize_t)(struct retro_core_instance *instance, const void *data, size_t size);
+
+typedef void (*retro_cheat_reset_t)(struct retro_core_instance *instance);
+typedef void (*retro_cheat_set_t)(struct retro_core_instance *instance, unsigned index, bool enabled, const char *code);
+
+/* Loads a game. Returns NULL on failure.
+ * On success, the given front_instance is used for every callback that's associated with this instance.
+ */
+typedef struct retro_core_instance *(*retro_load_game_t)(struct retro_front_instance *instance, const struct retro_game_info *game);
+
+/* Loads a "special" kind of game. Should not be used,
+ * except in extreme cases. */
+typedef struct retro_core_instance *(*retro_load_game_special_t)(
+  struct retro_front_instance *instance, unsigned game_type,
+  const struct retro_game_info *info, size_t num_info
+);
+
+/* Unloads a currently loaded game. */
+typedef void (*retro_unload_game_t)(struct retro_core_instance *instance);
+
+/* Gets region of memory. */
+typedef void *(*retro_get_memory_data_t)(struct retro_core_instance *instance);
+typedef size_t (*retro_get_memory_size_t)(struct retro_core_instance *instance);
+
+struct retro_api {
+   retro_set_instance_t set_instance;
+
+   retro_set_environment_t set_environment;
+   retro_set_video_refresh_t set_video_refresh;
+   retro_set_audio_sample_batch_t set_audio_sample_batch;
+   retro_set_input_state_t set_input_state;
+
+   retro_init_t init;
+   retro_deinit_t deinit;
+
+   retro_get_system_info_t get_system_info;
+
+   retro_get_system_av_info_t get_system_av_info;
+
+   retro_set_controller_port_device_t set_controller_port_device;
+
+   retro_reset_t reset;
+
+   retro_run_t run;
+
+   retro_serialize_size_t serialize_size;
+
+   retro_serialize_t serialize;
+   retro_unserialize_t unserialize;
+
+   retro_cheat_reset_t cheat_reset;
+   retro_cheat_set_t cheat_set;
+
+   retro_load_game_t load_game;
+
+   retro_load_game_special_t load_game_special;
+
+   retro_unload_game_t unload_game;
+   retro_get_memory_data_t get_memory_data;
+   retro_get_memory_size_t get_memory_size;
 };
 
 /* version must be RETRO_API_VERSION (2). The structure must be statically allocated, and may not be changed after being returned.
