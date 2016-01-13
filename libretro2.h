@@ -735,6 +735,10 @@ struct retro_api {
    size_t (*get_memory_size)(struct retro_core_instance *instance);
 };
 
+/* version must be RETRO_API_VERSION (2). The structure must be statically allocated, and may not be changed after being returned.
+ * The core must return NULL if wrong version is requested. */
+RETRO_API struct retro_api *retro_get_api(unsigned version);
+
 /* Environment commands. */
 #define RETRO_ENVIRONMENT_SET_ROTATION  1  /* const unsigned * --
                                             * Sets screen rotation of graphics.
@@ -1916,10 +1920,6 @@ struct retro_memory_map
                                             * Returns the specified language of the frontend, if specified by the user.
                                             * It can be used by the core for localization purposes.
                                             */
-
-/* version must be RETRO_API_VERSION (2). The structure must be statically allocated, and may not be changed after being returned.
- * The core must return NULL if wrong version is requested. */
-RETRO_API struct retro_api *retro_get_api(unsigned version);
 
 #ifdef __cplusplus
 }
