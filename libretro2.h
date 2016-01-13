@@ -1917,7 +1917,7 @@ struct retro_memory_map
                                             * It can be used by the core for localization purposes.
                                             */
 
-/* version must be RETRO_API_VERSION (2). The structure must be statically allocated.
+/* version must be RETRO_API_VERSION (2). The structure must be statically allocated, and may not be changed after being returned.
  * The core must return NULL if wrong version is requested. */
 RETRO_API struct retro_api *retro_get_api(unsigned version);
 
