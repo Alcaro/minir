@@ -280,11 +280,6 @@ enum retro_language
  * callback can be used. */
 #define RETRO_MEMORY_SAVE_RAM    0
 
-/* Some games have a built-in clock to keep track of time.
- * This memory is usually just a couple of bytes to keep track of time.
- */
-#define RETRO_MEMORY_RTC         1
-
 /* System ram lets a frontend peek into a game systems main RAM. */
 #define RETRO_MEMORY_SYSTEM_RAM  2
 
