@@ -2,7 +2,7 @@
  * - cheats
  * - input port/index duality
  * - maybe clean up the device too, have the core tell what it wants and stuff
- * - input pull, should push
+ * - gamepad poll should return the entire thing at once
  * - core options should push too
  * - and take other types than enums
  * - is rotate needed?
@@ -635,13 +635,16 @@ typedef size_t (*retro_audio_sample_batch_t)(struct retro_front_instance *instan
  * Specialization of devices such as RETRO_DEVICE_JOYPAD_MULTITAP that 
  * have been set with retro_set_controller_port_device()
  * will still use the higher level RETRO_DEVICE_JOYPAD to request input.
+ *
+ * Polling should be done either before entry to retro_run, or on the first call
+ * to this function on each frame.
  */
 typedef int16_t (*retro_input_state_t)(struct retro_front_instance *instance, unsigned port, unsigned device, 
       unsigned index, unsigned id);
 
 
 /* This instance will be used for every callback that is not associated with any particular loaded content.
-    * Optional to call, defaults to NULL. */
+ * Optional to call. Defaults to NULL, and NULL is a valid input. */
 typedef void (*retro_set_instance_t)(struct retro_front_instance *instance);
 
 /* Sets callbacks. retro_set_environment() is guaranteed to be called 
@@ -681,8 +684,10 @@ typedef void (*retro_get_system_av_info_t)(struct retro_core_instance *instance,
  * core can change its behavior depending on device type. */
 typedef void (*retro_set_controller_port_device_t)(struct retro_core_instance *instance, unsigned port, unsigned device);
 
-/* Resets the current game. */
-typedef void (*retro_reset_t)(struct retro_core_instance *instance);
+/* Resets the current game. Soft reset is the RESET button on the console; non-soft (hard) is a power cycle.
+ * Not applicable to all cores.
+ */
+typedef void (*retro_reset_t)(struct retro_core_instance *instance, bool soft);
 
 /* Runs the game for one video frame.
  * During retro_run(), input_poll callback must be called at least once.
