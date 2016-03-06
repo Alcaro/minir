@@ -8,9 +8,10 @@
  * - is rotate needed?
  * - move perf to libretro-common
  * - move get_cpu_features to libretro-common
- * - memory ownership
+ * - clarify memory ownership and lifetimes
  * - game_info should allow mmap and read-random-chunks-from-front
  * - rename geometry since color depth isn't geometry
+ * - variable savestate size
  */
 /* Copyright (C) 2010-2015 The RetroArch team
  *
@@ -1123,7 +1124,7 @@ struct retro_hw_render_callback
 #define RETRO_ENVIRONMENT_GET_LIBRETRO_PATH 19
                                            /* const char ** --
                                             * Retrieves the absolute path from where this libretro 
-                                            * implementation was loaded.
+                                            * core was loaded.
                                             * NULL is returned if the libretro was loaded statically 
                                             * (i.e. linked statically to frontend), or if the path cannot be 
                                             * determined.
