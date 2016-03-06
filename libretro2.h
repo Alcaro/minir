@@ -97,11 +97,11 @@ extern "C" {
  */
 #define RETRO_API_VERSION         2
 
-/* Varies between cores. The core may put whatever it wants here; the frontend may not touch it.*/
+/* Varies between cores. The core may put whatever it wants here; the frontend may not touch it. */
 struct retro_core_instance;
 /* If the core does not support loading multiple contents simultaneously, it should return this. */
 #define RETRO_CORE_SINGLE_INSTANCE ((struct retro_core_instance*)-1)
-/* Varies between frontends. The front may put whatever it wants here; the core may not touch it.*/
+/* Varies between frontends. The front may put whatever it wants here; the core may not touch it. */
 struct retro_front_instance;
 
 /*
@@ -572,13 +572,7 @@ struct retro_system_av_info
 
 struct retro_variable
 {
-   /* Variable to query in RETRO_ENVIRONMENT_GET_VARIABLE.
-    * If NULL, obtains the complete environment string if more 
-    * complex parsing is necessary.
-    * The environment string is formatted as key-value pairs 
-    * delimited by semicolons as so:
-    * "key1=value1;key2=value2;..."
-    */
+   /* Variable to query in RETRO_ENVIRONMENT_GET_VARIABLE. */
    const char *key;
    
    /* Value to be obtained. If key does not exist, it is set to NULL. */
