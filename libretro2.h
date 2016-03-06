@@ -590,7 +590,6 @@ struct retro_game_info
    const void *data;       /* Memory buffer of loaded game. Will be NULL 
                             * if need_fullpath was set. */
    size_t      size;       /* Size of memory buffer. */
-   const char *meta;       /* String of implementation specific meta-data. */
 };
 
 /* Callbacks */
