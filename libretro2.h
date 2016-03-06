@@ -245,29 +245,6 @@ struct retro_front_instance;
 #define RETRO_DEVICE_ID_POINTER_Y         1
 #define RETRO_DEVICE_ID_POINTER_PRESSED   2
 
-/* Id values for LANGUAGE */
-enum retro_language
-{
-   RETRO_LANGUAGE_ENGLISH             =  0,
-   RETRO_LANGUAGE_JAPANESE            =  1,
-   RETRO_LANGUAGE_FRENCH              =  2,
-   RETRO_LANGUAGE_SPANISH             =  3,
-   RETRO_LANGUAGE_GERMAN              =  4,
-   RETRO_LANGUAGE_ITALIAN             =  5,
-   RETRO_LANGUAGE_DUTCH               =  6,
-   RETRO_LANGUAGE_PORTUGUESE          =  7,
-   RETRO_LANGUAGE_RUSSIAN             =  8,
-   RETRO_LANGUAGE_KOREAN              =  9,
-   RETRO_LANGUAGE_CHINESE_TRADITIONAL = 10,
-   RETRO_LANGUAGE_CHINESE_SIMPLIFIED  = 11,
-   RETRO_LANGUAGE_ESPERANTO           = 12,
-   RETRO_LANGUAGE_POLISH              = 13,
-   RETRO_LANGUAGE_LAST,
-
-   /* Ensure sizeof(enum) == sizeof(int) */
-   RETRO_LANGUAGE_DUMMY          = INT_MAX 
-};
-
 /* Passed to retro_get_memory_data/size().
  * If the memory type doesn't apply to the 
  * implementation NULL/0 can be returned.
@@ -1944,6 +1921,29 @@ struct retro_memory_map
                                             * Returns the specified language of the frontend, if specified by the user.
                                             * It can be used by the core for localization purposes.
                                             */
+
+/* Id values for LANGUAGE */
+enum retro_language
+{
+   RETRO_LANGUAGE_ENGLISH             =  0,
+   RETRO_LANGUAGE_JAPANESE            =  1,
+   RETRO_LANGUAGE_FRENCH              =  2,
+   RETRO_LANGUAGE_SPANISH             =  3,
+   RETRO_LANGUAGE_GERMAN              =  4,
+   RETRO_LANGUAGE_ITALIAN             =  5,
+   RETRO_LANGUAGE_DUTCH               =  6,
+   RETRO_LANGUAGE_PORTUGUESE          =  7,
+   RETRO_LANGUAGE_RUSSIAN             =  8,
+   RETRO_LANGUAGE_KOREAN              =  9,
+   RETRO_LANGUAGE_CHINESE_TRADITIONAL = 10,
+   RETRO_LANGUAGE_CHINESE_SIMPLIFIED  = 11,
+   RETRO_LANGUAGE_ESPERANTO           = 12,
+   RETRO_LANGUAGE_POLISH              = 13,
+   RETRO_LANGUAGE_LAST,
+
+   /* Ensure sizeof(enum) == sizeof(int) */
+   RETRO_LANGUAGE_DUMMY          = INT_MAX 
+};
 
 #ifdef __cplusplus
 }
