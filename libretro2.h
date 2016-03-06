@@ -715,13 +715,6 @@ typedef void (*retro_cheat_set_t)(struct retro_core_instance *instance, unsigned
  */
 typedef struct retro_core_instance *(*retro_load_game_t)(struct retro_front_instance *instance, const struct retro_game_info *game);
 
-/* Loads a "special" kind of game. Should not be used,
- * except in extreme cases. */
-typedef struct retro_core_instance *(*retro_load_game_special_t)(
-  struct retro_front_instance *instance, unsigned game_type,
-  const struct retro_game_info *info, size_t num_info
-);
-
 /* Unloads a currently loaded game. */
 typedef void (*retro_unload_game_t)(struct retro_core_instance *instance);
 
@@ -759,8 +752,6 @@ struct retro_api {
    retro_cheat_set_t cheat_set;
 
    retro_load_game_t load_game;
-
-   retro_load_game_special_t load_game_special;
 
    retro_unload_game_t unload_game;
    retro_get_memory_data_t get_memory_data;
