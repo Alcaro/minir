@@ -99,7 +99,7 @@ extern "C" {
 
 /* Varies between cores. The core may put whatever it wants here; the frontend may not touch it. */
 struct retro_core_instance;
-/* If the core does not support loading multiple contents simultaneously, it should return this. */
+/* If the core does not support loading multiple contents simultaneously, it must return this. */
 #define RETRO_CORE_SINGLE_INSTANCE ((struct retro_core_instance*)-1)
 /* Varies between frontends. The front may put whatever it wants here; the core may not touch it. */
 struct retro_front_instance;
@@ -710,6 +710,8 @@ typedef void (*retro_cheat_set_t)(struct retro_core_instance *instance, unsigned
 
 /* Loads a game. Returns NULL on failure.
  * On success, the given front_instance is used for every callback that's associated with this instance.
+ * If the core only supports one instance, it must return RETRO_CORE_SINGLE_INSTANCE, and until that
+ * instance is unloaded, future attempts to load must return NULL.
  */
 typedef struct retro_core_instance *(*retro_load_game_t)(struct retro_front_instance *instance, const struct retro_game_info *game);
 
