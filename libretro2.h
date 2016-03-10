@@ -485,9 +485,10 @@ struct retro_system_info
    /* All pointers are owned by libretro implementation, and pointers must 
     * remain valid until retro_deinit() is called. */
 
-   const char *library_name;      /* Descriptive name of library. Should not 
-                                   * contain any version numbers, etc. */
-   const char *library_version;   /* Descriptive version of core. */
+   const char *library_name;      /* Descriptive name of library. May not contain
+                                   * any version numbers, etc. Example: Mednafen/Beetle Lynx */
+   const char *library_version;   /* Descriptive version of core. May not contain
+                                   * the core name. Example: v0.9.32 */
 
    const char *valid_extensions;  /* A string listing probably content 
                                    * extensions the core will be able to 
