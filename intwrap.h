@@ -6,6 +6,7 @@ template<typename U, typename T = U> class intwrap : public U {
 	T get() { return *this; }
 	void set(T val) { this->U::operator=(val); }
 public:
+	//no operator T(), that goes to the parent
 	T operator++(int) { T r = get(); set(r+1); return r; }
 	T operator--(int) { T r = get(); set(r-1); return r; }
 	intwrap<U,T>& operator++() { set(get()+1); return *this; }

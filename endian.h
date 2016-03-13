@@ -50,13 +50,18 @@ static uint64_t end_swap(uint64_t n)
 }
 #endif
 
+static int8_t  end_swap(int8_t  n) { return (int8_t )end_swap((uint8_t )n); }
+static int16_t end_swap(int16_t n) { return (int16_t)end_swap((uint16_t)n); }
+static int32_t end_swap(int32_t n) { return (int32_t)end_swap((uint32_t)n); }
+static int64_t end_swap(int64_t n) { return (int64_t)end_swap((uint64_t)n); }
+
 #ifdef ENDIAN
 #if ENDIAN == END_LITTLE
 template<typename T> static T end_nat_to_le(T val) { return val; }
 template<typename T> static T end_nat_to_be(T val) { return end_swap(val); }
 template<typename T> static T end_le_to_nat(T val) { return val; }
 template<typename T> static T end_be_to_nat(T val) { return end_swap(val); }
-#else
+#elif ENDIAN == END_BIG
 template<typename T> static T end_nat_to_le(T val) { return end_swap(val); }
 template<typename T> static T end_nat_to_be(T val) { return val; }
 template<typename T> static T end_le_to_nat(T val) { return end_swap(val); }
