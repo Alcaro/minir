@@ -8,12 +8,6 @@
 #undef interface
 #define bind bind_func
 
-//some d3d9 ex headers are broken (up until windows 10 sdk)
-#ifndef IDirect3D9Ex_RegisterSoftwareDevice
-#define NO_D3D9_EX
-#define IDirect3D9Ex IDirect3D9
-#endif
-
 //force some year-old C code to compile properly as C++ - I decided to switch long ago but still haven't finished.
 #define this This
 
@@ -26,6 +20,13 @@
 #endif
 #ifndef D3DPRESENT_DONOTWAIT
 #define D3DPRESENT_DONOTWAIT 0x00000001L
+#endif
+
+//some d3d9 ex headers are broken (up until windows 10 sdk)
+#ifndef IDirect3D9Ex_RegisterSoftwareDevice
+#define NO_D3D9_EX
+#define IDirect3D9Ex IDirect3D9
+#warning "Your Direct3D header is broken. See videoc-d3d9.cpp lines 33-44 for information on how to fix it."
 #endif
 
 static_assert(sizeof(((IDirect3D9Ex*)NULL)->lpVtbl->RegisterSoftwareDevice));
