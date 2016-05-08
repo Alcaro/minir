@@ -1,0 +1,90 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <ClInclude Include="stdint.h">
+      <Filter>msvc</Filter>
+    </ClInclude>
+    <ClInclude Include="inttypes.h">
+      <Filter>msvc</Filter>
+    </ClInclude>
+    <ClInclude Include="..\configreader.h" />
+    <ClInclude Include="..\endian.h" />
+    <ClInclude Include="..\fifo.h" />
+    <ClInclude Include="..\file.h" />
+    <ClInclude Include="..\global.h" />
+    <ClInclude Include="..\hashmap.h" />
+    <ClInclude Include="..\host.h" />
+    <ClInclude Include="..\image.h" />
+    <ClInclude Include="..\function.h" />
+    <ClInclude Include="..\libretro.h" />
+    <ClInclude Include="..\intwrap.h" />
+    <ClInclude Include="..\io.h" />
+    <ClInclude Include="..\minir.h" />
+    <ClInclude Include="..\multiint.h" />
+    <ClInclude Include="..\os.h" />
+    <ClInclude Include="..\sort.h" />
+    <ClInclude Include="..\string.h" />
+    <ClInclude Include="..\utfstring.h" />
+    <ClInclude Include="..\window.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <Filter Include="msvc">
+      <UniqueIdentifier>{d7d5386b-a55d-4058-b111-2ee28f3060da}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="dxguid.c">
+      <Filter>msvc</Filter>
+    </ClCompile>
+    <ClCompile Include="..\audio.cpp" />
+    <ClCompile Include="..\audio-directsound.cpp" />
+    <ClCompile Include="..\compat.cpp" />
+    <ClCompile Include="..\configreader.cpp" />
+    <ClCompile Include="..\debug.cpp" />
+    <ClCompile Include="..\dylib.cpp" />
+    <ClCompile Include="..\file-win32.cpp" />
+    <ClCompile Include="..\imageconvert.cpp" />
+    <ClCompile Include="..\inputcur.cpp" />
+    <ClCompile Include="..\inputcur-rawinput.cpp" />
+    <ClCompile Include="..\inputcur-w32message.cpp" />
+    <ClCompile Include="..\inputkb.cpp" />
+    <ClCompile Include="..\inputkb-dinput.cpp" />
+    <ClCompile Include="..\inputkb-rawinput.cpp" />
+    <ClCompile Include="..\inputkb-win32keymaps.cpp" />
+    <ClCompile Include="..\inputmapper.cpp" />
+    <ClCompile Include="..\inputmapper2.cpp" />
+    <ClCompile Include="..\libretroinput.cpp" />
+    <ClCompile Include="..\main.cpp" />
+    <ClCompile Include="..\inputtp-rawinput.cpp" />
+    <ClCompile Include="..\inputtp-wm.cpp" />
+    <ClCompile Include="..\libretro.cpp" />
+    <ClCompile Include="..\minircheats.cpp" />
+    <ClCompile Include="..\minircheats-model.cpp" />
+    <ClCompile Include="..\minirconfig.cpp" />
+    <ClCompile Include="..\memory.cpp" />
+    <ClCompile Include="..\netteleport.cpp" />
+    <ClCompile Include="..\miniz.c" />
+    <ClCompile Include="..\pngdecode.cpp" />
+    <ClCompile Include="..\pngencode.cpp" />
+    <ClCompile Include="..\rewind.cpp" />
+    <ClCompile Include="..\tests.cpp" />
+    <ClCompile Include="..\videoc-ddraw.cpp" />
+    <ClCompile Include="..\videoc-gdi.cpp" />
+    <ClCompile Include="..\video-opengl.cpp" />
+    <ClCompile Include="..\thread-win32.cpp" />
+    <ClCompile Include="..\video.cpp" />
+    <ClCompile Include="..\video-shader-translate.cpp" />
+    <ClCompile Include="..\video-shader-translate-cgc.cpp" />
+    <ClCompile Include="..\video-shader-file.cpp" />
+    <ClCompile Include="..\videothreader.cpp" />
+    <ClCompile Include="..\window-none.cpp" />
+    <ClCompile Include="..\window-shared.cpp" />
+    <ClCompile Include="..\window-win32-inner.cpp" />
+    <ClCompile Include="..\window-win32-misc.cpp" />
+    <ClCompile Include="..\window-win32-shell.cpp" />
+    <ClCompile Include="..\video-shader-var.cpp" />
+    <ClCompile Include="..\videoc-opengl-old.cpp" />
+    <ClCompile Include="..\thread-split.cpp" />
+    <ClCompile Include="..\thread-once.cpp" />
+  </ItemGroup>
+</Project>

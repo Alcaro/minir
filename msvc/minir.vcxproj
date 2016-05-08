@@ -1,0 +1,160 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project DefaultTargets="Build" ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup Label="ProjectConfigurations">
+    <ProjectConfiguration Include="Debug|Win32">
+      <Configuration>Debug</Configuration>
+      <Platform>Win32</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Release|Win32">
+      <Configuration>Release</Configuration>
+      <Platform>Win32</Platform>
+    </ProjectConfiguration>
+  </ItemGroup>
+  <PropertyGroup Label="Globals">
+    <ProjectGuid>{DC8D9A21-63E1-400E-B571-FA9C166BDB9A}</ProjectGuid>
+    <Keyword>Win32Proj</Keyword>
+    <RootNamespace>minir</RootNamespace>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
+    <ConfigurationType>Application</ConfigurationType>
+    <UseDebugLibraries>true</UseDebugLibraries>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'" Label="Configuration">
+    <ConfigurationType>Application</ConfigurationType>
+    <UseDebugLibraries>false</UseDebugLibraries>
+    <WholeProgramOptimization>true</WholeProgramOptimization>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
+  <ImportGroup Label="ExtensionSettings">
+  </ImportGroup>
+  <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <PropertyGroup Label="UserMacros" />
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
+    <LinkIncremental>true</LinkIncremental>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
+    <LinkIncremental>false</LinkIncremental>
+  </PropertyGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
+    <ClCompile>
+      <PrecompiledHeader>
+      </PrecompiledHeader>
+      <WarningLevel>Level3</WarningLevel>
+      <Optimization>Disabled</Optimization>
+      <PreprocessorDefinitions>NO_ICON;_CRT_SECURE_NO_WARNINGS;WIN32;_DEBUG;_CONSOLE;strtoll=strtol;strcasecmp=stricmp;strncasecmp=strnicmp;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>.</AdditionalIncludeDirectories>
+      <MultiProcessorCompilation>true</MultiProcessorCompilation>
+      <MinimalRebuild>false</MinimalRebuild>
+    </ClCompile>
+    <Link>
+      <SubSystem>Console</SubSystem>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+      <AdditionalDependencies>comctl32.lib;kernel32.lib;user32.lib;gdi32.lib;winspool.lib;comdlg32.lib;advapi32.lib;shell32.lib;ole32.lib;oleaut32.lib;uuid.lib;odbc32.lib;odbccp32.lib;dinput8.lib;%(AdditionalDependencies)</AdditionalDependencies>
+    </Link>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
+    <ClCompile>
+      <WarningLevel>Level3</WarningLevel>
+      <PrecompiledHeader>
+      </PrecompiledHeader>
+      <Optimization>MaxSpeed</Optimization>
+      <FunctionLevelLinking>true</FunctionLevelLinking>
+      <IntrinsicFunctions>true</IntrinsicFunctions>
+      <PreprocessorDefinitions>_CRT_SECURE_NO_WARNINGS;WIN32;NDEBUG;_CONSOLE;NO_ICON;strtoll=strtol;strcasecmp=stricmp;strncasecmp=strnicmp;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>.</AdditionalIncludeDirectories>
+      <MultiProcessorCompilation>true</MultiProcessorCompilation>
+    </ClCompile>
+    <Link>
+      <SubSystem>Console</SubSystem>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+      <EnableCOMDATFolding>true</EnableCOMDATFolding>
+      <OptimizeReferences>true</OptimizeReferences>
+      <AdditionalDependencies>comctl32.lib;kernel32.lib;user32.lib;gdi32.lib;winspool.lib;comdlg32.lib;advapi32.lib;shell32.lib;ole32.lib;oleaut32.lib;uuid.lib;odbc32.lib;odbccp32.lib;dinput8.lib;%(AdditionalDependencies)</AdditionalDependencies>
+    </Link>
+  </ItemDefinitionGroup>
+  <ItemGroup>
+    <ClCompile Include="..\audio-directsound.cpp" />
+    <ClCompile Include="..\audio.cpp" />
+    <ClCompile Include="..\compat.cpp" />
+    <ClCompile Include="..\configreader.cpp" />
+    <ClCompile Include="..\debug.cpp" />
+    <ClCompile Include="..\dylib.cpp" />
+    <ClCompile Include="..\file-win32.cpp" />
+    <ClCompile Include="..\imageconvert.cpp" />
+    <ClCompile Include="..\inputcur-rawinput.cpp" />
+    <ClCompile Include="..\inputcur-w32message.cpp" />
+    <ClCompile Include="..\inputcur.cpp" />
+    <ClCompile Include="..\inputkb-dinput.cpp" />
+    <ClCompile Include="..\inputkb-rawinput.cpp" />
+    <ClCompile Include="..\inputkb-win32keymaps.cpp" />
+    <ClCompile Include="..\inputkb.cpp" />
+    <ClCompile Include="..\inputmapper.cpp" />
+    <ClCompile Include="..\inputmapper2.cpp" />
+    <ClCompile Include="..\inputtp-rawinput.cpp" />
+    <ClCompile Include="..\inputtp-wm.cpp" />
+    <ClCompile Include="..\libretro.cpp" />
+    <ClCompile Include="..\libretroinput.cpp" />
+    <ClCompile Include="..\main.cpp" />
+    <ClCompile Include="..\memory.cpp" />
+    <ClCompile Include="..\minircheats-model.cpp" />
+    <ClCompile Include="..\minircheats.cpp" />
+    <ClCompile Include="..\minirconfig.cpp" />
+    <ClCompile Include="..\miniz.c" />
+    <ClCompile Include="..\netteleport.cpp" />
+    <ClCompile Include="..\pngdecode.cpp" />
+    <ClCompile Include="..\pngencode.cpp" />
+    <ClCompile Include="..\rewind.cpp" />
+    <ClCompile Include="..\tests.cpp" />
+    <ClCompile Include="..\thread-once.cpp" />
+    <ClCompile Include="..\thread-split.cpp" />
+    <ClCompile Include="..\thread-win32.cpp" />
+    <ClCompile Include="..\video-opengl.cpp" />
+    <ClCompile Include="..\video-shader-file.cpp" />
+    <ClCompile Include="..\video-shader-translate-cgc.cpp" />
+    <ClCompile Include="..\video-shader-translate.cpp" />
+    <ClCompile Include="..\video-shader-var.cpp" />
+    <ClCompile Include="..\video.cpp" />
+    <ClCompile Include="..\videoc-ddraw.cpp" />
+    <ClCompile Include="..\videoc-gdi.cpp" />
+    <ClCompile Include="..\videoc-opengl-old.cpp" />
+    <ClCompile Include="..\videothreader.cpp" />
+    <ClCompile Include="..\window-none.cpp" />
+    <ClCompile Include="..\window-shared.cpp" />
+    <ClCompile Include="..\window-win32-inner.cpp" />
+    <ClCompile Include="..\window-win32-misc.cpp" />
+    <ClCompile Include="..\window-win32-shell.cpp" />
+    <ClCompile Include="dxguid.c" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="..\configreader.h" />
+    <ClInclude Include="..\endian.h" />
+    <ClInclude Include="..\fifo.h" />
+    <ClInclude Include="..\file.h" />
+    <ClInclude Include="..\function.h" />
+    <ClInclude Include="..\global.h" />
+    <ClInclude Include="..\hashmap.h" />
+    <ClInclude Include="..\host.h" />
+    <ClInclude Include="..\image.h" />
+    <ClInclude Include="..\intwrap.h" />
+    <ClInclude Include="..\io.h" />
+    <ClInclude Include="..\libretro.h" />
+    <ClInclude Include="..\minir.h" />
+    <ClInclude Include="..\multiint.h" />
+    <ClInclude Include="..\os.h" />
+    <ClInclude Include="..\sort.h" />
+    <ClInclude Include="..\string.h" />
+    <ClInclude Include="..\utfstring.h" />
+    <ClInclude Include="..\window.h" />
+    <ClInclude Include="inttypes.h" />
+    <ClInclude Include="stdint.h" />
+  </ItemGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
+  <ImportGroup Label="ExtensionTargets">
+  </ImportGroup>
+</Project>
