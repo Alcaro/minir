@@ -165,6 +165,7 @@ const char * const * window_file_picker(struct window * parent,
 	}
 	free(filenames);
 	
+	ret[numfiles] = NULL;
 	return (const char * const *)ret;
 }
 
