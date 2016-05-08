@@ -1,0 +1,4 @@
+/msvc/Debug
+/msvc/*.suo
+/msvc/*.user
+/msvc/test
