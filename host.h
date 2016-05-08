@@ -64,7 +64,9 @@
 //#define INPUTCUR_X11
 #define INPUTCUR_WIN32
 
-#define VIDEO_D3D9
+ //zero 08-may-2016 - needs d3dex, not readily available
+//#define VIDEO_D3D9
+
 #define VIDEO_DDRAW
 #define VIDEO_OPENGL
 #define VIDEO_GDI
