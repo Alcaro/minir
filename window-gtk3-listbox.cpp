@@ -10,6 +10,9 @@
 #include <stdlib.h>
 #include <string.h>
 
+//there is a gtk_tree_view_insert_column_with_data_func, but while it can get rid of
+// virtual_list_get_value, it can not get rid of virtual_list_iter_n_children
+
 #define MAX_ROWS 100000 // GtkTreeView seems to be at least O(n log n) for creating a long list. Let's just add a hard cap.
 
 //http://scentric.net/tutorial/
@@ -345,11 +348,10 @@ widget_listbox* widget_listbox::refresh(size_t row)
 
 size_t widget_listbox::get_active_row()
 {
-	GList* list=gtk_tree_selection_get_selected_rows(gtk_tree_view_get_selection(m->tree), NULL);
-	size_t ret;
-	if (list) ret=gtk_tree_path_get_indices((GtkTreePath*)list->data)[0];
-	else ret=(size_t)-1;
-	if (ret==MAX_ROWS) ret=(size_t)-1;
+	GList* list = gtk_tree_selection_get_selected_rows(gtk_tree_view_get_selection(m->tree), NULL);
+	if (!list) return (size_t)-1;
+	size_t ret = gtk_tree_path_get_indices((GtkTreePath*)list->data)[0];
+	if (ret == MAX_ROWS) ret = (size_t)-1;
 	g_list_free_full(list, (GDestroyNotify)gtk_tree_path_free);
 	return ret;
 }

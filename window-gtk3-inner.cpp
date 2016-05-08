@@ -657,10 +657,6 @@ widget_viewport* widget_viewport::set_support_drop(function<void(const char * co
 
 
 
-class widget_listbox;
-
-
-
 struct widget_frame::impl {
 	struct widget_base* child;
 };
