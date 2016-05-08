@@ -75,10 +75,10 @@ public:
 #error enable thread_pthread.cpp
 #elif _WIN32_WINNT >= 0x0600
 	
-#if !defined(_MSC_VER) || _MSC_VER > 1500
+#if !defined(_MSC_VER) || _MSC_VER > 1600
 	SRWLOCK srwlock = SRWLOCK_INIT;
 #else
-	SRWLOCK srwlock; // apparently MSVC2008 doesn't understand struct S item = {0}. let's do something it does understand and hope it's optimized out.
+	SRWLOCK srwlock; // apparently MSVC <2010 doesn't understand struct S item = {0}. let's do something it does understand and hope it's optimized out.
 public:
 	mutex() { srwlock.Ptr = NULL; } // and let's hope MS doesn't change the definition of RTL_SRWLOCK.
 #endif
