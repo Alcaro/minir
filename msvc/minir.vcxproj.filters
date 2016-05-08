@@ -86,5 +86,6 @@
     <ClCompile Include="..\videoc-opengl-old.cpp" />
     <ClCompile Include="..\thread-split.cpp" />
     <ClCompile Include="..\thread-once.cpp" />
+    <ClCompile Include="..\videoc-d3d9.cpp" />
   </ItemGroup>
 </Project>

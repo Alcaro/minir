@@ -8,6 +8,12 @@
 #undef interface
 #define bind bind_func
 
+//some d3d9 ex headers are broken (up until windows 10 sdk)
+#ifndef IDirect3D9Ex_RegisterSoftwareDevice
+#define NO_D3D9_EX
+#define IDirect3D9Ex IDirect3D9
+#endif
+
 //force some year-old C code to compile properly as C++ - I decided to switch long ago but still haven't finished.
 #define this This
 
@@ -35,6 +41,9 @@ static_assert(sizeof(((IDirect3D9Ex*)NULL)->lpVtbl->RegisterSoftwareDevice));
 //and add the following line directly after it
 //  STDMETHOD(RegisterSoftwareDevice)(THIS_ void* pInitializeFunction) PURE;
 //and save. Things should now compile and run properly.
+
+//NOTE: since the NO_D3D9_EX macro was added, all of the above shenanigans should no longer be required
+//however the static_assert still functions as a sanity check
 
 static HMODULE hD3D9=NULL;
 static HRESULT (WINAPI * lpDirect3DCreate9Ex)(UINT SDKVersion, IDirect3D9Ex* * ppD3D);
@@ -110,6 +119,7 @@ static bool recreate(struct video_d3d9 * this, unsigned int screenwidth, unsigne
 	parameters.FullScreen_RefreshRateInHz=0;
 	parameters.PresentationInterval=D3DPRESENT_INTERVAL_DEFAULT;//TODO: try _ONE
 	
+	#ifndef NO_D3D9_EX
 	if (this->ex)
 	{
 		if (FAILED(this->d3d->lpVtbl->CreateDeviceEx(this->d3d, D3DADAPTER_DEFAULT, D3DDEVTYPE_HAL, this->hwnd,
@@ -123,7 +133,9 @@ static bool recreate(struct video_d3d9 * this, unsigned int screenwidth, unsigne
 			return false;
 		}
 	}
-	else
+	#endif
+
+	if (!this->ex)
 	{
 		parameters.PresentationInterval=(this->syncflags?D3DPRESENT_INTERVAL_DEFAULT:D3DPRESENT_INTERVAL_IMMEDIATE);
 		
@@ -353,11 +365,15 @@ static struct video * cvideo_create_d3d9(uintptr_t windowhandle, unsigned int sc
 	
 	this->syncflags=0;
 	
+	#ifndef NO_D3D9_EX
 	if (lpDirect3DCreate9Ex && !FAILED(lpDirect3DCreate9Ex(D3D_SDK_VERSION, &this->d3d)))
 	{
 		this->ex=true;
 	}
-	else
+	#endif
+
+	//try creating old d3d9 if ex is not available
+	if(!this->ex)
 	{
 		this->d3d=(IDirect3D9Ex*)lpDirect3DCreate9(D3D_SDK_VERSION);
 		if (!this->d3d) goto cancel;

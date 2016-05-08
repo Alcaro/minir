@@ -120,6 +120,7 @@
     <ClCompile Include="..\video-shader-translate.cpp" />
     <ClCompile Include="..\video-shader-var.cpp" />
     <ClCompile Include="..\video.cpp" />
+    <ClCompile Include="..\videoc-d3d9.cpp" />
     <ClCompile Include="..\videoc-ddraw.cpp" />
     <ClCompile Include="..\videoc-gdi.cpp" />
     <ClCompile Include="..\videoc-opengl-old.cpp" />
