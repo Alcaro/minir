@@ -531,6 +531,7 @@ static void reset(struct inputmapper_impl * this)
 	free(this->kb_state);
 	this->kb_state=NULL;
 	this->kb_anylastframe=false;
+	this->lastreleased = 0;
 	
 	if (this->buttonrules)
 	{
