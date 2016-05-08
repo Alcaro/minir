@@ -26,7 +26,7 @@
 #ifndef IDirect3D9Ex_RegisterSoftwareDevice
 #define NO_D3D9_EX
 #define IDirect3D9Ex IDirect3D9
-#warning "Your Direct3D header is broken. See videoc-d3d9.cpp lines 33-44 for information on how to fix it."
+#pragma NOTE(Your Direct3D header is broken. See videoc-d3d9.cpp lines 33-44 for information on how to fix it.)
 #endif
 
 static_assert(sizeof(((IDirect3D9Ex*)NULL)->lpVtbl->RegisterSoftwareDevice));
