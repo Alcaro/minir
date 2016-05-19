@@ -1443,10 +1443,10 @@ void set_status_bar_duration(unsigned int ms)
 
 
 
-void configpanel_show()
-{
-	
-}
+//void configpanel_show()
+//{
+//	
+//}
 
 
 
@@ -1609,10 +1609,10 @@ void menu_system_reset(struct windowmenu * subject, void* userdata)
 	core->reset();
 }
 
-void menu_system_settings(struct windowmenu * subject, void* userdata)
-{
-	configpanel_show();
-}
+//void menu_system_settings(struct windowmenu * subject, void* userdata)
+//{
+//	configpanel_show();
+//}
 
 void menu_system_exit(struct windowmenu * subject, void* userdata)
 {

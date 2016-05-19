@@ -1,4 +1,3 @@
-#define CINTERFACE
 #include "io.h"
 #ifdef VIDEO_D3D9
 #define video cvideo
@@ -21,30 +20,6 @@
 #ifndef D3DPRESENT_DONOTWAIT
 #define D3DPRESENT_DONOTWAIT 0x00000001L
 #endif
-
-//some d3d9 ex headers are broken (up until windows 10 sdk)
-#ifndef IDirect3D9Ex_RegisterSoftwareDevice
-#define NO_D3D9_EX
-#define IDirect3D9Ex IDirect3D9
-#pragma NOTE(Your Direct3D header is broken. See videoc-d3d9.cpp lines 33-44 for information on how to fix it.)
-#endif
-
-static_assert(sizeof(((IDirect3D9Ex*)NULL)->lpVtbl->RegisterSoftwareDevice));
-//IF THIS ONE FIRES:
-//The DirectX SDK, at least versions November 2008 and August 2009 (others untested),
-// lacks an entry in the vtable for IDirect3D9Ex (it's present in IDirect3D9).
-//This can cause rather nasty runtime crashes; for ease of debugging, it's documented here and tested at compile time.
-//The fix is as follows:
-//Look up the following line in your D3d9.h
-//  DECLARE_INTERFACE_(IDirect3D9Ex, IDirect3D9)
-//then find the following line, which about five lines down
-//  /*** IDirect3D9 methods ***/
-//and add the following line directly after it
-//  STDMETHOD(RegisterSoftwareDevice)(THIS_ void* pInitializeFunction) PURE;
-//and save. Things should now compile and run properly.
-
-//NOTE: since the NO_D3D9_EX macro was added, all of the above shenanigans should no longer be required
-//however the static_assert still functions as a sanity check
 
 static HMODULE hD3D9=NULL;
 static HRESULT (WINAPI * lpDirect3DCreate9Ex)(UINT SDKVersion, IDirect3D9Ex* * ppD3D);
@@ -80,15 +55,15 @@ struct video_d3d9 {
 
 static void clear(struct video_d3d9 * this)
 {
-	if (this->vertexbuf) this->vertexbuf->lpVtbl->Release(this->vertexbuf);
+	if (this->vertexbuf) this->vertexbuf->Release();
 	this->vertexbuf=NULL;
 	
-	if (this->texture) this->texture->lpVtbl->Release(this->texture);
+	if (this->texture) this->texture->Release();
 	this->texture=NULL;
 	this->texwidth=0;
 	this->texheight=0;
 	
-	if (this->device) this->device->lpVtbl->Release(this->device);
+	if (this->device) this->device->Release();
 	this->device=NULL;
 }
 
@@ -123,13 +98,13 @@ static bool recreate(struct video_d3d9 * this, unsigned int screenwidth, unsigne
 	#ifndef NO_D3D9_EX
 	if (this->ex)
 	{
-		if (FAILED(this->d3d->lpVtbl->CreateDeviceEx(this->d3d, D3DADAPTER_DEFAULT, D3DDEVTYPE_HAL, this->hwnd,
-			                             D3DCREATE_MIXED_VERTEXPROCESSING/* | D3DCREATE_PUREDEVICE*/,
-			                             //PUREDEVICE doesn't work for everyone, and is of questionable use anyways
-			                             &parameters, NULL, &this->device)) &&
-			   FAILED(this->d3d->lpVtbl->CreateDeviceEx(this->d3d, D3DADAPTER_DEFAULT, D3DDEVTYPE_SW, this->hwnd,
-			                             D3DCREATE_MIXED_VERTEXPROCESSING/* | D3DCREATE_PUREDEVICE*/,
-			                             &parameters, NULL, &this->device)))
+		if (FAILED(this->d3d->CreateDeviceEx(D3DADAPTER_DEFAULT, D3DDEVTYPE_HAL, this->hwnd,
+			                                   D3DCREATE_MIXED_VERTEXPROCESSING/* | D3DCREATE_PUREDEVICE*/,
+			                                   //PUREDEVICE doesn't work for everyone, and is of questionable use anyways
+			                                   &parameters, NULL, &this->device)) &&
+			   FAILED(this->d3d->CreateDeviceEx(D3DADAPTER_DEFAULT, D3DDEVTYPE_SW, this->hwnd,
+			                                    D3DCREATE_MIXED_VERTEXPROCESSING/* | D3DCREATE_PUREDEVICE*/,
+			                                    &parameters, NULL, &this->device)))
 		{
 			return false;
 		}
@@ -140,21 +115,21 @@ static bool recreate(struct video_d3d9 * this, unsigned int screenwidth, unsigne
 	{
 		parameters.PresentationInterval=(this->syncflags?D3DPRESENT_INTERVAL_DEFAULT:D3DPRESENT_INTERVAL_IMMEDIATE);
 		
-		if (FAILED(this->d3d->lpVtbl->CreateDevice(this->d3d, D3DADAPTER_DEFAULT, D3DDEVTYPE_HAL, this->hwnd,
-		                             D3DCREATE_MIXED_VERTEXPROCESSING/* | D3DCREATE_PUREDEVICE*/,
-		                             &parameters, (IDirect3DDevice9**)&this->device)) &&
-		    FAILED(this->d3d->lpVtbl->CreateDevice(this->d3d, D3DADAPTER_DEFAULT, D3DDEVTYPE_SW, this->hwnd,
-		                             D3DCREATE_MIXED_VERTEXPROCESSING/* | D3DCREATE_PUREDEVICE*/,
-		                             &parameters, (IDirect3DDevice9**)&this->device)))
+		if (FAILED(this->d3d->CreateDevice(D3DADAPTER_DEFAULT, D3DDEVTYPE_HAL, this->hwnd,
+		                                   D3DCREATE_MIXED_VERTEXPROCESSING/* | D3DCREATE_PUREDEVICE*/,
+		                                   &parameters, (IDirect3DDevice9**)&this->device)) &&
+		    FAILED(this->d3d->CreateDevice(D3DADAPTER_DEFAULT, D3DDEVTYPE_SW, this->hwnd,
+		                                   D3DCREATE_MIXED_VERTEXPROCESSING/* | D3DCREATE_PUREDEVICE*/,
+		                                   &parameters, (IDirect3DDevice9**)&this->device)))
 		{
 			return false;
 		}
 	}
 	
-	this->device->lpVtbl->SetRenderState(this->device, D3DRS_CULLMODE, D3DCULL_NONE);
-	this->device->lpVtbl->SetRenderState(this->device, D3DRS_LIGHTING, FALSE);
+	this->device->SetRenderState(D3DRS_CULLMODE, D3DCULL_NONE);
+	this->device->SetRenderState(D3DRS_LIGHTING, FALSE);
 	
-	if (FAILED(this->device->lpVtbl->CreateVertexBuffer(this->device, sizeof(float)*5*4, 0, D3DFVF_XYZ|D3DFVF_TEX1, D3DPOOL_DEFAULT, &this->vertexbuf, NULL)))
+	if (FAILED(this->device->CreateVertexBuffer(sizeof(float)*5*4, 0, D3DFVF_XYZ|D3DFVF_TEX1, D3DPOOL_DEFAULT, &this->vertexbuf, NULL)))
 	{
 		return false;
 	}
@@ -181,16 +156,16 @@ static void draw(struct video * this_, unsigned int width, unsigned int height, 
 {
 	struct video_d3d9 * this=(struct video_d3d9*)this_;
 	
-	HRESULT status=this->device->lpVtbl->TestCooperativeLevel(this->device);
+	HRESULT status=this->device->TestCooperativeLevel();
 	if (status==D3DERR_DEVICELOST) return;
 	if (status==D3DERR_DEVICENOTRESET)
 	{
 		recreate(this, 0,0, fmt_none);
-		status=this->device->lpVtbl->TestCooperativeLevel(this->device);
+		status=this->device->TestCooperativeLevel();
 		if (status!=D3D_OK) return;
 	}
 	
-//this->device->lpVtbl->Clear(this->device, 0, NULL, D3DCLEAR_TARGET, D3DCOLOR_XRGB(0, 0, 255), 1.0f, 0);
+//this->device->Clear(0, NULL, D3DCLEAR_TARGET, D3DCOLOR_XRGB(0, 0, 255), 1.0f, 0);
 	
 	if (this->texwidth!=width || this->texheight!=height || !this->texture)
 	{
@@ -200,9 +175,9 @@ static void draw(struct video * this_, unsigned int width, unsigned int height, 
 		this->texwidth=width;
 		this->texheight=height;
 		
-		if (this->texture) this->texture->lpVtbl->Release(this->texture);
+		if (this->texture) this->texture->Release();
 		this->texture=NULL;
-		HRESULT hr=this->device->lpVtbl->CreateTexture(this->device, width, height, 1, D3DUSAGE_DYNAMIC, this->texformat, D3DPOOL_DEFAULT, &this->texture, NULL);
+		HRESULT hr=this->device->CreateTexture(width, height, 1, D3DUSAGE_DYNAMIC, this->texformat, D3DPOOL_DEFAULT, &this->texture, NULL);
 		if (FAILED(hr))
 		{
 			this->texture=NULL;
@@ -210,7 +185,7 @@ static void draw(struct video * this_, unsigned int width, unsigned int height, 
 		
 		if (!this->texture)
 		{
-			this->device->lpVtbl->Clear(this->device, 0, NULL, D3DCLEAR_TARGET, D3DCOLOR_XRGB(255, 0, 0), 1.0f, 0);
+			this->device->Clear(0, NULL, D3DCLEAR_TARGET, D3DCOLOR_XRGB(255, 0, 0), 1.0f, 0);
 			goto present;
 		}
 		
@@ -219,9 +194,9 @@ static void draw(struct video * this_, unsigned int width, unsigned int height, 
 		
 		
 		float* vertices;
-		if (FAILED(this->vertexbuf->lpVtbl->Lock(this->vertexbuf, 0, 0, (void**)&vertices, 0)))
+		if (FAILED(this->vertexbuf->Lock(0, 0, (void**)&vertices, 0)))
 		{
-			this->texture->lpVtbl->Release(this->texture);
+			this->texture->Release();
 			this->texture=NULL;
 			return;
 		}
@@ -233,17 +208,17 @@ static void draw(struct video * this_, unsigned int width, unsigned int height, 
 			 1, 1,0, 1+this->texoffsetx,0+this->texoffsety,
 		};
 		memcpy(vertices, srcvertices, sizeof(float)*5*4);
-		this->vertexbuf->lpVtbl->Unlock(this->vertexbuf);
+		this->vertexbuf->Unlock();
 	}
 	
 	if (data)
 	{
 		D3DLOCKED_RECT locked;
-		if (FAILED(this->texture->lpVtbl->LockRect(this->texture, 0, &locked, NULL, D3DLOCK_DISCARD|D3DLOCK_NOOVERWRITE)))
+		if (FAILED(this->texture->LockRect(0, &locked, NULL, D3DLOCK_DISCARD|D3DLOCK_NOOVERWRITE)))
 		{
-			this->device->lpVtbl->Clear(this->device, 0, NULL, D3DCLEAR_TARGET, D3DCOLOR_XRGB(255, 255, 0), 1.0f, 0);
-			if (this->ex) this->device->lpVtbl->PresentEx(this->device, NULL, NULL, NULL, NULL, 0);
-			else this->device->lpVtbl->Present(this->device, NULL, NULL, NULL, NULL);
+			this->device->Clear(0, NULL, D3DCLEAR_TARGET, D3DCOLOR_XRGB(255, 255, 0), 1.0f, 0);
+			if (this->ex) this->device->PresentEx(NULL, NULL, NULL, NULL, 0);
+			else this->device->Present(NULL, NULL, NULL, NULL);
 			return;
 		}
 		if ((unsigned int)locked.Pitch==pitch) memcpy(locked.pBits, data, pitch*(height-1)+this->bytes_per_row);
@@ -254,7 +229,7 @@ static void draw(struct video * this_, unsigned int width, unsigned int height, 
 				memcpy((uint8_t*)locked.pBits + i*locked.Pitch, (uint8_t*)data + i*pitch, this->bytes_per_row);
 			}
 		}
-		this->texture->lpVtbl->UnlockRect(this->texture, 0);
+		this->texture->UnlockRect(0);
 //  [in]   UINT Level,
 //  [out]  D3DLOCKED_RECT *pLockedRect,
 //  [in]   const RECT *pRect,
@@ -262,29 +237,29 @@ static void draw(struct video * this_, unsigned int width, unsigned int height, 
 //);
 	}
 	
-	this->device->lpVtbl->BeginScene(this->device);
+	this->device->BeginScene();
 	
-	this->device->lpVtbl->SetTexture(this->device, 0, (struct IDirect3DBaseTexture9*)this->texture);//apparently this one is subclassed
-	this->device->lpVtbl->SetTextureStageState(this->device, 0, D3DTSS_COLOROP, D3DTOP_SELECTARG1);
-	this->device->lpVtbl->SetTextureStageState(this->device, 0, D3DTSS_COLORARG1, D3DTA_TEXTURE);
-	this->device->lpVtbl->SetTextureStageState(this->device, 0, D3DTSS_ALPHAOP, D3DTOP_DISABLE);
+	this->device->SetTexture(0, (struct IDirect3DBaseTexture9*)this->texture);//apparently this one is subclassed
+	this->device->SetTextureStageState(0, D3DTSS_COLOROP, D3DTOP_SELECTARG1);
+	this->device->SetTextureStageState(0, D3DTSS_COLORARG1, D3DTA_TEXTURE);
+	this->device->SetTextureStageState(0, D3DTSS_ALPHAOP, D3DTOP_DISABLE);
 	
-	this->device->lpVtbl->SetSamplerState(this->device, 0, D3DSAMP_MAGFILTER, D3DTEXF_POINT);
-	this->device->lpVtbl->SetSamplerState(this->device, 0, D3DSAMP_MINFILTER, D3DTEXF_POINT);
-	this->device->lpVtbl->SetSamplerState(this->device, 0, D3DSAMP_MIPFILTER, D3DTEXF_POINT);
+	this->device->SetSamplerState(0, D3DSAMP_MAGFILTER, D3DTEXF_POINT);
+	this->device->SetSamplerState(0, D3DSAMP_MINFILTER, D3DTEXF_POINT);
+	this->device->SetSamplerState(0, D3DSAMP_MIPFILTER, D3DTEXF_POINT);
 	
-	//this->device->lpVtbl->SetTextureStageState(this->device, 0, D3DTSS_TEXTURETRANSFORMFLAGS, D3DTTFF_COUNT4 | D3DTTFF_PROJECTED );
-	//this->device->lpVtbl->SetTextureStageState(this->device, 0, D3DTSS_TEXCOORDINDEX, D3DTSS_TCI_CAMERASPACEPOSITION );
+	//this->device->SetTextureStageState(0, D3DTSS_TEXTURETRANSFORMFLAGS, D3DTTFF_COUNT4 | D3DTTFF_PROJECTED );
+	//this->device->SetTextureStageState(0, D3DTSS_TEXCOORDINDEX, D3DTSS_TCI_CAMERASPACEPOSITION );
 	
-	this->device->lpVtbl->SetStreamSource(this->device, 0, this->vertexbuf, 0, sizeof(float)*5);
-	this->device->lpVtbl->SetFVF(this->device, D3DFVF_XYZ|D3DFVF_TEX1);
-	this->device->lpVtbl->DrawPrimitive(this->device, D3DPT_TRIANGLESTRIP, 0, 2);
+	this->device->SetStreamSource(0, this->vertexbuf, 0, sizeof(float)*5);
+	this->device->SetFVF(D3DFVF_XYZ|D3DFVF_TEX1);
+	this->device->DrawPrimitive(D3DPT_TRIANGLESTRIP, 0, 2);
 	
-	this->device->lpVtbl->EndScene(this->device);
+	this->device->EndScene();
 	
 present:
-	if (this->ex) this->device->lpVtbl->PresentEx(this->device, NULL, NULL, NULL, NULL, this->syncflags);
-	else this->device->lpVtbl->Present(this->device, NULL, NULL, NULL, NULL);
+	if (this->ex) this->device->PresentEx(NULL, NULL, NULL, NULL, this->syncflags);
+	else this->device->Present(NULL, NULL, NULL, NULL);
 }
 
 static bool set_sync(struct video * this_, bool sync)
@@ -318,7 +293,7 @@ static void free_(struct video * this_)
 	struct video_d3d9 * this=(struct video_d3d9*)this_;
 	
 	clear(this);
-	if (this->d3d) this->d3d->lpVtbl->Release(this->d3d);
+	if (this->d3d) this->d3d->Release();
 	libRelease();
 	
 	free(this);
