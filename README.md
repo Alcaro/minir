@@ -4,6 +4,10 @@ minir is a libretro frontend intended to complement RetroArch, by focusing on th
 It's intended to match or exceed the power and usability of bsnes-qt (preferably exceed), both for beginners and advanced users.
 It does not intend to compete with RetroArch's feature set or portability; if you want the most advanced features, use RetroArch.
 
+![Screenshot](https://github.com/Alcaro/minir/blob/master/scr/lin1.png) ![Screenshot](https://github.com/Alcaro/minir/blob/master/scr/lin3.png)
+
+![Screenshot](https://github.com/Alcaro/minir/blob/master/scr/win.png)
+
 # libretro
 The core of minir is a system known as [libretro](http://libretro.com/), which allows many different
 games and emulators to be built as shared libraries (known as 'libretro core'), which can then be
