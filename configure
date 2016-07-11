@@ -18,11 +18,19 @@ else
 fi
 
 if pkg-config --exists libpulse; then
-	enabled+="pulseaudio"
+	enabled+=" pulseaudio"
 	cflags+="`pkg-config --cflags libpulse` -DAUDIO_PULSEAUDIO "
 	lflags+="`pkg-config --libs libpulse` "
 else
-	disabled+="pulseaudio"
+	disabled+=" pulseaudio"
+fi
+
+if pkg-config --exists alsa; then
+	enabled+=" ALSA"
+	cflags+="`pkg-config --cflags alsa` -DAUDIO_ALSA "
+	lflags+="`pkg-config --libs alsa` "
+else
+	disabled+=" ALSA"
 fi
 
 #if [ -f /usr/include/Cg/cg.h ]; then
@@ -67,5 +75,5 @@ CONF_LFLAGS = $lflags
 #dsound - audio.directsound - FIXME
 
 echo "...whatever, they all are. Configuration is done."
-echo "Enabled optional modules: $enabled"
-echo "Disabled optional modules: $disabled"
+echo "Enabled optional modules:$enabled"
+echo "Disabled optional modules:$disabled"

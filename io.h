@@ -468,6 +468,9 @@ const char * const * audio_supported_backends();
 struct caudio * audio_create(const char * backend, uintptr_t windowhandle, double samplerate, double latency);
 
 //Should be used only within audio_create.
+#ifdef AUDIO_ALSA
+struct caudio * audio_create_alsa(uintptr_t windowhandle, double samplerate, double latency);
+#endif
 #ifdef AUDIO_PULSEAUDIO
 struct caudio * audio_create_pulseaudio(uintptr_t windowhandle, double samplerate, double latency);
 #endif

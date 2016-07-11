@@ -7,6 +7,9 @@
 const char * const * audio_supported_backends()
 {
 	static const char * backends[]={
+#ifdef AUDIO_ALSA
+		"ALSA",
+#endif
 #ifdef AUDIO_PULSEAUDIO
 		"PulseAudio",
 #endif
@@ -38,6 +41,9 @@ struct caudio * audio_create_none(uintptr_t windowhandle, double samplerate, dou
 
 struct caudio * audio_create(const char * backend, uintptr_t windowhandle, double samplerate, double latency)
 {
+#ifdef AUDIO_ALSA
+	if (!strcmp(backend, "ALSA")) return audio_create_alsa(windowhandle, samplerate, latency);
+#endif
 #ifdef AUDIO_PULSEAUDIO
 	if (!strcmp(backend, "PulseAudio")) return audio_create_pulseaudio(windowhandle, samplerate, latency);
 #endif
