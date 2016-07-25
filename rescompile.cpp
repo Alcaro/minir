@@ -203,7 +203,7 @@ void compileconfig(FILE * output)
 	
 	while (!feof(in))
 	{
-#define error(why) do { printf("%s: "why"\n", linecopy); exit(1); } while(0)
+#define error(why) do { printf("%s: " why "\n", linecopy); exit(1); } while(0)
 		char linebuf[1024];
 		char linecopy[1024];
 		char * line=linebuf;
