@@ -17,7 +17,7 @@ CONF_CXXFLAGS = $(CONF_CFLAGS)
 NATCC = $(CC)
 NATCFLAGS = $(CFLAGS)
 NATCXX = $(CXX)
-NATCXXFLAGS = $(CPPFLAGS)
+NATCXXFLAGS = $(CXXFLAGS)
 NATLD = $(LD)
 NATLFLAGS = $(LFLAGS)
 
@@ -56,7 +56,7 @@ obj/%$(OBJSUFFIX).o: %.cpp | obj obj/generated.cpp
 obj/generated.cpp: obj/rescompile$(EXESUFFIX) minir.cfg.tmpl
 	obj/rescompile$(EXESUFFIX)
 obj/rescompile$(EXESUFFIX): rescompile.cpp miniz.c | obj
-	$(NATCXX) $(NATCXXFLAGS) $(NATLFLAGS) -DRESCOMPILE rescompile.cpp miniz.c -o obj/rescompile$(EXESUFFIX)
+	$(NATCXX) $(NATCXXFLAGS) $(NATLFLAGS) -DRESCOMPILE -std=c++98 rescompile.cpp miniz.c -o obj/rescompile$(EXESUFFIX)
 
 $(OUTNAME): $(OBJS)
 	$(LD) $+ $(TRUE_LFLAGS) -o $@ -lm
