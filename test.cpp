@@ -18,7 +18,7 @@ int main(int argc, char* argv[])
 	wndw->set_menu(windowmenu_menu::create_top(windowmenu_menu::create("foo", windowmenu_item::create("bar", NULL), NULL), NULL));
 	wndw->set_visible(true);
 	
-	video_info_t info = { 1024, 768, false, true, false, false, false, 1, true, port->get_window_handle() };
+	video_info_t info = { 1024, 768, false, true, false, false, 1, true, port->get_window_handle() };
 	
 	driver = &video_xshm;
 	driver_data = driver->init(&info, NULL, NULL);

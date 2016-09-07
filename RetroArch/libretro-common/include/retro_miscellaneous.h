@@ -23,8 +23,6 @@
 #ifndef __RARCH_MISCELLANEOUS_H
 #define __RARCH_MISCELLANEOUS_H
 
-#define _XOPEN_SOURCE 600
-
 #include <stdint.h>
 #include <math.h>
 
