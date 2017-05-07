@@ -22,7 +22,7 @@ and some features don't make sense in all fronts (while most features do make se
 RetroArch was the first libretro frontend to be created, and still remains the main driving force
 behind libretro. While it is a powerful device, the author of minir does not share its design goals.
 
- | RetroArch | minir
+| | RetroArch | minir
 ----- | ----- | ------
 Prefered setup | HTPC in fullscreen (many others supported) | Desktop computers, windowed mode
 Input method | A gamepad (DualShock, Xbox, etc); use with keyboard and mouse is awkward | Keyboard and mouse, gamepads not supported (yet?)
