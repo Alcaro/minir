@@ -1,5 +1,5 @@
 #include "os.h"
-#ifdef __linux__
+#ifdef __linux__disabled
 //I could try to rewrite all of this without pthread, but I'd rather not set up TLS stuff myself, that'd require replacing half of libc.
 //However, I can remove everything except pthread_create.
 //Minimum kernel version: 2.6.22 (FUTEX_PRIVATE_FLAG), released in 8 July, 2007 (source: http://kernelnewbies.org/LinuxVersions)

@@ -63,7 +63,7 @@ unsigned int thread_num_cores();
 // busy loop, or a hybrid scheme that spins a few times and then sleeps.
 //Remember to create all relevant mutexes before creating a thread.
 class mutex : nocopy {
-#if defined(__linux__)
+#if defined(__linux__disabled)
 	int fut;
 	
 public:
@@ -72,7 +72,14 @@ public:
 	void unlock();
 	
 #elif defined(__unix__)
-#error enable thread_pthread.cpp
+	pthread_mutex_t mut;
+	
+public:
+	mutex();
+	void lock();
+	bool try_lock();
+	void unlock();
+	~mutex();
 #elif _WIN32_WINNT >= 0x0600
 	
 #if !defined(_MSC_VER) || _MSC_VER > 1600

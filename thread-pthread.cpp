@@ -1,5 +1,5 @@
 #include "os.h"
-#if defined(__unix__) && !defined(__linux__)
+#if defined(__unix__)// && !defined(__linux__)
 #include <pthread.h>
 #include <semaphore.h>
 #include <errno.h>
@@ -37,45 +37,29 @@ unsigned int thread_num_cores()
 }
 
 
-mutex* mutex::create()
+mutex::mutex()
 {
-	pthread_mutex_t* ret=malloc(sizeof(pthread_mutex_t));
-	pthread_mutex_init(ret, NULL);
-	return (mutex*)ret;
+	pthread_mutex_init(&mut, NULL);
 }
 
 void mutex::lock()
 {
-	pthread_mutex_lock((pthread_mutex_t*)this);
+	pthread_mutex_lock(&mut);
 }
 
 bool mutex::try_lock()
 {
-	return (pthread_mutex_trylock((pthread_mutex_t*)this)==0);
+	return (pthread_mutex_trylock(&mut)==0);
 }
 
 void mutex::unlock()
 {
-	pthread_mutex_unlock((pthread_mutex_t*)this); 
+	pthread_mutex_unlock(&mut); 
 }
 
-void mutex::release()
+mutex::~mutex()
 {
-	pthread_mutex_destroy((pthread_mutex_t*)this);
-	free(this);
-}
-
-
-//now I have to write futex code myself! How fun!
-void mutex2::lock()
-{
-#error not implemented yet
-}
-bool mutex2::try_lock()
-{
-}
-void mutex2::unlock()
-{
+	pthread_mutex_destroy(&mut);
 }
 
 
@@ -151,45 +135,45 @@ uintptr_t thread_get_id()
 }
 
 
-//pthread doesn't seem to contain anything like this, but gcc is the only supported compiler here, so I can use its builtins.
-//or if I get any non-gcc compilers, I can throw in the C++11 threads. That's why these builtins exist, anyways.
-//for Clang, if these GCC builtins aren't supported (most are), http://clang.llvm.org/docs/LanguageExtensions.html#c11-atomic-builtins
-#if __GNUC__*10000 + __GNUC_MINOR__*100 + __GNUC_PATCHLEVEL__*1 >= 40700
-//https://gcc.gnu.org/onlinedocs/gcc-4.7.0/gcc/_005f_005fatomic-Builtins.html
-uint32_t lock_incr(uint32_t * val) { return __atomic_add_fetch(val, 1, __ATOMIC_ACQ_REL); }
-uint32_t lock_decr(uint32_t * val) { return __atomic_sub_fetch(val, 1, __ATOMIC_ACQ_REL); }
-uint32_t lock_read(uint32_t * val) { return __atomic_load_n(val, __ATOMIC_ACQUIRE); }
-
-void* lock_read_i(void* * val) { return __atomic_load_n(val, __ATOMIC_ACQUIRE); }
-void lock_write_i(void** val, void* newval) { return __atomic_store_n(val, newval, __ATOMIC_RELEASE); }
-//there is a modern version of this, but it adds another move instruction for whatever reason and otherwise gives the same binary.
-void* lock_write_eq_i(void** val, void* old, void* newval) { return __sync_val_compare_and_swap(val, old, newval); }
-//void* lock_write_eq_i(void** val, void* old, void* newval)
+////pthread doesn't seem to contain anything like this, but gcc is the only supported compiler here, so I can use its builtins.
+////or if I get any non-gcc compilers, I can throw in the C++11 threads. That's why these builtins exist, anyways.
+////for Clang, if these GCC builtins aren't supported (most are), http://clang.llvm.org/docs/LanguageExtensions.html#c11-atomic-builtins
+//#if __GNUC__*10000 + __GNUC_MINOR__*100 + __GNUC_PATCHLEVEL__*1 >= 40700
+////https://gcc.gnu.org/onlinedocs/gcc-4.7.0/gcc/_005f_005fatomic-Builtins.html
+//uint32_t lock_incr(uint32_t * val) { return __atomic_add_fetch(val, 1, __ATOMIC_ACQ_REL); }
+//uint32_t lock_decr(uint32_t * val) { return __atomic_sub_fetch(val, 1, __ATOMIC_ACQ_REL); }
+//uint32_t lock_read(uint32_t * val) { return __atomic_load_n(val, __ATOMIC_ACQUIRE); }
+//
+//void* lock_read_i(void* * val) { return __atomic_load_n(val, __ATOMIC_ACQUIRE); }
+//void lock_write_i(void** val, void* newval) { return __atomic_store_n(val, newval, __ATOMIC_RELEASE); }
+////there is a modern version of this, but it adds another move instruction for whatever reason and otherwise gives the same binary.
+//void* lock_write_eq_i(void** val, void* old, void* newval) { return __sync_val_compare_and_swap(val, old, newval); }
+////void* lock_write_eq_i(void** val, void* old, void* newval)
+////{
+////	__atomic_compare_exchange_n(val, &old, newval, false, __ATOMIC_ACQ_REL, __ATOMIC_ACQUIRE);
+////	return old;
+////}
+//void* lock_xchg_i(void** val, void* newval) { return __atomic_exchange_n(val, newval, __ATOMIC_ACQ_REL); }
+//#else
+////https://gcc.gnu.org/onlinedocs/gcc-4.1.2/gcc/Atomic-Builtins.html
+//uint32_t lock_incr(uint32_t * val) { return __sync_add_and_fetch(val, 1); }
+//uint32_t lock_decr(uint32_t * val) { return __sync_sub_and_fetch(val, 1); }
+//uint32_t lock_read(uint32_t * val) { return __sync_val_compare_and_swap(val, 0, 0); }
+//
+//inline void* lock_read_i(void* * val) { return __sync_val_compare_and_swap(val, 0, 0); }
+//void lock_write_i(void** val, void* newval) { *val=newval; __sync_synchronize(); }
+//void* lock_write_eq_i(void** val, void* old, void* newval) { return __sync_val_compare_and_swap(val, old, newval); }
+//
+////no such thing - emulate it
+//void* lock_xchg_i(void** val, void* newval)
 //{
-//	__atomic_compare_exchange_n(val, &old, newval, false, __ATOMIC_ACQ_REL, __ATOMIC_ACQUIRE);
-//	return old;
+//	void* prev=lock_read(val);
+//	while (true)
+//	{
+//		void* prev2=lock_write_eq(val, prev, newval);
+//		if (prev==prev2) break;
+//		else prev=prev2;
+//	}
 //}
-void* lock_xchg_i(void** val, void* newval) { return __atomic_exchange_n(val, newval, __ATOMIC_ACQ_REL); }
-#else
-//https://gcc.gnu.org/onlinedocs/gcc-4.1.2/gcc/Atomic-Builtins.html
-uint32_t lock_incr(uint32_t * val) { return __sync_add_and_fetch(val, 1); }
-uint32_t lock_decr(uint32_t * val) { return __sync_sub_and_fetch(val, 1); }
-uint32_t lock_read(uint32_t * val) { return __sync_val_compare_and_swap(val, 0, 0); }
-
-inline void* lock_read_i(void* * val) { return __sync_val_compare_and_swap(val, 0, 0); }
-void lock_write_i(void** val, void* newval) { *val=newval; __sync_synchronize(); }
-void* lock_write_eq_i(void** val, void* old, void* newval) { return __sync_val_compare_and_swap(val, old, newval); }
-
-//no such thing - emulate it
-void* lock_xchg_i(void** val, void* newval)
-{
-	void* prev=lock_read(val);
-	while (true)
-	{
-		void* prev2=lock_write_eq(val, prev, newval);
-		if (prev==prev2) break;
-		else prev=prev2;
-	}
-}
-#endif
+//#endif
 #endif
