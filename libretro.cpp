@@ -99,6 +99,7 @@ bool initialized;
 #define audiobufsize 64
 int16_t audiobuf[audiobufsize*2];
 unsigned int audiobufpos;
+struct retro_audio_callback audio_callback;
 
 void * tmpptr[4];
 
@@ -376,6 +377,12 @@ bool state_load(const void * state, size_t size)
 void run()
 {
 	g_this=this;
+
+	// Ask the core to emit the audio.
+	if (audio_callback.callback) {
+		audio_callback.callback();
+	}
+
 	this->raw.run();
 }
 
@@ -602,7 +609,11 @@ void run()
 		timecb->callback(timecb->reference);
 		return true;
 	}
-	//22 SET_AUDIO_CALLBACK, ignored because no non-emulator is supported.
+	if (cmd==RETRO_ENVIRONMENT_SET_AUDIO_CALLBACK) { //22
+		struct retro_audio_callback *audio_cb = (struct retro_audio_callback*)data;
+		audio_callback = *audio_cb;
+		return true;
+	}
 	//23 GET_RUMBLE_INTERFACE, ignored because no known supported core uses rumble, and because it's untestable.
 	if (cmd==RETRO_ENVIRONMENT_GET_INPUT_DEVICE_CAPABILITIES) //24
 	{
