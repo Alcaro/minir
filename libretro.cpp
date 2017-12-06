@@ -457,9 +457,9 @@ void run()
 //Brief status on support of each environ command:
 //              1         2         3
 //     123456789012345678901234567890123456789
-//Done   x     xx   xxxxxx    x  x  x     x     = 13
+//Done   x     xx   xxxxxx  x x  x  x     x     = 14
 //Todo           xxx                 xx xx xx   = 9
-//Nope xx   xxx            xxx xx xx   x     x  = 14
+//Nope xx   xxx            x x xx xx   x     x  = 13
 //Gone    xx              x                     = 3
 //Detailed information on why the unsupported ones don't exist can be found in this function.
 /*private*/ bool environment(unsigned cmd, void* data)
@@ -609,8 +609,9 @@ void run()
 		timecb->callback(timecb->reference);
 		return true;
 	}
-	if (cmd==RETRO_ENVIRONMENT_SET_AUDIO_CALLBACK) { //22
-		struct retro_audio_callback *audio_cb = (struct retro_audio_callback*)data;
+	if (cmd==RETRO_ENVIRONMENT_SET_AUDIO_CALLBACK) //22
+	{
+		struct retro_audio_callback * audio_cb = (struct retro_audio_callback*)data;
 		audio_callback = *audio_cb;
 		return true;
 	}
